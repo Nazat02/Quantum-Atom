@@ -432,6 +432,33 @@ canvas { position:fixed; inset:0; z-index:0; }
   box-shadow: 0 0 12px rgba(255,85,0,.3);
 }
 
+#smoothbtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(255,85,0,.07);
+  border: 1px solid rgba(255,85,0,.22);
+  color: var(--mid);
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: .1em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#smoothbtn:hover { background:var(--cyan-10); color:var(--hi); border-color:var(--cyan-40); }
+#smoothbtn.active {
+  background: rgba(100,180,255,.15);
+  border-color: #44aaff;
+  color: #88ccff;
+  box-shadow: 0 0 12px rgba(60,140,255,.3);
+}
+
 #realbtn.active {
   background: rgba(255,20,40,.25);
   border-color: #ff1432;
@@ -809,6 +836,10 @@ input[type=range]::-moz-range-thumb {
         <span>⊞</span>
         <span>CARTESIAN GRID</span>
       </button>
+      <button id="smoothbtn">
+        <span>◈</span>
+        <span>SMOOTH ORBITALS</span>
+      </button>
     </div>
   </div>
 
@@ -848,29 +879,29 @@ const ELS=[
   {Z:29,name:"Copper",     sym:"Cu", p:4,g:11, n:34},
   {Z:30,name:"Zinc",       sym:"Zn", p:4,g:12, n:34},
   {Z:31,name:"Gallium",    sym:"Ga", p:4,g:13, n:38},
-  {Z:32,name:"Germanium",  sym:"Ge", p:4,g:14, n:40},
+  {Z:32,name:"Germanium",  sym:"Ge", p:4,g:14, n:42},  // Ge-74 most abundant
   {Z:33,name:"Arsenic",    sym:"As", p:4,g:15, n:42},
-  {Z:34,name:"Selenium",   sym:"Se", p:4,g:16, n:44},
+  {Z:34,name:"Selenium",   sym:"Se", p:4,g:16, n:46},  // Se-80 most abundant
   {Z:35,name:"Bromine",    sym:"Br", p:4,g:17, n:44},
   {Z:36,name:"Krypton",    sym:"Kr", p:4,g:18, n:48},
   {Z:37,name:"Rubidium",   sym:"Rb", p:5,g:1,  n:48},
   {Z:38,name:"Strontium",  sym:"Sr", p:5,g:2,  n:50},
   {Z:39,name:"Yttrium",    sym:"Y",  p:5,g:3,  n:50},
-  {Z:40,name:"Zirconium",  sym:"Zr", p:5,g:4,  n:51},
+  {Z:40,name:"Zirconium",  sym:"Zr", p:5,g:4,  n:50},  // Zr-90 most abundant
   {Z:41,name:"Niobium",    sym:"Nb", p:5,g:5,  n:52},
-  {Z:42,name:"Molybdenum", sym:"Mo", p:5,g:6,  n:54},
+  {Z:42,name:"Molybdenum", sym:"Mo", p:5,g:6,  n:56},  // Mo-98 most abundant
   {Z:43,name:"Technetium", sym:"Tc", p:5,g:7,  n:55},
-  {Z:44,name:"Ruthenium",  sym:"Ru", p:5,g:8,  n:57},
+  {Z:44,name:"Ruthenium",  sym:"Ru", p:5,g:8,  n:58},  // Ru-102 most abundant
   {Z:45,name:"Rhodium",    sym:"Rh", p:5,g:9,  n:58},
   {Z:46,name:"Palladium",  sym:"Pd", p:5,g:10, n:60},
   {Z:47,name:"Silver",     sym:"Ag", p:5,g:11, n:60},
-  {Z:48,name:"Cadmium",    sym:"Cd", p:5,g:12, n:64},
+  {Z:48,name:"Cadmium",    sym:"Cd", p:5,g:12, n:66},  // Cd-114 most abundant
   {Z:49,name:"Indium",     sym:"In", p:5,g:13, n:66},
   {Z:50,name:"Tin",        sym:"Sn", p:5,g:14, n:68},
   {Z:51,name:"Antimony",   sym:"Sb", p:5,g:15, n:70},
   {Z:52,name:"Tellurium",  sym:"Te", p:5,g:16, n:76},
   {Z:53,name:"Iodine",     sym:"I",  p:5,g:17, n:74},
-  {Z:54,name:"Xenon",      sym:"Xe", p:5,g:18, n:77},
+  {Z:54,name:"Xenon",      sym:"Xe", p:5,g:18, n:78},  // Xe-132 most abundant
 ];
 
 const ORBS=[
@@ -968,17 +999,76 @@ const pivot=new THREE.Group();
 scene.add(pivot);
 let atomGrp=null;
 
-// NUCLEUS
-function makeNucleus(){
-  const g=new THREE.Group();
-  g.add(new THREE.Mesh(
-    new THREE.SphereGeometry(.12,32,32),
-    new THREE.MeshStandardMaterial({color:0xff3300,emissive:0xff2200,emissiveIntensity:6,roughness:.2,metalness:.0})
-  ));
-  [[0.22,.18],[0.38,.08],[0.55,.03]].forEach(([r,o])=>
-    g.add(new THREE.Mesh(new THREE.SphereGeometry(r,16,16),
-      new THREE.MeshBasicMaterial({color:0xff3300,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false}))));
-  g.add(new THREE.PointLight(0xff5500,5,30));
+// NUCLEUS — packed protons (red) + neutrons (blue)
+function makeNucleus(Z, N){
+  const g = new THREE.Group();
+  const total = Z + N;
+
+  // Nucleon radius — ultra tiny
+  const nr = Math.max(0.007, 0.011 - total * 0.00004);
+
+  // Materials
+  const matP = new THREE.MeshStandardMaterial({
+    color: 0xff2200, emissive: 0xcc1100, emissiveIntensity: 2.2,
+    roughness: 0.35, metalness: 0.15
+  });
+  const matN = new THREE.MeshStandardMaterial({
+    color: 0x2255ff, emissive: 0x1133cc, emissiveIntensity: 2.0,
+    roughness: 0.35, metalness: 0.15
+  });
+  const geoN = new THREE.SphereGeometry(nr, 14, 14);
+
+  // Pack nucleons into a roughly spherical cluster using a jittered shell approach
+  // Shuffle protons and neutrons together so they interleave visually
+  const types = [];
+  for(let i=0;i<Z;i++) types.push('p');
+  for(let i=0;i<N;i++) types.push('n');
+  // Fisher-Yates shuffle for interleaving
+  for(let i=types.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [types[i],types[j]]=[types[j],types[i]];
+  }
+
+  // Place nucleons using a tight sphere-packing spiral
+  const positions = [];
+  if(total === 1){
+    positions.push([0,0,0]);
+  } else {
+    // Sunflower / Fibonacci sphere packing mapped to a nucleus volume
+    // Nuclear radius scale: R = r0 * A^(1/3), r0 ≈ 0.032 (scene units) — very dense
+    const R0 = 0.012;
+    const Rnuc = R0 * Math.pow(total, 1/3);
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    for(let i=0;i<total;i++){
+      // Distribute radially: inner nucleons first
+      const t = (i + 0.5) / total;
+      const r = Rnuc * Math.pow(t, 1/3);
+      const theta = goldenAngle * i;
+      const phi = Math.acos(1 - 2*t);
+      positions.push([
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.sin(phi) * Math.sin(theta),
+        r * Math.cos(phi)
+      ]);
+    }
+  }
+
+  positions.forEach(([x,y,z], i) => {
+    const mesh = new THREE.Mesh(geoN, types[i]==='p' ? matP : matN);
+    mesh.position.set(x, y, z);
+    g.add(mesh);
+  });
+
+  // Soft glow halo — mixed red+blue tint → purple-ish
+  [[0.025,.20],[0.040,.08],[0.058,.03]].forEach(([r,o])=>
+    g.add(new THREE.Mesh(
+      new THREE.SphereGeometry(r,12,12),
+      new THREE.MeshBasicMaterial({color:0xaa44ff,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false})
+    ))
+  );
+
+  // Point light — warm white to illuminate nucleons from inside
+  g.add(new THREE.PointLight(0xffaadd, 4, 25));
   return g;
 }
 
@@ -1020,7 +1110,9 @@ function sampleS(R){
   const th=Math.random()*2*Math.PI;
   let r=R+(Math.random()+Math.random()+Math.random()+Math.random()-2)*0.5*R*0.18;
   r=Math.max(R*0.5,r);
-  return{x:r*Math.sin(phi)*Math.cos(th),y:r*Math.sin(phi)*Math.sin(th),z:r*Math.cos(phi),a:0.7+Math.random()*0.3};
+  // Alpha peaks at shell radius R, fades away from it
+  const a=Math.exp(-Math.pow((r-R)/(R*0.15),2));
+  return{x:r*Math.sin(phi)*Math.cos(th),y:r*Math.sin(phi)*Math.sin(th),z:r*Math.cos(phi),a};
 }
 
 function sampleP_lobe(R,axis){
@@ -1036,7 +1128,9 @@ function sampleP_lobe(R,axis){
   if(axis===0){x=axial;y=pr;z=pb_;}
   else if(axis===1){y=axial;x=pr;z=pb_;}
   else{z=axial;x=pr;y=pb_;}
-  return{x,y,z,a:0.5+t*0.5};
+  // Peak alpha around t=0.55 (lobe center), fading to 0 at tip and base
+  const a=Math.exp(-Math.pow(t-0.55,2)*8.0);
+  return{x,y,z,a};
 }
 
 function sampleDSub(R,sub){
@@ -1108,7 +1202,118 @@ function sampleDSub(R,sub){
 }
 
 const P_AXIS_TINT=[[1.0,0.45,0.45],[0.45,1.0,0.55],[0.65,0.65,1.0]];
-let realMode=false;
+let realMode = false;
+let smoothMode = false;
+
+// ══════════════════════════════════════════════
+// SMOOTH MODE — identical to grainy but larger, softer points
+// ══════════════════════════════════════════════
+
+const SMOOTH_VERT = `
+attribute float aA;
+attribute vec3 aC;
+varying float vA;
+varying vec3 vC;
+void main(){
+  vC=aC; vA=aA;
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  gl_Position=projectionMatrix*mv;
+  float dist=length(mv.xyz);
+  gl_PointSize=clamp(3500.0/dist, 2.0, 140.0);
+}`;
+
+const SMOOTH_FRAG = `
+varying float vA;
+varying vec3 vC;
+void main(){
+  vec2 uv=gl_PointCoord-vec2(0.5);
+  float r=length(uv)*2.0;
+  if(r>1.0) discard;
+  float g=exp(-r*r*2.8);
+  gl_FragColor=vec4(vC, vA*g);
+}`;
+
+// Smooth sampler: samples points with alpha = wavefunction density at that point
+// So dense regions accumulate more brightness naturally
+function smoothDensity(x,y,z,l,sub,R){
+  const r=Math.sqrt(x*x+y*y+z*z)+1e-9;
+  const rn=r/R;
+  if(l===0){
+    return Math.exp(-Math.pow(rn-0.55,2)*14)+Math.exp(-rn*rn*8)*0.4;
+  }
+  if(l===1){
+    const cosT=sub===0?x/r:sub===1?y/r:z/r;
+    return cosT*cosT*Math.exp(-Math.pow(rn-0.7,2)*10)*1.8;
+  }
+  const radial=Math.exp(-Math.pow(rn-0.75,2)*9);
+  const r2=r*r, rn2=rn*rn;
+  let ang;
+  if(sub===0){const v=(2*z*z-x*x-y*y)/r2;ang=v*v*0.75;}
+  else if(sub===1){ang=4*(x*y)*(x*y)/(r2*r2)*rn2*rn2*2.5;}
+  else if(sub===2){ang=4*(x*z)*(x*z)/(r2*r2)*rn2*rn2*2.5;}
+  else if(sub===3){ang=4*(y*z)*(y*z)/(r2*r2)*rn2*rn2*2.5;}
+  else{const v=(x*x-y*y)/r2;ang=v*v*1.2;}
+  return ang*radial*2.2;
+}
+
+function buildSmoothCloud(orb){
+  const grp=new THREE.Group();
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const radiusBoost=1+orb.R/25;
+  const fillFrac=orb.e/orb.max;
+
+  function mkCloud(count, l, sub, sampler, rgb){
+    const pos=new Float32Array(count*3);
+    const col=new Float32Array(count*3);
+    const alp=new Float32Array(count);
+    const[cr,cg,cb]=rgb;
+    let maxD=0;
+    const pts=[];
+    // Generate candidates, compute density, keep weighted
+    for(let i=0;i<count;i++){
+      const pt=sampler();
+      const d=smoothDensity(pt.x,pt.y,pt.z,l,sub,orb.R);
+      pts.push({...pt,d});
+      if(d>maxD)maxD=d;
+    }
+    for(let i=0;i<count;i++){
+      pos[i*3]=pts[i].x;pos[i*3+1]=pts[i].y;pos[i*3+2]=pts[i].z;
+      col[i*3]=cr;col[i*3+1]=cg;col[i*3+2]=cb;
+      // Alpha directly proportional to density — dense=bright, sparse=dim
+      alp[i]=Math.pow(pts[i].d/maxD,0.6)*0.9;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+    geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+    const mat=new THREE.ShaderMaterial({vertexShader:SMOOTH_VERT,fragmentShader:SMOOTH_FRAG,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+    return new THREE.Points(geo,mat);
+  }
+
+  if(orb.l===0){
+    const n=Math.round(6000*fillFrac*radiusBoost);
+    grp.add(mkCloud(n,0,0,()=>sampleS(orb.R),[r,g,b]));
+  }else if(orb.l===1){
+    const axCount=Math.min(orb.e,3);
+    for(let ax=0;ax<axCount;ax++){
+      const tint=P_AXIS_TINT[ax];
+      const c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
+      grp.add(mkCloud(Math.round(5000*radiusBoost),1,ax,()=>sampleP_lobe(orb.R,ax),c));
+    }
+  }else{
+    const subCount=Math.min(orb.e,5);
+    const D_TINTS=[[1,.3,.5],[1,.5,.2],[.5,1,.3],[.3,.5,1],[.8,.3,1]];
+    for(let sub=0;sub<subCount;sub++){
+      const tint=D_TINTS[sub];
+      const c=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      grp.add(mkCloud(Math.round(4000*radiusBoost),2,sub,()=>sampleDSub(orb.R,sub),c));
+    }
+  }
+  return grp;
+}
+
+function updateSmoothUniforms(){}
+
 
 function realColor(R){
   const maxR=75,t=Math.min(R/maxR,1);
@@ -1176,8 +1381,9 @@ function buildAtom(Z){
   }
   atomGrp=new THREE.Group();
   pivot.add(atomGrp);
-  atomGrp.add(makeNucleus());
-  for(const orb of getConfig(Z)) atomGrp.add(buildCloud(orb,orb.e));
+  const elData = ELS.find(e=>e.Z===Z);
+  atomGrp.add(makeNucleus(Z, elData ? elData.n : 0));
+  for(const orb of getConfig(Z)) atomGrp.add(smoothMode ? buildSmoothCloud(orb) : buildCloud(orb,orb.e));
 }
 
 // ══════════════════════════════════════════════
@@ -1202,7 +1408,7 @@ function updateUI(Z){
   const confStr=cfg.map(o=>o.name+sup(o.e)).join(' ');
 
   document.getElementById('ename').textContent=el.name.toUpperCase();
-  document.getElementById('emeta').textContent=`Z=${Z} · ${Z} ELECTRON${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}`;
+  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ELECTRON${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}`;
   document.getElementById('econf').textContent=confStr;
   document.getElementById('econf-right').textContent=confStr;
   document.getElementById('badge-z').textContent=Z;
@@ -1386,6 +1592,14 @@ gridbtn.onclick=()=>{
   showToast(gridVisible?'GRID ON':'GRID OFF');
 };
 
+const smoothbtn=document.getElementById('smoothbtn');
+smoothbtn.onclick=()=>{
+  smoothMode=!smoothMode;
+  smoothbtn.classList.toggle('active',smoothMode);
+  showToast(smoothMode?'SMOOTH ORBITALS ON':'GRAIN MODE ON');
+  buildAtom(curZ);
+};
+
 // ── Panel toggles ──
 function isMobile(){ return window.innerWidth<=640; }
 
@@ -1456,6 +1670,7 @@ function loop(){
   if(autoSpin)rotY+=dt*.2;
   pivot.rotation.y=rotY;pivot.rotation.x=rotX;
   if(atomGrp)atomGrp.traverse(o=>{if(o.isPointLight)o.intensity=4+Math.sin(t*3.5)*.9;});
+  updateSmoothUniforms();
   const cfg=getConfig(curZ);
   const vis=cfg.filter(o=>o.R<=camZ*0.55).map(o=>o.name);
   document.getElementById('svis').textContent=vis.join(' ')||'—';
