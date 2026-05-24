@@ -2,7 +2,7 @@
 
 **A beautiful, interactive 3D visualization of atomic structure, electron orbitals, and quantum probability clouds.**
 
-![Demo Preview](https://nazat02.github.io/Quantum-Atom/preview.jpg)  
+![Quantum Atom Simulator Preview](images/preview.png)  
 
 
 ## ✨ Live Demo
