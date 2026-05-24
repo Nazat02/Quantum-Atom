@@ -31,6 +31,35 @@
 - **Vanilla JavaScript** — Single HTML file architecture (no build tools needed)
 
 ---
+## 🎮 Controls
+
+| Action                    | Input                              |
+|---------------------------|------------------------------------|
+| Rotate Atom               | Mouse drag / Touch drag            |
+| Zoom                      | Scroll wheel / Pinch gesture       |
+| Cycle Elements            | Left / Right Arrow keys            |
+| Reset View                | **RESET** button                   |
+| Select Element            | Click element in left panel        |
+| Search Elements           | Use search bar in Elements panel   |
+| Toggle Real Image Mode    | **REAL IMAGE MODE** button         |
+| Toggle Cartesian Grid     | **CARTESIAN GRID** button          |
+| Toggle Smooth Orbitals    | **SMOOTH ORBITALS** button         |
+| Open Elements Panel       | **ELEMENTS** tab                   |
+| Open Data Panel           | **DATA** tab                       |
+
+---
+
+**Pro Tips:**
+- Drag on the atom to rotate it in 3D
+- Scroll to zoom in/out
+- Use arrow keys to quickly cycle through elements
+- Try **Real Image Mode** + **Smooth Orbitals** for the most beautiful view
+
+
+
+
+---
+
 ## 📋 Roadmap
 
 We will keep actively adding new features:
@@ -43,6 +72,15 @@ We will keep actively adding new features:
 - Performance/quality settings
 - Electron spin visualization
 - WebXR Augmented Reality support
+
+
+---
+
+
+
+
+
+
 ## 🚀 Getting Started
 ---
 1. **Clone the repository**
