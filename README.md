@@ -31,9 +31,20 @@
 - **Vanilla JavaScript** — Single HTML file architecture (no build tools needed)
 
 ---
+## 📋 Roadmap
 
+We will keep actively adding new features:
+
+- Extend periodic table up to element 118
+- Probability density surfaces (isosurfaces)
+- Bohr model toggle
+- Ionization states and electron transitions
+- High-resolution screenshot export
+- Performance/quality settings
+- Electron spin visualization
+- WebXR Augmented Reality support
 ## 🚀 Getting Started
-
+---
 1. **Clone the repository**
    ```bash
    git clone https://github.com/nazat02/Quantum-Atom.git
