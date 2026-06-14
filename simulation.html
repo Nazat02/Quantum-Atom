@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Quantum Atom Simulator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='%23ff5500'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.85' fill='none'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.75' fill='none' transform='rotate(60 45 45)'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.7' fill='none' transform='rotate(-60 45 45)'/><circle cx='45' cy='45' r='10' fill='white' opacity='.95'/></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --cyan:       #ff5500;
+  --cyan-40:    rgba(255,85,0,.4);
+  --cyan-20:    rgba(255,85,0,.2);
+  --cyan-10:    rgba(255,85,0,.1);
+  --cyan-06:    rgba(255,85,0,.06);
+  --green:      #ff9944;
+  --amber:      #ffb347;
+  --bg:         #000000;
+  --bg-solid:   #000000;
+  --border:     rgba(255,85,0,.16);
+  --border-hi:  rgba(255,85,0,.35);
+  --hi:         #ffffff;
+  --mid:        rgba(255,255,255,.75);
+  --lo:         rgba(255,255,255,.45);
+  --panel-w:    260px;
+  --topbar-h:   60px;
+  --botbar-h:   64px;
+  --radius:     8px;
+}
+
+html, body {
+  width:100%; height:100%;
+  overflow:hidden; background:#000;
+  font-family:'Share Tech Mono', monospace;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color: transparent;
+  color:var(--hi);
+}
+
+canvas { position:fixed; inset:0; z-index:0; }
+
+/* ════════════════════════════════
+   SHELL GRID
+════════════════════════════════ */
+#shell {
+  position:fixed; inset:0; z-index:10;
+  display:grid;
+  grid-template-rows: var(--topbar-h) 1fr var(--botbar-h);
+  grid-template-columns: min-content 1fr min-content;
+  grid-template-areas:
+    "topbar topbar topbar"
+    "left   mid    right"
+    "botbar botbar botbar";
+  pointer-events:none;
+  /* NOTE: pointer-events:none here blocks Android touch on children.
+     Mobile panels escape via z-index:9999 and are repositioned fixed. */
+}
+
+/* ════════════════════════════════
+   TOP BAR
+════════════════════════════════ */
+#topbar {
+  grid-area: topbar;
+  height: var(--topbar-h);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  pointer-events: all;
+  overflow: hidden;
+  
+}
+
+/* Element symbol badge — periodic table style */
+#esym-badge {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  border-radius: 6px;
+  border: 1px solid var(--border-hi);
+  background: var(--cyan-10);
+  position: relative;
+}
+#esym-badge .badge-z {
+  position: absolute;
+  top: 4px; left: 5px;
+  font-size: .55rem;
+  color: var(--cyan);
+  line-height: 1;
+  letter-spacing: .02em;
+}
+#esym-badge .badge-sym {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--hi);
+  line-height: 1;
+  text-shadow: 0 0 14px rgba(255,85,0,.5);
+}
+
+.topbar-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+#ename {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--hi);
+  letter-spacing: .08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 18px rgba(255,85,0,.3);
+  line-height: 1;
+}
+#emeta {
+  font-size: .65rem;
+  color: var(--lo);
+  letter-spacing: .03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+}
+
+#econf-wrap {
+  flex-shrink: 0;
+  padding: 5px 14px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+}
+#econf {
+  font-size: .72rem;
+  color: var(--green);
+  letter-spacing: .06em;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#tabs { display:flex; gap:6px; flex-shrink:0; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: .68rem;
+  letter-spacing: .08em;
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all .18s;
+  color: var(--lo);
+  background: var(--cyan-06);
+  white-space: nowrap;
+  line-height: 1;
+  font-family: 'Share Tech Mono', monospace;
+}
+.tab svg { opacity: .6; transition: opacity .18s; }
+.tab:hover { color:var(--hi); background:var(--cyan-10); border-color:var(--cyan-40); }
+.tab:hover svg { opacity:1; }
+.tab.on { color:var(--cyan); background:var(--cyan-10); border-color:var(--cyan-40); box-shadow: 0 0 12px rgba(255,85,0,.15); }
+.tab.on svg { opacity:1; }
+
+/* ════════════════════════════════
+   SIDE PANELS
+════════════════════════════════ */
+#left, #right {
+  background: var(--bg);
+  overflow: hidden;
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  
+}
+/* Desktop: fixed side panels */
+#left {
+  position: fixed;
+  left: 0; top: var(--topbar-h); bottom: var(--botbar-h);
+  width: var(--panel-w);
+  border-right: 1px solid var(--border);
+  transition: transform .24s cubic-bezier(.4,0,.2,1);
+  transform: translateX(0);
+  z-index: 20;
+}
+#right {
+  position: fixed;
+  right: 0; top: var(--topbar-h); bottom: var(--botbar-h);
+  width: var(--panel-w);
+  border-left: 1px solid var(--border);
+  transition: transform .24s cubic-bezier(.4,0,.2,1);
+  transform: translateX(0);
+  z-index: 20;
+}
+#left.hidden  { transform: translateX(-100%); pointer-events:none; }
+#right.hidden { transform: translateX(100%);  pointer-events:none; }
+
+/* Panel header with close btn */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(255,85,0,.08);
+  flex-shrink: 0;
+}
+.panel-title {
+  font-size: .68rem;
+  letter-spacing: .18em;
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+.panel-close {
+  width: 26px; height: 26px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--lo);
+  cursor: pointer;
+  display: flex; align-items:center; justify-content:center;
+  font-size: 1rem;
+  transition: all .15s;
+  font-family: 'Share Tech Mono', monospace;
+  flex-shrink: 0;
+}
+.panel-close:hover { background:var(--cyan-10); color:var(--hi); border-color:var(--cyan-40); }
+
+#left-inner, #right-inner {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+  width: var(--panel-w);
+  min-width: var(--panel-w);
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 13px 24px;
+}
+#left-inner::-webkit-scrollbar,
+#right-inner::-webkit-scrollbar { width: 3px; }
+#left-inner::-webkit-scrollbar-track,
+#right-inner::-webkit-scrollbar-track { background: transparent; }
+#left-inner::-webkit-scrollbar-thumb,
+#right-inner::-webkit-scrollbar-thumb { background: var(--cyan-20); border-radius: 2px; }
+
+/* ── Search box ── */
+.search-wrap {
+  position: relative;
+}
+.search-wrap svg {
+  position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+  opacity: .4; pointer-events:none;
+}
+#el-search {
+  width: 100%;
+  background: rgba(255,85,0,.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--hi);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .72rem;
+  padding: 8px 10px 8px 32px;
+  outline: none;
+  transition: border-color .18s;
+  letter-spacing: .05em;
+}
+#el-search::placeholder { color: var(--lo); }
+#el-search:focus { border-color: var(--cyan-40); background: var(--cyan-10); }
+
+/* Section label */
+.ptitle {
+  font-size: .62rem;
+  letter-spacing: .16em;
+  color: var(--cyan-40);
+  text-transform: uppercase;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255,85,0,.08);
+}
+
+/* Element grid */
+.egrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ebtn {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  background: rgba(255,85,0,.04);
+  border: 1px solid rgba(255,85,0,.1);
+  color: var(--lo);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: .72rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background .13s, border-color .13s, color .13s;
+  text-align: center;
+  line-height: 1.2;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ebtn .s { font-size: .92rem; color: var(--hi); transition: color .13s; }
+.ebtn .z { font-size: .58rem; color: var(--lo); line-height:1; }
+.ebtn:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
+.ebtn:hover .s { color:var(--cyan); }
+.ebtn.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(255,85,0,.25); color:var(--hi); }
+.ebtn.on .s { color:var(--cyan); }
+.ebtn.hidden-el { display:none; }
+
+/* Element name tooltip on hover */
+.ebtn::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(4,10,24,.96);
+  border: 1px solid var(--cyan-40);
+  color: var(--hi);
+  font-size: .62rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 100;
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: .05em;
+}
+.ebtn:hover::after { opacity:1; }
+
+/* Orbital legend */
+.oleg { display:flex; flex-direction:column; gap:8px; }
+.orow { display:flex; align-items:center; gap:9px; padding: 4px 8px; border-radius: 5px; background:rgba(255,85,0,.03); border:1px solid rgba(255,85,0,.06); }
+.odot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.olbl { font-size: .7rem; color:var(--mid); flex:1; }
+.ocnt { font-size: .7rem; color:var(--hi); font-weight:700; background:rgba(255,85,0,.1); padding:2px 6px; border-radius:3px; }
+
+/* Data rows */
+.data-section { display:flex; flex-direction:column; gap:4px; }
+.srow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 5px;
+  background: rgba(255,85,0,.03);
+  border: 1px solid rgba(255,85,0,.06);
+  transition: background .15s;
+}
+.srow:hover { background:rgba(255,85,0,.07); }
+.sk { font-size: .65rem; color: var(--lo); letter-spacing: .08em; white-space: nowrap; }
+.sv { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1rem; color: var(--hi); }
+.sdiv { height: 1px; background: rgba(255,85,0,.08); margin: 2px 0; }
+
+#realbtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(255,85,0,.07);
+  border: 1px solid rgba(255,85,0,.22);
+  color: var(--mid);
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: .1em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#realbtn:hover { background:var(--cyan-10); color:var(--hi); border-color:var(--cyan-40); }
+#gridbtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(255,85,0,.07);
+  border: 1px solid rgba(255,85,0,.22);
+  color: var(--mid);
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: .1em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#gridbtn:hover { background:var(--cyan-10); color:var(--hi); border-color:var(--cyan-40); }
+#gridbtn.active {
+  background: rgba(255,85,0,.18);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 12px rgba(255,85,0,.3);
+}
+
+#smoothbtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(255,85,0,.07);
+  border: 1px solid rgba(255,85,0,.22);
+  color: var(--mid);
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: .1em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#smoothbtn:hover { background:var(--cyan-10); color:var(--hi); border-color:var(--cyan-40); }
+#smoothbtn.active {
+  background: rgba(100,180,255,.15);
+  border-color: #44aaff;
+  color: #88ccff;
+  box-shadow: 0 0 12px rgba(60,140,255,.3);
+}
+
+#ultrabtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(255,60,0,.09);
+  border: 1px solid rgba(255,100,20,.28);
+  color: var(--mid);
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: .1em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#ultrabtn:hover { background:rgba(255,80,0,.18); color:var(--hi); border-color:rgba(255,120,40,.55); }
+#ultrabtn.active {
+  background: rgba(255,60,0,.22);
+  border-color: #ff4400;
+  color: #ff8844;
+  box-shadow: 0 0 16px rgba(255,60,0,.45), 0 0 32px rgba(255,40,0,.18);
+}
+
+#realbtn.active {
+  background: rgba(255,20,40,.25);
+  border-color: #ff1432;
+  color: #ff6680;
+  box-shadow: 0 0 12px #ff143244;
+}
+
+/* ════════════════════════════════
+   BOTTOM BAR
+════════════════════════════════ */
+#botbar {
+  grid-area: botbar;
+  height: var(--botbar-h);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 20px;
+  pointer-events: all;
+  
+}
+
+.hint {
+  font-size: .62rem;
+  color: var(--lo);
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.hint-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.zbar { display:flex; align-items:center; gap:10px; }
+.zbar label { font-size: .65rem; color: var(--lo); letter-spacing: .07em; flex-shrink:0; }
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 140px;
+  height: 6px;
+  background: rgba(255,85,0,.18);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(255,85,0,.6);
+  cursor: pointer;
+  border: 2px solid rgba(255,255,255,.2);
+}
+input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(255,85,0,.6);
+  cursor: pointer;
+  border: 2px solid rgba(255,255,255,.2);
+}
+#zval { font-size: .7rem; color: var(--green); width: 40px; flex-shrink:0; }
+
+.rbtn {
+  background: rgba(255,85,0,.07);
+  border: 1px solid rgba(255,85,0,.22);
+  color: var(--mid);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  letter-spacing: .08em;
+  transition: all .17s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rbtn:hover { background:var(--cyan-10); color:var(--hi); border-color:var(--cyan-40); }
+
+/* ════════════════════════════════
+   MOBILE OVERLAY BACKDROP
+════════════════════════════════ */
+#backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 35;
+  
+  pointer-events: all;
+}
+#backdrop.visible { display:block; }
+
+/* ════════════════════════════════
+   MOBILE ≤ 640px
+════════════════════════════════ */
+@media (max-width: 640px) {
+  :root {
+    --topbar-h: 58px;
+    --botbar-h: 68px;
+    --panel-w:  100vw;
+  }
+
+  /* Topbar tweaks */
+  #topbar { padding: 0 12px; gap: 10px; }
+  #esym-badge { width: 38px; height: 38px; }
+  #esym-badge .badge-sym { font-size: 1.1rem; }
+  #econf-wrap { display: none; }
+  #ename { font-size: 1rem; }
+  #emeta { font-size: .65rem; }
+
+  /* Tab labels: icon only on very small */
+  .tab .tab-label { display: none; }
+  .tab { padding: 8px 10px; gap:0; }
+
+  /* Shell: no side columns */
+  #shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "mid"
+      "botbar";
+  }
+
+  /* Panels: full-width bottom sheets */
+  #left, #right {
+    grid-area: unset !important;
+    position: fixed;
+    left: 0; right: 0;
+    bottom: var(--botbar-h);
+    width: 100% !important;
+    min-width: unset !important;
+    max-height: 62vh;
+    height: 62vh;
+    border-left: none;
+    border-right: none;
+    border-top: 2px solid var(--cyan-40);
+    border-radius: 16px 16px 0 0;
+    background: #000000 !important;
+    will-change: transform;
+    overflow: hidden;
+    transform: translateY(100%);
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+    z-index: 40;
+    flex-direction: column;
+  }
+  #left.hidden, #right.hidden  { transform: translateY(100%) !important; pointer-events: none !important; visibility: hidden; }
+  #left:not(.hidden), #right:not(.hidden) { transform: translateY(0) !important; pointer-events: all !important; visibility: visible; z-index: 9999; }
+
+  /* Drag pill at top of sheet */
+  .panel-header::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 4px;
+    background: var(--cyan-20);
+    border-radius: 2px;
+  }
+  .panel-header { position: relative; padding-top: 20px; }
+
+  #left-inner, #right-inner {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+    width: 100%; min-width: unset;
+    padding: 10px 14px 28px;
+  }
+
+  /* 5 columns on mobile */
+  .egrid { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .ebtn {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer; min-height: 48px; }
+  .ebtn .s { font-size: .9rem; }
+  .ebtn::after { display: none; } /* no tooltip on touch */
+
+  /* Bottom bar: two rows */
+  #botbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--botbar-h);
+    padding: 10px 14px;
+    gap: 10px;
+    justify-content: space-between;
+  }
+  .hint { display: none; }
+  .hint-sep { display: none; }
+  .zbar { flex: 1; gap: 8px; }
+  input[type=range] { flex: 1; min-width: 80px; }
+  .rbtn { padding: 8px 14px; font-size: .63rem; }
+}
+
+/* Android fix: panels are fixed-position but inside pointer-events:none shell.
+   This rule ensures open panels always capture touch regardless of parent. */
+#left:not(.hidden),
+#right:not(.hidden) {
+  pointer-events: auto !important;
+  touch-action: auto !important;
+}
+#left:not(.hidden) *,
+#right:not(.hidden) * {
+  pointer-events: auto !important;
+}
+
+/* ════════════════════════════════
+   TOAST NOTIFICATION
+════════════════════════════════ */
+#toast {
+  position: fixed;
+  bottom: calc(var(--botbar-h) + 16px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #000000;
+  border: 1px solid var(--cyan-40);
+  color: var(--hi);
+  font-size: .7rem;
+  padding: 8px 18px;
+  border-radius: 20px;
+  letter-spacing: .06em;
+  opacity: 0;
+  transition: all .3s;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ════════════════════════════════
+   NO RESULTS
+════════════════════════════════ */
+#no-results {
+  display: none;
+  text-align: center;
+  padding: 20px 0;
+  font-size: .68rem;
+  color: var(--lo);
+  letter-spacing: .08em;
+}
+
+/* ════════════════════════════════
+   LOGO BADGE
+════════════════════════════════ */
+#topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 14px;
+  margin-right: 2px;
+}
+#topbar-logo-badge {
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+#topbar-logo-badge svg { width: 38px; height: 38px; overflow: visible; }
+#topbar-logo-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: .82rem;
+  letter-spacing: .18em;
+  color: var(--hi);
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+@keyframes plasma-outer-glow {
+  0%,100% { filter: drop-shadow(0 0 6px #ff5500) drop-shadow(0 0 18px rgba(255,85,0,.8)) drop-shadow(0 0 36px rgba(255,85,0,.4)); }
+  50%      { filter: drop-shadow(0 0 10px #ff6600) drop-shadow(0 0 28px rgba(255,100,0,.9)) drop-shadow(0 0 55px rgba(255,85,0,.55)); }
+}
+
+/* Hide logo name on very small screens */
+@media (max-width: 480px) {
+  #topbar-logo-name { display: none; }
+  #topbar-logo { padding-right: 10px; margin-right: 0; }
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="backdrop"></div>
+<div id="toast"></div>
+
+<div id="shell">
+
+  <!-- ── TOP BAR ── -->
+  <div id="topbar">
+
+    <!-- Brand logo -->
+    <div id="topbar-logo">
+      <div id="topbar-logo-badge">
+        <svg width="38" height="38" viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;animation:plasma-outer-glow 2.8s ease-in-out infinite;">
+          <defs>
+            <radialGradient id="tb-nuc" cx="35%" cy="30%" r="65%">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="40%" stop-color="#ffcc88"/>
+              <stop offset="100%" stop-color="#ff8833"/>
+            </radialGradient>
+            <filter id="tb-glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="tb-soft"><feGaussianBlur stdDeviation="1"/></filter>
+          </defs>
+          <rect width="90" height="90" rx="18" fill="#ff5500"/>
+          <rect width="90" height="45" rx="18" fill="rgba(255,255,255,.06)"/>
+          <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".85" fill="none"/>
+          <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".75" fill="none" transform="rotate(60 45 45)"/>
+          <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".7" fill="none" transform="rotate(-60 45 45)"/>
+          <circle cx="45" cy="45" r="15" fill="white" filter="url(#tb-soft)" opacity=".25"/>
+          <circle cx="45" cy="45" r="10" fill="url(#tb-nuc)" filter="url(#tb-glow)"><animate attributeName="r" values="9;11;9.5;10.5;9" dur="2.2s" repeatCount="indefinite"/></circle>
+          <circle cx="41" cy="41" r="3" fill="rgba(255,255,255,.7)"/>
+          <circle cx="79" cy="45" r="4.5" fill="white" filter="url(#tb-glow)"><animateTransform attributeName="transform" type="rotate" from="0 45 45" to="360 45 45" dur="2.2s" repeatCount="indefinite"/></circle>
+          <circle cx="79" cy="45" r="3.8" fill="rgba(255,220,180,.95)" filter="url(#tb-glow)" transform="rotate(60 45 45)"><animateTransform attributeName="transform" type="rotate" from="60 45 45" to="420 45 45" dur="3.1s" repeatCount="indefinite"/></circle>
+          <circle cx="79" cy="45" r="3.8" fill="rgba(255,210,160,.9)" filter="url(#tb-glow)" transform="rotate(-60 45 45)"><animateTransform attributeName="transform" type="rotate" from="-60 45 45" to="300 45 45" dur="3.8s" repeatCount="indefinite"/></circle>
+        </svg>
+      </div>
+      <div id="topbar-logo-name">Quantum Atom</div>
+    </div>
+
+    <div id="esym-badge">
+      <span class="badge-z" id="badge-z">1</span>
+      <span class="badge-sym" id="badge-sym">H</span>
+    </div>
+    <div class="topbar-text">
+      <div id="ename">HYDROGEN</div>
+      <div id="emeta">Z=1 · 1 ELECTRON · PERIOD 1 · GROUP 1</div>
+    </div>
+    <div id="econf-wrap">
+      <div id="econf">1s¹</div>
+    </div>
+    <div id="tabs">
+      <button class="tab" id="tab-left" aria-label="Elements">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+        <span class="tab-label">ELEMENTS</span>
+      </button>
+      <button class="tab" id="tab-right" aria-label="Data">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2 4h10M2 7h7M2 10h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <span class="tab-label">DATA</span>
+      </button>
+    </div>
+  </div>
+
+
+  <!-- canvas shows through -->
+  <div style="grid-area:mid; pointer-events:none;"></div>
+
+
+
+  <!-- ── BOTTOM BAR ── -->
+  <div id="botbar">
+    <div class="hint">DRAG: ROTATE</div>
+    <div class="hint-sep"></div>
+    <div class="hint">SCROLL: ZOOM</div>
+    <div class="hint-sep"></div>
+    <div class="hint">←→: CYCLE ELEMENTS</div>
+    <div class="hint-sep"></div>
+    <div class="zbar">
+      <label for="zsl">ZOOM</label>
+      <input type="range" id="zsl" min="1" max="600" value="80" aria-label="Zoom">
+      <div id="zval">1.0×</div>
+    </div>
+    <button class="rbtn" id="rbtn">
+      <span style="font-size:1rem;line-height:1;">↺</span>
+      RESET
+    </button>
+  </div>
+
+</div>
+
+<!-- Panels moved outside #shell to avoid pointer-events:none inheritance on Android -->
+<!-- ── LEFT PANEL ── -->
+  <div id="left" class="hidden">
+    <div class="panel-header">
+      <span class="panel-title">Select Element</span>
+      <button class="panel-close" onclick="closePanel('left')" aria-label="Close">✕</button>
+    </div>
+    <div id="left-inner">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="el-search" placeholder="Search element..." autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="egrid" id="egrid"></div>
+      <div id="no-results">No elements found</div>
+      <div class="ptitle">Orbital Filling</div>
+      <div class="oleg" id="oleg"></div>
+    </div>
+  </div>
+
+<!-- ── RIGHT PANEL ── -->
+  <div id="right" class="hidden">
+    <div class="panel-header">
+      <span class="panel-title">Atomic Data</span>
+      <button class="panel-close" onclick="closePanel('right')" aria-label="Close">✕</button>
+    </div>
+    <div id="right-inner">
+      <div class="ptitle">Atomic Structure</div>
+      <div class="data-section">
+        <div class="srow"><span class="sk">ATOMIC №</span><span class="sv" id="sz">1</span></div>
+        <div class="srow"><span class="sk">ELECTRONS</span><span class="sv" id="se">1</span></div>
+        <div class="srow"><span class="sk">PROTONS</span><span class="sv" id="sp">1</span></div>
+        <div class="srow"><span class="sk">NEUTRONS</span><span class="sv" id="sn">0</span></div>
+      </div>
+      <div class="ptitle">Periodic Table</div>
+      <div class="data-section">
+        <div class="srow"><span class="sk">PERIOD</span><span class="sv" id="sper">1</span></div>
+        <div class="srow"><span class="sk">GROUP</span><span class="sv" id="sgrp">1</span></div>
+      </div>
+      <div class="ptitle">Viewport</div>
+      <div class="data-section">
+        <div class="srow"><span class="sk">ZOOM</span><span class="sv" id="szoom">1.0×</span></div>
+        <div class="srow"><span class="sk">VISIBLE</span><span class="sv" id="svis" style="font-size:.82rem;letter-spacing:.03em;">1s</span></div>
+      </div>
+      <div class="ptitle">Configuration</div>
+      <div class="srow" style="flex-wrap:wrap; gap:6px;">
+        <span class="sk">ELECTRON CONFIG</span>
+        <span class="sv" id="econf-right" style="font-size:.82rem; color:var(--green); letter-spacing:.04em;">1s¹</span>
+      </div>
+      <div class="sdiv"></div>
+      <button id="realbtn">
+        <span>◉</span>
+        <span>REAL IMAGE MODE</span>
+      </button>
+      <button id="gridbtn">
+        <span>⊞</span>
+        <span>CARTESIAN GRID</span>
+      </button>
+      <button id="smoothbtn">
+        <span>◈</span>
+        <span>SMOOTH ORBITALS</span>
+      </button>
+      <button id="ultrabtn">
+        <span>🔥</span>
+        <span>ULTRA MODE</span>
+      </button>
+    </div>
+  </div>
+
+<script>
+// ══════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════
+const ELS=[
+  {Z:1, name:"Hydrogen",   sym:"H",  p:1,g:1,  n:0},
+  {Z:2, name:"Helium",     sym:"He", p:1,g:18, n:2},
+  {Z:3, name:"Lithium",    sym:"Li", p:2,g:1,  n:4},
+  {Z:4, name:"Beryllium",  sym:"Be", p:2,g:2,  n:5},
+  {Z:5, name:"Boron",      sym:"B",  p:2,g:13, n:6},
+  {Z:6, name:"Carbon",     sym:"C",  p:2,g:14, n:6},
+  {Z:7, name:"Nitrogen",   sym:"N",  p:2,g:15, n:7},
+  {Z:8, name:"Oxygen",     sym:"O",  p:2,g:16, n:8},
+  {Z:9, name:"Fluorine",   sym:"F",  p:2,g:17, n:10},
+  {Z:10,name:"Neon",       sym:"Ne", p:2,g:18, n:10},
+  {Z:11,name:"Sodium",     sym:"Na", p:3,g:1,  n:12},
+  {Z:12,name:"Magnesium",  sym:"Mg", p:3,g:2,  n:12},
+  {Z:13,name:"Aluminium",  sym:"Al", p:3,g:13, n:14},
+  {Z:14,name:"Silicon",    sym:"Si", p:3,g:14, n:14},
+  {Z:15,name:"Phosphorus", sym:"P",  p:3,g:15, n:16},
+  {Z:16,name:"Sulfur",     sym:"S",  p:3,g:16, n:16},
+  {Z:17,name:"Chlorine",   sym:"Cl", p:3,g:17, n:18},
+  {Z:18,name:"Argon",      sym:"Ar", p:3,g:18, n:22},
+  {Z:19,name:"Potassium",  sym:"K",  p:4,g:1,  n:20},
+  {Z:20,name:"Calcium",    sym:"Ca", p:4,g:2,  n:20},
+  {Z:21,name:"Scandium",   sym:"Sc", p:4,g:3,  n:24},
+  {Z:22,name:"Titanium",   sym:"Ti", p:4,g:4,  n:26},
+  {Z:23,name:"Vanadium",   sym:"V",  p:4,g:5,  n:28},
+  {Z:24,name:"Chromium",   sym:"Cr", p:4,g:6,  n:28},
+  {Z:25,name:"Manganese",  sym:"Mn", p:4,g:7,  n:30},
+  {Z:26,name:"Iron",       sym:"Fe", p:4,g:8,  n:30},
+  {Z:27,name:"Cobalt",     sym:"Co", p:4,g:9,  n:32},
+  {Z:28,name:"Nickel",     sym:"Ni", p:4,g:10, n:30},
+  {Z:29,name:"Copper",     sym:"Cu", p:4,g:11, n:34},
+  {Z:30,name:"Zinc",       sym:"Zn", p:4,g:12, n:34},
+  {Z:31,name:"Gallium",    sym:"Ga", p:4,g:13, n:38},
+  {Z:32,name:"Germanium",  sym:"Ge", p:4,g:14, n:42},  // Ge-74 most abundant
+  {Z:33,name:"Arsenic",    sym:"As", p:4,g:15, n:42},
+  {Z:34,name:"Selenium",   sym:"Se", p:4,g:16, n:46},  // Se-80 most abundant
+  {Z:35,name:"Bromine",    sym:"Br", p:4,g:17, n:44},
+  {Z:36,name:"Krypton",    sym:"Kr", p:4,g:18, n:48},
+  {Z:37,name:"Rubidium",   sym:"Rb", p:5,g:1,  n:48},
+  {Z:38,name:"Strontium",  sym:"Sr", p:5,g:2,  n:50},
+  {Z:39,name:"Yttrium",    sym:"Y",  p:5,g:3,  n:50},
+  {Z:40,name:"Zirconium",  sym:"Zr", p:5,g:4,  n:50},  // Zr-90 most abundant
+  {Z:41,name:"Niobium",    sym:"Nb", p:5,g:5,  n:52},
+  {Z:42,name:"Molybdenum", sym:"Mo", p:5,g:6,  n:56},  // Mo-98 most abundant
+  {Z:43,name:"Technetium", sym:"Tc", p:5,g:7,  n:55},
+  {Z:44,name:"Ruthenium",  sym:"Ru", p:5,g:8,  n:58},  // Ru-102 most abundant
+  {Z:45,name:"Rhodium",    sym:"Rh", p:5,g:9,  n:58},
+  {Z:46,name:"Palladium",  sym:"Pd", p:5,g:10, n:60},
+  {Z:47,name:"Silver",     sym:"Ag", p:5,g:11, n:60},
+  {Z:48,name:"Cadmium",    sym:"Cd", p:5,g:12, n:66},  // Cd-114 most abundant
+  {Z:49,name:"Indium",     sym:"In", p:5,g:13, n:66},
+  {Z:50,name:"Tin",        sym:"Sn", p:5,g:14, n:68},
+  {Z:51,name:"Antimony",   sym:"Sb", p:5,g:15, n:70},
+  {Z:52,name:"Tellurium",  sym:"Te", p:5,g:16, n:76},
+  {Z:53,name:"Iodine",     sym:"I",  p:5,g:17, n:74},
+  {Z:54,name:"Xenon",      sym:"Xe", p:5,g:18, n:78},  // Xe-132 most abundant
+];
+
+const ORBS=[
+  {name:"1s",n:1,l:0,max:2,  R:3.0,  hex:"#ff4444",rgb:[1.0,.27,.27]},
+  {name:"2s",n:2,l:0,max:2,  R:8.0,  hex:"#ff9922",rgb:[1.0,.60,.13]},
+  {name:"2p",n:2,l:1,max:6,  R:48.0, hex:"#22ee55",rgb:[.13,.93,.33]},
+  {name:"3s",n:3,l:0,max:2,  R:36.0, hex:"#22aaff",rgb:[.13,.67,1.0]},
+  {name:"3p",n:3,l:1,max:6,  R:160.0,hex:"#cc33ff",rgb:[.80,.20,1.0]},
+  {name:"4s",n:4,l:0,max:2,  R:130.0,hex:"#aaff33",rgb:[.67,1.0,.20]},
+  {name:"3d",n:3,l:2,max:10, R:95.0, hex:"#ff2288",rgb:[1.0,.13,.53]},
+  {name:"4p",n:4,l:1,max:6,  R:500.0,hex:"#00eeff",rgb:[.00,.93,1.0]},
+  {name:"5s",n:5,l:0,max:2,  R:380.0,hex:"#ffee00",rgb:[1.0,.93,.00]},
+  {name:"4d",n:4,l:2,max:10, R:280.0,hex:"#ff6600",rgb:[1.0,.40,.00]},
+];
+
+const SPECIAL_CFG={
+  24:[
+    {name:"1s",n:1,l:0,max:2,e:2,  R:3.0,  hex:"#ff4444",rgb:[1.0,.27,.27]},
+    {name:"2s",n:2,l:0,max:2,e:2,  R:8.0,  hex:"#ff9922",rgb:[1.0,.60,.13]},
+    {name:"2p",n:2,l:1,max:6,e:6,  R:48.0, hex:"#22ee55",rgb:[.13,.93,.33]},
+    {name:"3s",n:3,l:0,max:2,e:2,  R:36.0, hex:"#22aaff",rgb:[.13,.67,1.0]},
+    {name:"3p",n:3,l:1,max:6,e:6,  R:160.0,hex:"#cc33ff",rgb:[.80,.20,1.0]},
+    {name:"4s",n:4,l:0,max:2,e:1,  R:130.0,hex:"#aaff33",rgb:[.67,1.0,.20]},
+    {name:"3d",n:3,l:2,max:10,e:5, R:95.0, hex:"#ff2288",rgb:[1.0,.13,.53]},
+  ],
+  29:[
+    {name:"1s",n:1,l:0,max:2,e:2,  R:3.0,  hex:"#ff4444",rgb:[1.0,.27,.27]},
+    {name:"2s",n:2,l:0,max:2,e:2,  R:8.0,  hex:"#ff9922",rgb:[1.0,.60,.13]},
+    {name:"2p",n:2,l:1,max:6,e:6,  R:48.0, hex:"#22ee55",rgb:[.13,.93,.33]},
+    {name:"3s",n:3,l:0,max:2,e:2,  R:36.0, hex:"#22aaff",rgb:[.13,.67,1.0]},
+    {name:"3p",n:3,l:1,max:6,e:6,  R:160.0,hex:"#cc33ff",rgb:[.80,.20,1.0]},
+    {name:"4s",n:4,l:0,max:2,e:1,  R:130.0,hex:"#aaff33",rgb:[.67,1.0,.20]},
+    {name:"3d",n:3,l:2,max:10,e:10,R:95.0, hex:"#ff2288",rgb:[1.0,.13,.53]},
+  ],
+};
+
+function getConfig(Z){
+  if(SPECIAL_CFG[Z]) return SPECIAL_CFG[Z];
+  let rem=Z,cfg=[];
+  for(const o of ORBS){if(rem<=0)break;const e=Math.min(rem,o.max);cfg.push({...o,e});rem-=e;}
+  return cfg;
+}
+
+// ══════════════════════════════════════════════
+// THREE.JS SETUP
+// ══════════════════════════════════════════════
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0x000000);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.01,2000);
+camera.position.z=30;
+
+scene.add(new THREE.AmbientLight(0x1a0800,3));
+const dl=new THREE.DirectionalLight(0xff6600,1.5);
+dl.position.set(10,10,10);scene.add(dl);
+
+// Cartesian grid — low intensity
+let gridGroup = new THREE.Group();
+{
+  const gridMat = new THREE.LineBasicMaterial({color:0x1a0800, transparent:true, opacity:0.35});
+  const size = 300, step = 20;
+  const points = [];
+  for(let i = -size; i <= size; i += step){
+    // lines along X
+    points.push(new THREE.Vector3(-size, 0, i));
+    points.push(new THREE.Vector3( size, 0, i));
+    // lines along Z
+    points.push(new THREE.Vector3(i, 0, -size));
+    points.push(new THREE.Vector3(i, 0,  size));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(points);
+  // Use LineSegments for pairs
+  const grid = new THREE.LineSegments(geo, gridMat);
+  grid.position.y = -60;
+  gridGroup.add(grid);
+
+  // Second grid — vertical (XY plane)
+  const points2 = [];
+  for(let i = -size; i <= size; i += step){
+    points2.push(new THREE.Vector3(-size, i, 0));
+    points2.push(new THREE.Vector3( size, i, 0));
+    points2.push(new THREE.Vector3(i, -size, 0));
+    points2.push(new THREE.Vector3(i,  size, 0));
+  }
+  const geo2 = new THREE.BufferGeometry().setFromPoints(points2);
+  const grid2 = new THREE.LineSegments(geo2, new THREE.LineBasicMaterial({color:0x1a0800, transparent:true, opacity:0.18}));
+  gridGroup.add(grid2);
+}
+scene.add(gridGroup);
+
+const pivot=new THREE.Group();
+scene.add(pivot);
+let atomGrp=null;
+
+// NUCLEUS — packed protons (red) + neutrons (blue)
+function makeNucleus(Z, N){
+  const g = new THREE.Group();
+  const total = Z + N;
+
+  // Nucleon radius — ultra tiny
+  const nr = Math.max(0.007, 0.011 - total * 0.00004);
+
+  // Materials
+  const matP = new THREE.MeshStandardMaterial({
+    color: 0xff2200, emissive: 0xcc1100, emissiveIntensity: 2.2,
+    roughness: 0.35, metalness: 0.15
+  });
+  const matN = new THREE.MeshStandardMaterial({
+    color: 0x2255ff, emissive: 0x1133cc, emissiveIntensity: 2.0,
+    roughness: 0.35, metalness: 0.15
+  });
+  const geoN = new THREE.SphereGeometry(nr, 14, 14);
+
+  // Pack nucleons into a roughly spherical cluster using a jittered shell approach
+  // Shuffle protons and neutrons together so they interleave visually
+  const types = [];
+  for(let i=0;i<Z;i++) types.push('p');
+  for(let i=0;i<N;i++) types.push('n');
+  // Fisher-Yates shuffle for interleaving
+  for(let i=types.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [types[i],types[j]]=[types[j],types[i]];
+  }
+
+  // Place nucleons using a tight sphere-packing spiral
+  const positions = [];
+  if(total === 1){
+    positions.push([0,0,0]);
+  } else {
+    // Sunflower / Fibonacci sphere packing mapped to a nucleus volume
+    // Nuclear radius scale: R = r0 * A^(1/3), r0 ≈ 0.032 (scene units) — very dense
+    const R0 = 0.012;
+    const Rnuc = R0 * Math.pow(total, 1/3);
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    for(let i=0;i<total;i++){
+      // Distribute radially: inner nucleons first
+      const t = (i + 0.5) / total;
+      const r = Rnuc * Math.pow(t, 1/3);
+      const theta = goldenAngle * i;
+      const phi = Math.acos(1 - 2*t);
+      positions.push([
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.sin(phi) * Math.sin(theta),
+        r * Math.cos(phi)
+      ]);
+    }
+  }
+
+  positions.forEach(([x,y,z], i) => {
+    const mesh = new THREE.Mesh(geoN, types[i]==='p' ? matP : matN);
+    mesh.position.set(x, y, z);
+    g.add(mesh);
+  });
+
+  // Soft glow halo — mixed red+blue tint → purple-ish
+  [[0.025,.20],[0.040,.08],[0.058,.03]].forEach(([r,o])=>
+    g.add(new THREE.Mesh(
+      new THREE.SphereGeometry(r,12,12),
+      new THREE.MeshBasicMaterial({color:0xaa44ff,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false})
+    ))
+  );
+
+  // Sun sprite — always visible from any distance, bright warm glow
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(64,64,0, 64,64,64);
+  grad.addColorStop(0,   'rgba(255,255,220,1.0)');
+  grad.addColorStop(0.1, 'rgba(255,200,80,0.95)');
+  grad.addColorStop(0.3, 'rgba(255,100,20,0.7)');
+  grad.addColorStop(0.6, 'rgba(255,60,0,0.3)');
+  grad.addColorStop(1.0, 'rgba(255,30,0,0.0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,128,128);
+  const spriteTex = new THREE.CanvasTexture(canvas);
+  const spriteMat = new THREE.SpriteMaterial({map: spriteTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false});
+  const sunSprite = new THREE.Sprite(spriteMat);
+  sunSprite.scale.set(8, 8, 1);
+  sunSprite.userData.isSunSprite = true;
+  g.add(sunSprite);
+
+  // Point light — warm white to illuminate nucleons from inside
+  g.add(new THREE.PointLight(0xffaadd, 4, 25));
+  return g;
+}
+
+// SHADERS
+const VERT=`
+attribute float aA;
+attribute vec3 aC;
+varying float vA;
+varying vec3 vC;
+void main(){
+  vC=aC; vA=aA;
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  gl_Position=projectionMatrix*mv;
+  float dist=length(mv.xyz);
+  gl_PointSize=clamp(600.0/dist, 3.0, 16.0);
+}`;
+
+const FRAG=`
+varying float vA;
+varying vec3 vC;
+void main(){
+  vec2 uv=gl_PointCoord-vec2(0.5);
+  float r=length(uv)*2.0;
+  if(r>1.0) discard;
+  float core=exp(-r*r*6.0);
+  float halo=exp(-r*r*1.8)*(1.0-r*0.5);
+  float a=vA*(core*0.9+halo*0.55);
+  gl_FragColor=vec4(vC*(0.7+core*0.6), a);
+}`;
+
+// SAMPLING
+function gauss(mu,sig){
+  const u=Math.random(),v=Math.random();
+  return mu+sig*Math.sqrt(-2*Math.log(u+1e-9))*Math.cos(2*Math.PI*v);
+}
+
+function sampleS(R){
+  const phi=Math.acos(2*Math.random()-1);
+  const th=Math.random()*2*Math.PI;
+  let r=R+(Math.random()+Math.random()+Math.random()+Math.random()-2)*0.5*R*0.18;
+  r=Math.max(R*0.5,r);
+  // Alpha peaks at shell radius R, fades away from it
+  const a=Math.exp(-Math.pow((r-R)/(R*0.15),2));
+  return{x:r*Math.sin(phi)*Math.cos(th),y:r*Math.sin(phi)*Math.sin(th),z:r*Math.cos(phi),a};
+}
+
+function sampleP_lobe(R, axis, innerR){
+  // innerR = radius of the enclosing s-shell; lobes start there, not at nucleus
+  const lobeLen = R - innerR;
+  const sign = Math.random() < 0.5 ? 1 : -1;
+  const t = Math.random();
+  // axial position: from innerR to R along the chosen axis direction
+  const axial = (innerR + t * lobeLen) * sign;
+  const maxRad = lobeLen * 0.42 * Math.sin(t * Math.PI * 0.85);
+  const radial = maxRad * Math.sqrt(Math.random());
+  const phi = Math.random() * 2 * Math.PI;
+  const pr  = radial * Math.cos(phi);
+  const pb_ = radial * Math.sin(phi);
+  let x, y, z;
+  if(axis === 0){ x = axial; y = pr; z = pb_; }
+  else if(axis === 1){ y = axial; x = pr; z = pb_; }
+  else { z = axial; x = pr; y = pb_; }
+  // Alpha peaks around lobe belly (t≈0.5), fades at tip and base
+  const a = Math.exp(-Math.pow(t - 0.5, 2) * 8.0);
+  return { x, y, z, a };
+}
+
+function sampleDSub(R,sub){
+  // Samples a point in one of the 5 d-orbital lobes using physical shapes
+  // Each orbital has a proper angular distribution matching real d wavefunctions
+
+  // Core helper: sample a teardrop lobe along an axis direction (ax,ay,az)
+  function lobe(ax,ay,az){
+    const t=Math.random();
+    const axl=R*(0.35+t*0.9);
+    const maxRad=R*0.38*Math.sin(t*Math.PI*0.9);
+    const rad=maxRad*Math.sqrt(Math.random());
+    const ph=Math.random()*2*Math.PI;
+    // Build orthonormal basis around the lobe axis
+    const len=Math.sqrt(ax*ax+ay*ay+az*az);
+    const ux=ax/len,uy=ay/len,uz=az/len;
+    // Pick a perpendicular vector
+    const bx=Math.abs(ux)<0.8?1:0, by=Math.abs(ux)>=0.8?1:0, bz=0;
+    // Cross product ux ^ b
+    const px=uy*bz-uz*by, py=uz*bx-ux*bz, pz=ux*by-uy*bx;
+    const pl=Math.sqrt(px*px+py*py+pz*pz)+1e-9;
+    // Second perpendicular: cross ux ^ p
+    const qx=uy*(pz/pl)-uz*(py/pl), qy=uz*(px/pl)-ux*(pz/pl), qz=ux*(py/pl)-uy*(px/pl);
+    return{
+      x:ux*axl+(px/pl)*rad*Math.cos(ph)+qx*rad*Math.sin(ph),
+      y:uy*axl+(py/pl)*rad*Math.cos(ph)+qy*rad*Math.sin(ph),
+      z:uz*axl+(pz/pl)*rad*Math.cos(ph)+qz*rad*Math.sin(ph),
+      a:0.45+t*0.55
+    };
+  }
+
+  if(sub===0){
+    // dz²: two lobes along ±Z + donut ring in XY plane
+    if(Math.random()<0.50){
+      return lobe(0, 0, Math.random()<0.5?1:-1);
+    } else {
+      // Torus ring — dense, tight, clearly donut-shaped
+      const phi=Math.random()*2*Math.PI;   // angle around the big circle
+      const a2=Math.random()*2*Math.PI;    // angle around the tube cross-section
+      const ringR=R*0.82;                  // major radius — slightly tighter
+      const tubeR=R*0.42;                  // THICK tube — real donut proportions
+      // Sample full tube volume for solid dense look
+      const tr=tubeR*(0.85+Math.random()*0.15); // surface-biased = dense solid ring
+      return{
+        x:(ringR+tr*Math.cos(a2))*Math.cos(phi),
+        y:(ringR+tr*Math.cos(a2))*Math.sin(phi),
+        z:tr*Math.sin(a2),
+        a:0.75+Math.random()*0.25
+      };
+    }
+  } else if(sub===1){
+    // dxy: 4 lobes in XY plane at 45° (between axes)
+    const ang=Math.floor(Math.random()*4)*Math.PI*0.5+Math.PI*0.25;
+    return lobe(Math.cos(ang), Math.sin(ang), 0);
+  } else if(sub===2){
+    // dxz: 4 lobes in XZ plane at 45°
+    const ang=Math.floor(Math.random()*4)*Math.PI*0.5+Math.PI*0.25;
+    return lobe(Math.cos(ang), 0, Math.sin(ang));
+  } else if(sub===3){
+    // dyz: 4 lobes in YZ plane at 45°
+    const ang=Math.floor(Math.random()*4)*Math.PI*0.5+Math.PI*0.25;
+    return lobe(0, Math.cos(ang), Math.sin(ang));
+  } else {
+    // dx²-y²: 4 lobes along ±X and ±Y axes (not diagonal)
+    const dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0]];
+    const d=dirs[Math.floor(Math.random()*4)];
+    return lobe(d[0], d[1], d[2]);
+  }
+}
+
+const P_AXIS_TINT=[[1.0,0.45,0.45],[0.45,1.0,0.55],[0.65,0.65,1.0]];
+let realMode = false;
+let smoothMode = false;
+let ultraMode = false;
+
+// ══════════════════════════════════════════════
+// ULTRA MODE — mesh-based Fresnel bubble shells
+// Orbitals rendered as actual 3D mesh surfaces with
+// a Fresnel shader: transparent center, glowing rim — like glass bubbles.
+// Zero point-cloud grain.
+// ══════════════════════════════════════════════
+
+const BUBBLE_VERT = `
+varying vec3 vNormal;
+varying vec3 vViewDir;
+void main(){
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vNormal  = normalize(normalMatrix * normal);
+  vViewDir = normalize(-mv.xyz);
+  gl_Position = projectionMatrix * mv;
+}`;
+
+const BUBBLE_FRAG = `
+precision highp float;
+uniform vec3  uColor;
+uniform float uAlpha;
+uniform float uRimPow;
+varying vec3 vNormal;
+varying vec3 vViewDir;
+void main(){
+  float ndv     = abs(dot(normalize(vNormal), normalize(vViewDir)));
+  float rim     = 1.0 - ndv;
+  float fresnel = pow(rim, uRimPow);
+  float alpha   = uAlpha * (fresnel * 0.94 + 0.10);
+  vec3  col     = uColor * (0.6 + fresnel * 1.6);
+  gl_FragColor  = vec4(col, alpha);
+}`;
+
+function bubbleMat(rgb, alpha, rimPow){
+  return new THREE.ShaderMaterial({
+    vertexShader:   BUBBLE_VERT,
+    fragmentShader: BUBBLE_FRAG,
+    uniforms: {
+      uColor:  { value: new THREE.Color(rgb[0], rgb[1], rgb[2]) },
+      uAlpha:  { value: alpha },
+      uRimPow: { value: rimPow }
+    },
+    transparent: true,
+    depthWrite:  false,
+    side:        THREE.DoubleSide,
+    blending:    THREE.AdditiveBlending
+  });
+}
+
+// Build a lobe mesh — lobes have a node at nucleus, bulge outward from innerR to R.
+function makeLobeMesh(R, axisVec, mat, innerR){
+  const lobeLen = R - innerR;
+  const maxW    = lobeLen * 0.35;
+  const segs    = 120;
+  const points  = [];
+
+  points.push(new THREE.Vector2(0, innerR));
+
+  for(let i = 1; i <= segs; i++){
+    const t  = i / segs;
+    const h  = innerR + t * lobeLen;
+    const rr = maxW * Math.sin(Math.PI * t);
+    points.push(new THREE.Vector2(Math.max(0, rr), h));
+  }
+
+  const geo  = new THREE.LatheGeometry(points, 64);
+  const mesh = new THREE.Mesh(geo, mat);
+
+  const from   = new THREE.Vector3(0, 1, 0);
+  const target = new THREE.Vector3(axisVec[0], axisVec[1], axisVec[2]).normalize();
+  const dot    = from.dot(target);
+
+  if(dot > 0.9999){
+  } else if(dot < -0.9999){
+    mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
+  } else {
+    const axis = new THREE.Vector3().crossVectors(from, target).normalize();
+    mesh.quaternion.setFromAxisAngle(axis, Math.acos(dot));
+  }
+
+  mesh.position.set(0, 0, 0);
+  return mesh;
+}
+
+let ultraMeshes = [];
+
+function buildUltraCloud(orb){
+  const grp = new THREE.Group();
+  const [cr, cg, cb] = realMode ? [1.0, 0.08, 0.04] : orb.rgb;
+
+  // Fresnel strength — tighter rim for inner compact orbitals
+  const rimPow = 1.2 + orb.R * 0.008;
+  const alpha  = 1.05 * Math.pow(10 / (orb.R + 3), 0.22);
+
+  const AX_TINTS = realMode ? [
+    [1.0, 0.08, 0.04],
+    [1.0, 0.12, 0.06],
+    [1.0, 0.06, 0.08],
+  ] : [
+    [cr,      cg*0.55, cb*0.55],
+    [cr*0.65, cg,      cb*0.55],
+    [cr*0.55, cg*0.55, cb     ],
+  ];
+  const SUB_TINTS = realMode ? [
+    [1.0, 0.06, 0.04],
+    [1.0, 0.10, 0.05],
+    [1.0, 0.08, 0.06],
+    [1.0, 0.05, 0.08],
+    [1.0, 0.07, 0.03],
+  ] : [
+    [cr,      cg*0.45, cb*0.75],
+    [cr,      cg*0.65, cb*0.35],
+    [cr*0.75, cg,      cb*0.45],
+    [cr*0.55, cg*0.75, cb     ],
+    [cr,      cg*0.35, cb*0.55],
+  ];
+
+  if(orb.l === 0){
+    // Perfect sphere shell
+    const geo  = new THREE.SphereGeometry(orb.R, 128, 64);
+    const mat  = bubbleMat([cr, cg, cb], alpha, rimPow);
+    grp.add(new THREE.Mesh(geo, mat));
+
+  } else if(orb.l === 1){
+    // p orbital: always 3 dumbbells (px=X axis, py=Y axis, pz=Z axis).
+    // Each dumbbell = 2 lobes pointing in opposite directions.
+    // Electron count (1-6) determines how many dumbbells are occupied,
+    // but each occupied dumbbell ALWAYS shows BOTH lobes — it's a dumbbell, not a single lobe.
+    // 1-2e → 1 dumbbell (px), 3-4e → 2 dumbbells (px+py), 5-6e → 3 dumbbells (all)
+    // innerR = the same-n s-orbital radius so lobes start at the s-shell surface
+    const sRadii = { 2: 8.0, 3: 36.0, 4: 130.0, 5: 380.0 };
+    const innerR = sRadii[orb.n] != null ? sRadii[orb.n] : orb.R * 0.25;
+    // Hund's rule: electrons fill each orbital (dumbbell) singly before pairing.
+    // p subshell has 3 orbitals (px, py, pz). Fill order:
+    //   1e → px½   → 1 dumbbell
+    //   2e → px½ py½  → 2 dumbbells
+    //   3e → px½ py½ pz½ → 3 dumbbells
+    //   4e → px² py½ pz½ → 3 dumbbells
+    //   5e → px² py² pz½ → 3 dumbbells
+    //   6e → px² py² pz² → 3 dumbbells
+    // So dumbbell count = min(e, 3) — one dumbbell per occupied orbital.
+    const axes      = [[1,0,0],[0,1,0],[0,0,1]];
+    const dumbCount = Math.min(orb.e, 3);   // Hund: 1 per orbital until all 3 filled
+    for(let ax = 0; ax < dumbCount; ax++){
+      const mat = bubbleMat(AX_TINTS[ax], alpha * 0.88, rimPow);
+      const [dx,dy,dz] = axes[ax];
+      grp.add(makeLobeMesh(orb.R, [ dx,  dy,  dz], mat, innerR));
+      grp.add(makeLobeMesh(orb.R, [-dx, -dy, -dz], mat, innerR));
+    }
+
+  } else {
+    // d orbitals — 5 sub-orbitals, each with a distinct shape:
+    //   dz²      : 2 lobes along ±Z + torus ring in XY plane
+    //   dxy      : 4 lobes at 45° in XY plane (between X and Y axes)
+    //   dxz      : 4 lobes at 45° in XZ plane
+    //   dyz      : 4 lobes at 45° in YZ plane
+    //   dx²-y²   : 4 lobes along ±X and ±Y axes
+    //
+    // Hund's rule for d: electrons fill one per sub-orbital (1→sub0, 2→sub0+1, …5→all)
+    // then pair up (6→sub0 paired, …10→all paired).
+    // Number of sub-orbitals shown = min(e, 5) — always show each occupied sub.
+    //
+    // innerR for d lobes: d orbitals are compact — use a small inner gap,
+    // not the full s-orbital radius (3d sits well inside 4s spatially).
+    const dInnerR = orb.R * 0.30;   // d lobes start 30% inward — compact but not at nucleus
+
+    const D_SHAPE = [
+      // dz²: 2 lobes ±Z
+      { dirs: [[0,1,0],[0,-1,0]], torus: true },
+      // dxy: 4 lobes diagonal in XZ plane (our Y-up lobe system: use XZ diagonals)
+      { dirs: [[1,0,1],[-1,0,-1],[1,0,-1],[-1,0,1]], torus: false },
+      // dxz: 4 lobes diagonal in XY plane
+      { dirs: [[1,1,0],[-1,-1,0],[1,-1,0],[-1,1,0]], torus: false },
+      // dyz: 4 lobes diagonal in YZ plane
+      { dirs: [[0,1,1],[0,-1,-1],[0,1,-1],[0,-1,1]], torus: false },
+      // dx²-y²: 4 lobes along ±X and ±Z axes
+      { dirs: [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]], torus: false },
+    ];
+
+    const subCount = Math.min(orb.e, 5);
+    for(let sub = 0; sub < subCount; sub++){
+      const shape = D_SHAPE[sub];
+      const mat   = bubbleMat(SUB_TINTS[sub], alpha * 0.82, rimPow + 0.3);
+      for(const dir of shape.dirs){
+        const len = Math.sqrt(dir[0]*dir[0]+dir[1]*dir[1]+dir[2]*dir[2]);
+        const nd  = [dir[0]/len, dir[1]/len, dir[2]/len];
+        grp.add(makeLobeMesh(orb.R, nd, mat, dInnerR));
+      }
+      // dz² torus ring in the XZ plane
+      if(shape.torus){
+        const torusMat = bubbleMat(SUB_TINTS[0], alpha * 0.70, rimPow + 0.5);
+        const torusGeo = new THREE.TorusGeometry(orb.R * 0.55, orb.R * 0.14, 48, 128);
+        // Torus is in XY by default — rotate to XZ plane
+        const torus = new THREE.Mesh(torusGeo, torusMat);
+        torus.rotation.x = Math.PI / 2;
+        grp.add(torus);
+      }
+    }
+  }
+
+  return grp;
+}
+
+function updateUltraUniforms(camera){}
+
+
+// ══════════════════════════════════════════════
+// SMOOTH MODE — identical to grainy but larger, softer points
+// ══════════════════════════════════════════════
+
+const SMOOTH_VERT = `
+attribute float aA;
+attribute vec3 aC;
+varying float vA;
+varying vec3 vC;
+void main(){
+  vC=aC; vA=aA;
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  gl_Position=projectionMatrix*mv;
+  float dist=length(mv.xyz);
+  gl_PointSize=clamp(3500.0/dist, 2.0, 140.0);
+}`;
+
+const SMOOTH_FRAG = `
+varying float vA;
+varying vec3 vC;
+void main(){
+  vec2 uv=gl_PointCoord-vec2(0.5);
+  float r=length(uv)*2.0;
+  if(r>1.0) discard;
+  float g=exp(-r*r*2.8);
+  gl_FragColor=vec4(vC, vA*g);
+}`;
+
+// Smooth sampler: samples points with alpha = wavefunction density at that point
+// So dense regions accumulate more brightness naturally
+function smoothDensity(x,y,z,l,sub,R){
+  const r=Math.sqrt(x*x+y*y+z*z)+1e-9;
+  const rn=r/R;
+  if(l===0){
+    return Math.exp(-Math.pow(rn-0.55,2)*14)+Math.exp(-rn*rn*8)*0.4;
+  }
+  if(l===1){
+    const cosT=sub===0?x/r:sub===1?y/r:z/r;
+    return cosT*cosT*Math.exp(-Math.pow(rn-0.7,2)*10)*1.8;
+  }
+  const radial=Math.exp(-Math.pow(rn-0.75,2)*9);
+  const r2=r*r, rn2=rn*rn;
+  let ang;
+  if(sub===0){const v=(2*z*z-x*x-y*y)/r2;ang=v*v*0.75;}
+  else if(sub===1){ang=4*(x*y)*(x*y)/(r2*r2)*rn2*rn2*2.5;}
+  else if(sub===2){ang=4*(x*z)*(x*z)/(r2*r2)*rn2*rn2*2.5;}
+  else if(sub===3){ang=4*(y*z)*(y*z)/(r2*r2)*rn2*rn2*2.5;}
+  else{const v=(x*x-y*y)/r2;ang=v*v*1.2;}
+  return ang*radial*2.2;
+}
+
+function buildSmoothCloud(orb){
+  const grp=new THREE.Group();
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const radiusBoost=1+orb.R/25;
+  const fillFrac=orb.e/orb.max;
+
+  function mkCloud(count, l, sub, sampler, rgb){
+    const pos=new Float32Array(count*3);
+    const col=new Float32Array(count*3);
+    const alp=new Float32Array(count);
+    const[cr,cg,cb]=rgb;
+    let maxD=0;
+    const pts=[];
+    // Generate candidates, compute density, keep weighted
+    for(let i=0;i<count;i++){
+      const pt=sampler();
+      const d=smoothDensity(pt.x,pt.y,pt.z,l,sub,orb.R);
+      pts.push({...pt,d});
+      if(d>maxD)maxD=d;
+    }
+    for(let i=0;i<count;i++){
+      pos[i*3]=pts[i].x;pos[i*3+1]=pts[i].y;pos[i*3+2]=pts[i].z;
+      col[i*3]=cr;col[i*3+1]=cg;col[i*3+2]=cb;
+      // Alpha directly proportional to density — dense=bright, sparse=dim
+      alp[i]=Math.pow(pts[i].d/maxD,0.6)*0.9;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+    geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+    const mat=new THREE.ShaderMaterial({vertexShader:SMOOTH_VERT,fragmentShader:SMOOTH_FRAG,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+    return new THREE.Points(geo,mat);
+  }
+
+  if(orb.l===0){
+    const n=Math.round(6000*fillFrac*radiusBoost);
+    grp.add(mkCloud(n,0,0,()=>sampleS(orb.R),[r,g,b]));
+  }else if(orb.l===1){
+    const sRadii={2:8.0,3:36.0,4:130.0,5:380.0};
+    const pInnerR=sRadii[orb.n]!=null?sRadii[orb.n]:orb.R*0.30;
+    const axCount=Math.min(orb.e,3);
+    for(let ax=0;ax<axCount;ax++){
+      const tint=P_AXIS_TINT[ax];
+      const c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
+      grp.add(mkCloud(Math.round(5000*radiusBoost),1,ax,()=>sampleP_lobe(orb.R,ax,pInnerR),c));
+    }
+  }else{
+    const subCount=Math.min(orb.e,5);
+    const D_TINTS=[[1,.3,.5],[1,.5,.2],[.5,1,.3],[.3,.5,1],[.8,.3,1]];
+    for(let sub=0;sub<subCount;sub++){
+      const tint=D_TINTS[sub];
+      const c=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      grp.add(mkCloud(Math.round(4000*radiusBoost),2,sub,()=>sampleDSub(orb.R,sub),c));
+    }
+  }
+  return grp;
+}
+
+function updateSmoothUniforms(){}
+
+
+function realColor(R){
+  const maxR=75,t=Math.min(R/maxR,1);
+  return[0.95-t*0.15,0.20-t*0.12,0.02];
+}
+
+function makePointCloud(count,sampler,rgb){
+  const pos=new Float32Array(count*3);
+  const col=new Float32Array(count*3);
+  const alp=new Float32Array(count);
+  const[r,g,b]=rgb;
+  for(let i=0;i<count;i++){
+    const pt=sampler(i);
+    pos[i*3]=pt.x;pos[i*3+1]=pt.y;pos[i*3+2]=pt.z;
+    col[i*3]=r;col[i*3+1]=g;col[i*3+2]=b;
+    alp[i]=pt.a;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+  const mat=new THREE.ShaderMaterial({vertexShader:VERT,fragmentShader:FRAG,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+  return new THREE.Points(geo,mat);
+}
+
+function buildCloud(orb,electrons){
+  const grp=new THREE.Group();
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const radiusBoost=1+orb.R/25;
+  const fillFrac=orb.e/orb.max;
+  if(orb.l===0){
+    const count=Math.round(28000*fillFrac*radiusBoost);
+    grp.add(makePointCloud(count,()=>sampleS(orb.R),[r,g,b]));
+  }else if(orb.l===1){
+    const sRadii={2:8.0,3:36.0,4:130.0,5:380.0};
+    const pInnerR=sRadii[orb.n]!=null?sRadii[orb.n]:orb.R*0.30;
+    const axCount=Math.min(orb.e,3);
+    const perAxis=Math.round(26000*radiusBoost);
+    for(let ax=0;ax<axCount;ax++){
+      const tint=P_AXIS_TINT[ax];
+      const axRGB=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
+      grp.add(makePointCloud(perAxis,()=>sampleP_lobe(orb.R,ax,pInnerR),axRGB));
+    }
+  }else{
+    const subCount=Math.min(orb.e,5);
+    const perSub=Math.round(16000*radiusBoost);
+    const D_TINTS=[[1,.3,.5],[1,.5,.2],[.5,1,.3],[.3,.5,1],[.8,.3,1]];
+    for(let sub=0;sub<subCount;sub++){
+      const tint=D_TINTS[sub];
+      const dRGB=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      grp.add(makePointCloud(perSub,()=>sampleDSub(orb.R,sub),dRGB));
+    }
+  }
+  return grp;
+}
+
+let curZ=1;
+
+function buildAtom(Z){
+  ultraMeshes = [];
+  if(atomGrp){
+    pivot.remove(atomGrp);
+    atomGrp.traverse(o=>{
+      if(o.geometry)o.geometry.dispose();
+      if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}
+    });
+    atomGrp=null;
+  }
+  atomGrp=new THREE.Group();
+  pivot.add(atomGrp);
+  const elData = ELS.find(e=>e.Z===Z);
+  atomGrp.add(makeNucleus(Z, elData ? elData.n : 0));
+  for(const orb of getConfig(Z)) atomGrp.add(ultraMode ? buildUltraCloud(orb) : smoothMode ? buildSmoothCloud(orb) : buildCloud(orb,orb.e));
+}
+
+// ══════════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════════
+const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+const sup=n=>SUP[String(n)]||n;
+
+// Toast
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+function updateUI(Z){
+  const el=ELS.find(e=>e.Z===Z);
+  const cfg=getConfig(Z);
+  const confStr=cfg.map(o=>o.name+sup(o.e)).join(' ');
+
+  document.getElementById('ename').textContent=el.name.toUpperCase();
+  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ELECTRON${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}`;
+  document.getElementById('econf').textContent=confStr;
+  document.getElementById('econf-right').textContent=confStr;
+  document.getElementById('badge-z').textContent=Z;
+  document.getElementById('badge-sym').textContent=el.sym;
+  document.getElementById('sz').textContent=Z;
+  document.getElementById('se').textContent=Z;
+  document.getElementById('sp').textContent=Z;
+  document.getElementById('sn').textContent=el.n;
+  document.getElementById('sper').textContent=el.p;
+  document.getElementById('sgrp').textContent=el.g;
+
+  const leg=document.getElementById('oleg');
+  leg.innerHTML='';
+  cfg.forEach(o=>{
+    const type=['s','p','d'][o.l];
+    if(o.l===1){
+      const axNames=['px','py','pz'];
+      const axHex=['#ff8866','#66ffaa','#aaaaff'];
+      const eCounts=[0,0,0];
+      for(let i=0;i<Math.min(o.e,3);i++) eCounts[i]++;
+      for(let i=0;i<o.e-3;i++) eCounts[i]++;
+      axNames.forEach((ax,i)=>{
+        if(eCounts[i]===0) return;
+        leg.innerHTML+=`<div class="orow">
+          <div class="odot" style="background:${axHex[i]};box-shadow:0 0 5px ${axHex[i]}88;"></div>
+          <span class="olbl">${o.n}${ax}</span>
+          <span class="ocnt">${eCounts[i]}e⁻</span>
+        </div>`;
+      });
+    }else if(o.l===2){
+      const dNames=['dz²','dxy','dxz','dyz','dx²-y²'];
+      const dHex=['#ff4499','#ff7733','#ffaa00','#aadd00','#ff22cc'];
+      const subCount=Math.min(o.e,5);
+      for(let i=0;i<subCount;i++){
+        const eInSub=(o.e>5&&i<(o.e-5))?2:1;
+        leg.innerHTML+=`<div class="orow">
+          <div class="odot" style="background:${dHex[i]};box-shadow:0 0 5px ${dHex[i]}88;"></div>
+          <span class="olbl">${o.n}${dNames[i]}</span>
+          <span class="ocnt">${eInSub}e⁻</span>
+        </div>`;
+      }
+    }else{
+      leg.innerHTML+=`<div class="orow">
+        <div class="odot" style="background:${o.hex};box-shadow:0 0 5px ${o.hex}88;"></div>
+        <span class="olbl">${o.name} (${type}-type)</span>
+        <span class="ocnt">${o.e}e⁻</span>
+      </div>`;
+    }
+  });
+
+  document.querySelectorAll('.ebtn').forEach(b=>b.classList.remove('on'));
+  const btn=document.querySelector(`[data-z="${Z}"]`);
+  if(btn){btn.classList.add('on');btn.scrollIntoView({block:'nearest',behavior:'smooth'});}
+}
+
+// Element buttons
+const eg=document.getElementById('egrid');
+ELS.forEach(el=>{
+  const b=document.createElement('button');
+  b.className='ebtn';
+  b.dataset.z=el.Z;
+  b.dataset.name=el.name.toLowerCase();
+  b.innerHTML=`<span class="s">${el.sym}</span><span class="z">${el.Z}</span>`;
+  b.title=el.name;
+  b.setAttribute('aria-label', `${el.name} (Z=${el.Z})`);
+  eg.appendChild(b);
+});
+
+// Dual handler: touchend for Android (fires before scroll cancels it),
+// click as fallback for desktop/mouse
+let lastTouchZ = 0;
+eg.addEventListener('touchend', (e) => {
+  const btn = e.target.closest('.ebtn');
+  if(!btn) return;
+  const Z = parseInt(btn.dataset.z, 10);
+  if(Z){ lastTouchZ = Z; select(Z); e.preventDefault(); }
+}, { passive: false });
+
+eg.addEventListener('click', (e) => {
+  const btn = e.target.closest('.ebtn');
+  if(!btn) return;
+  const Z = parseInt(btn.dataset.z, 10);
+  // Skip if touchend already handled this (prevents double-fire)
+  if(Z && Z !== lastTouchZ) select(Z);
+  lastTouchZ = 0;
+});
+
+// Search filter
+document.getElementById('el-search').addEventListener('input', function(){
+  const q=this.value.trim().toLowerCase();
+  let visible=0;
+  document.querySelectorAll('.ebtn').forEach(b=>{
+    const name=b.dataset.name;
+    const sym=b.querySelector('.s').textContent.toLowerCase();
+    const z=b.dataset.z;
+    const match=!q||name.includes(q)||sym.includes(q)||z===q;
+    b.classList.toggle('hidden-el',!match);
+    if(match) visible++;
+  });
+  document.getElementById('no-results').style.display=visible===0?'block':'none';
+});
+
+function select(Z){
+  curZ=Z;
+  buildAtom(Z);
+  updateUI(Z);
+  // Don't auto-close on mobile — user may want to keep browsing elements
+  // They can close manually via X button or backdrop tap
+}
+
+// ══════════════════════════════════════════════
+// CAMERA CONTROLS
+// ══════════════════════════════════════════════
+let tZ=240,camZ=240,rotX=.28,rotY=0,drag=false,lx=0,ly=0,autoSpin=true;
+
+// Zoom: slider 1-400 → camera distance 20 (close) to 1200 (far out for heavy elements)
+function slVal(v){return 4000*Math.pow(5/4000,v/600);}
+
+const sl=document.getElementById('zsl');
+function applyZoom(){
+  tZ=slVal(+sl.value);
+  const mx=(30/tZ).toFixed(1);
+  document.getElementById('zval').textContent=mx+'×';
+  document.getElementById('szoom').textContent=mx+'×';
+}
+sl.addEventListener('input',applyZoom);
+
+renderer.domElement.addEventListener('wheel',e=>{
+  e.preventDefault();
+  sl.value=Math.max(1,Math.min(600,+sl.value+(e.deltaY>0?-10:10)));
+  applyZoom();
+},{passive:false});
+
+renderer.domElement.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;autoSpin=false;});
+window.addEventListener('mousemove',e=>{
+  if(!drag)return;
+  rotY+=(e.clientX-lx)*.007;rotX+=(e.clientY-ly)*.007;
+  rotX=Math.max(-1.5,Math.min(1.5,rotX));lx=e.clientX;ly=e.clientY;
+});
+window.addEventListener('mouseup',()=>drag=false);
+renderer.domElement.addEventListener('dblclick',()=>{autoSpin=true;rotX=.28;showToast('AUTO-SPIN ON');});
+
+// Touch
+let pd=0;
+renderer.domElement.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;autoSpin=false;}
+  if(e.touches.length===2)pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+},{passive:true});
+renderer.domElement.addEventListener('touchmove',e=>{
+  if(e.touches.length===1&&drag){
+    rotY+=(e.touches[0].clientX-lx)*.007;rotX+=(e.touches[0].clientY-ly)*.007;
+    lx=e.touches[0].clientX;ly=e.touches[0].clientY;
+  }
+  if(e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    sl.value=Math.max(1,Math.min(600,+sl.value+(d-pd)*.5));pd=d;applyZoom();
+  }
+},{passive:true});
+renderer.domElement.addEventListener('touchend',()=>drag=false,{passive:true});
+
+document.getElementById('rbtn').onclick=()=>{
+  autoSpin=true;rotX=.28;rotY=0;sl.value=80;applyZoom();tZ=240;
+  showToast('VIEW RESET');
+};
+
+const realbtn=document.getElementById('realbtn');
+realbtn.onclick=()=>{
+  realMode=!realMode;
+  realbtn.classList.toggle('active',realMode);
+  renderer.setClearColor(realMode?0x020100:0x000000);
+  showToast(realMode?'REAL IMAGE MODE ON':'REAL IMAGE MODE OFF');
+  buildAtom(curZ);
+};
+
+let gridVisible=true;
+const gridbtn=document.getElementById('gridbtn');
+gridbtn.classList.add('active');
+gridbtn.onclick=()=>{
+  gridVisible=!gridVisible;
+  gridGroup.visible=gridVisible;
+  gridbtn.classList.toggle('active',gridVisible);
+  showToast(gridVisible?'GRID ON':'GRID OFF');
+};
+
+const smoothbtn=document.getElementById('smoothbtn');
+smoothbtn.onclick=()=>{
+  smoothMode=!smoothMode;
+  smoothbtn.classList.toggle('active',smoothMode);
+  showToast(smoothMode?'SMOOTH ORBITALS ON':'GRAIN MODE ON');
+  buildAtom(curZ);
+};
+
+const ultrabtn=document.getElementById('ultrabtn');
+ultrabtn.onclick=()=>{
+  ultraMode=!ultraMode;
+  ultrabtn.classList.toggle('active',ultraMode);
+  // Ultra gets its own background warmth
+  if(ultraMode){
+    renderer.setClearColor(0x0a0200);
+  } else {
+    renderer.setClearColor(realMode?0x020100:0x000000);
+  }
+  showToast(ultraMode?'⚡ ULTRA MODE ON':'ULTRA MODE OFF');
+  buildAtom(curZ);
+};
+
+// ── Panel toggles ──
+function isMobile(){ return window.innerWidth<=640; }
+
+const backdrop=document.getElementById('backdrop');
+backdrop.addEventListener('click',()=>{
+  closePanel('left');
+  closePanel('right');
+});
+
+function openPanel(id){
+  document.getElementById(id).classList.remove('hidden');
+  document.getElementById(id==='left'?'tab-left':'tab-right').classList.add('on');
+  if(isMobile()) backdrop.classList.add('visible');
+}
+function closePanel(id){
+  document.getElementById(id).classList.add('hidden');
+  document.getElementById(id==='left'?'tab-left':'tab-right').classList.remove('on');
+  if(isMobile()){
+    const other=id==='left'?'right':'left';
+    if(document.getElementById(other).classList.contains('hidden'))
+      backdrop.classList.remove('visible');
+  }
+}
+function togglePanel(id){
+  const isHidden=document.getElementById(id).classList.contains('hidden');
+  if(!isHidden){ closePanel(id); return; }
+  // On mobile close the other panel first
+  if(isMobile()) closePanel(id==='left'?'right':'left');
+  openPanel(id);
+}
+
+document.getElementById('tab-left').addEventListener('click',()=>togglePanel('left'));
+document.getElementById('tab-right').addEventListener('click',()=>togglePanel('right'));
+
+// Keyboard navigation
+window.addEventListener('keydown',e=>{
+  if(document.activeElement===document.getElementById('el-search')) return;
+  if(e.key==='ArrowRight'||e.key==='ArrowUp'){
+    select(Math.min(curZ+1,ELS[ELS.length-1].Z));
+  }else if(e.key==='ArrowLeft'||e.key==='ArrowDown'){
+    select(Math.max(curZ-1,1));
+  }else if(e.key==='r'||e.key==='R'){
+    document.getElementById('rbtn').onclick();
+  }else if(e.key==='Escape'){
+    closePanel('left');closePanel('right');
+  }
+});
+
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+  // On desktop resize: ensure panels visible by default
+  if(!isMobile()){
+    backdrop.classList.remove('visible');
+  }
+});
+
+// ══════════════════════════════════════════════
+// RENDER LOOP
+// ══════════════════════════════════════════════
+const clock=new THREE.Clock();
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=clock.getDelta(),t=clock.getElapsedTime();
+  camZ+=(tZ-camZ)*.07;
+  camera.position.z=camZ;
+  if(autoSpin)rotY+=dt*.2;
+  pivot.rotation.y=rotY;pivot.rotation.x=rotX;
+  if(atomGrp)atomGrp.traverse(o=>{
+    if(o.isPointLight) o.intensity=4+Math.sin(t*3.5)*.9;
+    // Sun sprite scales with distance — always a bright glowing dot from far
+    if(o.isSprite && o.userData.isSunSprite){
+      const s = Math.max(8, camZ * 0.06);
+      o.scale.set(s, s, 1);
+    }
+    // Nucleus halo fades as you zoom out
+    if(o.isMesh && o.material && o.material.side===THREE.BackSide && o.geometry && o.geometry.parameters && o.geometry.parameters.radius < 0.1){
+      const zoomFade = Math.max(0, Math.min(1, 80 / camZ));
+      if(o.material._baseOpacity === undefined) o.material._baseOpacity = o.material.opacity;
+      o.material.opacity = o.material._baseOpacity * zoomFade;
+    }
+  });
+  updateSmoothUniforms();
+  if(ultraMode) updateUltraUniforms(camera);
+  const cfg=getConfig(curZ);
+  const vis=cfg.filter(o=>o.R<=camZ*0.55).map(o=>o.name);
+  document.getElementById('svis').textContent=vis.join(' ')||'—';
+  renderer.render(scene,camera);
+}
+
+// INIT
+applyZoom();
+select(1);
+// Open panels on desktop only
+if(!isMobile()){
+  openPanel('left');
+  openPanel('right');
+}
+loop();
+</script>
+</body>
+</html>
