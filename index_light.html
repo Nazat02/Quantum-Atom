@@ -288,7 +288,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .feat-card:hover{background:var(--glass-hi);transform:translateY(-3px);box-shadow:var(--shadow-lg);}
 .feat-icon{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:14px;
   background:linear-gradient(135deg,var(--v1),var(--c1));margin-bottom:16px;color:#fff;}
-.feat-icon svg *{fill:#fff!important;stroke:#fff!important;}
+.feat-icon svg{display:block;}
 .feat-title{font-family:var(--display);font-weight:600;font-size:1.08rem;color:var(--hi);margin-bottom:10px;}
 .feat-body{font-size:.85rem;color:var(--lo);line-height:1.75;}
 .feat-tag{display:inline-block;margin-top:14px;font-size:.68rem;font-weight:600;color:var(--v1);
@@ -463,12 +463,12 @@ footer{position:relative;z-index:1;}
 .theme-toggle-btn {
   display:inline-flex;align-items:center;justify-content:center;
   width:36px;height:36px;border-radius:50%;
-  border:1px solid rgba(124,108,246,.35);
-  background:rgba(124,108,246,.10);
-  cursor:pointer;transition:all .2s;flex-shrink:0;margin-left:8px;
+  border:none;
+  background:linear-gradient(135deg,var(--v1),var(--c1));
+  cursor:pointer;transition:all .2s;flex-shrink:0;
   font-size:1.05rem;line-height:1;text-decoration:none;
 }
-.theme-toggle-btn:hover{background:rgba(124,108,246,.22);box-shadow:0 0 12px rgba(124,108,246,.3);}
+.theme-toggle-btn:hover{box-shadow:0 0 12px rgba(124,108,246,.5);transform:translateY(-1px);}
 </style>
 </head>
 <body>
@@ -509,10 +509,12 @@ footer{position:relative;z-index:1;}
     <a href="#comparison" class="nav-link">COMPARISON</a>
     <a href="#features" class="nav-link">SIMULATOR</a>
   </div>
-  <a href="https://nazat02.github.io/Quantum-Atom/simulator_light.html" class="nav-cta">LAUNCH →</a>
+  <div style="display:flex;align-items:center;gap:6px;">
   <a href="javascript:goDark()" class="theme-toggle-btn" title="Switch to dark mode" aria-label="Switch to dark mode"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" fill="white"/>
 </svg></a>
+  <a href="https://nazat02.github.io/Quantum-Atom/simulator_light.html" class="nav-cta">LAUNCH →</a>
+  </div>
 </nav>
 
 <!-- HERO -->
@@ -1330,11 +1332,11 @@ window.addEventListener('error',function(e){
   const W=cv.width,H=cv.height;
   let angle=0;
   const pts=[];
-  for(let i=0;i<3000;i++){
+  for(let i=0;i<5500;i++){
     const phi=Math.acos(2*Math.random()-1);
     const th=Math.random()*2*Math.PI;
-    const r=120*(Math.random()+Math.random()+Math.random()+Math.random())/4*.6;
-    const a=Math.exp(-r/40)*0.9;
+    const r=230*(Math.random()+Math.random()+Math.random()+Math.random())/4*.6;
+    const a=Math.exp(-r/78)*0.9;
     pts.push({
       x:r*Math.sin(phi)*Math.cos(th),y:r*Math.sin(phi)*Math.sin(th),
       z:r*Math.cos(phi),a
@@ -1354,9 +1356,12 @@ window.addEventListener('error',function(e){
       const r=Math.floor(124+g*40),gg=Math.floor(108+g*100),b=Math.floor(246-g*30);
       ctx.fillStyle=`rgba(${r},${gg},${b},${p.a.toFixed(2)})`;ctx.fill();
     });
-    const ng=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,10);
-    ng.addColorStop(0,'rgba(244,114,182,.95)');ng.addColorStop(1,'transparent');
-    ctx.beginPath();ctx.arc(W/2,H/2,10,0,Math.PI*2);ctx.fillStyle=ng;ctx.fill();
+    const ng=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,16);
+    ng.addColorStop(0,'rgba(255,255,255,.95)');
+    ng.addColorStop(.25,'rgba(196,181,253,.95)');
+    ng.addColorStop(.6,'rgba(124,108,246,.55)');
+    ng.addColorStop(1,'rgba(124,108,246,0)');
+    ctx.beginPath();ctx.arc(W/2,H/2,16,0,Math.PI*2);ctx.fillStyle=ng;ctx.fill();
     requestAnimationFrame(draw);
   }
   draw();
