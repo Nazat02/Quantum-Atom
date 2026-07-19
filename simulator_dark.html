@@ -155,6 +155,10 @@ canvas { position:fixed; inset:0; z-index:0; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.excited-orb {
+  color: #ffcc33;
+  text-shadow: 0 0 6px rgba(255,204,51,.7);
+}
 
 #tabs { display:flex; gap:6px; flex-shrink:0; }
 .tab {
@@ -485,6 +489,33 @@ canvas { position:fixed; inset:0; z-index:0; }
   border-color: #ff4400;
   color: #ff8844;
   box-shadow: 0 0 16px rgba(255,60,0,.45), 0 0 32px rgba(255,40,0,.18);
+}
+
+#excitedbtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(255,204,51,.07);
+  border: 1px solid rgba(255,204,51,.25);
+  color: var(--mid);
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: .1em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#excitedbtn:hover { background:rgba(255,204,51,.16); color:var(--hi); border-color:rgba(255,204,51,.5); }
+#excitedbtn.active {
+  background: rgba(255,204,51,.22);
+  border-color: #ffcc33;
+  color: #ffdd66;
+  box-shadow: 0 0 16px rgba(255,204,51,.45), 0 0 32px rgba(255,204,51,.18);
 }
 
 #realbtn.active {
@@ -964,6 +995,10 @@ input[type=range]::-moz-range-thumb {
         <span>🔥</span>
         <span>ULTRA MODE</span>
       </button>
+      <button id="excitedbtn">
+        <span>⚡</span>
+        <span id="excitedbtn-label">EXCITED STATE</span>
+      </button>
     </div>
   </div>
 
@@ -1039,6 +1074,14 @@ const ORBS=[
   {name:"4p",n:4,l:1,max:6,  R:481.0,hex:"#00eeff",rgb:[.00,.93,1.0]},
   {name:"5s",n:5,l:0,max:2,  R:600.0,hex:"#ffee00",rgb:[1.0,.93,.00]},
   {name:"4d",n:4,l:2,max:10, R:478.0,hex:"#ff6600",rgb:[1.0,.40,.00]},
+  {name:"5p",n:5,l:1,max:6,  R:1600.0,hex:"#3366ff",rgb:[.20,.40,1.0]},
+  // 6s/6p never occur in any ground-state configuration this app models
+  // (max Z=54, Xenon) — they exist purely as excited-state promotion
+  // targets, guaranteeing every element has enough headroom above its
+  // valence shell to reach all MAX_EXCITED_PHASES.
+  {name:"6s",n:6,l:0,max:2,  R:2200.0,hex:"#ddeeff",rgb:[.867,.933,1.0]},
+  {name:"6p",n:6,l:1,max:6,  R:5800.0,hex:"#8899ff",rgb:[.533,.60,1.0]},
+  {name:"7s",n:7,l:0,max:2,  R:7500.0,hex:"#ccddff",rgb:[.80,.867,1.0]},
 ];
 
 const SPECIAL_CFG={
@@ -1067,6 +1110,152 @@ function getConfig(Z){
   let rem=Z,cfg=[];
   for(const o of ORBS){if(rem<=0)break;const e=Math.min(rem,o.max);cfg.push({...o,e});rem-=e;}
   return cfg;
+}
+
+// ══════════════════════════════════════════════
+// EXCITED STATES (multi-electron, valence-only, always valid)
+// ══════════════════════════════════════════════
+// Each "phase" of excitation promotes one electron into a higher orbital.
+// Two rules govern where the electron comes FROM (source) and where it
+// GOES (target), designed so every element reaches all MAX_EXCITED_PHASES
+// with a genuinely different, valid configuration each time:
+//
+// SOURCE — prefer a fresh valence electron (genuine multi-electron
+// excitation: several distinct electrons displaced at once). Electrons
+// are drawn ONLY from the single highest-energy occupied orbital — the
+// true valence subshell — never from inner/core subshells (ordinary
+// accessible excitation never touches core electrons; that requires
+// X-ray-level energy and usually ionizes the atom instead). Once the
+// valence subshell is exhausted, fall back to CASCADING: keep pushing the
+// most-recently-promoted electron even further up, so elements with only
+// 1-2 valence electrons (H, Li, Na...) still get a distinct, valid state
+// for every phase instead of getting stuck repeating phase 1.
+//
+// TARGET — prefer a completely empty orbital (keeps promoted electrons
+// visually spread across distinct orbitals). Only if no empty orbital
+// remains in range does it pack a second electron into the last-used,
+// not-yet-full orbital — a last resort that only matters for the most
+// electron-rich elements (e.g. Xenon) once their valence shell has more
+// electrons to spend than there are empty orbitals to spend them on.
+//
+// The model has enough headroom (up to the virtual 6s/6p target orbitals,
+// which never occur in any ground state at Z≤54) that every element
+// 1-54 reaches all 3 phases without exception — verified by exhaustive
+// test across the full periodic range this app covers.
+//
+// This is a simplified heuristic, not a rigorous multi-electron transition
+// solver (real multi-electron excited states depend on term symbols and
+// selection rules this app doesn't model), but it produces a distinct,
+// deterministic, orbital-accurate configuration per element and per phase.
+const MAX_EXCITED_PHASES=3;
+
+// Single-entry memo cache: buildAtom(), updateUI(), and the button handler
+// all request the same (Z, level) pair within one interaction, so a
+// single cached slot avoids redundant recomputation without the
+// complexity of a full multi-entry cache.
+const _excitedCache={Z:null,level:null,result:null};
+
+// Returns {cfg, reached}. Orbitals holding more electrons than the ground
+// state are flagged `excited:true`. The returned cfg is always sorted in
+// aufbau/energy order.
+function getExcitedConfig(Z,level){
+  if(_excitedCache.Z===Z&&_excitedCache.level===level) return _excitedCache.result;
+
+  const ground=getConfig(Z);
+  const groundMap={};
+  ground.forEach(o=>{groundMap[o.name]=o.e;});
+
+  // Identify the valence subshell: the single highest-energy occupied
+  // orbital in the ORBS aufbau ordering.
+  let valenceIdx=-1,valenceName=null,valenceRemaining=0;
+  ground.forEach(o=>{
+    const idx=ORBS.findIndex(x=>x.name===o.name);
+    if(idx>valenceIdx){valenceIdx=idx;valenceName=o.name;valenceRemaining=o.e;}
+  });
+
+  let cfg=ground.map(o=>({...o}));
+  let reached=0;
+  let packFrom=valenceIdx+1;     // leading edge of orbitals already touched by promotions
+  let cascadeName=null;          // orbital currently holding the most-recently-promoted electron
+  let cascadeIdx=valenceIdx;
+
+  for(let i=0;i<level;i++){
+    let sourceName,sourceIdx;
+    if(valenceRemaining>0){ sourceName=valenceName; sourceIdx=valenceIdx; }
+    else if(cascadeName){ sourceName=cascadeName; sourceIdx=cascadeIdx; }
+    else break; // truly nothing left to excite
+
+    const searchStart=Math.max(packFrom,sourceIdx+1);
+
+    // Pass A: prefer a completely empty orbital (spreads electrons out).
+    let targetIdx=-1;
+    for(let t=searchStart;t<ORBS.length;t++){
+      if(!cfg.find(o=>o.name===ORBS[t].name)){targetIdx=t;break;}
+    }
+    // Pass B: fall back to any orbital with room (packs, last resort).
+    if(targetIdx===-1){
+      for(let t=searchStart;t<ORBS.length;t++){
+        const existing=cfg.find(o=>o.name===ORBS[t].name);
+        if(existing&&existing.e<existing.max){targetIdx=t;break;}
+      }
+    }
+    if(targetIdx===-1) break; // no modeled orbital left with room at all
+
+    const srcCfgIdx=cfg.findIndex(o=>o.name===sourceName);
+    if(srcCfgIdx===-1||cfg[srcCfgIdx].e<=0) break;
+    cfg[srcCfgIdx]={...cfg[srcCfgIdx],e:cfg[srcCfgIdx].e-1};
+    if(cfg[srcCfgIdx].e<=0) cfg.splice(srcCfgIdx,1);
+
+    const tgtCfgIdx=cfg.findIndex(o=>o.name===ORBS[targetIdx].name);
+    if(tgtCfgIdx!==-1) cfg[tgtCfgIdx]={...cfg[tgtCfgIdx],e:cfg[tgtCfgIdx].e+1};
+    else cfg.push({...ORBS[targetIdx],e:1});
+
+    if(sourceName===valenceName) valenceRemaining--;
+    packFrom=targetIdx;
+    cascadeName=ORBS[targetIdx].name;
+    cascadeIdx=targetIdx;
+    reached++;
+  }
+
+  // Guarantee deterministic energy-order display regardless of internal
+  // splice/push order above (splicing a depleted source can otherwise
+  // leave later orbitals out of aufbau order).
+  cfg.sort((a,b)=>ORBS.findIndex(x=>x.name===a.name)-ORBS.findIndex(x=>x.name===b.name));
+  cfg.forEach(o=>{o.excited=o.e>(groundMap[o.name]||0);});
+
+  const result={cfg,reached};
+  _excitedCache.Z=Z;_excitedCache.level=level;_excitedCache.result=result;
+  return result;
+}
+
+let excitedLevel=0; // 0 = ground state, 1..MAX_EXCITED_PHASES = number of electrons excited
+
+function getEffectiveConfig(Z){
+  return excitedLevel>0 ? getExcitedConfig(Z,excitedLevel).cfg : getConfig(Z);
+}
+
+// Keeps the EXCITED STATE button's label/highlight in sync with whatever
+// is actually being rendered for the given element. Needed because
+// select(Z) (element click, keyboard nav) can change the active element
+// without the user touching the excited-state button itself, which would
+// otherwise leave the button showing a stale phase/electron count.
+function syncExcitedButton(Z){
+  const btn=document.getElementById('excitedbtn');
+  const label=document.getElementById('excitedbtn-label');
+  if(!btn||!label) return;
+  if(excitedLevel===0){
+    btn.classList.remove('active');
+    label.textContent='EXCITED STATE';
+    return;
+  }
+  const reached=getExcitedConfig(Z,excitedLevel).reached;
+  if(reached===0){
+    btn.classList.remove('active');
+    label.textContent='EXCITED STATE';
+  }else{
+    btn.classList.add('active');
+    label.textContent=`EXCITED · ${reached} e⁻`;
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1434,7 +1623,8 @@ let ultraMeshes = [];
 
 function buildUltraCloud(orb){
   const grp = new THREE.Group();
-  const [cr, cg, cb] = realMode ? [1.0, 0.08, 0.04] : orb.rgb;
+  let [cr, cg, cb] = realMode ? [1.0, 0.08, 0.04] : orb.rgb;
+  if(orb.excited){[cr,cg,cb]=[cr*0.35+1.0*0.65,cg*0.35+0.82*0.65,cb*0.35+0.12*0.65];}
 
   // Fresnel strength — tighter rim for inner compact orbitals
   const rimPow = 1.2 + orb.R * 0.008;
@@ -1476,7 +1666,7 @@ function buildUltraCloud(orb){
     // but each occupied dumbbell ALWAYS shows BOTH lobes — it's a dumbbell, not a single lobe.
     // 1-2e → 1 dumbbell (px), 3-4e → 2 dumbbells (px+py), 5-6e → 3 dumbbells (all)
     // innerR = the same-n s-orbital radius so lobes start at the s-shell surface
-    const sRadii = { 2: 8.0, 3: 52.0, 4: 180.0, 5: 600.0 };
+    const sRadii = { 2: 8.0, 3: 52.0, 4: 180.0, 5: 600.0, 6: 2200.0 };
     const innerR = sRadii[orb.n] != null ? sRadii[orb.n] : orb.R * 0.25;
     // Hund's rule: electrons fill each orbital (dumbbell) singly before pairing.
     // p subshell has 3 orbitals (px, py, pz). Fill order:
@@ -1605,7 +1795,8 @@ function smoothDensity(x,y,z,l,sub,R){
 
 function buildSmoothCloud(orb){
   const grp=new THREE.Group();
-  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  if(orb.excited){[r,g,b]=[r*0.35+1.0*0.65,g*0.35+0.82*0.65,b*0.35+0.12*0.65];}
   const radiusBoost=1+orb.R/25;
   const fillFrac=orb.e/orb.max;
 
@@ -1641,7 +1832,7 @@ function buildSmoothCloud(orb){
     const n=Math.round(6000*fillFrac*radiusBoost);
     grp.add(mkCloud(n,0,0,()=>sampleS(orb.R),[r,g,b]));
   }else if(orb.l===1){
-    const sRadii={2:8.0,3:52.0,4:180.0,5:600.0};
+    const sRadii={2:8.0,3:52.0,4:180.0,5:600.0,6:2200.0};
     const pInnerR=sRadii[orb.n]!=null?sRadii[orb.n]:orb.R*0.30;
     const axCount=Math.min(orb.e,3);
     for(let ax=0;ax<axCount;ax++){
@@ -1690,14 +1881,15 @@ function makePointCloud(count,sampler,rgb){
 
 function buildCloud(orb,electrons){
   const grp=new THREE.Group();
-  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  if(orb.excited){[r,g,b]=[r*0.35+1.0*0.65,g*0.35+0.82*0.65,b*0.35+0.12*0.65];}
   const radiusBoost=1+orb.R/25;
   const fillFrac=orb.e/orb.max;
   if(orb.l===0){
     const count=Math.round(28000*fillFrac*radiusBoost);
     grp.add(makePointCloud(count,()=>sampleS(orb.R),[r,g,b]));
   }else if(orb.l===1){
-    const sRadii={2:8.0,3:52.0,4:180.0,5:600.0};
+    const sRadii={2:8.0,3:52.0,4:180.0,5:600.0,6:2200.0};
     const pInnerR=sRadii[orb.n]!=null?sRadii[orb.n]:orb.R*0.30;
     const axCount=Math.min(orb.e,3);
     const perAxis=Math.round(26000*radiusBoost);
@@ -1735,14 +1927,14 @@ function buildAtom(Z){
   pivot.add(atomGrp);
   const elData = ELS.find(e=>e.Z===Z);
   atomGrp.add(makeNucleus(Z, elData ? elData.n : 0));
-  for(const orb of getConfig(Z)) atomGrp.add(ultraMode ? buildUltraCloud(orb) : smoothMode ? buildSmoothCloud(orb) : buildCloud(orb,orb.e));
+  for(const orb of getEffectiveConfig(Z)) atomGrp.add(ultraMode ? buildUltraCloud(orb) : smoothMode ? buildSmoothCloud(orb) : buildCloud(orb,orb.e));
 }
 
 // ══════════════════════════════════════════════
 // UI
 // ══════════════════════════════════════════════
 const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
-const sup=n=>SUP[String(n)]||n;
+const sup=n=>String(n).split('').map(d=>SUP[d]||d).join('');
 
 // Toast
 let toastTimer;
@@ -1756,13 +1948,18 @@ function showToast(msg){
 
 function updateUI(Z){
   const el=ELS.find(e=>e.Z===Z);
-  const cfg=getConfig(Z);
-  const confStr=cfg.map(o=>o.name+sup(o.e)).join(' ');
+  const excited=excitedLevel>0?getExcitedConfig(Z,excitedLevel):null;
+  const cfg=excited?excited.cfg:getConfig(Z);
+  const confStr=cfg.map(o=>o.excited
+    ? `<span class="excited-orb">${o.name}${sup(o.e)}*</span>`
+    : (o.name+sup(o.e))
+  ).join(' ');
+  const stateStr=(excited&&excited.reached>0)?` · EXCITED · ${excited.reached} e⁻ PROMOTED`:'';
 
   document.getElementById('ename').textContent=el.name.toUpperCase();
-  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ELECTRON${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}`;
-  document.getElementById('econf').textContent=confStr;
-  document.getElementById('econf-right').textContent=confStr;
+  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ELECTRON${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}${stateStr}`;
+  document.getElementById('econf').innerHTML=confStr;
+  document.getElementById('econf-right').innerHTML=confStr;
   document.getElementById('badge-z').textContent=Z;
   document.getElementById('badge-sym').textContent=el.sym;
   document.getElementById('sz').textContent=Z;
@@ -1867,6 +2064,7 @@ function select(Z){
   curZ=Z;
   buildAtom(Z);
   updateUI(Z);
+  syncExcitedButton(Z);
   // Don't auto-close on mobile — user may want to keep browsing elements
   // They can close manually via X button or backdrop tap
 }
@@ -1965,6 +2163,28 @@ ultrabtn.onclick=()=>{
   }
   showToast(ultraMode?'⚡ ULTRA MODE ON':'ULTRA MODE OFF');
   buildAtom(curZ);
+};
+
+const excitedbtn=document.getElementById('excitedbtn');
+excitedbtn.onclick=()=>{
+  excitedLevel=(excitedLevel+1)%(MAX_EXCITED_PHASES+1);
+  let reached=0;
+  if(excitedLevel>0) reached=getExcitedConfig(curZ,excitedLevel).reached;
+
+  if(excitedLevel===0){
+    showToast('GROUND STATE');
+  }else if(reached===0){
+    // No valence electrons left to draw from (or no modeled orbital with
+    // room) — nothing higher to show, so drop back to ground rather than
+    // fake a phase.
+    excitedLevel=0;
+    showToast('NO VALENCE ELECTRONS AVAILABLE TO EXCITE FOR THIS ELEMENT');
+  }else{
+    showToast(`⚡ EXCITED STATE — ${reached} ELECTRON${reached!==1?'S':''} PROMOTED`);
+  }
+  syncExcitedButton(curZ);
+  buildAtom(curZ);
+  updateUI(curZ);
 };
 
 // ── Panel toggles ──
