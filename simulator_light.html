@@ -1203,6 +1203,7 @@ const ORBS=[
   {name:"8s",n:8,l:0,max:2,  R:52000.0,hex:"#f0ebff",rgb:[.941,.922,1.0]},
   {name:"8p",n:8,l:1,max:6,  R:130000.0,hex:"#d4c4ff",rgb:[.831,.769,1.0]},
   {name:"9s",n:9,l:0,max:2,  R:340000.0,hex:"#f5f0ff",rgb:[.961,.941,1.0]},
+  {name:"9p",n:9,l:1,max:6,  R:820000.0,hex:"#e0d0ff",rgb:[.878,.816,1.0]},
 ];
 
 // Compact aufbau-exception table: [orbitalName, electronCount] pairs only.
@@ -1254,12 +1255,22 @@ function getConfig(Z){
 }
 
 // ══════════════════════════════════════════════
-// EXCITED STATES (multi-electron, valence-only, always valid)
+// EXCITED STATES (multi-electron, valence-only, selection-rule-correct)
 // ══════════════════════════════════════════════
 // Each "phase" of excitation promotes one electron into a higher orbital.
-// Two rules govern where the electron comes FROM (source) and where it
-// GOES (target), designed so every element reaches all MAX_EXCITED_PHASES
-// with a genuinely different, valid configuration each time:
+// Three rules govern this, designed so every element reaches all
+// MAX_EXCITED_PHASES with a genuinely different, PHYSICALLY VALID
+// configuration each time:
+//
+// SELECTION RULE — an electron can only be promoted to an orbital whose
+// azimuthal quantum number differs by exactly ±1 (Δl = ±1). This is the
+// standard dipole selection rule: an s-electron (l=0) can only become a
+// p-electron (l=1); a p-electron can become s or d; a d-electron can
+// become p or f; an f-electron can only become d (this app doesn't model
+// g orbitals). Without this rule the model would happily promote, say, an
+// s-electron straight into a d-orbital — a transition that doesn't
+// actually occur. This was a real bug in an earlier version of this
+// function; the fix is exactly this constraint.
 //
 // SOURCE — prefer a fresh valence electron (genuine multi-electron
 // excitation: several distinct electrons displaced at once). Electrons
@@ -1268,16 +1279,18 @@ function getConfig(Z){
 // accessible excitation never touches core electrons; that requires
 // X-ray-level energy and usually ionizes the atom instead). Once the
 // valence subshell is exhausted, fall back to CASCADING: keep pushing the
-// most-recently-promoted electron even further up, so elements with only
-// 1-2 valence electrons (H, Li, Na...) still get a distinct, valid state
-// for every phase instead of getting stuck repeating phase 1.
+// most-recently-promoted electron even further up (still obeying Δl=±1
+// from ITS current orbital each step), so elements with only 1-2 valence
+// electrons (H, Li, Na...) still get a distinct, valid state for every
+// phase instead of getting stuck repeating phase 1.
 //
-// TARGET — prefer a completely empty orbital (keeps promoted electrons
-// visually spread across distinct orbitals). Only if no empty orbital
-// remains in range does it pack a second electron into the last-used,
-// not-yet-full orbital — a last resort that only matters for the most
-// electron-rich elements (e.g. Xenon) once their valence shell has more
-// electrons to spend than there are empty orbitals to spend them on.
+// TARGET — among orbitals satisfying the selection rule, prefer a
+// completely empty one (keeps promoted electrons visually spread across
+// distinct orbitals). Only if no empty orbital satisfies Δl=±1 does it
+// pack a second electron into a not-yet-full one that does — a last
+// resort that only matters for the most electron-rich elements (e.g.
+// Xenon) once their valence shell has more electrons to spend than there
+// are empty same-selection-rule orbitals to spend them on.
 //
 // The model has enough headroom (up to the virtual 8s/8p/9s target
 // orbitals, which never occur in any ground state at Z≤118) that every
@@ -1285,9 +1298,9 @@ function getConfig(Z){
 // exhaustive test across the full periodic range this app covers.
 //
 // This is a simplified heuristic, not a rigorous multi-electron transition
-// solver (real multi-electron excited states depend on term symbols and
-// selection rules this app doesn't model), but it produces a distinct,
-// deterministic, orbital-accurate configuration per element and per phase.
+// solver (real multi-electron excited states also depend on term symbols,
+// which this app doesn't model), but every individual electron promotion
+// it produces is a genuinely allowed one-electron transition.
 const MAX_EXCITED_PHASES=3;
 
 // Single-entry memo cache: buildAtom(), updateUI(), and the button handler
@@ -1316,7 +1329,6 @@ function getExcitedConfig(Z,level){
 
   let cfg=ground.map(o=>({...o}));
   let reached=0;
-  let packFrom=valenceIdx+1;     // leading edge of orbitals already touched by promotions
   let cascadeName=null;          // orbital currently holding the most-recently-promoted electron
   let cascadeIdx=valenceIdx;
 
@@ -1326,21 +1338,26 @@ function getExcitedConfig(Z,level){
     else if(cascadeName){ sourceName=cascadeName; sourceIdx=cascadeIdx; }
     else break; // truly nothing left to excite
 
-    const searchStart=Math.max(packFrom,sourceIdx+1);
+    // Dipole selection rule: only Δl=±1 orbitals are valid targets.
+    const sourceL=ORBS[sourceIdx].l;
+    const validLs=[sourceL-1,sourceL+1].filter(l=>l>=0&&l<=3);
+    if(validLs.length===0) break; // shouldn't happen within this app's modeled l range
 
-    // Pass A: prefer a completely empty orbital (spreads electrons out).
+    // Pass A: prefer a completely empty orbital of allowed l (spreads electrons out).
     let targetIdx=-1;
-    for(let t=searchStart;t<ORBS.length;t++){
+    for(let t=sourceIdx+1;t<ORBS.length;t++){
+      if(!validLs.includes(ORBS[t].l)) continue;
       if(!cfg.find(o=>o.name===ORBS[t].name)){targetIdx=t;break;}
     }
-    // Pass B: fall back to any orbital with room (packs, last resort).
+    // Pass B: fall back to any orbital of allowed l with room (packs, last resort).
     if(targetIdx===-1){
-      for(let t=searchStart;t<ORBS.length;t++){
+      for(let t=sourceIdx+1;t<ORBS.length;t++){
+        if(!validLs.includes(ORBS[t].l)) continue;
         const existing=cfg.find(o=>o.name===ORBS[t].name);
         if(existing&&existing.e<existing.max){targetIdx=t;break;}
       }
     }
-    if(targetIdx===-1) break; // no modeled orbital left with room at all
+    if(targetIdx===-1) break; // no modeled orbital left that both satisfies Δl=±1 and has room
 
     const srcCfgIdx=cfg.findIndex(o=>o.name===sourceName);
     if(srcCfgIdx===-1||cfg[srcCfgIdx].e<=0) break;
@@ -1352,7 +1369,6 @@ function getExcitedConfig(Z,level){
     else cfg.push({...ORBS[targetIdx],e:1});
 
     if(sourceName===valenceName) valenceRemaining--;
-    packFrom=targetIdx;
     cascadeName=ORBS[targetIdx].name;
     cascadeIdx=targetIdx;
     reached++;
@@ -1408,7 +1424,7 @@ renderer.setSize(innerWidth,innerHeight);
 renderer.setClearColor(0xf0eeff);
 
 const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.01,2000);
+const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.01,4000);
 camera.position.z=30;
 
 scene.add(new THREE.AmbientLight(0x8888cc,4));
@@ -2200,7 +2216,20 @@ function buildAtom(Z){
   pivot.add(atomGrp);
   const elData = ELS.find(e=>e.Z===Z);
   atomGrp.add(makeNucleus(Z, elData ? elData.n : 0));
-  for(const orb of getEffectiveConfig(Z)) atomGrp.add(ultraMode ? buildUltraCloud(orb) : smoothMode ? buildSmoothCloud(orb) : buildCloud(orb,orb.e));
+  const cfg=getEffectiveConfig(Z);
+  for(const orb of cfg) atomGrp.add(ultraMode ? buildUltraCloud(orb) : smoothMode ? buildSmoothCloud(orb) : buildCloud(orb,orb.e));
+
+  // Dynamically size the camera's far plane and zoom-out range to whatever
+  // orbital is actually largest in THIS configuration (ground or excited).
+  // A fixed far plane either clips large/excited elements (too small) or
+  // makes the zoom slider needlessly coarse for small ones (too big) —
+  // orbital R now spans ~3 (1s) to ~800,000 (virtual excited-state 9p),
+  // five orders of magnitude, so this has to track the actual content.
+  const maxR=cfg.reduce((m,o)=>Math.max(m,o.R),30);
+  maxZoomDist=Math.max(4000,maxR*3.5);
+  camera.far=Math.max(4000,maxR*4);
+  camera.updateProjectionMatrix();
+  if(typeof applyZoom==='function') applyZoom();
 }
 
 // ══════════════════════════════════════════════
@@ -2358,9 +2387,12 @@ function select(Z){
 // CAMERA CONTROLS
 // ══════════════════════════════════════════════
 let tZ=240,camZ=240,rotX=.28,rotY=0,drag=false,lx=0,ly=0,autoSpin=true;
+let maxZoomDist=4000; // dynamically resized in buildAtom() to whatever the
+                       // largest orbital in the current config actually is
 
-// Zoom: slider 1-400 → camera distance 20 (close) to 1200 (far out for heavy elements)
-function slVal(v){return 4000*Math.pow(5/4000,v/600);}
+// Zoom: slider 1-600 → camera distance 5 (close) to maxZoomDist (far enough
+// to fit the largest orbital in the current configuration without clipping)
+function slVal(v){return maxZoomDist*Math.pow(5/maxZoomDist,v/600);}
 
 const sl=document.getElementById('zsl');
 function applyZoom(){
@@ -2557,7 +2589,7 @@ function loop(){
   });
   updateSmoothUniforms();
   if(ultraMode) updateUltraUniforms(camera);
-  const cfg=getConfig(curZ);
+  const cfg=getEffectiveConfig(curZ);
   const vis=cfg.filter(o=>o.R<=camZ*0.55).map(o=>o.name);
   document.getElementById('svis').textContent=vis.join(' ')||'—';
   renderer.render(scene,camera);
