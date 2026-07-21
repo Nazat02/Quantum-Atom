@@ -126,28 +126,35 @@ canvas { position:fixed; inset:0; z-index:0; }
   border-radius: 6px;
   border: 1px solid var(--border-hi);
   background: var(--cyan-10);
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  box-sizing: border-box;
+  padding: 3px 0 0 5px;
+  overflow: hidden;
 }
 #esym-badge .badge-z {
-  position: absolute;
-  top: 4px; left: 5px;
-  font-size: .55rem;
+  flex: 0 0 auto;
+  font-size: .5rem;
   color: var(--cyan);
   line-height: 1;
   letter-spacing: .02em;
+  white-space: nowrap;
 }
 #esym-badge .badge-sym {
-  position: absolute;
-  inset: 0;
+  flex: 1 1 auto;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--display);
   font-weight: 700;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   color: var(--hi);
   line-height: 1;
   text-shadow: 0 0 14px rgba(124,108,246,.4);
+  padding-right: 5px;
+  box-sizing: border-box;
 }
 
 .topbar-text {
@@ -414,6 +421,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 
 .oleg { display:flex; flex-direction:column; gap:8px; }
 .orow { display:flex; align-items:center; gap:9px; padding: 4px 8px; border-radius: 8px; background:rgba(124,108,246,.04); border:1px solid rgba(124,108,246,.10); }
+.orow.excited-row { background:rgba(255,153,0,.10); border-color:rgba(255,153,0,.40); }
 .odot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
 .olbl { font-size: .7rem; color:var(--mid); flex:1; font-family: var(--body); }
 .ocnt { font-size: .7rem; color:var(--hi); font-weight:700; background:rgba(124,108,246,.12); padding:2px 6px; border-radius:4px; font-family: var(--mono); }
@@ -685,7 +693,8 @@ input[type=range]::-moz-range-thumb {
 
   /* Topbar tweaks */
   #topbar { padding: 0 12px; gap: 10px; }
-  #esym-badge { width: 38px; height: 38px; }
+  #esym-badge { width: 38px; height: 38px; padding: 2px 0 0 4px; }
+  #esym-badge .badge-z { font-size: .45rem; }
   #esym-badge .badge-sym { font-size: 1.1rem; }
   #econf-wrap { display: none; }
   #ename { font-size: 1rem; }
@@ -1027,6 +1036,10 @@ input[type=range]::-moz-range-thumb {
         <span class="sk">ELECTRON CONFIG</span>
         <span class="sv" id="econf-right" style="font-size:.82rem; color:var(--green); letter-spacing:.04em;">1s¹</span>
       </div>
+      <div class="srow" id="excited-trans-row" style="display:none; flex-wrap:wrap; gap:6px;">
+        <span class="sk">TRANSITIONS</span>
+        <span class="sv" id="excited-trans" style="font-size:.76rem; color:#dd8800; letter-spacing:.02em;"></span>
+      </div>
       <div class="sdiv"></div>
       <button id="realbtn">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.2 9C3 5.7 5.8 4 9 4s6 1.7 7.8 5c-1.8 3.3-4.6 5-7.8 5S3 12.3 1.2 9z"/><circle cx="9" cy="9" r="2.3"/></svg></span>
@@ -1180,22 +1193,22 @@ const ORBS=[
   {name:"1s",n:1,l:0,max:2,  R:3.0,  hex:"#7c6cf6",rgb:[.486,.424,.965]},
   {name:"2s",n:2,l:0,max:2,  R:8.0,  hex:"#9b8afb",rgb:[.608,.541,.984]},
   {name:"2p",n:2,l:1,max:6,  R:41.0, hex:"#a78bfa",rgb:[.655,.545,.980]},
-  {name:"3s",n:3,l:0,max:2,  R:52.0, hex:"#c4b5fd",rgb:[.769,.710,.992]},
+  {name:"3s",n:3,l:0,max:2,  R:70.0,  hex:"#c4b5fd",rgb:[.769,.710,.992]},
   {name:"3p",n:3,l:1,max:6,  R:144.0,hex:"#6d5ce8",rgb:[.427,.361,.910]},
-  {name:"4s",n:4,l:0,max:2,  R:180.0,hex:"#8b7cf8",rgb:[.545,.486,.973]},
+  {name:"4s",n:4,l:0,max:2,  R:250.0,hex:"#8b7cf8",rgb:[.545,.486,.973]},
   {name:"3d",n:3,l:2,max:10, R:143.0,hex:"#b39dfa",rgb:[.702,.616,.980]},
   {name:"4p",n:4,l:1,max:6,  R:481.0,hex:"#5b4bd4",rgb:[.357,.294,.831]},
-  {name:"5s",n:5,l:0,max:2,  R:600.0,hex:"#d4cafe",rgb:[.831,.792,.996]},
+  {name:"5s",n:5,l:0,max:2,  R:820.0,hex:"#d4cafe",rgb:[.831,.792,.996]},
   {name:"4d",n:4,l:2,max:10, R:478.0,hex:"#7060ee",rgb:[.439,.376,.933]},
   {name:"5p",n:5,l:1,max:6,  R:1600.0,hex:"#4a3ac2",rgb:[.290,.227,.761]},
-  {name:"6s",n:6,l:0,max:2,  R:2200.0,hex:"#ede8ff",rgb:[.929,.910,1.0]},
+  {name:"6s",n:6,l:0,max:2,  R:3040.0,hex:"#ede8ff",rgb:[.929,.910,1.0]},
   // 4f/5d fill AFTER 6s in aufbau order but sit spatially INSIDE it — the
   // well-known "lanthanide contraction" — hence smaller R despite filling
   // later, matching how 3d (R:143) already sits inside 4s (R:180) above.
   {name:"4f",n:4,l:3,max:14, R:750.0, hex:"#9955e0",rgb:[.60,.333,.878]},
   {name:"5d",n:5,l:2,max:10, R:1800.0,hex:"#6a5cf0",rgb:[.416,.361,.941]},
   {name:"6p",n:6,l:1,max:6,  R:5800.0,hex:"#9a86f5",rgb:[.604,.525,.961]},
-  {name:"7s",n:7,l:0,max:2,  R:7500.0,hex:"#e2dbff",rgb:[.886,.859,1.0]},
+  {name:"7s",n:7,l:0,max:2,  R:10120.0,hex:"#e2dbff",rgb:[.886,.859,1.0]},
   // 5f/6d: actinide analog of the 4f/5d contraction above.
   {name:"5f",n:5,l:3,max:14, R:2800.0,hex:"#b166e0",rgb:[.694,.40,.878]},
   {name:"6d",n:6,l:2,max:10, R:6000.0,hex:"#8577f2",rgb:[.522,.467,.949]},
@@ -1242,76 +1255,45 @@ const SPECIAL_CFG_COMPACT={
   103:[["1s",2],["2s",2],["2p",6],["3s",2],["3p",6],["4s",2],["3d",10],["4p",6],["5s",2],["4d",10],["5p",6],["6s",2],["4f",14],["5d",10],["6p",6],["7s",2],["5f",14],["7p",1]],          // Lr
 };
 
+// ══════════════════════════════════════════════
+// SUB-ORBITAL RESOLUTION (magnetic quantum number, mₗ)
+// ══════════════════════════════════════════════
+const SUB_LABELS = {
+  0: ['s'],
+  1: ['px','py','pz'],
+  2: ['dz²','dxy','dxz','dyz','dx²-y²'],
+  3: ['fz³','fxz²','fyz²','fxyz','fz(x²-y²)','fx(x²-3y²)','fy(3x²-y²)'],
+};
+function numSubs(l){ return SUB_LABELS[l].length; }
+function subLabel(l,i){ return SUB_LABELS[l][i]; }
+function fillHund(l,e){
+  const n=numSubs(l);
+  const occ=new Array(n).fill(0);
+  for(let i=0;i<Math.min(e,n);i++) occ[i]=1;
+  for(let i=0;i<e-n;i++) occ[i]++;
+  return occ;
+}
+
 function getConfig(Z){
+  let cfg;
   if(SPECIAL_CFG_COMPACT[Z]){
-    return SPECIAL_CFG_COMPACT[Z].map(([name,e])=>{
+    cfg=SPECIAL_CFG_COMPACT[Z].map(([name,e])=>{
       const o=ORBS.find(x=>x.name===name);
       return {...o,e};
     });
+  }else{
+    let rem=Z; cfg=[];
+    for(const o of ORBS){if(rem<=0)break;const e=Math.min(rem,o.max);cfg.push({...o,e});rem-=e;}
   }
-  let rem=Z,cfg=[];
-  for(const o of ORBS){if(rem<=0)break;const e=Math.min(rem,o.max);cfg.push({...o,e});rem-=e;}
+  cfg.forEach(o=>{
+    o.occ=fillHund(o.l,o.e).map((c,i)=>({sub:i,label:subLabel(o.l,i),e:c,excited:false}));
+  });
   return cfg;
 }
 
-// ══════════════════════════════════════════════
-// EXCITED STATES (multi-electron, valence-only, selection-rule-correct)
-// ══════════════════════════════════════════════
-// Each "phase" of excitation promotes one electron into a higher orbital.
-// Three rules govern this, designed so every element reaches all
-// MAX_EXCITED_PHASES with a genuinely different, PHYSICALLY VALID
-// configuration each time:
-//
-// SELECTION RULE — an electron can only be promoted to an orbital whose
-// azimuthal quantum number differs by exactly ±1 (Δl = ±1). This is the
-// standard dipole selection rule: an s-electron (l=0) can only become a
-// p-electron (l=1); a p-electron can become s or d; a d-electron can
-// become p or f; an f-electron can only become d (this app doesn't model
-// g orbitals). Without this rule the model would happily promote, say, an
-// s-electron straight into a d-orbital — a transition that doesn't
-// actually occur. This was a real bug in an earlier version of this
-// function; the fix is exactly this constraint.
-//
-// SOURCE — prefer a fresh valence electron (genuine multi-electron
-// excitation: several distinct electrons displaced at once). Electrons
-// are drawn ONLY from the single highest-energy occupied orbital — the
-// true valence subshell — never from inner/core subshells (ordinary
-// accessible excitation never touches core electrons; that requires
-// X-ray-level energy and usually ionizes the atom instead). Once the
-// valence subshell is exhausted, fall back to CASCADING: keep pushing the
-// most-recently-promoted electron even further up (still obeying Δl=±1
-// from ITS current orbital each step), so elements with only 1-2 valence
-// electrons (H, Li, Na...) still get a distinct, valid state for every
-// phase instead of getting stuck repeating phase 1.
-//
-// TARGET — among orbitals satisfying the selection rule, prefer a
-// completely empty one (keeps promoted electrons visually spread across
-// distinct orbitals). Only if no empty orbital satisfies Δl=±1 does it
-// pack a second electron into a not-yet-full one that does — a last
-// resort that only matters for the most electron-rich elements (e.g.
-// Xenon) once their valence shell has more electrons to spend than there
-// are empty same-selection-rule orbitals to spend them on.
-//
-// The model has enough headroom (up to the virtual 8s/8p/9s target
-// orbitals, which never occur in any ground state at Z≤118) that every
-// element 1-118 reaches all 3 phases without exception — verified by
-// exhaustive test across the full periodic range this app covers.
-//
-// This is a simplified heuristic, not a rigorous multi-electron transition
-// solver (real multi-electron excited states also depend on term symbols,
-// which this app doesn't model), but every individual electron promotion
-// it produces is a genuinely allowed one-electron transition.
 const MAX_EXCITED_PHASES=3;
-
-// Single-entry memo cache: buildAtom(), updateUI(), and the button handler
-// all request the same (Z, level) pair within one interaction, so a
-// single cached slot avoids redundant recomputation without the
-// complexity of a full multi-entry cache.
 const _excitedCache={Z:null,level:null,result:null};
 
-// Returns {cfg, reached}. Orbitals holding more electrons than the ground
-// state are flagged `excited:true`. The returned cfg is always sorted in
-// aufbau/energy order.
 function getExcitedConfig(Z,level){
   if(_excitedCache.Z===Z&&_excitedCache.level===level) return _excitedCache.result;
 
@@ -1319,72 +1301,84 @@ function getExcitedConfig(Z,level){
   const groundMap={};
   ground.forEach(o=>{groundMap[o.name]=o.e;});
 
-  // Identify the valence subshell: the single highest-energy occupied
-  // orbital in the ORBS aufbau ordering.
+  const occMap={};
+  ground.forEach(o=>{ occMap[o.name]=o.occ.map(s=>({...s})); });
+  const totalE={};
+  ground.forEach(o=>{ totalE[o.name]=o.e; });
+
   let valenceIdx=-1,valenceName=null,valenceRemaining=0;
   ground.forEach(o=>{
     const idx=ORBS.findIndex(x=>x.name===o.name);
     if(idx>valenceIdx){valenceIdx=idx;valenceName=o.name;valenceRemaining=o.e;}
   });
 
-  let cfg=ground.map(o=>({...o}));
   let reached=0;
-  let cascadeName=null;          // orbital currently holding the most-recently-promoted electron
-  let cascadeIdx=valenceIdx;
+  let cascadeName=null,cascadeIdx=valenceIdx;
+  const promotions=[];
 
   for(let i=0;i<level;i++){
     let sourceName,sourceIdx;
     if(valenceRemaining>0){ sourceName=valenceName; sourceIdx=valenceIdx; }
     else if(cascadeName){ sourceName=cascadeName; sourceIdx=cascadeIdx; }
-    else break; // truly nothing left to excite
+    else break;
 
-    // Dipole selection rule: only Δl=±1 orbitals are valid targets.
     const sourceL=ORBS[sourceIdx].l;
     const validLs=[sourceL-1,sourceL+1].filter(l=>l>=0&&l<=3);
-    if(validLs.length===0) break; // shouldn't happen within this app's modeled l range
+    if(validLs.length===0) break;
 
-    // Pass A: prefer a completely empty orbital of allowed l (spreads electrons out).
     let targetIdx=-1;
     for(let t=sourceIdx+1;t<ORBS.length;t++){
       if(!validLs.includes(ORBS[t].l)) continue;
-      if(!cfg.find(o=>o.name===ORBS[t].name)){targetIdx=t;break;}
+      if(!(totalE[ORBS[t].name]>0)){targetIdx=t;break;}
     }
-    // Pass B: fall back to any orbital of allowed l with room (packs, last resort).
     if(targetIdx===-1){
       for(let t=sourceIdx+1;t<ORBS.length;t++){
         if(!validLs.includes(ORBS[t].l)) continue;
-        const existing=cfg.find(o=>o.name===ORBS[t].name);
-        if(existing&&existing.e<existing.max){targetIdx=t;break;}
+        const cur=totalE[ORBS[t].name]||0;
+        if(cur>0&&cur<ORBS[t].max){targetIdx=t;break;}
       }
     }
-    if(targetIdx===-1) break; // no modeled orbital left that both satisfies Δl=±1 and has room
+    if(targetIdx===-1) break;
 
-    const srcCfgIdx=cfg.findIndex(o=>o.name===sourceName);
-    if(srcCfgIdx===-1||cfg[srcCfgIdx].e<=0) break;
-    cfg[srcCfgIdx]={...cfg[srcCfgIdx],e:cfg[srcCfgIdx].e-1};
-    if(cfg[srcCfgIdx].e<=0) cfg.splice(srcCfgIdx,1);
+    const srcOcc=occMap[sourceName];
+    if(!srcOcc){break;}
+    let srcSub=-1;
+    for(let s=srcOcc.length-1;s>=0;s--){ if(srcOcc[s].e===2){srcSub=s;break;} }
+    if(srcSub===-1){ for(let s=srcOcc.length-1;s>=0;s--){ if(srcOcc[s].e===1){srcSub=s;break;} } }
+    if(srcSub===-1) break;
+    srcOcc[srcSub].e--;
+    totalE[sourceName]--;
 
-    const tgtCfgIdx=cfg.findIndex(o=>o.name===ORBS[targetIdx].name);
-    if(tgtCfgIdx!==-1) cfg[tgtCfgIdx]={...cfg[tgtCfgIdx],e:cfg[tgtCfgIdx].e+1};
-    else cfg.push({...ORBS[targetIdx],e:1});
+    const tgtName=ORBS[targetIdx].name, tgtL=ORBS[targetIdx].l;
+    if(!occMap[tgtName]) occMap[tgtName]=fillHund(tgtL,0).map((c,i)=>({sub:i,label:subLabel(tgtL,i),e:0,excited:false}));
+    const tgtOcc=occMap[tgtName];
+    let tgtSub=tgtOcc.findIndex(s=>s.e===0);
+    if(tgtSub===-1) tgtSub=tgtOcc.findIndex(s=>s.e<2);
+    if(tgtSub===-1) break;
+    tgtOcc[tgtSub].e++;
+    tgtOcc[tgtSub].excited=true;
+    totalE[tgtName]=(totalE[tgtName]||0)+1;
+
+    promotions.push({
+      fromOrbital:sourceName, fromSub:subLabel(ORBS[sourceIdx].l,srcSub),
+      toOrbital:tgtName, toSub:subLabel(tgtL,tgtSub),
+    });
 
     if(sourceName===valenceName) valenceRemaining--;
-    cascadeName=ORBS[targetIdx].name;
-    cascadeIdx=targetIdx;
+    cascadeName=tgtName; cascadeIdx=targetIdx;
     reached++;
   }
 
-  // Guarantee deterministic energy-order display regardless of internal
-  // splice/push order above (splicing a depleted source can otherwise
-  // leave later orbitals out of aufbau order).
+  let cfg=Object.keys(totalE).filter(name=>totalE[name]>0).map(name=>{
+    const o=ORBS.find(x=>x.name===name);
+    return {...o, e:totalE[name], excited: totalE[name]>(groundMap[name]||0), occ:occMap[name]};
+  });
   cfg.sort((a,b)=>ORBS.findIndex(x=>x.name===a.name)-ORBS.findIndex(x=>x.name===b.name));
-  cfg.forEach(o=>{o.excited=o.e>(groundMap[o.name]||0);});
 
-  const result={cfg,reached};
+  const result={cfg,reached,promotions};
   _excitedCache.Z=Z;_excitedCache.level=level;_excitedCache.result=result;
   return result;
 }
-
 let excitedLevel=0; // 0 = ground state, 1..MAX_EXCITED_PHASES = number of electrons excited
 
 function getEffectiveConfig(Z){
@@ -1871,7 +1865,9 @@ let ultraMeshes = [];
 function buildUltraCloud(orb){
   const grp = new THREE.Group();
   let [cr, cg, cb] = realMode ? [0.486, 0.424, 0.965] : orb.rgb;
-  if(orb.excited){[cr,cg,cb]=[cr*0.35+1.0*0.65,cg*0.35+0.82*0.65,cb*0.35+0.12*0.65];}
+  const GOLD=[1.0,0.72,0.05];
+  const isSubExcited = i => !!(orb.occ && orb.occ[i] && orb.occ[i].excited);
+  const goldBlend = (base) => [base[0]*0.35+GOLD[0]*0.65, base[1]*0.35+GOLD[1]*0.65, base[2]*0.35+GOLD[2]*0.65];
 
   // Fresnel strength — tighter rim for inner compact orbitals
   const rimPow = 1.2 + orb.R * 0.008;
@@ -1922,7 +1918,8 @@ function buildUltraCloud(orb){
     [0.85, 0.18, 0.45],  // 5s — vivid rose
   ];
   const sIdx = Math.max(0, orb.n - 1);
-  const sCol = realMode ? [cr, cg, cb] : S_ULTRA_COLORS[Math.min(sIdx, S_ULTRA_COLORS.length - 1)];
+  const sColBase = realMode ? [cr, cg, cb] : S_ULTRA_COLORS[Math.min(sIdx, S_ULTRA_COLORS.length - 1)];
+  const sCol = isSubExcited(0) ? goldBlend(sColBase) : sColBase;
 
   if(orb.l === 0){
     // Perfect sphere shell
@@ -1949,13 +1946,14 @@ function buildUltraCloud(orb){
     //   6e → px² py² pz² → 3 dumbbells
     // So dumbbell count = min(e, 3) — one dumbbell per occupied orbital.
     const axes      = [[1,0,0],[0,1,0],[0,0,1]];
-    const dumbCount = Math.min(orb.e, 3);   // Hund: 1 per orbital until all 3 filled
-    for(let ax = 0; ax < dumbCount; ax++){
-      const mat = bubbleMat(AX_TINTS[ax], alpha * 0.88, rimPow);
+    (orb.occ||[]).forEach((s,ax)=>{
+      if(s.e===0) return; // this SPECIFIC px/py/pz is unoccupied — skip it, don't guess
+      const tint = s.excited ? goldBlend(AX_TINTS[ax]) : AX_TINTS[ax];
+      const mat = bubbleMat(tint, alpha * (s.excited?1.0:0.88), rimPow);
       const [dx,dy,dz] = axes[ax];
       grp.add(makeLobeMesh(orb.R, [ dx,  dy,  dz], mat, innerR));
       grp.add(makeLobeMesh(orb.R, [-dx, -dy, -dz], mat, innerR));
-    }
+    });
 
   } else if(orb.l === 2){
     // d orbitals — 5 sub-orbitals, each with a distinct shape:
@@ -1987,9 +1985,11 @@ function buildUltraCloud(orb){
     ];
 
     const subCount = Math.min(orb.e, 5);
-    for(let sub = 0; sub < subCount; sub++){
+    (orb.occ||[]).forEach((s,sub)=>{
+      if(s.e===0) return; // this SPECIFIC d sub-orbital is unoccupied
       const shape = D_SHAPE[sub];
-      const mat   = bubbleMat(SUB_TINTS[sub], alpha * 0.82, rimPow + 0.3);
+      const tint  = s.excited ? goldBlend(SUB_TINTS[sub]) : SUB_TINTS[sub];
+      const mat   = bubbleMat(tint, alpha * (s.excited?0.95:0.82), rimPow + 0.3);
       for(const dir of shape.dirs){
         const len = Math.sqrt(dir[0]*dir[0]+dir[1]*dir[1]+dir[2]*dir[2]);
         const nd  = [dir[0]/len, dir[1]/len, dir[2]/len];
@@ -1997,14 +1997,15 @@ function buildUltraCloud(orb){
       }
       // dz² torus ring in the XZ plane
       if(shape.torus){
-        const torusMat = bubbleMat(SUB_TINTS[0], alpha * 0.70, rimPow + 0.5);
+        const torusTint = s.excited ? goldBlend(SUB_TINTS[0]) : SUB_TINTS[0];
+        const torusMat = bubbleMat(torusTint, alpha * 0.70, rimPow + 0.5);
         const torusGeo = new THREE.TorusGeometry(orb.R * 0.55, orb.R * 0.14, 48, 128);
         // Torus is in XY by default — rotate to XZ plane
         const torus = new THREE.Mesh(torusGeo, torusMat);
         torus.rotation.x = Math.PI / 2;
         grp.add(torus);
       }
-    }
+    });
 
   } else {
     // f orbitals — 7 sub-orbitals (fz³, fxz², fyz², fxyz, fz(x²-y²),
@@ -2015,13 +2016,14 @@ function buildUltraCloud(orb){
     // real angular wavefunction used for point-cloud sampling, so mesh
     // mode and grainy/smooth modes always agree on where lobes point.
     const fInnerR = orb.R * 0.22;   // f orbitals are even more compact than d
-    const subCount = Math.min(orb.e, 7);
-    for(let sub = 0; sub < subCount; sub++){
-      const mat = bubbleMat(F_SUB_TINTS[sub], alpha * 0.80, rimPow + 0.35);
+    (orb.occ||[]).forEach((s,sub)=>{
+      if(s.e===0) return;
+      const tint = s.excited ? goldBlend(F_SUB_TINTS[sub]) : F_SUB_TINTS[sub];
+      const mat = bubbleMat(tint, alpha * (s.excited?0.9:0.80), rimPow + 0.35);
       for(const dir of fPeakDirections(sub)){
         grp.add(makeLobeMesh(orb.R, dir, mat, fInnerR));
       }
-    }
+    });
   }
 
   return grp;
@@ -2092,41 +2094,47 @@ function smoothDensity(x,y,z,l,sub,R){
 function buildSmoothCloud(orb){
   const grp=new THREE.Group();
   let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
-  if(orb.excited){[r,g,b]=[r*0.35+1.0*0.65,g*0.35+0.82*0.65,b*0.35+0.12*0.65];}
+  const GOLD=[1.0,0.72,0.05];
+  const goldBlend=(base)=>[base[0]*0.35+GOLD[0]*0.65,base[1]*0.35+GOLD[1]*0.65,base[2]*0.35+GOLD[2]*0.65];
   const radiusBoost=1+orb.R/25;
   const fillFrac=orb.e/orb.max;
 
   // Ultra mode = same as normal but 3x more particles for denser look
   if(orb.l===0){
+    const exc=orb.occ&&orb.occ[0]&&orb.occ[0].excited;
+    let c=realMode?[.486,.424,.965]:[r,g,b];
+    if(exc) c=goldBlend(c);
     const n=Math.round(9000*fillFrac*radiusBoost);
-    const c=realMode?[.486,.424,.965]:[r,g,b];
     grp.add(makePointCloud(n,()=>sampleS(orb.R),c));
   }else if(orb.l===1){
     const sRadii={2:8.0,3:52.0,4:180.0,5:600.0,6:2200.0,7:7500.0,8:52000.0};
     const pInnerR=sRadii[orb.n]!=null?sRadii[orb.n]:orb.R*0.30;
-    const axCount=Math.min(orb.e,3);
     const P_VI=[[.486,.424,.965],[.608,.541,.984],[.357,.294,.831]];
     const P_TINTS_U=[[.49,.42,.97],[.61,.54,.98],[.36,.29,.83]];
-    for(let ax=0;ax<axCount;ax++){
-      const c=realMode?P_VI[ax]:P_TINTS_U[ax];
+    (orb.occ||[]).forEach((s,ax)=>{
+      if(s.e===0) return; // this SPECIFIC px/py/pz is unoccupied
+      let c=realMode?P_VI[ax]:P_TINTS_U[ax];
+      if(s.excited) c=goldBlend(c);
       grp.add(makePointCloud(Math.round(7000*radiusBoost),()=>sampleP_lobe(orb.R,ax,pInnerR),c));
-    }
+    });
   }else if(orb.l===2){
-    const subCount=Math.min(orb.e,5);
     const D_VI=[[.486,.424,.965],[.608,.541,.984],[.655,.545,.980],[.357,.294,.831],[.769,.710,.992]];
     const D_TINTS_U=[[.49,.42,.97],[.61,.54,.98],[.66,.55,.98],[.36,.29,.83],[.77,.71,.99]];
-    for(let sub=0;sub<subCount;sub++){
-      const c=realMode?D_VI[sub]:D_TINTS_U[sub];
+    (orb.occ||[]).forEach((s,sub)=>{
+      if(s.e===0) return; // this SPECIFIC dz²/dxy/dxz/dyz/dx²-y² is unoccupied
+      let c=realMode?D_VI[sub]:D_TINTS_U[sub];
+      if(s.excited) c=goldBlend(c);
       grp.add(makePointCloud(Math.round(6000*radiusBoost),()=>sampleDSub(orb.R,sub),c));
-    }
+    });
   }else{
-    const subCount=Math.min(orb.e,7);
     const F_VI=[[.60,.333,.878],[.694,.40,.878],[.416,.361,.941],[.522,.467,.949],[.44,.30,.90],[.70,.25,.60],[.35,.55,.90]];
     const F_TINTS_U=[[.62,.10,.85],[.85,.15,.45],[.15,.45,.90],[.90,.42,.08],[.10,.70,.55],[.75,.65,.08],[.55,.20,.80]];
-    for(let sub=0;sub<subCount;sub++){
-      const c=realMode?F_VI[sub]:F_TINTS_U[sub];
+    (orb.occ||[]).forEach((s,sub)=>{
+      if(s.e===0) return;
+      let c=realMode?F_VI[sub]:F_TINTS_U[sub];
+      if(s.excited) c=goldBlend(c);
       grp.add(makePointCloud(Math.round(5000*radiusBoost),()=>sampleFSub(orb.R,sub),c));
-    }
+    });
   }
   return grp;
 }
@@ -2162,40 +2170,46 @@ function makePointCloud(count,sampler,rgb){
 function buildCloud(orb,electrons){
   const grp=new THREE.Group();
   let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
-  if(orb.excited){[r,g,b]=[r*0.35+1.0*0.65,g*0.35+0.82*0.65,b*0.35+0.12*0.65];}
+  const GOLD=[1.0,0.72,0.05];
+  const goldBlend=(base)=>[base[0]*0.35+GOLD[0]*0.65,base[1]*0.35+GOLD[1]*0.65,base[2]*0.35+GOLD[2]*0.65];
   const radiusBoost=1+orb.R/25;
   const fillFrac=orb.e/orb.max;
   if(orb.l===0){
+    const exc=orb.occ&&orb.occ[0]&&orb.occ[0].excited;
+    const c=exc?goldBlend([r,g,b]):[r,g,b];
     const count=Math.round(28000*fillFrac*radiusBoost);
-    grp.add(makePointCloud(count,()=>sampleS(orb.R),[r,g,b]));
+    grp.add(makePointCloud(count,()=>sampleS(orb.R),c));
   }else if(orb.l===1){
     const sRadii={2:8.0,3:52.0,4:180.0,5:600.0,6:2200.0,7:7500.0,8:52000.0};
     const pInnerR=sRadii[orb.n]!=null?sRadii[orb.n]:orb.R*0.30;
-    const axCount=Math.min(orb.e,3);
     const perAxis=Math.round(26000*radiusBoost);
-    for(let ax=0;ax<axCount;ax++){
+    (orb.occ||[]).forEach((s,ax)=>{
+      if(s.e===0) return; // this SPECIFIC px/py/pz is unoccupied — not rendered
       const tint=P_AXIS_TINT[ax];
-      const axRGB=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
+      let axRGB=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
+      if(s.excited) axRGB=goldBlend(axRGB);
       grp.add(makePointCloud(perAxis,()=>sampleP_lobe(orb.R,ax,pInnerR),axRGB));
-    }
+    });
   }else if(orb.l===2){
-    const subCount=Math.min(orb.e,5);
     const perSub=Math.round(16000*radiusBoost);
     const D_TINTS=[[1,.3,.5],[1,.5,.2],[.5,1,.3],[.3,.5,1],[.8,.3,1]];
-    for(let sub=0;sub<subCount;sub++){
+    (orb.occ||[]).forEach((s,sub)=>{
+      if(s.e===0) return; // this SPECIFIC dz²/dxy/dxz/dyz/dx²-y² is unoccupied
       const tint=D_TINTS[sub];
-      const dRGB=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      let dRGB=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      if(s.excited) dRGB=goldBlend(dRGB);
       grp.add(makePointCloud(perSub,()=>sampleDSub(orb.R,sub),dRGB));
-    }
+    });
   }else{
-    const subCount=Math.min(orb.e,7);
     const perSub=Math.round(13000*radiusBoost);
     const F_TINTS=[[1,.2,.6],[.6,.2,1],[.2,.6,1],[1,.6,.2],[.2,1,.6],[.85,.85,.2],[.7,.2,.7]];
-    for(let sub=0;sub<subCount;sub++){
+    (orb.occ||[]).forEach((s,sub)=>{
+      if(s.e===0) return;
       const tint=F_TINTS[sub];
-      const fRGB=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      let fRGB=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      if(s.excited) fRGB=goldBlend(fRGB);
       grp.add(makePointCloud(perSub,()=>sampleFSub(orb.R,sub),fRGB));
-    }
+    });
   }
   return grp;
 }
@@ -2273,54 +2287,38 @@ function updateUI(Z){
 
   const leg=document.getElementById('oleg');
   leg.innerHTML='';
+  const SUB_HEX={
+    0:['#ff9944'],
+    1:['#ff8866','#66ffaa','#aaaaff'],
+    2:['#ff4499','#ff7733','#ffaa00','#aadd00','#ff22cc'],
+    3:['#8855dd','#dd5599','#4488ff','#dd8822','#22aa88','#bbaa22','#9955bb'],
+  };
   cfg.forEach(o=>{
-    const type=['s','p','d','f'][o.l];
-    if(o.l===1){
-      const axNames=['px','py','pz'];
-      const axHex=['#ff8866','#66ffaa','#aaaaff'];
-      const eCounts=[0,0,0];
-      for(let i=0;i<Math.min(o.e,3);i++) eCounts[i]++;
-      for(let i=0;i<o.e-3;i++) eCounts[i]++;
-      axNames.forEach((ax,i)=>{
-        if(eCounts[i]===0) return;
-        leg.innerHTML+=`<div class="orow">
-          <div class="odot" style="background:${axHex[i]};box-shadow:0 0 5px ${axHex[i]}88;"></div>
-          <span class="olbl">${o.n}${ax}</span>
-          <span class="ocnt">${eCounts[i]}e⁻</span>
-        </div>`;
-      });
-    }else if(o.l===2){
-      const dNames=['dz²','dxy','dxz','dyz','dx²-y²'];
-      const dHex=['#ff4499','#ff7733','#ffaa00','#aadd00','#ff22cc'];
-      const subCount=Math.min(o.e,5);
-      for(let i=0;i<subCount;i++){
-        const eInSub=(o.e>5&&i<(o.e-5))?2:1;
-        leg.innerHTML+=`<div class="orow">
-          <div class="odot" style="background:${dHex[i]};box-shadow:0 0 5px ${dHex[i]}88;"></div>
-          <span class="olbl">${o.n}${dNames[i]}</span>
-          <span class="ocnt">${eInSub}e⁻</span>
-        </div>`;
-      }
-    }else if(o.l===3){
-      const fNames=['z³','xz²','yz²','xyz','z(x²-y²)','x(x²-3y²)','y(3x²-y²)'];
-      const fHex=['#8855dd','#dd5599','#4488ff','#dd8822','#22aa88','#bbaa22','#9955bb'];
-      const subCount=Math.min(o.e,7);
-      for(let i=0;i<subCount;i++){
-        const eInSub=(o.e>7&&i<(o.e-7))?2:1;
-        leg.innerHTML+=`<div class="orow">
-          <div class="odot" style="background:${fHex[i]};box-shadow:0 0 5px ${fHex[i]}88;"></div>
-          <span class="olbl">${o.n}f${fNames[i]}</span>
-          <span class="ocnt">${eInSub}e⁻</span>
-        </div>`;
-      }
-    }else{
-      leg.innerHTML+=`<div class="orow">
-        <div class="odot" style="background:${o.hex};box-shadow:0 0 5px ${o.hex}88;"></div>
-        <span class="olbl">${o.name} (${type}-type)</span>
-        <span class="ocnt">${o.e}e⁻</span>
+    const hexArr=SUB_HEX[o.l];
+    o.occ.forEach((s,i)=>{
+      if(s.e===0) return; // this specific sub-orbital is unoccupied — don't show/render it
+      const fullLabel = o.l===3 ? `${o.n}f${s.label}` : `${o.n}${s.label}`;
+      const color = hexArr[i];
+      leg.innerHTML+=`<div class="orow${s.excited?' excited-row':''}">
+        <div class="odot" style="background:${color};box-shadow:0 0 5px ${color}88;"></div>
+        <span class="olbl">${s.excited?`<span class="excited-orb">${fullLabel}*</span>`:fullLabel}</span>
+        <span class="ocnt">${s.e}e⁻</span>
       </div>`;
-    }
+    });
   });
+
+  const transRow=document.getElementById('excited-trans-row');
+  if(transRow){
+    if(excited&&excited.promotions&&excited.promotions.length>0){
+      const txt=excited.promotions.map(p=>
+        `${p.fromOrbital}${p.fromOrbital.slice(-1)==='s'&&p.fromSub==='s'?'':'('+p.fromSub+')'} → ${p.toOrbital}${p.toOrbital.slice(-1)==='s'&&p.toSub==='s'?'':'('+p.toSub+')'}`
+      ).join(' · ');
+      document.getElementById('excited-trans').textContent=txt;
+      transRow.style.display='flex';
+    }else{
+      transRow.style.display='none';
+    }
+  }
 
   document.querySelectorAll('.ebtn').forEach(b=>b.classList.remove('on'));
   const btn=document.querySelector(`[data-z="${Z}"]`);
