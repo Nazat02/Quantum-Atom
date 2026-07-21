@@ -332,6 +332,8 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .el-mini[data-p="3"]{border-left-color:var(--p1);}
 .el-mini[data-p="4"]{border-left-color:#fbbf24;}
 .el-mini[data-p="5"]{border-left-color:var(--vlo);}
+.el-mini[data-p="6"]{border-left-color:#38bdf8;}
+.el-mini[data-p="7"]{border-left-color:#a78bfa;}
 
 /* ═══ HOW IT WORKS ═══ */
 #how{position:relative;z-index:1;}
@@ -519,7 +521,7 @@ footer{position:relative;z-index:1;}
 
 <!-- HERO -->
 <section id="hero">
-  <div class="hero-eyebrow"><span class="eyebrow-dot"></span>Interactive 3D Quantum Simulation · H through Xe</div>
+  <div class="hero-eyebrow"><span class="eyebrow-dot"></span>Interactive 3D Quantum Simulation · H through Og</div>
   <h1 class="hero-title">
     <span class="line1">QUANTUM</span>
     <span class="line2">ATOM</span>
@@ -1144,9 +1146,9 @@ footer{position:relative;z-index:1;}
     <div class="elements-header">
       <div>
         <p class="section-eyebrow">Element Coverage</p>
-        <h2 class="section-title">H through Xe</h2>
+        <h2 class="section-title">H through Og</h2>
       </div>
-      <p class="section-body" style="max-width:300px;">All 54 elements from Hydrogen (Z=1) to Xenon (Z=54), spanning 5 periods and all s, p, and d orbital filling in the Aufbau sequence.</p>
+      <p class="section-body" style="max-width:300px;">All 118 elements from Hydrogen (Z=1) to Oganesson (Z=118) — the complete periodic table, spanning all 7 periods and every s, p, d, and f orbital filling in the Aufbau sequence.</p>
     </div>
     <div class="period-legend">
       <div class="pl-item"><div class="pl-dot" style="background:var(--cx);"></div>Period 1</div>
@@ -1154,6 +1156,8 @@ footer{position:relative;z-index:1;}
       <div class="pl-item"><div class="pl-dot" style="background:var(--cx3);"></div>Period 3</div>
       <div class="pl-item"><div class="pl-dot" style="background:rgba(251,191,36,.75);"></div>Period 4 (incl. 3d transition metals)</div>
       <div class="pl-item"><div class="pl-dot" style="background:rgba(255,255,255,.3);"></div>Period 5 (incl. 4d transition metals)</div>
+      <div class="pl-item"><div class="pl-dot" style="background:#38bdf8;"></div>Period 6 (incl. lanthanides &amp; 5d metals)</div>
+      <div class="pl-item"><div class="pl-dot" style="background:#a78bfa;"></div>Period 7 (incl. actinides &amp; superheavy elements)</div>
     </div>
     <div class="el-mini-grid reveal" id="el-preview-grid"></div>
   </div>
@@ -1225,7 +1229,7 @@ footer{position:relative;z-index:1;}
 </svg>
     </div>
     <h2 class="cta-title">Ready to see<br><span>the quantum world?</span></h2>
-    <p class="cta-sub">54 elements. 10 orbital types. Real-time 3D.<br>No installation. No account. Just open it and explore.</p>
+    <p class="cta-sub">118 elements. 10 orbital types. Real-time 3D.<br>No installation. No account. Just open it and explore.</p>
     <div class="cta-actions">
       <a href="https://nazat02.github.io/Quantum-Atom/simulator_light.html" class="btn-primary" style="font-size:.78rem;padding:16px 40px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".9"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".78" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".7" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="2.5" fill="white"/><circle cx="21.5" cy="12" r="1.6" fill="white"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="2s" repeatCount="indefinite"/></circle></svg>OPEN SIMULATOR</a>
       <a href="https://github.com/nazat02/Quantum-Atom" target="_blank" class="btn-secondary" style="font-size:.72rem;">VIEW ON GITHUB →</a>
@@ -1261,7 +1265,7 @@ footer{position:relative;z-index:1;}
 </svg></div>
       <div>
         <div style="font-size:.68rem;letter-spacing:.12em;color:var(--hi);font-family:var(--display);font-weight:700;">QUANTUM ATOM SIMULATOR</div>
-        <div class="footer-name">Interactive 3D Orbital Visualization · H–Xe</div>
+        <div class="footer-name">Interactive 3D Orbital Visualization · H–Og</div>
       </div>
     </div>
     <div class="footer-right">
@@ -1455,33 +1459,65 @@ window.addEventListener('error',function(e){
 // ── ELEMENT GRID ──
 (function(){
   const data=[
-    {Z:1,sym:'H',name:'Hydrogen',p:1},{Z:2,sym:'He',name:'Helium',p:1},
-    {Z:3,sym:'Li',name:'Lithium',p:2},{Z:4,sym:'Be',name:'Beryllium',p:2},
-    {Z:5,sym:'B',name:'Boron',p:2},{Z:6,sym:'C',name:'Carbon',p:2},
-    {Z:7,sym:'N',name:'Nitrogen',p:2},{Z:8,sym:'O',name:'Oxygen',p:2},
-    {Z:9,sym:'F',name:'Fluorine',p:2},{Z:10,sym:'Ne',name:'Neon',p:2},
-    {Z:11,sym:'Na',name:'Sodium',p:3},{Z:12,sym:'Mg',name:'Magnesium',p:3},
-    {Z:13,sym:'Al',name:'Aluminium',p:3},{Z:14,sym:'Si',name:'Silicon',p:3},
-    {Z:15,sym:'P',name:'Phosphorus',p:3},{Z:16,sym:'S',name:'Sulfur',p:3},
-    {Z:17,sym:'Cl',name:'Chlorine',p:3},{Z:18,sym:'Ar',name:'Argon',p:3},
-    {Z:19,sym:'K',name:'Potassium',p:4},{Z:20,sym:'Ca',name:'Calcium',p:4},
-    {Z:21,sym:'Sc',name:'Scandium',p:4},{Z:22,sym:'Ti',name:'Titanium',p:4},
-    {Z:23,sym:'V',name:'Vanadium',p:4},{Z:24,sym:'Cr',name:'Chromium',p:4},
-    {Z:25,sym:'Mn',name:'Manganese',p:4},{Z:26,sym:'Fe',name:'Iron',p:4},
-    {Z:27,sym:'Co',name:'Cobalt',p:4},{Z:28,sym:'Ni',name:'Nickel',p:4},
-    {Z:29,sym:'Cu',name:'Copper',p:4},{Z:30,sym:'Zn',name:'Zinc',p:4},
-    {Z:31,sym:'Ga',name:'Gallium',p:4},{Z:32,sym:'Ge',name:'Germanium',p:4},
-    {Z:33,sym:'As',name:'Arsenic',p:4},{Z:34,sym:'Se',name:'Selenium',p:4},
-    {Z:35,sym:'Br',name:'Bromine',p:4},{Z:36,sym:'Kr',name:'Krypton',p:4},
-    {Z:37,sym:'Rb',name:'Rubidium',p:5},{Z:38,sym:'Sr',name:'Strontium',p:5},
-    {Z:39,sym:'Y',name:'Yttrium',p:5},{Z:40,sym:'Zr',name:'Zirconium',p:5},
-    {Z:41,sym:'Nb',name:'Niobium',p:5},{Z:42,sym:'Mo',name:'Molybdenum',p:5},
-    {Z:43,sym:'Tc',name:'Technetium',p:5},{Z:44,sym:'Ru',name:'Ruthenium',p:5},
-    {Z:45,sym:'Rh',name:'Rhodium',p:5},{Z:46,sym:'Pd',name:'Palladium',p:5},
-    {Z:47,sym:'Ag',name:'Silver',p:5},{Z:48,sym:'Cd',name:'Cadmium',p:5},
-    {Z:49,sym:'In',name:'Indium',p:5},{Z:50,sym:'Sn',name:'Tin',p:5},
-    {Z:51,sym:'Sb',name:'Antimony',p:5},{Z:52,sym:'Te',name:'Tellurium',p:5},
-    {Z:53,sym:'I',name:'Iodine',p:5},{Z:54,sym:'Xe',name:'Xenon',p:5},
+    {Z:1,sym:'H',name:'Hydrogen',p:1}, {Z:2,sym:'He',name:'Helium',p:1},
+    {Z:3,sym:'Li',name:'Lithium',p:2}, {Z:4,sym:'Be',name:'Beryllium',p:2},
+    {Z:5,sym:'B',name:'Boron',p:2}, {Z:6,sym:'C',name:'Carbon',p:2},
+    {Z:7,sym:'N',name:'Nitrogen',p:2}, {Z:8,sym:'O',name:'Oxygen',p:2},
+    {Z:9,sym:'F',name:'Fluorine',p:2}, {Z:10,sym:'Ne',name:'Neon',p:2},
+    {Z:11,sym:'Na',name:'Sodium',p:3}, {Z:12,sym:'Mg',name:'Magnesium',p:3},
+    {Z:13,sym:'Al',name:'Aluminium',p:3}, {Z:14,sym:'Si',name:'Silicon',p:3},
+    {Z:15,sym:'P',name:'Phosphorus',p:3}, {Z:16,sym:'S',name:'Sulfur',p:3},
+    {Z:17,sym:'Cl',name:'Chlorine',p:3}, {Z:18,sym:'Ar',name:'Argon',p:3},
+    {Z:19,sym:'K',name:'Potassium',p:4}, {Z:20,sym:'Ca',name:'Calcium',p:4},
+    {Z:21,sym:'Sc',name:'Scandium',p:4}, {Z:22,sym:'Ti',name:'Titanium',p:4},
+    {Z:23,sym:'V',name:'Vanadium',p:4}, {Z:24,sym:'Cr',name:'Chromium',p:4},
+    {Z:25,sym:'Mn',name:'Manganese',p:4}, {Z:26,sym:'Fe',name:'Iron',p:4},
+    {Z:27,sym:'Co',name:'Cobalt',p:4}, {Z:28,sym:'Ni',name:'Nickel',p:4},
+    {Z:29,sym:'Cu',name:'Copper',p:4}, {Z:30,sym:'Zn',name:'Zinc',p:4},
+    {Z:31,sym:'Ga',name:'Gallium',p:4}, {Z:32,sym:'Ge',name:'Germanium',p:4},
+    {Z:33,sym:'As',name:'Arsenic',p:4}, {Z:34,sym:'Se',name:'Selenium',p:4},
+    {Z:35,sym:'Br',name:'Bromine',p:4}, {Z:36,sym:'Kr',name:'Krypton',p:4},
+    {Z:37,sym:'Rb',name:'Rubidium',p:5}, {Z:38,sym:'Sr',name:'Strontium',p:5},
+    {Z:39,sym:'Y',name:'Yttrium',p:5}, {Z:40,sym:'Zr',name:'Zirconium',p:5},
+    {Z:41,sym:'Nb',name:'Niobium',p:5}, {Z:42,sym:'Mo',name:'Molybdenum',p:5},
+    {Z:43,sym:'Tc',name:'Technetium',p:5}, {Z:44,sym:'Ru',name:'Ruthenium',p:5},
+    {Z:45,sym:'Rh',name:'Rhodium',p:5}, {Z:46,sym:'Pd',name:'Palladium',p:5},
+    {Z:47,sym:'Ag',name:'Silver',p:5}, {Z:48,sym:'Cd',name:'Cadmium',p:5},
+    {Z:49,sym:'In',name:'Indium',p:5}, {Z:50,sym:'Sn',name:'Tin',p:5},
+    {Z:51,sym:'Sb',name:'Antimony',p:5}, {Z:52,sym:'Te',name:'Tellurium',p:5},
+    {Z:53,sym:'I',name:'Iodine',p:5}, {Z:54,sym:'Xe',name:'Xenon',p:5},
+    {Z:55,sym:'Cs',name:'Caesium',p:6}, {Z:56,sym:'Ba',name:'Barium',p:6},
+    {Z:57,sym:'La',name:'Lanthanum',p:6}, {Z:58,sym:'Ce',name:'Cerium',p:6},
+    {Z:59,sym:'Pr',name:'Praseodymium',p:6}, {Z:60,sym:'Nd',name:'Neodymium',p:6},
+    {Z:61,sym:'Pm',name:'Promethium',p:6}, {Z:62,sym:'Sm',name:'Samarium',p:6},
+    {Z:63,sym:'Eu',name:'Europium',p:6}, {Z:64,sym:'Gd',name:'Gadolinium',p:6},
+    {Z:65,sym:'Tb',name:'Terbium',p:6}, {Z:66,sym:'Dy',name:'Dysprosium',p:6},
+    {Z:67,sym:'Ho',name:'Holmium',p:6}, {Z:68,sym:'Er',name:'Erbium',p:6},
+    {Z:69,sym:'Tm',name:'Thulium',p:6}, {Z:70,sym:'Yb',name:'Ytterbium',p:6},
+    {Z:71,sym:'Lu',name:'Lutetium',p:6}, {Z:72,sym:'Hf',name:'Hafnium',p:6},
+    {Z:73,sym:'Ta',name:'Tantalum',p:6}, {Z:74,sym:'W',name:'Tungsten',p:6},
+    {Z:75,sym:'Re',name:'Rhenium',p:6}, {Z:76,sym:'Os',name:'Osmium',p:6},
+    {Z:77,sym:'Ir',name:'Iridium',p:6}, {Z:78,sym:'Pt',name:'Platinum',p:6},
+    {Z:79,sym:'Au',name:'Gold',p:6}, {Z:80,sym:'Hg',name:'Mercury',p:6},
+    {Z:81,sym:'Tl',name:'Thallium',p:6}, {Z:82,sym:'Pb',name:'Lead',p:6},
+    {Z:83,sym:'Bi',name:'Bismuth',p:6}, {Z:84,sym:'Po',name:'Polonium',p:6},
+    {Z:85,sym:'At',name:'Astatine',p:6}, {Z:86,sym:'Rn',name:'Radon',p:6},
+    {Z:87,sym:'Fr',name:'Francium',p:7}, {Z:88,sym:'Ra',name:'Radium',p:7},
+    {Z:89,sym:'Ac',name:'Actinium',p:7}, {Z:90,sym:'Th',name:'Thorium',p:7},
+    {Z:91,sym:'Pa',name:'Protactinium',p:7}, {Z:92,sym:'U',name:'Uranium',p:7},
+    {Z:93,sym:'Np',name:'Neptunium',p:7}, {Z:94,sym:'Pu',name:'Plutonium',p:7},
+    {Z:95,sym:'Am',name:'Americium',p:7}, {Z:96,sym:'Cm',name:'Curium',p:7},
+    {Z:97,sym:'Bk',name:'Berkelium',p:7}, {Z:98,sym:'Cf',name:'Californium',p:7},
+    {Z:99,sym:'Es',name:'Einsteinium',p:7}, {Z:100,sym:'Fm',name:'Fermium',p:7},
+    {Z:101,sym:'Md',name:'Mendelevium',p:7}, {Z:102,sym:'No',name:'Nobelium',p:7},
+    {Z:103,sym:'Lr',name:'Lawrencium',p:7}, {Z:104,sym:'Rf',name:'Rutherfordium',p:7},
+    {Z:105,sym:'Db',name:'Dubnium',p:7}, {Z:106,sym:'Sg',name:'Seaborgium',p:7},
+    {Z:107,sym:'Bh',name:'Bohrium',p:7}, {Z:108,sym:'Hs',name:'Hassium',p:7},
+    {Z:109,sym:'Mt',name:'Meitnerium',p:7}, {Z:110,sym:'Ds',name:'Darmstadtium',p:7},
+    {Z:111,sym:'Rg',name:'Roentgenium',p:7}, {Z:112,sym:'Cn',name:'Copernicium',p:7},
+    {Z:113,sym:'Nh',name:'Nihonium',p:7}, {Z:114,sym:'Fl',name:'Flerovium',p:7},
+    {Z:115,sym:'Mc',name:'Moscovium',p:7}, {Z:116,sym:'Lv',name:'Livermorium',p:7},
+    {Z:117,sym:'Ts',name:'Tennessine',p:7}, {Z:118,sym:'Og',name:'Oganesson',p:7},
   ];
   const grid=document.getElementById('el-preview-grid');
   if(!grid)return;
