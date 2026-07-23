@@ -305,7 +305,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   touch-action: pan-y;
   width: var(--panel-w);
   min-width: var(--panel-w);
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   
@@ -1280,42 +1281,54 @@ const ORBS=[
 // single source of truth the single-atom view already uses — so the bond
 // length always matches what's actually being rendered, and the fix
 // applies to every molecule (and any added later) automatically.
+//
+// Each entry in `bonds` is [atomIndexA, atomIndexB, order]. `order` is
+// optional and defaults to 1 (single bond) when omitted — it's only
+// written explicitly for double (2) and triple (3) bonds below. This one
+// number drives BOTH visual effects a real double/triple bond has:
+//   1) bondLength() shortens the bond as order goes up (a real N≡N triple
+//      is ~24% shorter than a single N-N; see the order multiplier there),
+//      so higher-order bonds visibly pull their atoms closer together.
+//   2) buildMolecule() draws `order` parallel guide lines instead of
+//      always one, offset perpendicular to the bond axis by an amount
+//      scaled to that bond's own length — so the multi-line spacing stays
+//      proportionate at any molecule size or zoom level.
 const TET = 1/Math.sqrt(3); // unit tetrahedral vector component
 const H2O_HALF_ANGLE = 52.25 * Math.PI/180; // half of water's 104.5° bond angle
 
 const MOLECULES=[
   { key:'h2', formula:'H₂', name:'Hydrogen', geometry:'Linear',
     atoms:[ {Z:1,sym:'H',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
-    bonds:[[0,1]] },
+    bonds:[[0,1]] }, // single
   { key:'o2', formula:'O₂', name:'Oxygen', geometry:'Linear',
     atoms:[ {Z:8,sym:'O',dir:[0,0,0]}, {Z:8,sym:'O',dir:[1,0,0]} ],
-    bonds:[[0,1]] },
+    bonds:[[0,1,2]] }, // O=O double bond
   { key:'n2', formula:'N₂', name:'Nitrogen', geometry:'Linear',
     atoms:[ {Z:7,sym:'N',dir:[0,0,0]}, {Z:7,sym:'N',dir:[1,0,0]} ],
-    bonds:[[0,1]] },
+    bonds:[[0,1,3]] }, // N≡N triple bond
   { key:'co', formula:'CO', name:'Carbon Monoxide', geometry:'Linear',
     atoms:[ {Z:6,sym:'C',dir:[0,0,0]}, {Z:8,sym:'O',dir:[1,0,0]} ],
-    bonds:[[0,1]] },
+    bonds:[[0,1,3]] }, // C≡O triple bond (isoelectronic with N2)
   { key:'hf', formula:'HF', name:'Hydrogen Fluoride', geometry:'Linear',
     atoms:[ {Z:9,sym:'F',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
-    bonds:[[0,1]] },
+    bonds:[[0,1]] }, // single
   { key:'hcl', formula:'HCl', name:'Hydrogen Chloride', geometry:'Linear',
     atoms:[ {Z:17,sym:'Cl',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
-    bonds:[[0,1]] },
+    bonds:[[0,1]] }, // single
   { key:'h2o', formula:'H₂O', name:'Water', geometry:'Bent (104.5°)',
     atoms:[
       {Z:8,sym:'O',dir:[0,0,0]},
       {Z:1,sym:'H',dir:[Math.sin(H2O_HALF_ANGLE), -Math.cos(H2O_HALF_ANGLE), 0]},
       {Z:1,sym:'H',dir:[-Math.sin(H2O_HALF_ANGLE), -Math.cos(H2O_HALF_ANGLE), 0]},
     ],
-    bonds:[[0,1],[0,2]] },
+    bonds:[[0,1],[0,2]] }, // both single
   { key:'co2', formula:'CO₂', name:'Carbon Dioxide', geometry:'Linear',
     atoms:[
       {Z:6,sym:'C',dir:[0,0,0]},
       {Z:8,sym:'O',dir:[1,0,0]},
       {Z:8,sym:'O',dir:[-1,0,0]},
     ],
-    bonds:[[0,1],[0,2]] },
+    bonds:[[0,1,2],[0,2,2]] }, // O=C=O, both double bonds
   { key:'nh3', formula:'NH₃', name:'Ammonia', geometry:'Trigonal Pyramidal',
     atoms:[
       {Z:7,sym:'N',dir:[0,0,0]},
@@ -1323,7 +1336,7 @@ const MOLECULES=[
       {Z:1,sym:'H',dir:[TET, -TET, -TET]},
       {Z:1,sym:'H',dir:[-TET, TET, -TET]},
     ],
-    bonds:[[0,1],[0,2],[0,3]] },
+    bonds:[[0,1],[0,2],[0,3]] }, // all single
   { key:'ch4', formula:'CH₄', name:'Methane', geometry:'Tetrahedral',
     atoms:[
       {Z:6,sym:'C',dir:[0,0,0]},
@@ -1332,7 +1345,7 @@ const MOLECULES=[
       {Z:1,sym:'H',dir:[-TET, TET, -TET]},
       {Z:1,sym:'H',dir:[-TET, -TET, TET]},
     ],
-    bonds:[[0,1],[0,2],[0,3],[0,4]] },
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
 ];
 
 // Compact aufbau-exception table: [orbitalName, electronCount] pairs only.
@@ -2390,9 +2403,32 @@ function buildAtom(Z){
 // Reads an atom's real valence-shell radius straight out of ORBS via
 // getConfig() — the same data the single-atom view already renders from,
 // so molecule geometry can never drift out of sync with what's on screen.
+// Reads an atom's real valence-shell radius straight out of ORBS via
+// getConfig() — the same data the single-atom view already renders from,
+// so molecule geometry can never drift out of sync with what's on screen.
 function valenceR(Z){
   const cfg=getConfig(Z);
   return (cfg && cfg.length) ? cfg[cfg.length-1].R : ORBS[0].R;
+}
+
+// Same lookup, but returns the full orbital object (R, n, l, ...) instead
+// of just R — bondLength needs to know whether the valence orbital is a
+// p-orbital (a dumbbell lobe spanning innerR..R) or an s-orbital (a thin
+// shell right at R) to know how to seat a bonded H atom correctly.
+function valenceOrb(Z){
+  const cfg=getConfig(Z);
+  return (cfg && cfg.length) ? cfg[cfg.length-1] : ORBS[0];
+}
+
+// The same "where does this p-orbital's dumbbell lobe actually start"
+// table used by buildCloud/buildSmoothCloud/buildUltraCloud (sRadii
+// there) — duplicated here on purpose rather than imported, since these
+// functions are defined later in the file, but kept numerically IDENTICAL
+// so a bonded H lands inside the exact same lobe geometry that gets
+// rendered, not some independently-guessed radius.
+function pInnerRadius(n, R){
+  const sRadii={2:8.0,3:52.0,4:180.0,5:600.0,6:2200.0,7:7500.0,8:52000.0};
+  return sRadii[n]!=null ? sRadii[n] : R*0.30;
 }
 
 // Derives a bond length from the two bonded atoms' actual shell sizes,
@@ -2401,15 +2437,42 @@ function valenceR(Z){
 // sampleS/sampleP_lobe), a bond has to land the smaller atom's shell right
 // at/inside the larger atom's *outer* valence lobe, or it ends up buried
 // among the larger atom's inner shells with no visible bond at all.
-function bondLength(Za,Zb){
-  const Ra=valenceR(Za), Rb=valenceR(Zb);
-  if(Za===1 && Zb===1) return Ra+Rb; // H-H: shells are proportionately thick; edge-to-edge already overlaps well
+// `order` (1/2/3 = single/double/triple) shortens the bond: real double
+// and triple bonds pull nuclei closer together because the extra shared
+// electron pairs increase net attraction (e.g. N≡N ≈1.10Å is ~24% shorter
+// than a single N-N ≈1.45Å; O=O ≈1.21Å is ~18% shorter than O-O ≈1.48Å).
+// This only ever touches the heavy-heavy case on purpose.
+//
+// H-heavy bonds (HF, HCl, H2O, NH3, CH4) are handled separately below:
+// every heavy atom H bonds to in this app's molecule set has a p-type
+// valence orbital, and sampleP_lobe renders that as a dumbbell whose
+// density PEAKS at the lobe's midpoint (t=0.5 of the way from innerR to
+// R) and FADES toward the outer tip (t=1, right at R) — the falloff is
+// exp(-(t-0.5)²·8), so by t=1 density is down to ~14% of peak. Seating H
+// deep in the dense interior (t≈0.58, tried previously) puts H's small,
+// sparse 1s shell directly inside the heavy atom's densest, most
+// populous region — H is technically there, but visually drowned out
+// and invisible against the much larger cloud. Seating H right at the
+// lobe's natural outer edge (t=1, i.e. at R itself) puts it in the
+// lobe's faintest region instead: H's own shell straddles that boundary
+// (half dipping just inside R, half poking just outside it), giving a
+// visible touching/overlapping contact — not buried inside, not
+// floating separate.
+function bondLength(Za,Zb,order){
+  if(Za===1 && Zb===1) return valenceR(1)+valenceR(1); // H-H: shells are proportionately thick; edge-to-edge already overlaps well
   if(Za===1 || Zb===1){
-    const Rheavy = Za===1 ? Rb : Ra;
-    const Rh = Za===1 ? Ra : Rb;
-    return 0.82*Rheavy + 0.6*Rh; // seat H just inside the heavy atom's outer lobe tip
+    const heavyZ = Za===1 ? Zb : Za;
+    const hOrb=valenceOrb(1), heavyOrb=valenceOrb(heavyZ);
+    if(heavyOrb.l===1) return heavyOrb.R; // p-type valence orbital: seat H right at the lobe's outer edge
+    // Fallback for a (currently unused) s-type heavy valence orbital: an
+    // s-shell has no lobe to nest inside, so seat H just inside its shell.
+    return 0.82*heavyOrb.R + 0.6*hOrb.R;
   }
-  return 0.62*(Ra+Rb); // two heavy atoms: pull valence shells together for visible overlap
+  const Ra=valenceR(Za), Rb=valenceR(Zb);
+  const base = 0.62*(Ra+Rb); // two heavy atoms: pull valence shells together for visible overlap
+  const ord = Math.max(1, Math.min(3, order||1));
+  const orderMult = 1 - 0.12*(ord-1); // 1 -> 1.00, 2 -> 0.88, 3 -> 0.76
+  return base*orderMult;
 }
 
 // Turns a molecule's { hub, dir vectors } geometry recipe into real world
@@ -2417,20 +2480,280 @@ function bondLength(Za,Zb){
 // so bond lengths always match the atoms actually being rendered.
 function resolveMoleculeAtoms(mol){
   const hub=mol.atoms[0];
-  return mol.atoms.map(a=>{
+  return mol.atoms.map((a,idx)=>{
     if(a===hub) return {Z:a.Z, sym:a.sym, pos:[0,0,0]};
-    const L=bondLength(hub.Z, a.Z);
+    const bond=(mol.bonds||[]).find(b=>(b[0]===0&&b[1]===idx)||(b[1]===0&&b[0]===idx));
+    const order=bond?(bond[2]||1):1;
+    const L=bondLength(hub.Z, a.Z, order);
     return {Z:a.Z, sym:a.sym, pos:[a.dir[0]*L, a.dir[1]*L, a.dir[2]*L]};
   });
 }
 
+// ── Real orbital bending for bonds (replaces the old synthetic glow) ──
+// A bond here isn't a separate decoration placed between two atoms — it's
+// the atom's OWN p-orbital lobe reaching toward its partner. Two distinct,
+// physically-motivated deformations of the existing per-axis p-lobe point
+// cloud (the exact same sampleP_lobe geometry already used for single
+// atoms, just warped):
+//   • SIGMA axis (the p-lobe axis pointing straight at the partner): only
+//     the near-side lobe (the half that's already facing the partner)
+//     elongates further out and narrows into a teardrop reaching toward
+//     the bond midpoint. Both atoms in a bond do this, so the two
+//     teardrops meet/overlap on the internuclear line — a real sigma bond.
+//   • PI axis (a p-lobe axis perpendicular to the bond, only present for
+//     order ≥ 2): BOTH lobe halves sweep sideways toward the partner as
+//     they extend outward. A p orbital forming a pi bond doesn't stay a
+//     straight dumbbell — it leans into the space between the nuclei,
+//     which is what makes it a pi bond instead of a lone p orbital.
+//
+// This axis-bend path only applies to bonds whose direction is cleanly
+// aligned with a global axis (H2, O2, N2, CO, HF, HCl, CO2 — the linear/
+// planar molecules, including their double/triple pi-bond lobes). H2O/
+// NH3/CH4 have tetrahedral-ish bond directions that don't align with any
+// cartesian axis — those are handled separately by true sp3 hybrid lobes
+// (see completeTetrahedronDirs/buildHybridPCloud below), not by bending
+// px/py/pz.
+const AXIS_DIRS=[
+  {i:0,s:1, v:{x:1,y:0,z:0}},{i:0,s:-1,v:{x:-1,y:0,z:0}},
+  {i:1,s:1, v:{x:0,y:1,z:0}},{i:1,s:-1,v:{x:0,y:-1,z:0}},
+  {i:2,s:1, v:{x:0,y:0,z:1}},{i:2,s:-1,v:{x:0,y:0,z:-1}},
+];
+function nearestAxis(dir){
+  let best=null,bestDot=-Infinity;
+  for(const a of AXIS_DIRS){
+    const d=dir.x*a.v.x+dir.y*a.v.y+dir.z*a.v.z;
+    if(d>bestDot){bestDot=d;best=a;}
+  }
+  return bestDot>0.95 ? best : null; // require near-perfect axis alignment
+}
+// Which perpendicular axis indices act as pi axes for a bond of this
+// order. Alternates [1,2] vs [2,1] by the bond's position in mol.bonds so
+// that when TWO bonds share the same sigma axis on one atom (CO2's carbon
+// bonding both left and right along x), they claim DIFFERENT perpendicular
+// axes instead of both piling onto the same one.
+function piAxisIndices(order,bondIdx){
+  if(order<2) return [];
+  const pref=(bondIdx%2===0)?[1,2]:[2,1];
+  return pref.slice(0,order-1);
+}
+// Precomputes, per atom index, the list of its axis-aligned bonds (with
+// direction, order, which axis/sign is sigma, and which axes are pi).
+function buildBondDescriptors(mol,atoms){
+  const byAtom=atoms.map(()=>[]);
+  (mol.bonds||[]).forEach(([i,j,order],bondIdx)=>{
+    const ord=order||1;
+    const pa=piAxisIndices(ord,bondIdx);
+    const pi=atoms[i].pos, pj=atoms[j].pos;
+    const dx=pj[0]-pi[0], dy=pj[1]-pi[1], dz=pj[2]-pi[2];
+    const L=Math.hypot(dx,dy,dz);
+    if(L<1e-6) return;
+    const dirIJ={x:dx/L,y:dy/L,z:dz/L}, dirJI={x:-dx/L,y:-dy/L,z:-dz/L};
+    const axI=nearestAxis(dirIJ), axJ=nearestAxis(dirJI);
+    // otherR: the BONDED PARTNER's own valence radius — the bend amount
+    // is capped relative to this (see sampleBondAwareP), not to the raw
+    // bond length L. Capping off L was the earlier HF/HCl bug: F's own R
+    // (41) is huge next to H's R (3), so an L-based cap let F's lobe
+    // stretch and swallow H whole instead of just reaching to touch it.
+    if(axI) byAtom[i].push({dirLocal:dirIJ,order:ord,axisIndex:axI.i,axisSign:axI.s,piAxisIndices:pa,L,otherR:valenceR(atoms[j].Z)});
+    if(axJ) byAtom[j].push({dirLocal:dirJI,order:ord,axisIndex:axJ.i,axisSign:axJ.s,piAxisIndices:pa,L,otherR:valenceR(atoms[i].Z)});
+  });
+  return byAtom;
+}
+// Bends one sampleP_lobe point according to this atom's bond list. Returns
+// the point unchanged if it's not part of any sigma/pi lobe for a bond.
+function sampleBondAwareP(R,axis,innerR,bonds){
+  const base=sampleP_lobe(R,axis,innerR);
+  if(!bonds || bonds.length===0) return base;
+  const axialVal=axis===0?base.x:axis===1?base.y:base.z;
+  const sign=axialVal>=0?1:-1;
+  const t=Math.min(1,Math.max(0,(Math.abs(axialVal)-innerR)/Math.max(1e-6,R-innerR)));
+
+  const sigmaBond=bonds.find(b=>b.axisIndex===axis && b.axisSign===sign);
+  if(sigmaBond){
+    // Reach is capped by the PARTNER's own size (not the bond length) so
+    // a big atom bonded to a tiny one (H) only stretches far enough to
+    // touch it, instead of overshooting straight through and past it.
+    const reach=t*t*Math.min(R*0.60, sigmaBond.otherR*1.0);
+    const narrow=1-0.5*t;
+    return {
+      x:(axis===0?base.x:base.x*narrow)+sigmaBond.dirLocal.x*reach,
+      y:(axis===1?base.y:base.y*narrow)+sigmaBond.dirLocal.y*reach,
+      z:(axis===2?base.z:base.z*narrow)+sigmaBond.dirLocal.z*reach,
+      a:base.a
+    };
+  }
+  const piBond=bonds.find(b=>b.piAxisIndices.includes(axis));
+  if(piBond){
+    const sweep=t*t*Math.min(R*0.45, piBond.otherR*0.75);
+    return {
+      x:base.x+piBond.dirLocal.x*sweep,
+      y:base.y+piBond.dirLocal.y*sweep,
+      z:base.z+piBond.dirLocal.z*sweep,
+      a:base.a
+    };
+  }
+  return base;
+}
+// Same structure as buildCloud's l===1 branch, but samples through
+// sampleBondAwareP so this specific orbital's lobes bend toward this
+// atom's real bonded partner(s).
+function buildBondAwarePCloud(orb,bonds){
+  const grp=new THREE.Group();
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const radiusBoost=1+orb.R/25;
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const perAxis=Math.round(5000*radiusBoost);
+  (orb.occ||[]).forEach((s,ax)=>{
+    if(s.e===0) return; // this SPECIFIC px/py/pz is unoccupied
+    const tint=P_AXIS_TINT[ax];
+    let c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
+    grp.add(makePointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds),c));
+  });
+  return grp;
+}
+
+// ── sp3 hybrid orbitals (H2O, NH3, CH4) ──
+// A tetrahedral center's real valence orbitals aren't px/py/pz at all —
+// the s orbital mixes with all three p orbitals to form 4 new hybrid
+// orbitals pointing straight at the 4 tetrahedral directions (109.47°
+// apart). Some of those directions are bonds (H sits at the tip); any
+// left over are lone pairs. Rendering literal px/py/pz and bending them
+// toward off-axis bond directions (as the axis-bend path above does) only
+// works when the bend target is near a cartesian axis to begin with —
+// for a true tetrahedral bond angle it isn't, which is what left the H
+// atoms floating away from the lobe tips. Building the lobes directly
+// along the real bond/lone-pair directions instead fixes that at the
+// source: each bonded lobe's outer radius is set to the exact bond
+// length, so it terminates precisely at the bonded atom.
+
+// Completes a partial set of 1-3 known unit-vector bond directions into
+// the full 4-direction tetrahedral set (adding lone-pair directions for
+// whichever slots aren't real bonds). Used only for atoms whose bonds
+// are NOT cartesian-axis-aligned; linear/planar molecules never reach
+// this function and keep using the axis-bend path unchanged.
+function completeTetrahedronDirs(knownDirs){
+  const norm=v=>{const l=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/l,y:v.y/l,z:v.z/l};};
+  const add=(a,b)=>({x:a.x+b.x,y:a.y+b.y,z:a.z+b.z});
+  const neg=v=>({x:-v.x,y:-v.y,z:-v.z});
+  const scale=(v,s)=>({x:v.x*s,y:v.y*s,z:v.z*s});
+  const cross=(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x});
+
+  if(knownDirs.length>=4) return knownDirs.slice(0,4);
+
+  if(knownDirs.length===3){
+    // All 4 tetrahedral unit vectors sum to zero, so the missing one is
+    // just the negated sum of the other three (this is exactly how NH3's
+    // 4th sp3 lobe — its lone pair — relates to its 3 N-H bonds).
+    const sum=knownDirs.reduce(add,{x:0,y:0,z:0});
+    return [...knownDirs, norm(neg(sum))];
+  }
+
+  if(knownDirs.length===2){
+    const [v1,v2]=knownDirs;
+    const u=norm(neg(add(v1,v2))); // bisector opposite the two known bonds
+    let w=cross(v1,v2);
+    if(Math.hypot(w.x,w.y,w.z)<1e-6){
+      w=Math.abs(u.x)<0.9 ? cross(u,{x:1,y:0,z:0}) : cross(u,{x:0,y:1,z:0});
+    }
+    w=norm(w);
+    // Standard tetrahedral geometry: the angle from the opposite-bisector
+    // axis (u) to each remaining vertex is acos(1/√3) ≈ 54.74°.
+    const alpha=Math.acos(1/Math.sqrt(3));
+    const cu=scale(u,Math.cos(alpha));
+    return [v1,v2, add(cu,scale(w,Math.sin(alpha))), add(cu,scale(w,-Math.sin(alpha)))];
+  }
+
+  if(knownDirs.length===1){
+    const v1=knownDirs[0];
+    let w=Math.abs(v1.x)<0.9?cross(v1,{x:1,y:0,z:0}):cross(v1,{x:0,y:1,z:0});
+    w=norm(w);
+    const w2=norm(cross(v1,w));
+    const alpha=Math.acos(-1/3); // full tetrahedral bond angle from v1
+    const cv=scale(v1,Math.cos(alpha)), sA=Math.sin(alpha);
+    const dirs=[v1];
+    for(let k=0;k<3;k++){
+      const az=k*2*Math.PI/3;
+      dirs.push(norm(add(cv, add(scale(w,sA*Math.cos(az)), scale(w2,sA*Math.sin(az))))));
+    }
+    return dirs;
+  }
+  return knownDirs;
+}
+
+// Samples one point inside a single sp3 hybrid lobe pointing along an
+// arbitrary direction (any unit vector, not just a cartesian axis).
+// Unlike a symmetric p-orbital dumbbell, a hybrid lobe is one-sided: it
+// runs from the inner s-shell out to `outerR` along `dir`. Passing
+// `outerR` in per-lobe is what lets a bonded lobe end exactly at its
+// partner atom while a lone-pair lobe uses a shorter, rounder extent.
+function sampleHybridLobe(dir, innerR, outerR){
+  const lobeLen=Math.max(1e-6, outerR-innerR);
+  const t=Math.random();
+  const axial=innerR + t*lobeLen;
+  const maxRad=lobeLen*0.48*Math.sin(t*Math.PI*0.85);
+  const radial=maxRad*Math.sqrt(Math.random());
+  const phi=Math.random()*2*Math.PI;
+  const ux=dir.x, uy=dir.y, uz=dir.z;
+  // Orthonormal basis around the lobe axis (same construction as the
+  // d-orbital `lobe()` helper above, generalized here for sp3 lobes).
+  const bx=Math.abs(ux)<0.8?1:0, by=Math.abs(ux)>=0.8?1:0, bz=0;
+  const px=uy*bz-uz*by, py=uz*bx-ux*bz, pz=ux*by-uy*bx;
+  const pl=Math.sqrt(px*px+py*py+pz*pz)+1e-9;
+  const qx=uy*(pz/pl)-uz*(py/pl), qy=uz*(px/pl)-ux*(pz/pl), qz=ux*(py/pl)-uy*(px/pl);
+  const rx=(px/pl)*radial*Math.cos(phi)+qx*radial*Math.sin(phi);
+  const ry=(py/pl)*radial*Math.cos(phi)+qy*radial*Math.sin(phi);
+  const rz=(pz/pl)*radial*Math.cos(phi)+qz*radial*Math.sin(phi);
+  const a=Math.exp(-Math.pow(t-0.55,2)*7.0);
+  return { x: ux*axial+rx, y: uy*axial+ry, z: uz*axial+rz, a };
+}
+
+// Renders a central atom's valence p-orbital as 4 real sp3 hybrid lobes
+// instead of the cartesian px/py/pz dumbbells. `hybridInfo.dirs` are the
+// 4 completed tetrahedral directions; `bonded[i]` marks which ones are
+// real bonds (vs. lone pairs) and `outerR[i]` is how far that specific
+// lobe should extend (bond length to the partner, or the atom's own
+// valence radius for a lone pair).
+function buildHybridPCloud(orb, hybridInfo){
+  const grp=new THREE.Group();
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const radiusBoost=1+orb.R/25;
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const perLobe=Math.round(5000*radiusBoost);
+  hybridInfo.dirs.forEach((dir,i)=>{
+    // Lone pairs get a slightly cooler, dimmer tint than bonding lobes so
+    // they read as visually distinct — same element color, just a touch
+    // desaturated, echoing the existing per-axis tint on plain atoms.
+    const tint=hybridInfo.bonded[i]?[1,1,1]:[0.72,0.82,1.0];
+    let c=realMode?[r,g,b]:[r*tint[0],g*tint[1],b*tint[2]];
+    grp.add(makePointCloud(perLobe,()=>sampleHybridLobe(dir,innerR,hybridInfo.outerR[i]),c));
+  });
+  return grp;
+}
+
+// Collects, per atom, EVERY bond direction regardless of axis alignment
+// (unlike buildBondDescriptors, which drops anything that isn't
+// cartesian-aligned). This is how buildMolecule decides an atom needs
+// sp3 hybrid rendering, and supplies the real bond lengths used to size
+// each hybrid lobe.
+function buildRawBondDirs(mol,atoms){
+  const byAtom=atoms.map(()=>[]);
+  (mol.bonds||[]).forEach(([i,j])=>{
+    const pi=atoms[i].pos, pj=atoms[j].pos;
+    const dx=pj[0]-pi[0], dy=pj[1]-pi[1], dz=pj[2]-pi[2];
+    const L=Math.hypot(dx,dy,dz);
+    if(L<1e-6) return;
+    byAtom[i].push({dir:{x:dx/L,y:dy/L,z:dz/L}, L, otherZ:atoms[j].Z});
+    byAtom[j].push({dir:{x:-dx/L,y:-dy/L,z:-dz/L}, L, otherZ:atoms[i].Z});
+  });
+  return byAtom;
+}
+
 // MOLECULE — builds one full, real electron cloud per atom (same buildCloud/
 // buildSmoothCloud/buildUltraCloud + getConfig() used for single atoms) and
-// positions each at its molecular-geometry coordinate. No orbital shape is
-// invented for bonding: wherever two atoms' clouds are close enough to
-// overlap in space, the existing additive-blended point-cloud materials
-// naturally brighten in the shared region — that brightening *is* the
-// visualization of orbital overlap.
+// positions each at its molecular-geometry coordinate. Each atom's OWN
+// valence p-orbital lobes bend toward their bonded partner (see above) for
+// every axis-aligned bond — the bond itself is built from real orbital
+// geometry, not a separate decorative cloud.
 function buildMolecule(key){
   const mol=MOLECULES.find(m=>m.key===key);
   if(!mol) return;
@@ -2447,15 +2770,48 @@ function buildMolecule(key){
   pivot.add(atomGrp);
 
   const atoms=resolveMoleculeAtoms(mol);
+  const bondsByAtom=buildBondDescriptors(mol,atoms); // per-atom axis-aligned bond info, used to bend valence p-orbitals below
+  const rawBondsByAtom=buildRawBondDirs(mol,atoms); // every bond direction, axis-aligned or not — used to detect/build sp3 hybrid centers
   let maxExtent=30;
-  atoms.forEach(atom=>{
+  atoms.forEach((atom,idx)=>{
     const elData=ELS.find(e=>e.Z===atom.Z);
     const sub=new THREE.Group();
     sub.add(makeNucleus(atom.Z, elData?elData.n:0));
     const cfg=getConfig(atom.Z); // molecules always render each atom's real ground state
+    const valenceOrbObj=cfg[cfg.length-1];
+    const bonds=bondsByAtom[idx];
+    const rawBonds=rawBondsByAtom[idx];
+    // A center needs true sp3 hybrid rendering when it has bonds that
+    // buildBondDescriptors couldn't attach to any cartesian axis (i.e.
+    // tetrahedral-ish angles like H2O/NH3/CH4) — linear/planar molecules
+    // have every bond axis-aligned already and never hit this path.
+    const needsHybrid = rawBonds && rawBonds.length>0 && rawBonds.some(b=>!nearestAxis(b.dir));
     let atomMaxR=0;
     cfg.forEach(orb=>{
-      sub.add(ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e));
+      const isValenceP = orb===valenceOrbObj && orb.l===1;
+      // Bending/hybridizing only applies outside Ultra/Smooth mesh
+      // rendering (those build solid dumbbell geometry, not points, so
+      // reshaping them needs a different approach not yet implemented —
+      // they still render correctly, just without the bend/hybrid shape,
+      // in those two view modes).
+      const canReshape = !ultraMode && !smoothMode && isValenceP;
+      let cloud;
+      if(canReshape && needsHybrid){
+        const knownDirs=rawBonds.map(b=>b.dir);
+        const hybridDirs=completeTetrahedronDirs(knownDirs);
+        const bonded=hybridDirs.map(d=>rawBonds.some(b=>b.dir.x*d.x+b.dir.y*d.y+b.dir.z*d.z>0.99));
+        const outerR=hybridDirs.map((d,i)=>{
+          if(!bonded[i]) return orb.R*0.85; // lone pair: shorter, no bond to reach
+          const match=rawBonds.find(b=>b.dir.x*d.x+b.dir.y*d.y+b.dir.z*d.z>0.99);
+          return match.L; // bonded lobe: terminate exactly at the partner atom
+        });
+        cloud=buildHybridPCloud(orb,{dirs:hybridDirs,bonded,outerR});
+      } else if(canReshape && bonds && bonds.length>0){
+        cloud=buildBondAwarePCloud(orb,bonds);
+      } else {
+        cloud=ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e);
+      }
+      sub.add(cloud);
       atomMaxR=Math.max(atomMaxR,orb.R);
     });
     sub.position.set(atom.pos[0],atom.pos[1],atom.pos[2]);
@@ -2472,14 +2828,40 @@ function buildMolecule(key){
     atomGrp.add(label);
   });
 
-  // Subtle bond guide lines — connectivity reference only, not a claim
-  // about bond order/shape; the actual bonding density is the overlapping
-  // clouds themselves.
-  (mol.bonds||[]).forEach(([i,j])=>{
+  // Subtle bond guide lines — connectivity AND order reference; the actual
+  // bonding density is now the bent orbital lobes themselves (see
+  // buildBondAwarePCloud above), but a single/double/triple bond still
+  // draws 1/2/3 parallel lines respectively as a quick-glance connectivity
+  // aid, matching the shortened bondLength() already computed for that
+  // order. The offset between parallel lines is a fraction of that
+  // specific bond's own length (not a fixed world-space pixel amount), so
+  // the double/triple spacing stays visually proportionate whether it's a
+  // small molecule zoomed in or a large one zoomed out.
+  (mol.bonds||[]).forEach(([i,j,order])=>{
     const a=atoms[i].pos, b=atoms[j].pos;
-    const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a[0],a[1],a[2]),new THREE.Vector3(b[0],b[1],b[2])]);
-    const mat=new THREE.LineBasicMaterial({color:0x241a45,transparent:true,opacity:0.18});
-    atomGrp.add(new THREE.Line(geo,mat));
+    const av=new THREE.Vector3(a[0],a[1],a[2]);
+    const bv=new THREE.Vector3(b[0],b[1],b[2]);
+    const axis=new THREE.Vector3().subVectors(bv,av);
+    const L=axis.length();
+    if(L<1e-6) return;
+    axis.normalize();
+    const n=Math.max(1,Math.min(3,order||1));
+    if(n===1){
+      const geo=new THREE.BufferGeometry().setFromPoints([av,bv]);
+      atomGrp.add(new THREE.Line(geo,new THREE.LineBasicMaterial({color:0x241a45,transparent:true,opacity:0.18})));
+      return;
+    }
+    // Any vector not parallel to axis gives a stable perpendicular via cross product.
+    const helper=Math.abs(axis.y)<0.99 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+    const perp=new THREE.Vector3().crossVectors(axis,helper).normalize();
+    const spacing=L*0.06; // proportional, not fixed — stays correct at any scale
+    for(let k=0;k<n;k++){
+      const offsetMag=(k-(n-1)/2)*spacing;
+      const off=perp.clone().multiplyScalar(offsetMag);
+      const p1=av.clone().add(off), p2=bv.clone().add(off);
+      const geo=new THREE.BufferGeometry().setFromPoints([p1,p2]);
+      atomGrp.add(new THREE.Line(geo,new THREE.LineBasicMaterial({color:0x241a45,transparent:true,opacity:0.18})));
+    }
   });
 
   // Same dynamic camera-fit strategy as buildAtom(): size the zoom range
