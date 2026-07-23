@@ -356,6 +356,32 @@ canvas { position:fixed; inset:0; z-index:0; }
   border-bottom: 1px solid rgba(124,108,246,.10);
 }
 
+/* Atoms/Molecules mode switch */
+.mode-switch { display:flex; gap:6px; }
+.mode-btn {
+  flex:1; padding:8px 6px; border-radius:6px;
+  border:1px solid rgba(124,108,246,.15); background:rgba(124,108,246,.05);
+  color:var(--lo); font-family:'Rajdhani',sans-serif; font-weight:700;
+  font-size:.68rem; letter-spacing:.06em; cursor:pointer;
+  transition: background .13s, border-color .13s, color .13s;
+}
+.mode-btn:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
+.mode-btn.on { background:var(--cyan-10); border-color:var(--cyan); color:var(--hi); box-shadow:0 0 10px rgba(124,108,246,.2); }
+.hidden-view { display:none; }
+
+/* Molecule cards */
+.mgrid { display:flex; flex-direction:column; gap:6px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.mcard {
+  cursor:pointer; background:rgba(124,108,246,.05); border:1px solid rgba(124,108,246,.15);
+  border-radius:6px; padding:9px 11px; display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  transition: background .13s, border-color .13s, color .13s;
+  text-align:left; user-select:none; -webkit-user-select:none;
+}
+.mcard:hover { background:var(--cyan-10); border-color:var(--cyan-40); }
+.mcard.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(124,108,246,.25); }
+.mcard .mf { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.95rem; color:var(--hi); }
+.mcard .mn { font-size:.62rem; color:var(--lo); letter-spacing:.05em; text-transform:uppercase; }
+
 /* Element grid */
 .egrid {
   display: grid;
@@ -937,14 +963,14 @@ input[type=range]::-moz-range-thumb {
       <div id="econf">1s¹</div>
     </div>
     <div id="tabs">
-      <button class="tab" id="tab-left" aria-label="Elements">
+      <button class="tab" id="tab-left" aria-label="Explore">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
           <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
           <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
           <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
         </svg>
-        <span class="tab-label">ELEMENTS</span>
+        <span class="tab-label">EXPLORE</span>
       </button>
       <button class="tab" id="tab-right" aria-label="Data">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -970,7 +996,7 @@ input[type=range]::-moz-range-thumb {
     <div class="hint-sep"></div>
     <div class="hint">SCROLL: ZOOM</div>
     <div class="hint-sep"></div>
-    <div class="hint">←→: CYCLE ELEMENTS</div>
+    <div class="hint" id="cycle-hint">←→: CYCLE ELEMENTS</div>
     <div class="hint-sep"></div>
     <div class="zbar">
       <label for="zsl">ZOOM</label>
@@ -989,21 +1015,32 @@ input[type=range]::-moz-range-thumb {
 <!-- ── LEFT PANEL ── -->
   <div id="left" class="hidden">
     <div class="panel-header">
-      <span class="panel-title">Select Element</span>
+      <span class="panel-title" id="left-panel-title">Select Element</span>
       <button class="panel-close" onclick="closePanel('left')" aria-label="Close">✕</button>
     </div>
     <div id="left-inner">
-      <div class="search-wrap">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/>
-          <path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-        </svg>
-        <input type="text" id="el-search" placeholder="Search element..." autocomplete="off" autocorrect="off" spellcheck="false">
+      <div class="mode-switch" id="mode-switch">
+        <button class="mode-btn on" id="mode-elements" onclick="setLeftMode('elements')">ATOMS</button>
+        <button class="mode-btn" id="mode-molecules" onclick="setLeftMode('molecules')">MOLECULES</button>
       </div>
-      <div class="egrid" id="egrid"></div>
-      <div id="no-results">No elements found</div>
-      <div class="ptitle">Orbital Filling</div>
-      <div class="oleg" id="oleg"></div>
+      <div id="elements-view">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="el-search" placeholder="Search element..." autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="egrid" id="egrid"></div>
+        <div id="no-results">No elements found</div>
+        <div class="ptitle">Orbital Filling</div>
+        <div class="oleg" id="oleg"></div>
+      </div>
+      <div id="molecules-view" class="hidden-view">
+        <div class="mgrid" id="mgrid"></div>
+        <div class="ptitle">Composition</div>
+        <div class="oleg" id="mleg"></div>
+      </div>
     </div>
   </div>
 
@@ -1217,6 +1254,85 @@ const ORBS=[
   {name:"8p",n:8,l:1,max:6,  R:130000.0,hex:"#d4c4ff",rgb:[.831,.769,1.0]},
   {name:"9s",n:9,l:0,max:2,  R:340000.0,hex:"#f5f0ff",rgb:[.961,.941,1.0]},
   {name:"9p",n:9,l:1,max:6,  R:820000.0,hex:"#e0d0ff",rgb:[.878,.816,1.0]},
+];
+
+// ══════════════════════════════════════════════
+// MOLECULES — curated set of common molecules
+// ══════════════════════════════════════════════
+// This app doesn't render orbitals as solid balls of density — it renders
+// each one as a SHELL: an s-orbital is a thin shell sitting right at
+// radius R, and a p-orbital is a dumbbell lobe stretching from the next
+// shell in out to R (see sampleS/sampleP_lobe). That means an atom's true
+// visual "size" is its valence orbital's R from ORBS[] above, not some
+// smaller "typical" radius — e.g. oxygen's 2p shell (R=41) is mostly
+// hollow near the nucleus, with all its density living out near r≈41.
+//
+// So a bond can't use an arbitrary hand-picked length: if the two nuclei
+// are placed much closer than the heavier atom's valence R, the lighter
+// atom ends up buried inside the heavier atom's *inner* shells — nowhere
+// near its actual valence lobe — which is exactly the "H disappears inside
+// O" bug this used to have.
+//
+// Instead, each molecule below only stores GEOMETRY (which atom is the
+// hub, and a unit direction vector from the hub to each other atom).
+// buildMolecule() resolves real positions at build time via bondLength(),
+// which reads each atom's actual valence R out of getConfig() — the same
+// single source of truth the single-atom view already uses — so the bond
+// length always matches what's actually being rendered, and the fix
+// applies to every molecule (and any added later) automatically.
+const TET = 1/Math.sqrt(3); // unit tetrahedral vector component
+const H2O_HALF_ANGLE = 52.25 * Math.PI/180; // half of water's 104.5° bond angle
+
+const MOLECULES=[
+  { key:'h2', formula:'H₂', name:'Hydrogen', geometry:'Linear',
+    atoms:[ {Z:1,sym:'H',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
+    bonds:[[0,1]] },
+  { key:'o2', formula:'O₂', name:'Oxygen', geometry:'Linear',
+    atoms:[ {Z:8,sym:'O',dir:[0,0,0]}, {Z:8,sym:'O',dir:[1,0,0]} ],
+    bonds:[[0,1]] },
+  { key:'n2', formula:'N₂', name:'Nitrogen', geometry:'Linear',
+    atoms:[ {Z:7,sym:'N',dir:[0,0,0]}, {Z:7,sym:'N',dir:[1,0,0]} ],
+    bonds:[[0,1]] },
+  { key:'co', formula:'CO', name:'Carbon Monoxide', geometry:'Linear',
+    atoms:[ {Z:6,sym:'C',dir:[0,0,0]}, {Z:8,sym:'O',dir:[1,0,0]} ],
+    bonds:[[0,1]] },
+  { key:'hf', formula:'HF', name:'Hydrogen Fluoride', geometry:'Linear',
+    atoms:[ {Z:9,sym:'F',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
+    bonds:[[0,1]] },
+  { key:'hcl', formula:'HCl', name:'Hydrogen Chloride', geometry:'Linear',
+    atoms:[ {Z:17,sym:'Cl',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
+    bonds:[[0,1]] },
+  { key:'h2o', formula:'H₂O', name:'Water', geometry:'Bent (104.5°)',
+    atoms:[
+      {Z:8,sym:'O',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[Math.sin(H2O_HALF_ANGLE), -Math.cos(H2O_HALF_ANGLE), 0]},
+      {Z:1,sym:'H',dir:[-Math.sin(H2O_HALF_ANGLE), -Math.cos(H2O_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1],[0,2]] },
+  { key:'co2', formula:'CO₂', name:'Carbon Dioxide', geometry:'Linear',
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},
+      {Z:8,sym:'O',dir:[1,0,0]},
+      {Z:8,sym:'O',dir:[-1,0,0]},
+    ],
+    bonds:[[0,1],[0,2]] },
+  { key:'nh3', formula:'NH₃', name:'Ammonia', geometry:'Trigonal Pyramidal',
+    atoms:[
+      {Z:7,sym:'N',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[TET, TET, TET]},
+      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] },
+  { key:'ch4', formula:'CH₄', name:'Methane', geometry:'Tetrahedral',
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[TET, TET, TET]},
+      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] },
 ];
 
 // Compact aufbau-exception table: [orbitalName, electronCount] pairs only.
@@ -1546,6 +1662,29 @@ function makeNucleus(Z, N){
   // Point light — pink to illuminate nucleons from inside
   g.add(new THREE.PointLight(0xff3daa, 4, 25));
   return g;
+}
+
+// Text-sprite label — used to mark each atom's symbol in molecule mode.
+// depthTest:false + high renderOrder keeps it readable through dense point
+// clouds, and userData.isAtomLabel lets the render loop keep it a legible
+// screen-size at any zoom level (see loop()). Dark ink + light halo here
+// (rather than white) so it reads against this theme's light canvas.
+function makeAtomLabel(text, color){
+  const canvas=document.createElement('canvas');
+  canvas.width=128; canvas.height=64;
+  const ctx=canvas.getContext('2d');
+  ctx.font="bold 42px 'Rajdhani', Arial, sans-serif";
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(255,255,255,.9)'; ctx.shadowBlur=10;
+  ctx.fillStyle=color||'#241a45';
+  ctx.fillText(text,64,32);
+  const tex=new THREE.CanvasTexture(canvas);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false});
+  const spr=new THREE.Sprite(mat);
+  spr.scale.set(3.6,1.8,1);
+  spr.renderOrder=999;
+  spr.userData.isAtomLabel=true;
+  return spr;
 }
 
 // SHADERS
@@ -2215,6 +2354,8 @@ function buildCloud(orb,electrons){
 }
 
 let curZ=1;
+let moleculeMode=false;
+let curMoleculeKey=null;
 
 function buildAtom(Z){
   ultraMeshes = [];
@@ -2246,6 +2387,116 @@ function buildAtom(Z){
   if(typeof applyZoom==='function') applyZoom();
 }
 
+// Reads an atom's real valence-shell radius straight out of ORBS via
+// getConfig() — the same data the single-atom view already renders from,
+// so molecule geometry can never drift out of sync with what's on screen.
+function valenceR(Z){
+  const cfg=getConfig(Z);
+  return (cfg && cfg.length) ? cfg[cfg.length-1].R : ORBS[0].R;
+}
+
+// Derives a bond length from the two bonded atoms' actual shell sizes,
+// instead of a hand-picked constant. Since every orbital here is rendered
+// as a shell (density concentrated near R, not spread from 0 to R — see
+// sampleS/sampleP_lobe), a bond has to land the smaller atom's shell right
+// at/inside the larger atom's *outer* valence lobe, or it ends up buried
+// among the larger atom's inner shells with no visible bond at all.
+function bondLength(Za,Zb){
+  const Ra=valenceR(Za), Rb=valenceR(Zb);
+  if(Za===1 && Zb===1) return Ra+Rb; // H-H: shells are proportionately thick; edge-to-edge already overlaps well
+  if(Za===1 || Zb===1){
+    const Rheavy = Za===1 ? Rb : Ra;
+    const Rh = Za===1 ? Ra : Rb;
+    return 0.82*Rheavy + 0.6*Rh; // seat H just inside the heavy atom's outer lobe tip
+  }
+  return 0.62*(Ra+Rb); // two heavy atoms: pull valence shells together for visible overlap
+}
+
+// Turns a molecule's { hub, dir vectors } geometry recipe into real world
+// positions, computed fresh at build time (after getConfig is available)
+// so bond lengths always match the atoms actually being rendered.
+function resolveMoleculeAtoms(mol){
+  const hub=mol.atoms[0];
+  return mol.atoms.map(a=>{
+    if(a===hub) return {Z:a.Z, sym:a.sym, pos:[0,0,0]};
+    const L=bondLength(hub.Z, a.Z);
+    return {Z:a.Z, sym:a.sym, pos:[a.dir[0]*L, a.dir[1]*L, a.dir[2]*L]};
+  });
+}
+
+// MOLECULE — builds one full, real electron cloud per atom (same buildCloud/
+// buildSmoothCloud/buildUltraCloud + getConfig() used for single atoms) and
+// positions each at its molecular-geometry coordinate. No orbital shape is
+// invented for bonding: wherever two atoms' clouds are close enough to
+// overlap in space, the existing additive-blended point-cloud materials
+// naturally brighten in the shared region — that brightening *is* the
+// visualization of orbital overlap.
+function buildMolecule(key){
+  const mol=MOLECULES.find(m=>m.key===key);
+  if(!mol) return;
+  ultraMeshes=[];
+  if(atomGrp){
+    pivot.remove(atomGrp);
+    atomGrp.traverse(o=>{
+      if(o.geometry)o.geometry.dispose();
+      if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}
+    });
+    atomGrp=null;
+  }
+  atomGrp=new THREE.Group();
+  pivot.add(atomGrp);
+
+  const atoms=resolveMoleculeAtoms(mol);
+  let maxExtent=30;
+  atoms.forEach(atom=>{
+    const elData=ELS.find(e=>e.Z===atom.Z);
+    const sub=new THREE.Group();
+    sub.add(makeNucleus(atom.Z, elData?elData.n:0));
+    const cfg=getConfig(atom.Z); // molecules always render each atom's real ground state
+    let atomMaxR=0;
+    cfg.forEach(orb=>{
+      sub.add(ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e));
+      atomMaxR=Math.max(atomMaxR,orb.R);
+    });
+    sub.position.set(atom.pos[0],atom.pos[1],atom.pos[2]);
+    atomGrp.add(sub);
+
+    const dist=Math.hypot(atom.pos[0],atom.pos[1],atom.pos[2]);
+    maxExtent=Math.max(maxExtent, dist+atomMaxR);
+
+    // Atom symbol label, offset outward from the atom center so it stays
+    // readable next to (not buried inside) the electron cloud.
+    const dir = dist<0.001 ? [0,1,0] : [atom.pos[0]/dist,atom.pos[1]/dist,atom.pos[2]/dist];
+    const label=makeAtomLabel(atom.sym);
+    label.position.set(atom.pos[0]+dir[0]*2.4, atom.pos[1]+dir[1]*2.4, atom.pos[2]+dir[2]*2.4);
+    atomGrp.add(label);
+  });
+
+  // Subtle bond guide lines — connectivity reference only, not a claim
+  // about bond order/shape; the actual bonding density is the overlapping
+  // clouds themselves.
+  (mol.bonds||[]).forEach(([i,j])=>{
+    const a=atoms[i].pos, b=atoms[j].pos;
+    const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a[0],a[1],a[2]),new THREE.Vector3(b[0],b[1],b[2])]);
+    const mat=new THREE.LineBasicMaterial({color:0x241a45,transparent:true,opacity:0.18});
+    atomGrp.add(new THREE.Line(geo,mat));
+  });
+
+  // Same dynamic camera-fit strategy as buildAtom(): size the zoom range
+  // and far plane to whatever this specific molecule's full extent is, so
+  // small molecules (H2) and large ones (CH4's tetrahedral spread) both
+  // zoom in/out cleanly with nothing clipped and nothing lost in the noise.
+  maxZoomDist=Math.max(4000,maxExtent*3.5);
+  camera.far=Math.max(4000,maxExtent*4);
+  camera.updateProjectionMatrix();
+  if(typeof applyZoom==='function') applyZoom();
+}
+
+function rebuildScene(){
+  if(moleculeMode) buildMolecule(curMoleculeKey);
+  else buildAtom(curZ);
+}
+
 // ══════════════════════════════════════════════
 // UI
 // ══════════════════════════════════════════════
@@ -2263,6 +2514,12 @@ function showToast(msg){
 }
 
 function updateUI(Z){
+  // Restore atom-mode labels (updateMoleculeUI() relabels these rows)
+  document.getElementById('sz').previousElementSibling.textContent='ATOMIC №';
+  document.getElementById('sper').previousElementSibling.textContent='PERIOD';
+  document.getElementById('sgrp').previousElementSibling.textContent='GROUP';
+  document.getElementById('excitedbtn').style.display='';
+
   const el=ELS.find(e=>e.Z===Z);
   const excited=excitedLevel>0?getExcitedConfig(Z,excitedLevel):null;
   const cfg=excited?excited.cfg:getConfig(Z);
@@ -2373,13 +2630,101 @@ document.getElementById('el-search').addEventListener('input', function(){
 });
 
 function select(Z){
+  moleculeMode=false;
   curZ=Z;
   buildAtom(Z);
   updateUI(Z);
   syncExcitedButton(Z);
+  document.querySelectorAll('.mcard').forEach(c=>c.classList.remove('on'));
+  const hint=document.getElementById('cycle-hint');
+  if(hint) hint.textContent='←→: CYCLE ELEMENTS';
   // Don't auto-close on mobile — user may want to keep browsing elements
   // They can close manually via X button or backdrop tap
 }
+
+// ══════════════════════════════════════════════
+// MOLECULE SELECTION / UI
+// ══════════════════════════════════════════════
+function moleculeConfigString(mol){
+  const groups={}, order=[];
+  mol.atoms.forEach(a=>{
+    const cfg=getConfig(a.Z);
+    const str=cfg.map(o=>o.name+sup(o.e)).join('');
+    const key=a.sym+'|'+str;
+    if(!(key in groups)){groups[key]=0;order.push(key);}
+    groups[key]++;
+  });
+  return order.map(k=>{
+    const [sym,str]=k.split('|');
+    const n=groups[k];
+    return `${sym}${n>1?'×'+n:''}: ${str}`;
+  }).join('  ·  ');
+}
+
+function updateMoleculeUI(mol){
+  const totalP=mol.atoms.reduce((s,a)=>s+a.Z,0);
+  const totalN=mol.atoms.reduce((s,a)=>{const el=ELS.find(e=>e.Z===a.Z);return s+(el?el.n:0);},0);
+  const totalE=totalP;
+
+  document.getElementById('ename').textContent=mol.name.toUpperCase();
+  document.getElementById('emeta').textContent=`${mol.atoms.length} ATOMS · ${totalE} ELECTRONS · ${mol.geometry.toUpperCase()}`;
+  document.getElementById('badge-z').textContent=mol.atoms.length;
+  document.getElementById('badge-sym').textContent=mol.formula;
+
+  const cfgStr=moleculeConfigString(mol);
+  document.getElementById('econf').innerHTML=cfgStr;
+  document.getElementById('econf-right').innerHTML=cfgStr;
+
+  document.getElementById('sz').textContent=mol.atoms.length;
+  document.getElementById('se').textContent=totalE;
+  document.getElementById('sp').textContent=totalP;
+  document.getElementById('sn').textContent=totalN;
+  document.getElementById('sper').textContent=mol.formula;
+  document.getElementById('sgrp').textContent=mol.geometry;
+
+  document.getElementById('sz').previousElementSibling.textContent='ATOMS';
+  document.getElementById('sper').previousElementSibling.textContent='FORMULA';
+  document.getElementById('sgrp').previousElementSibling.textContent='GEOMETRY';
+
+  document.getElementById('excited-trans-row').style.display='none';
+  document.getElementById('excitedbtn').style.display='none';
+  document.querySelectorAll('.ebtn').forEach(b=>b.classList.remove('on'));
+}
+
+function selectMolecule(key){
+  const mol=MOLECULES.find(m=>m.key===key);
+  if(!mol) return;
+  moleculeMode=true;
+  curMoleculeKey=key;
+  excitedLevel=0;
+  buildMolecule(key);
+  updateMoleculeUI(mol);
+  document.querySelectorAll('.mcard').forEach(c=>c.classList.toggle('on',c.dataset.mol===key));
+  const hint=document.getElementById('cycle-hint');
+  if(hint) hint.textContent='←→: CYCLE MOLECULES';
+  showToast(`${mol.formula} — ${mol.name.toUpperCase()}`);
+}
+
+function setLeftMode(mode){
+  const isEl=mode==='elements';
+  document.getElementById('mode-elements').classList.toggle('on',isEl);
+  document.getElementById('mode-molecules').classList.toggle('on',!isEl);
+  document.getElementById('elements-view').classList.toggle('hidden-view',!isEl);
+  document.getElementById('molecules-view').classList.toggle('hidden-view',isEl);
+  document.getElementById('left-panel-title').textContent=isEl?'Select Element':'Select Molecule';
+}
+
+// Molecule cards
+const mg=document.getElementById('mgrid');
+MOLECULES.forEach(mol=>{
+  const b=document.createElement('button');
+  b.className='mcard';
+  b.dataset.mol=mol.key;
+  b.title=mol.name;
+  b.innerHTML=`<span class="mf">${mol.formula}</span><span class="mn">${mol.name}</span>`;
+  b.onclick=()=>selectMolecule(mol.key);
+  mg.appendChild(b);
+});
 
 // ══════════════════════════════════════════════
 // CAMERA CONTROLS
@@ -2445,7 +2790,7 @@ realbtn.onclick=()=>{
   realbtn.classList.toggle('active',realMode);
   renderer.setClearColor(realMode?0xe8f0ff:0xf0eeff);
   showToast(realMode?'REAL IMAGE MODE ON':'REAL IMAGE MODE OFF');
-  buildAtom(curZ);
+  rebuildScene();
 };
 
 let gridVisible=true;
@@ -2463,7 +2808,7 @@ smoothbtn.onclick=()=>{
   smoothMode=!smoothMode;
   smoothbtn.classList.toggle('active',smoothMode);
   showToast(smoothMode?'SMOOTH ORBITALS ON':'GRAIN MODE ON');
-  buildAtom(curZ);
+  rebuildScene();
 };
 
 const ultrabtn=document.getElementById('ultrabtn');
@@ -2477,11 +2822,12 @@ ultrabtn.onclick=()=>{
     renderer.setClearColor(realMode?0xe8f0ff:0xf0eeff);
   }
   showToast(ultraMode?'ULTRA MODE ON':'ULTRA MODE OFF');
-  buildAtom(curZ);
+  rebuildScene();
 };
 
 const excitedbtn=document.getElementById('excitedbtn');
 excitedbtn.onclick=()=>{
+  if(moleculeMode) return; // excited states aren't offered in molecule mode
   excitedLevel=(excitedLevel+1)%(MAX_EXCITED_PHASES+1);
   let reached=0;
   if(excitedLevel>0) reached=getExcitedConfig(curZ,excitedLevel).reached;
@@ -2539,6 +2885,19 @@ document.getElementById('tab-right').addEventListener('click',()=>togglePanel('r
 // Keyboard navigation
 window.addEventListener('keydown',e=>{
   if(document.activeElement===document.getElementById('el-search')) return;
+  if(moleculeMode){
+    const idx=MOLECULES.findIndex(m=>m.key===curMoleculeKey);
+    if(e.key==='ArrowRight'||e.key==='ArrowUp'){
+      selectMolecule(MOLECULES[Math.min(idx+1,MOLECULES.length-1)].key);
+    }else if(e.key==='ArrowLeft'||e.key==='ArrowDown'){
+      selectMolecule(MOLECULES[Math.max(idx-1,0)].key);
+    }else if(e.key==='r'||e.key==='R'){
+      document.getElementById('rbtn').onclick();
+    }else if(e.key==='Escape'){
+      closePanel('left');closePanel('right');
+    }
+    return;
+  }
   if(e.key==='ArrowRight'||e.key==='ArrowUp'){
     select(Math.min(curZ+1,ELS[ELS.length-1].Z));
   }else if(e.key==='ArrowLeft'||e.key==='ArrowDown'){
@@ -2584,12 +2943,24 @@ function loop(){
       if(o.material._baseOpacity === undefined) o.material._baseOpacity = o.material.opacity;
       o.material.opacity = o.material._baseOpacity * zoomFade;
     }
+    // Atom-symbol labels (molecule mode) — keep a legible, roughly
+    // constant screen size across the whole zoom range, same idea as the
+    // sun sprite above.
+    if(o.isSprite && o.userData.isAtomLabel){
+      const s = Math.max(1.4, camZ * 0.016);
+      o.scale.set(s, s*0.5, 1);
+    }
   });
   updateSmoothUniforms();
   if(ultraMode) updateUltraUniforms(camera);
-  const cfg=getEffectiveConfig(curZ);
-  const vis=cfg.filter(o=>o.R<=camZ*0.55).map(o=>o.name);
-  document.getElementById('svis').textContent=vis.join(' ')||'—';
+  if(moleculeMode){
+    const mol=MOLECULES.find(m=>m.key===curMoleculeKey);
+    document.getElementById('svis').textContent = mol ? mol.atoms.map(a=>a.sym).join(' + ') : '—';
+  }else{
+    const cfg=getEffectiveConfig(curZ);
+    const vis=cfg.filter(o=>o.R<=camZ*0.55).map(o=>o.name);
+    document.getElementById('svis').textContent=vis.join(' ')||'—';
+  }
   renderer.render(scene,camera);
 }
 
