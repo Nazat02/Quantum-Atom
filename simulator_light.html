@@ -2319,6 +2319,30 @@ function makePointCloud(count,sampler,rgb){
   return new THREE.Points(geo,mat);
 }
 
+// Same as makePointCloud but rendered with the big/soft SMOOTH_VERT/FRAG
+// shader instead of the grainy one. Used by the bond-aware and hybrid
+// lobe builders below so Smooth Orbitals mode gets the same point-size/
+// softness treatment on bonded lobes that plain (unbonded) atoms already
+// get from buildSmoothCloud.
+function makeSmoothPointCloud(count,sampler,rgb){
+  const pos=new Float32Array(count*3);
+  const col=new Float32Array(count*3);
+  const alp=new Float32Array(count);
+  const[r,g,b]=rgb;
+  for(let i=0;i<count;i++){
+    const pt=sampler(i);
+    pos[i*3]=pt.x;pos[i*3+1]=pt.y;pos[i*3+2]=pt.z;
+    col[i*3]=r;col[i*3+1]=g;col[i*3+2]=b;
+    alp[i]=1.0;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+  const mat=new THREE.ShaderMaterial({vertexShader:SMOOTH_VERT,fragmentShader:SMOOTH_FRAG,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+  return new THREE.Points(geo,mat);
+}
+
 function buildCloud(orb,electrons){
   const grp=new THREE.Group();
   let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
@@ -2612,6 +2636,70 @@ function buildBondAwarePCloud(orb,bonds){
   return grp;
 }
 
+// Smooth-mode twin of buildBondAwarePCloud — same sampleBondAwareP bend,
+// rendered through the big/soft smooth shader so Smooth Orbitals mode
+// shows bent (bonded) lobes instead of falling back to plain unbent
+// dumbbells, which is what left bonds invisible in that mode.
+function buildBondAwarePCloudSmooth(orb,bonds){
+  const grp=new THREE.Group();
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const radiusBoost=1+orb.R/25;
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const perAxis=Math.round(5000*radiusBoost);
+  (orb.occ||[]).forEach((s,ax)=>{
+    if(s.e===0) return;
+    const tint=P_AXIS_TINT[ax];
+    let c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
+    grp.add(makeSmoothPointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds),c));
+  });
+  return grp;
+}
+
+// Ultra-mode (solid mesh) twin of buildBondAwarePCloud. Ultra mode builds
+// literal dumbbell meshes (see buildUltraCloud) rather than points, so a
+// point-by-point bend doesn't apply — instead, whichever lobe of the
+// dumbbell faces a sigma-bonded partner gets rebuilt with its outer
+// radius stretched to that partner's actual bond length, so the mesh lobe
+// terminates exactly at the bonded atom instead of stopping short of it.
+// A lobe with a pi-bonded partner (double/triple bonds) is tilted a
+// fraction of the way toward the bond axis so it visually reaches toward
+// the neighboring atom the way the point-cloud pi bend does.
+function buildBondAwarePMesh(orb,bonds){
+  const grp=new THREE.Group();
+  const[cr,cg,cb]=realMode?[1.0,0.08,0.04]:orb.rgb;
+  const AX_TINTS=realMode?[[1.0,0.08,0.04],[1.0,0.12,0.06],[1.0,0.06,0.08]]:[
+    [cr,cg*0.55,cb*0.55],[cr*0.65,cg,cb*0.55],[cr*0.55,cg*0.55,cb]];
+  const rimPow=1.2+orb.R*0.008;
+  const alpha=1.05*Math.pow(10/(orb.R+3),0.22);
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const axes=[[1,0,0],[0,1,0],[0,0,1]];
+  (orb.occ||[]).forEach((s,ax)=>{
+    if(s.e===0) return;
+    const tint=AX_TINTS[ax];
+    const mat=bubbleMat(tint,alpha*(s.excited?1.0:0.88),rimPow);
+    const [dx,dy,dz]=axes[ax];
+    [[dx,dy,dz],[-dx,-dy,-dz]].forEach(dir=>{
+      const sign=(dir[0]+dir[1]+dir[2])>=0?1:-1; // works since exactly one component is nonzero
+      const sigmaBond=bonds.find(b=>b.axisIndex===ax && b.axisSign===sign);
+      if(sigmaBond){
+        grp.add(makeLobeMesh(Math.max(innerR+1e-3,sigmaBond.L), dir, mat, innerR));
+        return;
+      }
+      const piBond=bonds.find(b=>b.piAxisIndices && b.piAxisIndices.includes(ax));
+      if(piBond){
+        const tilt=0.35;
+        const nd=[dir[0]*(1-tilt)+piBond.dirLocal.x*tilt,
+                  dir[1]*(1-tilt)+piBond.dirLocal.y*tilt,
+                  dir[2]*(1-tilt)+piBond.dirLocal.z*tilt];
+        grp.add(makeLobeMesh(orb.R, nd, mat, innerR));
+        return;
+      }
+      grp.add(makeLobeMesh(orb.R, dir, mat, innerR));
+    });
+  });
+  return grp;
+}
+
 // ── sp3 hybrid orbitals (H2O, NH3, CH4) ──
 // A tetrahedral center's real valence orbitals aren't px/py/pz at all —
 // the s orbital mixes with all three p orbitals to form 4 new hybrid
@@ -2730,6 +2818,45 @@ function buildHybridPCloud(orb, hybridInfo){
   return grp;
 }
 
+// Smooth-mode twin of buildHybridPCloud — identical hybrid geometry,
+// rendered through the soft smooth shader instead of the grainy one.
+function buildHybridPCloudSmooth(orb, hybridInfo){
+  const grp=new THREE.Group();
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const radiusBoost=1+orb.R/25;
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const perLobe=Math.round(5000*radiusBoost);
+  hybridInfo.dirs.forEach((dir,i)=>{
+    const tint=hybridInfo.bonded[i]?[1,1,1]:[0.72,0.82,1.0];
+    let c=realMode?[r,g,b]:[r*tint[0],g*tint[1],b*tint[2]];
+    grp.add(makeSmoothPointCloud(perLobe,()=>sampleHybridLobe(dir,innerR,hybridInfo.outerR[i]),c));
+  });
+  return grp;
+}
+
+// Ultra-mode (solid mesh) twin of buildHybridPCloud. Each of the 4
+// tetrahedral directions becomes one solid teardrop lobe mesh via
+// makeLobeMesh — bonded lobes are sized to hybridInfo.outerR (the real
+// bond length, so the mesh terminates exactly at the bonded atom, e.g.
+// NH3's H atoms) and lone-pair lobes use their shorter, rounder extent.
+// This is the mesh counterpart of the fix above: Ultra mode was
+// previously falling back to plain cartesian px/py/pz dumbbells for
+// tetrahedral centers, which is why H atoms rendered separated from N/O/C
+// in that mode.
+function buildHybridPMesh(orb, hybridInfo){
+  const grp=new THREE.Group();
+  const[cr,cg,cb]=realMode?[1.0,0.08,0.04]:orb.rgb;
+  const rimPow=1.2+orb.R*0.008;
+  const alpha=1.05*Math.pow(10/(orb.R+3),0.22);
+  const innerR=pInnerRadius(orb.n,orb.R);
+  hybridInfo.dirs.forEach((dir,i)=>{
+    const tint=hybridInfo.bonded[i]?[cr,cg,cb]:[cr*0.72,cg*0.82,cb*1.0];
+    const mat=bubbleMat(tint, alpha*(hybridInfo.bonded[i]?0.92:0.80), rimPow);
+    grp.add(makeLobeMesh(Math.max(innerR+1e-3,hybridInfo.outerR[i]), [dir.x,dir.y,dir.z], mat, innerR));
+  });
+  return grp;
+}
+
 // Collects, per atom, EVERY bond direction regardless of axis alignment
 // (unlike buildBondDescriptors, which drops anything that isn't
 // cartesian-aligned). This is how buildMolecule decides an atom needs
@@ -2789,12 +2916,12 @@ function buildMolecule(key){
     let atomMaxR=0;
     cfg.forEach(orb=>{
       const isValenceP = orb===valenceOrbObj && orb.l===1;
-      // Bending/hybridizing only applies outside Ultra/Smooth mesh
-      // rendering (those build solid dumbbell geometry, not points, so
-      // reshaping them needs a different approach not yet implemented —
-      // they still render correctly, just without the bend/hybrid shape,
-      // in those two view modes).
-      const canReshape = !ultraMode && !smoothMode && isValenceP;
+      // Bending/hybridizing applies in every render mode now — Ultra and
+      // Smooth each have their own mesh/point builder below (see
+      // buildBondAwarePMesh/buildHybridPMesh for Ultra's solid lobes and
+      // buildBondAwarePCloudSmooth/buildHybridPCloudSmooth for Smooth's
+      // soft points) so bonds no longer disappear when switching modes.
+      const canReshape = isValenceP;
       let cloud;
       if(canReshape && needsHybrid){
         const knownDirs=rawBonds.map(b=>b.dir);
@@ -2805,9 +2932,10 @@ function buildMolecule(key){
           const match=rawBonds.find(b=>b.dir.x*d.x+b.dir.y*d.y+b.dir.z*d.z>0.99);
           return match.L; // bonded lobe: terminate exactly at the partner atom
         });
-        cloud=buildHybridPCloud(orb,{dirs:hybridDirs,bonded,outerR});
+        const hybridInfo={dirs:hybridDirs,bonded,outerR};
+        cloud=ultraMode?buildHybridPMesh(orb,hybridInfo):smoothMode?buildHybridPCloudSmooth(orb,hybridInfo):buildHybridPCloud(orb,hybridInfo);
       } else if(canReshape && bonds && bonds.length>0){
-        cloud=buildBondAwarePCloud(orb,bonds);
+        cloud=ultraMode?buildBondAwarePMesh(orb,bonds):smoothMode?buildBondAwarePCloudSmooth(orb,bonds):buildBondAwarePCloud(orb,bonds);
       } else {
         cloud=ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e);
       }
