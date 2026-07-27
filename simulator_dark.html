@@ -2938,6 +2938,22 @@ function buildBondDescriptors(mol,atoms){
   });
   return byAtom;
 }
+// A free atom's ground-state electron filling (Hund's rule) doesn't always
+// leave every perpendicular p-orbital occupied — e.g. carbon's 2p² fills
+// px and py, leaving pz at e:0. But a center forming TWO pi systems (CO2's
+// O=C=O, CS2's S=C=S, a C≡O/C≡N triple bond) needs BOTH perpendicular
+// p-orbitals populated to actually form both pi bonds, exactly like real
+// sp/sp2 promotion does. Without this, the orbital-cloud builders below
+// (which skip any axis with e:0) silently drop the lobe for whichever
+// bond's pi axis didn't happen to be in the atom's ground-state fill order
+// — rendering one side of a symmetric double bond and leaving the other
+// looking like a bare single bond. This checks whether ANY of this atom's
+// bonds (sigma or pi) actually needs the given axis, so that axis renders
+// even when raw atomic occupancy says it's empty.
+function axisNeededForBonding(ax,bonds){
+  if(!bonds) return false;
+  return bonds.some(b=>b.axisIndex===ax || (b.piAxisIndices&&b.piAxisIndices.includes(ax)));
+}
 // Bends one sampleP_lobe point according to this atom's bond list. Returns
 // the point unchanged if it's not part of any sigma/pi lobe for a bond.
 function sampleBondAwareP(R,axis,innerR,bonds){
@@ -2983,7 +2999,11 @@ function buildBondAwarePCloud(orb,bonds){
   const innerR=pInnerRadius(orb.n,orb.R);
   const perAxis=Math.round(5000*radiusBoost);
   (orb.occ||[]).forEach((s,ax)=>{
-    if(s.e===0) return; // this SPECIFIC px/py/pz is unoccupied
+    // Skip only if truly unoccupied AND no bond on this atom needs this
+    // axis for sigma/pi bonding (see axisNeededForBonding) — a bonded
+    // center promotes an electron into an otherwise-empty perpendicular
+    // p-orbital to form its second (or third) pi bond.
+    if(s.e===0 && !axisNeededForBonding(ax,bonds)) return;
     const tint=P_AXIS_TINT[ax];
     let c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
     grp.add(makePointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds),c));
@@ -3002,7 +3022,7 @@ function buildBondAwarePCloudSmooth(orb,bonds){
   const innerR=pInnerRadius(orb.n,orb.R);
   const perAxis=Math.round(5000*radiusBoost);
   (orb.occ||[]).forEach((s,ax)=>{
-    if(s.e===0) return;
+    if(s.e===0 && !axisNeededForBonding(ax,bonds)) return;
     const tint=P_AXIS_TINT[ax];
     let c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
     grp.add(makeSmoothPointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds),c));
@@ -3029,7 +3049,7 @@ function buildBondAwarePMesh(orb,bonds){
   const innerR=pInnerRadius(orb.n,orb.R);
   const axes=[[1,0,0],[0,1,0],[0,0,1]];
   (orb.occ||[]).forEach((s,ax)=>{
-    if(s.e===0) return;
+    if(s.e===0 && !axisNeededForBonding(ax,bonds)) return;
     const tint=AX_TINTS[ax];
     const mat=bubbleMat(tint,alpha*(s.excited?1.0:0.88),rimPow);
     const [dx,dy,dz]=axes[ax];
