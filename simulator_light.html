@@ -1347,6 +1347,24 @@ const H2S_HALF_ANGLE = 46.05 * Math.PI/180; // half of H2S's 92.1° bond angle
 const SO2_HALF_ANGLE = 59.5  * Math.PI/180; // half of SO2's 119° bond angle
 const OF2_HALF_ANGLE = 51.6  * Math.PI/180; // half of OF2's 103.2° bond angle
 const O3_HALF_ANGLE  = 58.4  * Math.PI/180; // half of ozone's 116.8° bond angle
+const H2SE_HALF_ANGLE = 45.5 * Math.PI/180; // half of H2Se's 91.0° bond angle
+const NO2_HALF_ANGLE  = 67.0 * Math.PI/180; // half of NO2's 134.0° bond angle (odd-electron, resonance-averaged)
+const CLO2_HALF_ANGLE = 59.0 * Math.PI/180; // half of ClO2's ~118.0° bond angle (odd-electron, resonance-averaged)
+// Trigonal-planar unit vector components (three atoms 120° apart in a plane) —
+// shared by every AX3 molecule with no lone pairs on the hub (BF3, BCl3, SO3, AlCl3).
+const TRIG3_A = Math.cos(120*Math.PI/180); // -0.5
+const TRIG3_B = Math.sin(120*Math.PI/180); // ≈0.8660
+// See-saw (AX4E, e.g. SF4): a trigonal-bipyramidal parent with one equatorial
+// lone pair. That lone pair pushes the remaining two equatorial atoms together
+// (ideal 120° → experimental ~101.5°) and bends the two axial atoms slightly
+// away from it too (ideal 180° → experimental ~173.1°) — both bent toward the
+// same side, away from the lone pair, hence the shared sign convention below.
+const SEESAW_EQ_HALF_ANGLE = 50.75 * Math.PI/180; // half of SF4's 101.5° equatorial F-S-F
+const SEESAW_AX_TILT       = 3.45  * Math.PI/180; // axial tilt off linear (180° − 2×tilt = 173.1°)
+// T-shaped (AX3E2, e.g. ClF3): a trigonal-bipyramidal parent with two
+// equatorial lone pairs, leaving one equatorial atom (along +x) and two axial
+// atoms that bend toward it (ideal 90°/180° → experimental 87.5°/175.0°).
+const TSHAPE_AX_ANGLE = 87.5 * Math.PI/180; // angle between the equatorial atom and each axial atom
 
 const MOLECULES=[
   { key:'h2', formula:'H₂', name:'Hydrogen', geometry:'Linear',
@@ -1531,6 +1549,180 @@ const MOLECULES=[
       {Z:9,sym:'F',dir:[-TET, -TET, TET]},
     ],
     bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+
+  // ── Trigonal Planar (AX3, no lone pairs, 120°) ──
+  { key:'bf3', formula:'BF₃', name:'Boron Trifluoride', geometry:'Trigonal Planar',
+    atoms:[
+      {Z:5,sym:'B',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[1,0,0]},
+      {Z:9,sym:'F',dir:[TRIG3_A, TRIG3_B,0]},
+      {Z:9,sym:'F',dir:[TRIG3_A,-TRIG3_B,0]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single (B has an empty p-orbital, no lone pair to bend it)
+  { key:'bcl3', formula:'BCl₃', name:'Boron Trichloride', geometry:'Trigonal Planar',
+    atoms:[
+      {Z:5,sym:'B',dir:[0,0,0]},
+      {Z:17,sym:'Cl',dir:[1,0,0]},
+      {Z:17,sym:'Cl',dir:[TRIG3_A, TRIG3_B,0]},
+      {Z:17,sym:'Cl',dir:[TRIG3_A,-TRIG3_B,0]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single
+  { key:'alcl3', formula:'AlCl₃', name:'Aluminium Chloride (gas)', geometry:'Trigonal Planar',
+    atoms:[
+      {Z:13,sym:'Al',dir:[0,0,0]},
+      {Z:17,sym:'Cl',dir:[1,0,0]},
+      {Z:17,sym:'Cl',dir:[TRIG3_A, TRIG3_B,0]},
+      {Z:17,sym:'Cl',dir:[TRIG3_A,-TRIG3_B,0]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single — monomeric AlCl3 in the vapor phase (solid/liquid dimerizes to Al2Cl6)
+  { key:'so3', formula:'SO₃', name:'Sulfur Trioxide', geometry:'Trigonal Planar',
+    atoms:[
+      {Z:16,sym:'S',dir:[0,0,0]},
+      {Z:8,sym:'O',dir:[1,0,0]},
+      {Z:8,sym:'O',dir:[TRIG3_A, TRIG3_B,0]},
+      {Z:8,sym:'O',dir:[TRIG3_A,-TRIG3_B,0]},
+    ],
+    bonds:[[0,1,2],[0,2,2],[0,3,2]] }, // all three S=O double (resonance-averaged)
+
+  // ── Trigonal Pyramidal (AX3E) ──
+  { key:'ash3', formula:'AsH₃', name:'Arsine', geometry:'Trigonal Pyramidal',
+    atoms:[
+      {Z:33,sym:'As',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[TET, TET, TET]},
+      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single
+  { key:'sbh3', formula:'SbH₃', name:'Stibine', geometry:'Trigonal Pyramidal',
+    atoms:[
+      {Z:51,sym:'Sb',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[TET, TET, TET]},
+      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single
+
+  // ── Bent (AX2E2 / odd-electron) ──
+  { key:'h2se', formula:'H₂Se', name:'Hydrogen Selenide', geometry:'Bent (91.0°)',
+    atoms:[
+      {Z:34,sym:'Se',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[Math.sin(H2SE_HALF_ANGLE), -Math.cos(H2SE_HALF_ANGLE), 0]},
+      {Z:1,sym:'H',dir:[-Math.sin(H2SE_HALF_ANGLE), -Math.cos(H2SE_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1],[0,2]] }, // both single
+  { key:'no2', formula:'NO₂', name:'Nitrogen Dioxide', geometry:'Bent (134.0°)',
+    atoms:[
+      {Z:7,sym:'N',dir:[0,0,0]},
+      {Z:8,sym:'O',dir:[Math.sin(NO2_HALF_ANGLE), -Math.cos(NO2_HALF_ANGLE), 0]},
+      {Z:8,sym:'O',dir:[-Math.sin(NO2_HALF_ANGLE), -Math.cos(NO2_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1,2],[0,2,2]] }, // odd-electron radical, real order ≈1.5 per N-O, resonance-averaged to double
+  { key:'clo2', formula:'ClO₂', name:'Chlorine Dioxide', geometry:'Bent (118.0°)',
+    atoms:[
+      {Z:17,sym:'Cl',dir:[0,0,0]},
+      {Z:8,sym:'O',dir:[Math.sin(CLO2_HALF_ANGLE), -Math.cos(CLO2_HALF_ANGLE), 0]},
+      {Z:8,sym:'O',dir:[-Math.sin(CLO2_HALF_ANGLE), -Math.cos(CLO2_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1,2],[0,2,2]] }, // odd-electron radical, resonance-averaged to double
+
+  // ── Linear, hypervalent (AX2E3) ──
+  { key:'becl2', formula:'BeCl₂', name:'Beryllium Chloride (gas)', geometry:'Linear',
+    atoms:[ {Z:4,sym:'Be',dir:[0,0,0]}, {Z:17,sym:'Cl',dir:[1,0,0]}, {Z:17,sym:'Cl',dir:[-1,0,0]} ],
+    bonds:[[0,1],[0,2]] }, // both single — a classic electron-deficient (incomplete octet) exception
+  { key:'xef2', formula:'XeF₂', name:'Xenon Difluoride', geometry:'Linear',
+    atoms:[ {Z:54,sym:'Xe',dir:[0,0,0]}, {Z:9,sym:'F',dir:[1,0,0]}, {Z:9,sym:'F',dir:[-1,0,0]} ],
+    bonds:[[0,1],[0,2]] }, // both single — one of the first noble-gas compounds ever isolated
+
+  // ── Tetrahedral (AX4) ──
+  { key:'geh4', formula:'GeH₄', name:'Germane', geometry:'Tetrahedral',
+    atoms:[
+      {Z:32,sym:'Ge',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[TET, TET, TET]},
+      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+  { key:'sicl4', formula:'SiCl₄', name:'Silicon Tetrachloride', geometry:'Tetrahedral',
+    atoms:[
+      {Z:14,sym:'Si',dir:[0,0,0]},
+      {Z:17,sym:'Cl',dir:[TET, TET, TET]},
+      {Z:17,sym:'Cl',dir:[TET, -TET, -TET]},
+      {Z:17,sym:'Cl',dir:[-TET, TET, -TET]},
+      {Z:17,sym:'Cl',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+  { key:'cbr4', formula:'CBr₄', name:'Carbon Tetrabromide', geometry:'Tetrahedral',
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},
+      {Z:35,sym:'Br',dir:[TET, TET, TET]},
+      {Z:35,sym:'Br',dir:[TET, -TET, -TET]},
+      {Z:35,sym:'Br',dir:[-TET, TET, -TET]},
+      {Z:35,sym:'Br',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+
+  // ── See-saw (AX4E) ──
+  { key:'sf4', formula:'SF₄', name:'Sulfur Tetrafluoride', geometry:'See-saw',
+    atoms:[
+      {Z:16,sym:'S',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[Math.sin(SEESAW_AX_TILT),0, Math.cos(SEESAW_AX_TILT)]},  // axial
+      {Z:9,sym:'F',dir:[Math.sin(SEESAW_AX_TILT),0,-Math.cos(SEESAW_AX_TILT)]},  // axial
+      {Z:9,sym:'F',dir:[Math.cos(SEESAW_EQ_HALF_ANGLE), Math.sin(SEESAW_EQ_HALF_ANGLE),0]}, // equatorial
+      {Z:9,sym:'F',dir:[Math.cos(SEESAW_EQ_HALF_ANGLE),-Math.sin(SEESAW_EQ_HALF_ANGLE),0]}, // equatorial
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single — one equatorial lone pair on S distorts the parent trigonal bipyramid
+
+  // ── T-shaped (AX3E2) ──
+  { key:'clf3', formula:'ClF₃', name:'Chlorine Trifluoride', geometry:'T-shaped',
+    atoms:[
+      {Z:17,sym:'Cl',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[1,0,0]}, // equatorial
+      {Z:9,sym:'F',dir:[Math.cos(TSHAPE_AX_ANGLE),0, Math.sin(TSHAPE_AX_ANGLE)]}, // axial
+      {Z:9,sym:'F',dir:[Math.cos(TSHAPE_AX_ANGLE),0,-Math.sin(TSHAPE_AX_ANGLE)]}, // axial
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single — two equatorial lone pairs on Cl bend the axial F's toward the lone F
+
+  // ── Trigonal Bipyramidal (AX5) ──
+  { key:'pf5', formula:'PF₅', name:'Phosphorus Pentafluoride', geometry:'Trigonal Bipyramidal',
+    atoms:[
+      {Z:15,sym:'P',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[1,0,0]},               // equatorial
+      {Z:9,sym:'F',dir:[TRIG3_A, TRIG3_B,0]},  // equatorial
+      {Z:9,sym:'F',dir:[TRIG3_A,-TRIG3_B,0]},  // equatorial
+      {Z:9,sym:'F',dir:[0,0,1]},                // axial
+      {Z:9,sym:'F',dir:[0,0,-1]},               // axial
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4],[0,5]] }, // all single — no lone pairs, so the parent TBP shape is undistorted
+  { key:'pcl5', formula:'PCl₅', name:'Phosphorus Pentachloride', geometry:'Trigonal Bipyramidal',
+    atoms:[
+      {Z:15,sym:'P',dir:[0,0,0]},
+      {Z:17,sym:'Cl',dir:[1,0,0]},
+      {Z:17,sym:'Cl',dir:[TRIG3_A, TRIG3_B,0]},
+      {Z:17,sym:'Cl',dir:[TRIG3_A,-TRIG3_B,0]},
+      {Z:17,sym:'Cl',dir:[0,0,1]},
+      {Z:17,sym:'Cl',dir:[0,0,-1]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4],[0,5]] }, // all single
+
+  // ── Octahedral (AX6) ──
+  { key:'sf6', formula:'SF₆', name:'Sulfur Hexafluoride', geometry:'Octahedral',
+    atoms:[
+      {Z:16,sym:'S',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[1,0,0]}, {Z:9,sym:'F',dir:[-1,0,0]},
+      {Z:9,sym:'F',dir:[0,1,0]}, {Z:9,sym:'F',dir:[0,-1,0]},
+      {Z:9,sym:'F',dir:[0,0,1]}, {Z:9,sym:'F',dir:[0,0,-1]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4],[0,5],[0,6]] }, // all single — famously inert; the gas used as an electrical insulator
+
+  // ── Square Planar (AX4E2) ──
+  { key:'xef4', formula:'XeF₄', name:'Xenon Tetrafluoride', geometry:'Square Planar',
+    atoms:[
+      {Z:54,sym:'Xe',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[1,0,0]}, {Z:9,sym:'F',dir:[-1,0,0]},
+      {Z:9,sym:'F',dir:[0,1,0]}, {Z:9,sym:'F',dir:[0,-1,0]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single — the two lone pairs sit axial, above/below the F4 plane
 ];
 
 // Compact aufbau-exception table: [orbitalName, electronCount] pairs only.
@@ -2924,13 +3116,28 @@ function completeTetrahedronDirs(knownDirs){
   const scale=(v,s)=>({x:v.x*s,y:v.y*s,z:v.z*s});
   const cross=(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x});
 
-  if(knownDirs.length>=4) return knownDirs.slice(0,4);
+  // 5- and 6-coordinate centers (PF5's/SF6's hub, etc.) aren't sp3 at all —
+  // there's no lone pair to derive, and every direction here is already a
+  // real bond. Passing all of them through unchanged (instead of the old
+  // slice(0,4), which silently dropped one bond for any 5-coordinate
+  // center) is what lets a molecule like PF5 render all 5 P-F bonds from
+  // the phosphorus side instead of leaving one unbent/disconnected.
+  if(knownDirs.length>=4) return knownDirs;
 
   if(knownDirs.length===3){
-    // All 4 tetrahedral unit vectors sum to zero, so the missing one is
-    // just the negated sum of the other three (this is exactly how NH3's
-    // 4th sp3 lobe — its lone pair — relates to its 3 N-H bonds).
+    // All 4 tetrahedral unit vectors sum to zero, so a genuine lone pair
+    // (NH3) is the negated sum of its 3 known bonds. But a true trigonal-
+    // PLANAR center with NO lone pair (BF3, SO3, AlCl3 — 3 bonds at an
+    // exact 120° in one plane) ALSO sums to zero by simple vector algebra,
+    // with no real 4th direction to add. Floating-point rounding leaves
+    // that sum a hair off exact zero, so normalizing it blindly used to
+    // manufacture a full-length phantom lobe pointing along whatever axis
+    // the rounding noise happened to favor. Checking the sum's magnitude
+    // first tells the two cases apart: NH3's real lone-pair sum has
+    // magnitude ~1 (tetrahedral symmetry), while BF3's is essentially 0.
     const sum=knownDirs.reduce(add,{x:0,y:0,z:0});
+    const sumLen=Math.hypot(sum.x,sum.y,sum.z);
+    if(sumLen<0.15) return knownDirs; // coplanar, mutually-canceling bonds — no lone pair to synthesize
     return [...knownDirs, norm(neg(sum))];
   }
 
