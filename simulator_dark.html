@@ -1213,6 +1213,54 @@ const ORBS=[
 ];
 
 // ══════════════════════════════════════════════
+// PERFORMANCE — bounded point-cloud density
+// ══════════════════════════════════════════════
+// Every point-cloud builder below scales its point count by how physically
+// big the orbital's shell is (`radiusBoost`), so a large shell still reads
+// as visibly denser than a small one instead of looking sparse and grainy.
+// That formula used to be flat-linear (1 + R/25) with no ceiling — fine for
+// light/common elements (R tops out in the low hundreds), but R climbs into
+// the thousands for mid/heavy elements' own valence shells (e.g. iodine's
+// 5p at R=1600) and into the HUNDREDS OF THOUSANDS for the superheavy 8s/
+// 8p/9s/9p headroom orbitals — and a single atom renders one cloud per
+// FILLED orbital, not just its valence one. Linear scaling with no cap
+// meant a single iodine atom alone was sampling on the order of 10+
+// million points across its filled shells (CPU-bound, one JS sampler call
+// per point) before a single molecule with several such atoms multiplied
+// that further — this is what actually caused the lag on bigger atoms and
+// molecules, not the 3D rendering itself.
+//
+// computeRadiusBoost() keeps the exact original 1:1 linear growth up to
+// BOOST_LINEAR_R (so every light/common element — H through roughly Kr —
+// renders pixel-for-pixel identically to before, zero visual regression).
+// Past that radius it switches to sqrt growth: still monotonically
+// increasing (bigger shells still look denser), but compressed so cost
+// stops climbing 1:1 with R. MAX_CLOUD_POINTS below is the hard backstop —
+// applied once, centrally, inside makePointCloud/makeSmoothPointCloud —
+// that guarantees no single orbital's point count can ever explode
+// regardless of how large R gets, without needing every call site tuned.
+const BOOST_LINEAR_R = 200;
+const BOOST_AT_LINEAR_CAP = 1 + BOOST_LINEAR_R/25; // = 9, continuous WITH MATCHING SLOPE at R=200
+const BOOST_LINEAR_SLOPE = 1/25;   // same per-unit-R growth rate as the original formula, so there's no kink
+const BOOST_SATURATION_SCALE = 2000; // controls how much extra boost R>200 can ever add (see max below)
+function computeRadiusBoost(R){
+  if(R <= BOOST_LINEAR_R) return 1 + R/25; // unchanged for every light/common element — zero visual regression
+  // Past the linear region, use a slope-matched saturating (Michaelis-Menten
+  // style) curve rather than a plain sqrt: matching BOTH the value AND the
+  // derivative at R=200 guarantees this curve never rises above the old
+  // linear formula for ANY R (a plain sqrt actually overshoots linear for a
+  // stretch just past the junction, which would have made K/Ca-class
+  // elements slightly SLOWER, not faster — verified numerically before
+  // shipping this version). It also has a hard asymptotic ceiling
+  // (BOOST_AT_LINEAR_CAP + BOOST_LINEAR_SLOPE*BOOST_SATURATION_SCALE ≈ 89)
+  // instead of growing forever, so even the superheavy 8s/8p/9s/9p
+  // orbitals (R up to 820,000) get a bounded, sane boost value.
+  const x = R - BOOST_LINEAR_R;
+  return BOOST_AT_LINEAR_CAP + (BOOST_LINEAR_SLOPE * x) / (1 + x / BOOST_SATURATION_SCALE);
+}
+const MAX_CLOUD_POINTS = 90000; // hard per-cloud ceiling — keeps CPU sampling and GPU buffer size bounded no matter how large an orbital or how many heavy atoms a molecule has
+
+// ══════════════════════════════════════════════
 // MOLECULES — curated set of common molecules
 // ══════════════════════════════════════════════
 // This app doesn't render orbitals as solid balls of density — it renders
@@ -1250,6 +1298,10 @@ const ORBS=[
 //      proportionate at any molecule size or zoom level.
 const TET = 1/Math.sqrt(3); // unit tetrahedral vector component
 const H2O_HALF_ANGLE = 52.25 * Math.PI/180; // half of water's 104.5° bond angle
+const H2S_HALF_ANGLE = 46.05 * Math.PI/180; // half of H2S's 92.1° bond angle
+const SO2_HALF_ANGLE = 59.5  * Math.PI/180; // half of SO2's 119° bond angle
+const OF2_HALF_ANGLE = 51.6  * Math.PI/180; // half of OF2's 103.2° bond angle
+const O3_HALF_ANGLE  = 58.4  * Math.PI/180; // half of ozone's 116.8° bond angle
 
 const MOLECULES=[
   { key:'h2', formula:'H₂', name:'Hydrogen', geometry:'Linear',
@@ -1299,6 +1351,139 @@ const MOLECULES=[
       {Z:1,sym:'H',dir:[TET, -TET, -TET]},
       {Z:1,sym:'H',dir:[-TET, TET, -TET]},
       {Z:1,sym:'H',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+  { key:'f2', formula:'F₂', name:'Fluorine', geometry:'Linear',
+    atoms:[ {Z:9,sym:'F',dir:[0,0,0]}, {Z:9,sym:'F',dir:[1,0,0]} ],
+    bonds:[[0,1]] }, // single
+  { key:'cl2', formula:'Cl₂', name:'Chlorine', geometry:'Linear',
+    atoms:[ {Z:17,sym:'Cl',dir:[0,0,0]}, {Z:17,sym:'Cl',dir:[1,0,0]} ],
+    bonds:[[0,1]] }, // single
+  { key:'br2', formula:'Br₂', name:'Bromine', geometry:'Linear',
+    atoms:[ {Z:35,sym:'Br',dir:[0,0,0]}, {Z:35,sym:'Br',dir:[1,0,0]} ],
+    bonds:[[0,1]] }, // single
+  { key:'i2', formula:'I₂', name:'Iodine', geometry:'Linear',
+    atoms:[ {Z:53,sym:'I',dir:[0,0,0]}, {Z:53,sym:'I',dir:[1,0,0]} ],
+    bonds:[[0,1]] }, // single
+  { key:'no', formula:'NO', name:'Nitric Oxide', geometry:'Linear',
+    atoms:[ {Z:7,sym:'N',dir:[0,0,0]}, {Z:8,sym:'O',dir:[1,0,0]} ],
+    bonds:[[0,1,2]] }, // approximated as a double bond (real order ≈2.5)
+  { key:'hbr', formula:'HBr', name:'Hydrogen Bromide', geometry:'Linear',
+    atoms:[ {Z:35,sym:'Br',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
+    bonds:[[0,1]] }, // single
+  { key:'hi', formula:'HI', name:'Hydrogen Iodide', geometry:'Linear',
+    atoms:[ {Z:53,sym:'I',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
+    bonds:[[0,1]] }, // single
+  { key:'clf', formula:'ClF', name:'Chlorine Monofluoride', geometry:'Linear',
+    atoms:[ {Z:17,sym:'Cl',dir:[0,0,0]}, {Z:9,sym:'F',dir:[1,0,0]} ],
+    bonds:[[0,1]] }, // single
+  { key:'cs2', formula:'CS₂', name:'Carbon Disulfide', geometry:'Linear',
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},
+      {Z:16,sym:'S',dir:[1,0,0]},
+      {Z:16,sym:'S',dir:[-1,0,0]},
+    ],
+    bonds:[[0,1,2],[0,2,2]] }, // S=C=S, both double bonds
+  { key:'n2o', formula:'N₂O', name:'Nitrous Oxide', geometry:'Linear',
+    atoms:[
+      {Z:7,sym:'N',dir:[0,0,0]}, // central N — hub, per this app's star-topology model
+      {Z:7,sym:'N',dir:[-1,0,0]},
+      {Z:8,sym:'O',dir:[1,0,0]},
+    ],
+    bonds:[[0,1,3],[0,2,2]] }, // N≡N→O resonance approximated as N≡N=O
+  { key:'hcn', formula:'HCN', name:'Hydrogen Cyanide', geometry:'Linear',
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[-1,0,0]},
+      {Z:7,sym:'N',dir:[1,0,0]},
+    ],
+    bonds:[[0,1],[0,2,3]] }, // C-H single, C≡N triple
+  { key:'h2s', formula:'H₂S', name:'Hydrogen Sulfide', geometry:'Bent (92.1°)',
+    atoms:[
+      {Z:16,sym:'S',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[Math.sin(H2S_HALF_ANGLE), -Math.cos(H2S_HALF_ANGLE), 0]},
+      {Z:1,sym:'H',dir:[-Math.sin(H2S_HALF_ANGLE), -Math.cos(H2S_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1],[0,2]] }, // both single
+  { key:'so2', formula:'SO₂', name:'Sulfur Dioxide', geometry:'Bent (119°)',
+    atoms:[
+      {Z:16,sym:'S',dir:[0,0,0]},
+      {Z:8,sym:'O',dir:[Math.sin(SO2_HALF_ANGLE), -Math.cos(SO2_HALF_ANGLE), 0]},
+      {Z:8,sym:'O',dir:[-Math.sin(SO2_HALF_ANGLE), -Math.cos(SO2_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1,2],[0,2,2]] }, // both double (resonance-averaged)
+  { key:'of2', formula:'OF₂', name:'Oxygen Difluoride', geometry:'Bent (103.2°)',
+    atoms:[
+      {Z:8,sym:'O',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[Math.sin(OF2_HALF_ANGLE), -Math.cos(OF2_HALF_ANGLE), 0]},
+      {Z:9,sym:'F',dir:[-Math.sin(OF2_HALF_ANGLE), -Math.cos(OF2_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1],[0,2]] }, // both single
+  { key:'o3', formula:'O₃', name:'Ozone', geometry:'Bent (116.8°)',
+    atoms:[
+      {Z:8,sym:'O',dir:[0,0,0]},
+      {Z:8,sym:'O',dir:[Math.sin(O3_HALF_ANGLE), -Math.cos(O3_HALF_ANGLE), 0]},
+      {Z:8,sym:'O',dir:[-Math.sin(O3_HALF_ANGLE), -Math.cos(O3_HALF_ANGLE), 0]},
+    ],
+    bonds:[[0,1],[0,2]] }, // delocalized ~1.5 order resonance approximated as single
+  { key:'ph3', formula:'PH₃', name:'Phosphine', geometry:'Trigonal Pyramidal',
+    atoms:[
+      {Z:15,sym:'P',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[TET, TET, TET]},
+      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single
+  { key:'nf3', formula:'NF₃', name:'Nitrogen Trifluoride', geometry:'Trigonal Pyramidal',
+    atoms:[
+      {Z:7,sym:'N',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[TET, TET, TET]},
+      {Z:9,sym:'F',dir:[TET, -TET, -TET]},
+      {Z:9,sym:'F',dir:[-TET, TET, -TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single
+  { key:'pcl3', formula:'PCl₃', name:'Phosphorus Trichloride', geometry:'Trigonal Pyramidal',
+    atoms:[
+      {Z:15,sym:'P',dir:[0,0,0]},
+      {Z:17,sym:'Cl',dir:[TET, TET, TET]},
+      {Z:17,sym:'Cl',dir:[TET, -TET, -TET]},
+      {Z:17,sym:'Cl',dir:[-TET, TET, -TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3]] }, // all single
+  { key:'sih4', formula:'SiH₄', name:'Silane', geometry:'Tetrahedral',
+    atoms:[
+      {Z:14,sym:'Si',dir:[0,0,0]},
+      {Z:1,sym:'H',dir:[TET, TET, TET]},
+      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+      {Z:1,sym:'H',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+  { key:'cf4', formula:'CF₄', name:'Carbon Tetrafluoride', geometry:'Tetrahedral',
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[TET, TET, TET]},
+      {Z:9,sym:'F',dir:[TET, -TET, -TET]},
+      {Z:9,sym:'F',dir:[-TET, TET, -TET]},
+      {Z:9,sym:'F',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+  { key:'ccl4', formula:'CCl₄', name:'Carbon Tetrachloride', geometry:'Tetrahedral',
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},
+      {Z:17,sym:'Cl',dir:[TET, TET, TET]},
+      {Z:17,sym:'Cl',dir:[TET, -TET, -TET]},
+      {Z:17,sym:'Cl',dir:[-TET, TET, -TET]},
+      {Z:17,sym:'Cl',dir:[-TET, -TET, TET]},
+    ],
+    bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
+  { key:'sif4', formula:'SiF₄', name:'Silicon Tetrafluoride', geometry:'Tetrahedral',
+    atoms:[
+      {Z:14,sym:'Si',dir:[0,0,0]},
+      {Z:9,sym:'F',dir:[TET, TET, TET]},
+      {Z:9,sym:'F',dir:[TET, -TET, -TET]},
+      {Z:9,sym:'F',dir:[-TET, TET, -TET]},
+      {Z:9,sym:'F',dir:[-TET, -TET, TET]},
     ],
     bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single
 ];
@@ -1497,7 +1682,18 @@ function syncExcitedButton(Z){
 // ══════════════════════════════════════════════
 // THREE.JS SETUP
 // ══════════════════════════════════════════════
-const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});
+// logarithmicDepthBuffer:true — this scene's orbital radii span from R~3
+// (1s) to R~820,000 (superheavy 9p headroom), and camera.far is set
+// dynamically to 4x the largest visible radius (see applyZoom/rebuild
+// below). With a standard (linear) depth buffer, that huge near:far ratio
+// starves distant/overlapping points of depth precision, causing visible
+// z-fighting and flicker as the view rotates — the biggest source of
+// "un-smooth"-looking motion, independent of point density/grain. A
+// logarithmic depth buffer redistributes that precision so it stays
+// usable across the whole range, at effectively zero rendering-quality
+// cost (grain/point density is untouched — this only fixes HOW those
+// points resolve against each other in depth, not how many there are).
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true,logarithmicDepthBuffer:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.setClearColor(0x000000);
@@ -2189,7 +2385,7 @@ function buildSmoothCloud(orb){
   let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
   const GOLD=[1.0,0.82,0.12];
   const goldBlend=(base)=>[base[0]*0.35+GOLD[0]*0.65,base[1]*0.35+GOLD[1]*0.65,base[2]*0.35+GOLD[2]*0.65];
-  const radiusBoost=1+orb.R/25;
+  const radiusBoost=computeRadiusBoost(orb.R);
   const fillFrac=orb.e/orb.max;
 
   function mkCloud(count, l, sub, sampler, rgb){
@@ -2266,6 +2462,7 @@ function realColor(R){
 }
 
 function makePointCloud(count,sampler,rgb){
+  count=Math.min(count,MAX_CLOUD_POINTS); // hard backstop — see PERFORMANCE block above
   const pos=new Float32Array(count*3);
   const col=new Float32Array(count*3);
   const alp=new Float32Array(count);
@@ -2291,6 +2488,7 @@ function makePointCloud(count,sampler,rgb){
 // get from buildSmoothCloud — each sampler is expected to hand back its
 // own per-point alpha (`pt.a`), same contract as makePointCloud.
 function makeSmoothPointCloud(count,sampler,rgb){
+  count=Math.min(count,MAX_CLOUD_POINTS); // hard backstop — see PERFORMANCE block above
   const pos=new Float32Array(count*3);
   const col=new Float32Array(count*3);
   const alp=new Float32Array(count);
@@ -2314,7 +2512,7 @@ function buildCloud(orb,electrons){
   let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
   const GOLD=[1.0,0.82,0.12];
   const goldBlend=(base)=>[base[0]*0.35+GOLD[0]*0.65,base[1]*0.35+GOLD[1]*0.65,base[2]*0.35+GOLD[2]*0.65];
-  const radiusBoost=1+orb.R/25;
+  const radiusBoost=computeRadiusBoost(orb.R);
   const fillFrac=orb.e/orb.max;
   if(orb.l===0){
     const exc=orb.occ&&orb.occ[0]&&orb.occ[0].excited;
@@ -2589,7 +2787,7 @@ function sampleBondAwareP(R,axis,innerR,bonds){
 function buildBondAwarePCloud(orb,bonds){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
-  const radiusBoost=1+orb.R/25;
+  const radiusBoost=computeRadiusBoost(orb.R);
   const innerR=pInnerRadius(orb.n,orb.R);
   const perAxis=Math.round(5000*radiusBoost);
   (orb.occ||[]).forEach((s,ax)=>{
@@ -2608,7 +2806,7 @@ function buildBondAwarePCloud(orb,bonds){
 function buildBondAwarePCloudSmooth(orb,bonds){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
-  const radiusBoost=1+orb.R/25;
+  const radiusBoost=computeRadiusBoost(orb.R);
   const innerR=pInnerRadius(orb.n,orb.R);
   const perAxis=Math.round(5000*radiusBoost);
   (orb.occ||[]).forEach((s,ax)=>{
@@ -2769,7 +2967,7 @@ function sampleHybridLobe(dir, innerR, outerR){
 function buildHybridPCloud(orb, hybridInfo){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
-  const radiusBoost=1+orb.R/25;
+  const radiusBoost=computeRadiusBoost(orb.R);
   const innerR=pInnerRadius(orb.n,orb.R);
   const perLobe=Math.round(5000*radiusBoost);
   hybridInfo.dirs.forEach((dir,i)=>{
@@ -2788,7 +2986,7 @@ function buildHybridPCloud(orb, hybridInfo){
 function buildHybridPCloudSmooth(orb, hybridInfo){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
-  const radiusBoost=1+orb.R/25;
+  const radiusBoost=computeRadiusBoost(orb.R);
   const innerR=pInnerRadius(orb.n,orb.R);
   const perLobe=Math.round(5000*radiusBoost);
   hybridInfo.dirs.forEach((dir,i)=>{
@@ -3208,6 +3406,7 @@ MOLECULES.forEach(mol=>{
 // CAMERA CONTROLS
 // ══════════════════════════════════════════════
 let tZ=240,camZ=240,rotX=.28,rotY=0,drag=false,lx=0,ly=0,autoSpin=true;
+const ZOOM_EASE_RATE=4.35; // per-second decay rate — tuned so the glide feels identical to the old per-frame .07 factor at 60fps, but stays correct at any frame rate
 let maxZoomDist=4000; // dynamically resized in buildAtom() to whatever the
                        // largest orbital in the current config actually is
 
@@ -3401,10 +3600,19 @@ window.addEventListener('resize',()=>{
 // RENDER LOOP
 // ══════════════════════════════════════════════
 const clock=new THREE.Clock();
+let lastSvisText=null;
 function loop(){
   requestAnimationFrame(loop);
   const dt=clock.getDelta(),t=clock.getElapsedTime();
-  camZ+=(tZ-camZ)*.07;
+  // Frame-rate-independent zoom easing: the old `*.07` factor was applied
+  // once PER FRAME rather than per unit of real time, so the zoom glide
+  // covered the same NUMBER OF FRAMES regardless of how long each frame
+  // actually took — on a device (or moment) with uneven frame times, e.g.
+  // right after switching to a heavier atom/molecule, that reads as jerky,
+  // uneven motion even though nothing about point density changed. Scaling
+  // by dt via an exponential decay keeps the glide's real-world speed and
+  // feel constant no matter the current or momentary frame rate.
+  camZ+=(tZ-camZ)*(1-Math.exp(-dt*ZOOM_EASE_RATE));
   camera.position.z=camZ;
   if(autoSpin)rotY+=dt*.2;
   pivot.rotation.y=rotY;pivot.rotation.x=rotX;
@@ -3431,13 +3639,24 @@ function loop(){
   });
   updateSmoothUniforms();
   if(ultraMode) updateUltraUniforms(camera);
+  // Status line only actually needs to change when curZ/molecule or the
+  // zoom-dependent visible-orbital set changes — not on every single frame.
+  // Recomputing the string AND writing to the DOM 60x/sec forces a
+  // needless layout/reflow every frame regardless of whether anything
+  // visible changed; skipping the write when the text is unchanged removes
+  // that overhead with zero effect on what's shown.
+  let svisText;
   if(moleculeMode){
     const mol=MOLECULES.find(m=>m.key===curMoleculeKey);
-    document.getElementById('svis').textContent = mol ? mol.atoms.map(a=>a.sym).join(' + ') : '—';
+    svisText = mol ? mol.atoms.map(a=>a.sym).join(' + ') : '—';
   }else{
     const cfg=getEffectiveConfig(curZ);
     const vis=cfg.filter(o=>o.R<=camZ*0.55).map(o=>o.name);
-    document.getElementById('svis').textContent=vis.join(' ')||'—';
+    svisText = vis.join(' ')||'—';
+  }
+  if(svisText !== lastSvisText){
+    lastSvisText = svisText;
+    document.getElementById('svis').textContent = svisText;
   }
   renderer.render(scene,camera);
 }
