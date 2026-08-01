@@ -2890,7 +2890,26 @@ function bondLength(Za,Zb,order){
     return 0.82*heavyOrb.R + 0.6*hOrb.R;
   }
   const Ra=valenceR(Za), Rb=valenceR(Zb);
-  const base = 0.62*(Ra+Rb); // two heavy atoms: pull valence shells together for visible overlap
+  // Old formula (0.62*(Ra+Rb)) derives the "visible overlap" depth as a
+  // fraction of the SUM of both radii — fine for two similarly-sized
+  // atoms, but it silently breaks whenever one atom is much bigger than
+  // the other. E.g. Cl's 3p valence R=144 vs F's 2p valence R=41 (a 3.5x
+  // mismatch): 0.62*(144+41)=114.7, which is LESS than Cl's own R=144 —
+  // meaning F's nucleus gets placed literally inside the radius of Cl's
+  // own unbent electron cloud, before any bond-bending is even applied.
+  // It doesn't look bonded, it looks swallowed. Same bug hit SO2, SO3,
+  // ClO2, PF5, and SF6 — anywhere a period-3+ atom (S/Cl/P, 3p, R=144)
+  // bonds to a period-2 atom (C/N/O/F, 2p, R=41).
+  //
+  // Deriving the overlap depth from the SMALLER atom's radius instead
+  // fixes this at the source: two orbitals can only plausibly overlap as
+  // deep as the tighter/smaller one reaches, not as deep as however big
+  // the larger, more diffuse one happens to be. This reduces to the
+  // exact old formula when Ra===Rb (Ra+Rb-0.76*Ra = 1.24*Ra = 0.62*2Ra),
+  // so every existing equal-size pair (H2, O2, N2, CO2, ...) is
+  // byte-for-byte unaffected — only mismatched pairs change.
+  const OVERLAP_FRACTION = 0.76; // matches the old formula's overlap depth for equal-R pairs
+  const base = Ra + Rb - OVERLAP_FRACTION*Math.min(Ra,Rb);
   const ord = Math.max(1, Math.min(3, order||1));
   const orderMult = 1 - 0.12*(ord-1); // 1 -> 1.00, 2 -> 0.88, 3 -> 0.76
   return base*orderMult;
@@ -3007,10 +3026,26 @@ function sampleBondAwareP(R,axis,innerR,bonds){
 
   const sigmaBond=bonds.find(b=>b.axisIndex===axis && b.axisSign===sign);
   if(sigmaBond){
-    // Reach is capped by the PARTNER's own size (not the bond length) so
-    // a big atom bonded to a tiny one (H) only stretches far enough to
-    // touch it, instead of overshooting straight through and past it.
-    const reach=t*t*Math.min(R*0.60, sigmaBond.otherR*1.0);
+    // Reach used to be capped ONLY by the partner's own size
+    // (otherR*1.0), which implicitly assumed the natural gap left to
+    // close (L - R) was always small and roughly proportional to
+    // otherR too — true for the roughly-equal-sized pairs this was
+    // tuned against (O2, N2, CO...), but not checked. For a very
+    // lopsided pair like XeF4 (Xe's R=1600 vs F's R=41), that
+    // assumption breaks completely: the leftover gap is only ~10
+    // units, but the cap still allows up to 41 units of reach — more
+    // than 4x what's needed to just touch F, so Xe's own cloud punches
+    // straight through F's nucleus and out the far side. Mathematically
+    // "not swallowed" (per the bondLength fix) but visually Xe's own
+    // bent arm still buries F on the way past it.
+    //
+    // Bound reach by the ACTUAL remaining gap (L - R) plus a modest,
+    // fixed overshoot allowance past the partner's nucleus — sized to
+    // match the same overshoot ratio (~36% of the partner's own R)
+    // that already produces a good, solidly-fused look for the
+    // symmetric molecules, so none of those change.
+    const gap=Math.max(0, sigmaBond.L - R);
+    const reach=t*t*Math.min(R*0.60, sigmaBond.otherR*1.0, gap+0.36*sigmaBond.otherR);
     const narrow=1-0.5*t;
     return {
       x:(axis===0?base.x:base.x*narrow)+sigmaBond.dirLocal.x*reach,
@@ -3021,11 +3056,35 @@ function sampleBondAwareP(R,axis,innerR,bonds){
   }
   const piBond=bonds.find(b=>b.piAxisIndices.includes(axis));
   if(piBond){
-    const sweep=t*t*Math.min(R*0.45, piBond.otherR*0.75);
+    // v1 (proportional share of a combined budget) and v2 (each atom
+    // independently sweeps ~92% of L) both only ever TRANSLATED the lobe
+    // sideways along the bond direction — neither touched the lobe's own
+    // primary-axis extent. That's the real bug: axis===1 (or 2) skipped
+    // narrowing on exactly the one component that matters. Concretely,
+    // for CS2's S1 (R=144), a point at the tip of its py lobe (t=1,
+    // local y=144) got slid until its world x sat right next to carbon —
+    // but its world y stayed at 144, i.e. still floating 144 units above
+    // the actual bond line. Sliding a full-height lobe sideways doesn't
+    // make it merge with anything; it just relocates the same disconnected
+    // flower shape to a different spot along x. No sweep magnitude fixes
+    // that, because the transform was never touching the right axis.
+    //
+    // A real pi bond is a tapered lens/banana that narrows toward the
+    // bond axis as it nears each nucleus — not a dumbbell slid sideways.
+    // So this has to be a genuine LEAN: shrink the lobe's own primary-axis
+    // component (its height above the bond line) at the same time as it
+    // sweeps toward the partner, so the tip curves down into the bond
+    // region instead of hovering beside it.
+    const PI_REACH_FRACTION=0.85; // fraction of L this lobe's sweep alone must cover
+    const PI_LEAN=0.72;           // fraction of the lobe's OWN primary-axis extent it gives up at full sweep — this is the actual fix; without it the lobe only translates, never converges
+    const sweepMax=Math.min(PI_REACH_FRACTION*piBond.L, R*2.5);
+    const sweep=t*t*sweepMax;
+    const lean=1-PI_LEAN*t*t;   // shrinks the lobe's own axis toward the bond line as it extends outward
+    const other=1-0.6*t;        // narrows the remaining, truly-perpendicular axis
     return {
-      x:base.x+piBond.dirLocal.x*sweep,
-      y:base.y+piBond.dirLocal.y*sweep,
-      z:base.z+piBond.dirLocal.z*sweep,
+      x:(axis===0?base.x*lean:base.x*other)+piBond.dirLocal.x*sweep,
+      y:(axis===1?base.y*lean:base.y*other)+piBond.dirLocal.y*sweep,
+      z:(axis===2?base.z*lean:base.z*other)+piBond.dirLocal.z*sweep,
       a:base.a
     };
   }
