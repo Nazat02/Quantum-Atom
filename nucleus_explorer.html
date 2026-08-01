@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nucleus Explorer — Quantum Atom Simulator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='%23ff5500'/><circle cx='45' cy='45' r='14' fill='white'/><circle cx='25' cy='25' r='7' fill='%232255ff'/><circle cx='65' cy='30' r='7' fill='%23ff2200'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --cx:#ff5500;--cx2:#ff9944;--cx3:#ffb347;
+  --cx-40:rgba(255,85,0,.40);--cx-20:rgba(255,85,0,.20);
+  --cx-10:rgba(255,85,0,.10);--cx-06:rgba(255,85,0,.06);
+  --bg:#000000;--hi:#ffffff;
+  --mid:rgba(255,255,255,.72);--lo:rgba(255,255,255,.42);--vlo:rgba(255,255,255,.24);
+  --border:rgba(255,85,0,.16);--border-hi:rgba(255,85,0,.35);
+  --mono:'Share Tech Mono',monospace;--display:'Rajdhani',sans-serif;
+  --proton:#ff3322;--neutron:#3366ff;--up:#ffd23f;--down:#ff3fb0;--pion:#39ff8f;
+  --radius:8px;--topbar-h:58px;--botbar-h:132px;--panel-w:280px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--hi);
+  font-family:var(--mono);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--cx-40);border-radius:2px;}
+canvas{position:fixed;inset:0;z-index:0;touch-action:none;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;}
+
+#shell{position:fixed;inset:0;z-index:10;display:grid;pointer-events:none;
+  grid-template-rows:var(--topbar-h) 1fr auto;
+  grid-template-columns:1fr;}
+#shell > *{pointer-events:auto;}
+
+/* ── TOPBAR ── */
+#topbar{grid-row:1;display:flex;align-items:center;gap:8px;padding:0 10px;
+  background:linear-gradient(to bottom, rgba(0,0,0,.92), rgba(0,0,0,.6));
+  border-bottom:1px solid var(--border);backdrop-filter:blur(8px);min-width:0;
+  box-shadow:0 4px 20px rgba(0,0,0,.35);}
+#back-link{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--cx2);font-size:.66rem;letter-spacing:.06em;white-space:nowrap;
+  transition:.15s;flex-shrink:0;}
+#back-link:hover{border-color:var(--border-hi);background:var(--cx-06);}
+#back-link .full{display:inline;}
+#tb-title{font-family:var(--display);font-weight:700;font-size:.98rem;letter-spacing:.03em;
+  color:var(--hi);white-space:nowrap;display:flex;align-items:baseline;gap:6px;flex-shrink:1;overflow:hidden;text-overflow:ellipsis;}
+#tb-title small{font-family:var(--mono);font-weight:400;font-size:.6rem;color:var(--cx2);letter-spacing:.08em;}
+#tb-nav{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;}
+.navbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);
+  border-radius:6px;background:var(--cx-06);color:var(--cx2);font-size:.8rem;flex-shrink:0;transition:.15s;}
+.navbtn:hover{border-color:var(--border-hi);}
+.navbtn:active{background:var(--cx-20);}
+.navbtn:disabled{opacity:.3;}
+.navbtn.on{color:var(--hi);border-color:var(--border-hi);background:var(--cx-10);}
+#tb-badge{width:30px;height:30px;border-radius:7px;background:var(--cx-10);border:1px solid var(--border-hi);
+  display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;
+  font-size:.92rem;color:var(--hi);flex-shrink:0;}
+#elbtn{display:flex;align-items:center;gap:5px;padding:6px 10px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--cx-06);font-size:.64rem;letter-spacing:.05em;color:var(--cx2);flex-shrink:0;}
+#elbtn:hover{border-color:var(--border-hi);}
+#theme-link{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--cx2);flex-shrink:0;transition:.15s;}
+#theme-link:hover{border-color:var(--border-hi);background:var(--cx-06);}
+
+/* ── ELEMENT STAT LINE ── */
+#elstat{display:flex;align-items:baseline;gap:0;font-size:.68rem;color:var(--mid);letter-spacing:.02em;
+  min-width:0;overflow:hidden;flex-shrink:1;}
+#elstat b{color:var(--hi);font-family:var(--display);font-weight:700;font-size:.8rem;letter-spacing:.03em;
+  white-space:nowrap;flex-shrink:0;}
+#elstat span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--lo);}
+#elstat span::before{content:'— ';color:var(--vlo);}
+
+/* ── BOTTOM BAR ── */
+#botbar{grid-row:3;display:flex;flex-direction:column;gap:9px;padding:11px 12px 13px;
+  background:linear-gradient(to top, rgba(0,0,0,.94), rgba(0,0,0,.6));border-top:1px solid var(--border);
+  backdrop-filter:blur(8px);}
+#statusrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#modelabel{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.07em;color:var(--cx2);
+  padding:3px 10px;border:1px solid var(--border-hi);border-radius:12px;background:var(--cx-10);flex-shrink:0;}
+#actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;}
+.tgbtn{display:flex;align-items:center;gap:4px;font-size:.62rem;letter-spacing:.05em;padding:6px 10px;
+  border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--lo);transition:.15s;}
+.tgbtn:hover{border-color:var(--border-hi);}
+.tgbtn:active{background:var(--cx-10);}
+.tgbtn.on{color:var(--cx2);border-color:var(--border-hi);background:var(--cx-10);}
+.tgbtn.action{color:var(--cx3);}
+#infoline{font-size:.67rem;color:var(--mid);line-height:1.5;}
+#infoline b{color:var(--hi);}
+#zoomrow{display:flex;align-items:center;gap:10px;}
+#zoomrow label{font-size:.58rem;color:var(--lo);letter-spacing:.08em;flex-shrink:0;}
+#zsl{flex:1;accent-color:var(--cx);height:5px;border-radius:3px;cursor:pointer;
+  background:linear-gradient(to right, var(--cx-20) 0%, var(--cx-20) 55%, rgba(57,255,143,.28) 55%, rgba(57,255,143,.28) 82%, rgba(255,210,63,.32) 82%, rgba(255,210,63,.32) 100%);}
+#zval{font-size:.6rem;color:var(--cx2);padding:4px 10px;border:1px solid var(--border);border-radius:20px;
+  background:var(--cx-06);white-space:nowrap;flex-shrink:0;min-width:92px;text-align:center;}
+
+/* ── LEGEND POPOVER ── */
+#legend-pop{position:fixed;right:12px;bottom:calc(var(--botbar-h) + 10px);z-index:25;
+  display:flex;flex-direction:column;gap:8px;padding:11px 13px;border-radius:10px;
+  background:rgba(6,3,0,.97);border:1px solid var(--border-hi);backdrop-filter:blur(10px);
+  box-shadow:0 12px 32px rgba(0,0,0,.55);opacity:0;transform:translateY(6px) scale(.98);
+  pointer-events:none;transition:opacity .16s,transform .16s;}
+#legend-pop.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
+#legend-pop .lgitem{display:flex;align-items:center;gap:8px;font-size:.66rem;letter-spacing:.03em;
+  color:var(--mid);white-space:nowrap;}
+#legend-pop .lgdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-shadow:0 0 7px currentColor;}
+
+/* ── ACCESSIBILITY / MOTION ── */
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--cx2);outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){
+  #elpanel,#legend-pop,#onboard,.navbtn,.tgbtn,#toast{transition:none!important;}
+}
+
+/* ── ELEMENT PANEL ── */
+#elpanel{position:fixed;top:var(--topbar-h);right:0;bottom:var(--botbar-h);width:var(--panel-w);
+  z-index:20;background:rgba(4,2,0,.94);border-left:1px solid var(--border);backdrop-filter:blur(10px);
+  box-shadow:-8px 0 32px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;pointer-events:auto;}
+#elpanel.open{transform:translateX(0);}
+#elpanel-scrim{position:fixed;inset:0;z-index:19;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s;}
+#elpanel-scrim.open{opacity:1;pointer-events:auto;}
+#elpanel-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+#elsearch{width:100%;padding:8px 10px;background:rgba(255,85,0,.05);border:1px solid var(--border);
+  border-radius:6px;color:var(--hi);font-family:var(--mono);font-size:.72rem;outline:none;}
+#elsearch:focus{border-color:var(--border-hi);}
+#elclose{flex-shrink:0;width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);border-radius:6px;color:var(--lo);font-size:.9rem;background:transparent;}
+#elclose:active{background:var(--cx-10);}
+#ellist{flex:1;overflow-y:auto;padding:6px;}
+.elrow{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:6px;font-size:.68rem;
+  color:var(--mid);border:1px solid transparent;}
+.elrow:hover{background:var(--cx-06);}
+.elrow.active{background:var(--cx-10);border-color:var(--border-hi);color:var(--hi);}
+.elrow .z{width:26px;color:var(--vlo);font-size:.6rem;flex-shrink:0;}
+.elrow .sym{width:28px;font-family:var(--display);font-weight:700;color:var(--cx2);flex-shrink:0;}
+.elrow .nm{flex:1;}
+.elrow .cnt{font-size:.58rem;color:var(--vlo);flex-shrink:0;}
+#elempty{padding:20px 12px;text-align:center;font-size:.66rem;color:var(--vlo);}
+
+/* ── LABEL OVERLAY (billboarded quark/pion labels) ── */
+#labels{position:fixed;inset:0;z-index:5;pointer-events:none;}
+.plabel{position:absolute;transform:translate(-50%,-50%);font-family:var(--mono);font-size:.62rem;
+  font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;letter-spacing:.03em;
+  background:rgba(0,0,0,.55);border:1px solid currentColor;opacity:0;transition:opacity .2s;}
+
+/* ── TOAST ── */
+#toast{position:fixed;top:calc(var(--topbar-h) + 14px);left:50%;transform:translateX(-50%);z-index:30;
+  background:rgba(0,0,0,.85);border:1px solid var(--border-hi);border-radius:6px;padding:7px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+  font-size:.66rem;letter-spacing:.05em;color:var(--cx2);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+  max-width:min(86vw,360px);text-align:center;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(4px);}
+
+/* ── ONBOARDING OVERLAY ── */
+#onboard{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;transition:opacity .3s;}
+#onboard.hide{opacity:0;pointer-events:none;}
+#onboard-card{max-width:340px;border:1px solid var(--border-hi);border-radius:10px;background:rgba(8,4,0,.96);
+  box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px 20px 16px;text-align:left;}
+#onboard-card h3{font-family:var(--display);font-size:1rem;letter-spacing:.03em;color:var(--cx2);margin-bottom:12px;}
+#onboard-card ul{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:16px;}
+#onboard-card li{font-size:.72rem;color:var(--mid);display:flex;gap:9px;align-items:flex-start;line-height:1.4;}
+#onboard-card li .ic{color:var(--cx2);flex-shrink:0;width:1.1em;}
+#onboard-btn{width:100%;padding:10px;border:1px solid var(--border-hi);border-radius:7px;background:var(--cx-10);
+  color:var(--hi);font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;}
+#onboard-btn:active{background:var(--cx-20);}
+#onboard-foot{margin-top:10px;font-size:.6rem;letter-spacing:.03em;color:var(--vlo);text-align:center;}
+#onboard-foot b{color:var(--cx2);}
+
+@media (max-width:640px){
+  :root{--topbar-h:50px;--botbar-h:150px;--panel-w:90vw;}
+  #tb-title small{display:none;}
+  #tb-title{font-size:.86rem;}
+  #back-link .full{display:none;}
+  #elbtn .full{display:none;}
+  .tgbtn .full{display:none;}
+  .tgbtn{padding:6px 8px;}
+  #elstat{font-size:.64rem;}
+  #elstat b{font-size:.72rem;}
+  #zval{min-width:74px;font-size:.56rem;padding:4px 8px;}
+  #legend-pop{right:8px;}
+}
+@media (max-width:380px){
+  #tb-badge{display:none;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<div id="toast"></div>
+
+<div id="onboard">
+  <div id="onboard-card">
+    <h3>NUCLEUS EXPLORER</h3>
+    <ul>
+      <li><span class="ic">↻</span> Drag to orbit around the nucleus</li>
+      <li><span class="ic">⇕</span> Pinch or scroll to zoom continuously — from the whole nucleus, into one proton/neutron, down to its quarks &amp; gluons</li>
+      <li><span class="ic">☰</span> Tap ELEMENTS to jump to any element, H → Og</li>
+      <li><span class="ic">⌨</span> Arrow keys ←→ cycle elements</li>
+    </ul>
+    <button id="onboard-btn">GOT IT</button>
+    <div id="onboard-foot">Tap <b>?</b> anytime to see this again</div>
+  </div>
+</div>
+
+<div id="elpanel-scrim"></div>
+<div id="shell">
+  <div id="topbar">
+    <a id="back-link" href="simulator_dark.html">← <span class="full">ATOM VIEW</span></a>
+    <div id="tb-title">NUCLEUS <small>DEEP ZOOM</small></div>
+    <div id="tb-nav">
+      <button class="navbtn" id="prevbtn" aria-label="Previous element">‹</button>
+      <div id="tb-badge">H</div>
+      <button class="navbtn" id="nextbtn" aria-label="Next element">›</button>
+    </div>
+    <a id="theme-link" href="nucleus_explorer_light.html" title="Switch to light mode" aria-label="Switch to light mode">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="8" y1="1" x2="8" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="8" y1="13" x2="8" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="1" y1="8" x2="3" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="13" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="2.93" y1="2.93" x2="4.34" y2="4.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="11.66" y1="11.66" x2="13.07" y2="13.07" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="13.07" y1="2.93" x2="11.66" y2="4.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="4.34" y1="11.66" x2="2.93" y2="13.07" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </a>
+    <button id="elbtn">☰ <span class="full">ELEMENTS</span></button>
+  </div>
+
+  <div id="botbar">
+    <div id="statusrow">
+      <span id="modelabel">MACRO</span>
+      <div id="elstat"><b id="tb-name">HYDROGEN</b><span id="tb-count">1 proton · 0 neutrons · mass number 1</span></div>
+      <div id="actions">
+        <button class="navbtn" id="legend-btn" aria-label="Show color legend" aria-expanded="false" title="Legend">◍</button>
+        <button class="tgbtn on" id="tg-pion" title="Toggle pion exchange">π <span class="full">PIONS</span></button>
+        <button class="tgbtn on" id="tg-gluon" title="Toggle gluon field">◈ <span class="full">GLUONS</span></button>
+        <button class="tgbtn action" id="tg-jiggle" title="Reset camera view">⟲ <span class="full">RESET</span></button>
+        <button class="navbtn" id="help-btn" aria-label="Controls help" title="Controls &amp; help">?</button>
+      </div>
+    </div>
+    <div id="infoline">Loading…</div>
+    <div id="zoomrow">
+      <label for="zsl">ZOOM</label>
+      <input type="range" id="zsl" min="0" max="1000" value="0" aria-label="Zoom level, nucleus to quark scale">
+      <div id="zval">NUCLEUS</div>
+    </div>
+  </div>
+</div>
+
+<div id="legend-pop" role="dialog" aria-label="Color legend">
+  <div class="lgitem"><span class="lgdot" style="background:#ff3322"></span>Proton</div>
+  <div class="lgitem"><span class="lgdot" style="background:#3366ff"></span>Neutron</div>
+  <div class="lgitem"><span class="lgdot" style="background:#ffd23f"></span>Up quark</div>
+  <div class="lgitem"><span class="lgdot" style="background:#ff3fb0"></span>Down quark</div>
+  <div class="lgitem"><span class="lgdot" style="background:#39ff8f"></span>Pion (π)</div>
+</div>
+
+<div id="elpanel">
+  <div id="elpanel-head">
+    <input id="elsearch" type="text" placeholder="Search element (H – Og)…" autocomplete="off">
+    <button id="elclose" aria-label="Close">✕</button>
+  </div>
+  <div id="ellist"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════
+// ELEMENT DATA  (Z, symbol, name, neutron count of most stable isotope)
+// ══════════════════════════════════════════════════════════════
+const ELEMENTS=[
+{Z:1,sym:"H",name:"Hydrogen",n:0},{Z:2,sym:"He",name:"Helium",n:2},{Z:3,sym:"Li",name:"Lithium",n:4},
+{Z:4,sym:"Be",name:"Beryllium",n:5},{Z:5,sym:"B",name:"Boron",n:6},{Z:6,sym:"C",name:"Carbon",n:6},
+{Z:7,sym:"N",name:"Nitrogen",n:7},{Z:8,sym:"O",name:"Oxygen",n:8},{Z:9,sym:"F",name:"Fluorine",n:10},
+{Z:10,sym:"Ne",name:"Neon",n:10},{Z:11,sym:"Na",name:"Sodium",n:12},{Z:12,sym:"Mg",name:"Magnesium",n:12},
+{Z:13,sym:"Al",name:"Aluminium",n:14},{Z:14,sym:"Si",name:"Silicon",n:14},{Z:15,sym:"P",name:"Phosphorus",n:16},
+{Z:16,sym:"S",name:"Sulfur",n:16},{Z:17,sym:"Cl",name:"Chlorine",n:18},{Z:18,sym:"Ar",name:"Argon",n:22},
+{Z:19,sym:"K",name:"Potassium",n:20},{Z:20,sym:"Ca",name:"Calcium",n:20},{Z:21,sym:"Sc",name:"Scandium",n:24},
+{Z:22,sym:"Ti",name:"Titanium",n:26},{Z:23,sym:"V",name:"Vanadium",n:28},{Z:24,sym:"Cr",name:"Chromium",n:28},
+{Z:25,sym:"Mn",name:"Manganese",n:30},{Z:26,sym:"Fe",name:"Iron",n:30},{Z:27,sym:"Co",name:"Cobalt",n:32},
+{Z:28,sym:"Ni",name:"Nickel",n:30},{Z:29,sym:"Cu",name:"Copper",n:34},{Z:30,sym:"Zn",name:"Zinc",n:34},
+{Z:31,sym:"Ga",name:"Gallium",n:38},{Z:32,sym:"Ge",name:"Germanium",n:42},{Z:33,sym:"As",name:"Arsenic",n:42},
+{Z:34,sym:"Se",name:"Selenium",n:46},{Z:35,sym:"Br",name:"Bromine",n:44},{Z:36,sym:"Kr",name:"Krypton",n:48},
+{Z:37,sym:"Rb",name:"Rubidium",n:48},{Z:38,sym:"Sr",name:"Strontium",n:50},{Z:39,sym:"Y",name:"Yttrium",n:50},
+{Z:40,sym:"Zr",name:"Zirconium",n:50},{Z:41,sym:"Nb",name:"Niobium",n:52},{Z:42,sym:"Mo",name:"Molybdenum",n:56},
+{Z:43,sym:"Tc",name:"Technetium",n:55},{Z:44,sym:"Ru",name:"Ruthenium",n:58},{Z:45,sym:"Rh",name:"Rhodium",n:58},
+{Z:46,sym:"Pd",name:"Palladium",n:60},{Z:47,sym:"Ag",name:"Silver",n:60},{Z:48,sym:"Cd",name:"Cadmium",n:66},
+{Z:49,sym:"In",name:"Indium",n:66},{Z:50,sym:"Sn",name:"Tin",n:68},{Z:51,sym:"Sb",name:"Antimony",n:70},
+{Z:52,sym:"Te",name:"Tellurium",n:76},{Z:53,sym:"I",name:"Iodine",n:74},{Z:54,sym:"Xe",name:"Xenon",n:78},
+{Z:55,sym:"Cs",name:"Caesium",n:78},{Z:56,sym:"Ba",name:"Barium",n:82},{Z:57,sym:"La",name:"Lanthanum",n:82},
+{Z:58,sym:"Ce",name:"Cerium",n:82},{Z:59,sym:"Pr",name:"Praseodymium",n:82},{Z:60,sym:"Nd",name:"Neodymium",n:82},
+{Z:61,sym:"Pm",name:"Promethium",n:84},{Z:62,sym:"Sm",name:"Samarium",n:90},{Z:63,sym:"Eu",name:"Europium",n:90},
+{Z:64,sym:"Gd",name:"Gadolinium",n:94},{Z:65,sym:"Tb",name:"Terbium",n:94},{Z:66,sym:"Dy",name:"Dysprosium",n:98},
+{Z:67,sym:"Ho",name:"Holmium",n:98},{Z:68,sym:"Er",name:"Erbium",n:98},{Z:69,sym:"Tm",name:"Thulium",n:100},
+{Z:70,sym:"Yb",name:"Ytterbium",n:104},{Z:71,sym:"Lu",name:"Lutetium",n:104},{Z:72,sym:"Hf",name:"Hafnium",n:108},
+{Z:73,sym:"Ta",name:"Tantalum",n:108},{Z:74,sym:"W",name:"Tungsten",n:110},{Z:75,sym:"Re",name:"Rhenium",n:112},
+{Z:76,sym:"Os",name:"Osmium",n:116},{Z:77,sym:"Ir",name:"Iridium",n:116},{Z:78,sym:"Pt",name:"Platinum",n:117},
+{Z:79,sym:"Au",name:"Gold",n:118},{Z:80,sym:"Hg",name:"Mercury",n:122},{Z:81,sym:"Tl",name:"Thallium",n:124},
+{Z:82,sym:"Pb",name:"Lead",n:126},{Z:83,sym:"Bi",name:"Bismuth",n:126},{Z:84,sym:"Po",name:"Polonium",n:125},
+{Z:85,sym:"At",name:"Astatine",n:125},{Z:86,sym:"Rn",name:"Radon",n:136},{Z:87,sym:"Fr",name:"Francium",n:136},
+{Z:88,sym:"Ra",name:"Radium",n:138},{Z:89,sym:"Ac",name:"Actinium",n:138},{Z:90,sym:"Th",name:"Thorium",n:142},
+{Z:91,sym:"Pa",name:"Protactinium",n:140},{Z:92,sym:"U",name:"Uranium",n:146},{Z:93,sym:"Np",name:"Neptunium",n:144},
+{Z:94,sym:"Pu",name:"Plutonium",n:150},{Z:95,sym:"Am",name:"Americium",n:148},{Z:96,sym:"Cm",name:"Curium",n:151},
+{Z:97,sym:"Bk",name:"Berkelium",n:150},{Z:98,sym:"Cf",name:"Californium",n:153},{Z:99,sym:"Es",name:"Einsteinium",n:153},
+{Z:100,sym:"Fm",name:"Fermium",n:157},{Z:101,sym:"Md",name:"Mendelevium",n:157},{Z:102,sym:"No",name:"Nobelium",n:157},
+{Z:103,sym:"Lr",name:"Lawrencium",n:159},{Z:104,sym:"Rf",name:"Rutherfordium",n:163},{Z:105,sym:"Db",name:"Dubnium",n:163},
+{Z:106,sym:"Sg",name:"Seaborgium",n:163},{Z:107,sym:"Bh",name:"Bohrium",n:163},{Z:108,sym:"Hs",name:"Hassium",n:169},
+{Z:109,sym:"Mt",name:"Meitnerium",n:169},{Z:110,sym:"Ds",name:"Darmstadtium",n:171},{Z:111,sym:"Rg",name:"Roentgenium",n:171},
+{Z:112,sym:"Cn",name:"Copernicium",n:173},{Z:113,sym:"Nh",name:"Nihonium",n:173},{Z:114,sym:"Fl",name:"Flerovium",n:175},
+{Z:115,sym:"Mc",name:"Moscovium",n:175},{Z:116,sym:"Lv",name:"Livermorium",n:177},{Z:117,sym:"Ts",name:"Tennessine",n:177},
+{Z:118,sym:"Og",name:"Oganesson",n:176}
+];
+const byZ = z => ELEMENTS[z-1];
+
+// ══════════════════════════════════════════════════════════════
+// SCENE SETUP
+// ══════════════════════════════════════════════════════════════
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x000000);
+scene.fog=new THREE.FogExp2(0x000000,0.012);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.01,4000);
+
+scene.add(new THREE.AmbientLight(0x554433,1.1));
+const key=new THREE.PointLight(0xffdd99,2.2,0,0);key.position.set(20,30,20);scene.add(key);
+const rim=new THREE.PointLight(0x3366ff,1.2,0,0);rim.position.set(-25,-15,-20);scene.add(rim);
+
+function resize(){
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize',resize);resize();
+
+// ══════════════════════════════════════════════════════════════
+// NUCLEUS BUILD
+// ══════════════════════════════════════════════════════════════
+let nucGroup=null, protonMesh=null, neutronMesh=null;
+let positions=[], types=[], jitter=[], nr=0.5, Rnuc=1;
+let Z=1,N=0;
+
+function seededRand(seed){ // deterministic per-element shuffle
+  let s = seed*9301+49297;
+  return function(){ s=(s*9301+49297)%233280; return s/233280; };
+}
+
+function buildNucleus(z,n){
+  Z=z;N=n;
+  if(nucGroup) scene.remove(nucGroup);
+  nucGroup=new THREE.Group();
+  const total=Z+N;
+  nr = THREE.MathUtils.clamp(0.62 - total*0.0006, 0.3, 0.62);
+  Rnuc = total<=1 ? 0 : nr*1.02*Math.pow(total,0.46);
+
+  const rnd=seededRand(total*7+Z);
+  types=[];
+  for(let i=0;i<Z;i++) types.push('p');
+  for(let i=0;i<N;i++) types.push('n');
+  for(let i=types.length-1;i>0;i--){
+    const j=Math.floor(rnd()*(i+1));
+    [types[i],types[j]]=[types[j],types[i]];
+  }
+
+  positions=[];
+  if(total===1){ positions.push(new THREE.Vector3(0,0,0)); }
+  else{
+    const golden=Math.PI*(3-Math.sqrt(5));
+    for(let i=0;i<total;i++){
+      const t=(i+0.5)/total;
+      const r=Rnuc*Math.pow(t,1/3);
+      const theta=golden*i;
+      const phi=Math.acos(1-2*t);
+      positions.push(new THREE.Vector3(
+        r*Math.sin(phi)*Math.cos(theta),
+        r*Math.sin(phi)*Math.sin(theta),
+        r*Math.cos(phi)
+      ));
+    }
+  }
+
+  jitter=positions.map((_,i)=>({
+    freq: 1.4+rnd()*1.8,
+    phase: rnd()*Math.PI*2,
+    axis: new THREE.Vector3(rnd()-.5,rnd()-.5,rnd()-.5).normalize(),
+    amp: nr*0.11
+  }));
+
+  const geo=new THREE.SphereGeometry(nr,20,16);
+  const matP=new THREE.MeshStandardMaterial({color:0xff2200,emissive:0xff1100,emissiveIntensity:1.6,roughness:.3,metalness:.15});
+  const matN=new THREE.MeshStandardMaterial({color:0x2255ff,emissive:0x1133ff,emissiveIntensity:1.3,roughness:.3,metalness:.15});
+
+  const pCount=Z, nCount=N;
+  protonMesh=new THREE.InstancedMesh(geo,matP,Math.max(pCount,1));
+  neutronMesh=new THREE.InstancedMesh(geo,matN,Math.max(nCount,1));
+  protonMesh.count=pCount; neutronMesh.count=nCount;
+
+  // index maps: global nucleon index -> {mesh, instanceIdx}
+  window.__idxMap=[];
+  let pI=0,nI=0;
+  const m=new THREE.Matrix4();
+  positions.forEach((p,i)=>{
+    m.makeTranslation(p.x,p.y,p.z);
+    if(types[i]==='p'){ protonMesh.setMatrixAt(pI,m); window.__idxMap[i]={mesh:protonMesh,idx:pI}; pI++; }
+    else { neutronMesh.setMatrixAt(nI,m); window.__idxMap[i]={mesh:neutronMesh,idx:nI}; nI++; }
+  });
+  protonMesh.instanceMatrix.needsUpdate=true;
+  neutronMesh.instanceMatrix.needsUpdate=true;
+  nucGroup.add(protonMesh,neutronMesh);
+
+  // glow halo shells
+  const haloR=Rnuc+nr;
+  [[haloR*1.25,.26],[haloR*1.9,.11],[haloR*2.8,.045]].forEach(([r,o])=>{
+    nucGroup.add(new THREE.Mesh(
+      new THREE.SphereGeometry(r,20,16),
+      new THREE.MeshBasicMaterial({color:0xff6633,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false})
+    ));
+  });
+
+  scene.add(nucGroup);
+
+  // reset hero/detail tracking
+  heroIndex=-1; partnerIndex=-1;
+  disposeDetail();
+  disposePion();
+  updateHUD();
+}
+
+// ══════════════════════════════════════════════════════════════
+// ZOOM / CAMERA (continuous, band-based)
+// ══════════════════════════════════════════════════════════════
+let zoom=0;               // 0..1
+let camTheta=0.7, camPhi=1.15;
+let camTarget=new THREE.Vector3(0,0,0);
+let heroIndex=-1, partnerIndex=-1;
+const BAND1=0.55, BAND2=0.82; // macro->pair->quark thresholds
+
+function camDistForZoom(z){
+  const macroFar = Rnuc*3.4+2;
+  const pairDist = Math.max(Rnuc*0.55, nr*4.5);
+  const quarkStart = nr*2.6;
+  const quarkDeep = nr*0.12;
+  if(z<BAND1){
+    const t=z/BAND1;
+    return Math.exp(THREE.MathUtils.lerp(Math.log(macroFar),Math.log(pairDist),t));
+  } else if(z<BAND2){
+    const t=(z-BAND1)/(BAND2-BAND1);
+    return Math.exp(THREE.MathUtils.lerp(Math.log(pairDist),Math.log(quarkStart),t));
+  } else {
+    const t=(z-BAND2)/(1-BAND2);
+    return Math.exp(THREE.MathUtils.lerp(Math.log(quarkStart),Math.log(quarkDeep),t));
+  }
+}
+
+function currentMode(){
+  if(zoom<BAND1) return 'MACRO';
+  if(zoom<BAND2) return 'PAIR';
+  return 'QUARK';
+}
+
+function findHero(camPos){
+  let best=-1,bd=Infinity;
+  positions.forEach((p,i)=>{
+    const j=jitter[i];
+    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
+    const wp=p.clone().add(off);
+    const d=wp.distanceToSquared(camPos);
+    if(d<bd){bd=d;best=i;}
+  });
+  return best;
+}
+function findPartner(idx){
+  const base=positions[idx];
+  let best=-1,bd=Infinity;
+  positions.forEach((p,i)=>{
+    if(i===idx) return;
+    const d=p.distanceToSquared(base);
+    if(d<bd){bd=d;best=i;}
+  });
+  return best;
+}
+
+// ══════════════════════════════════════════════════════════════
+// QUARK / GLUON DETAIL (for the "hero" nucleon)
+// ══════════════════════════════════════════════════════════════
+let detailGroup=null, detailQuarks=[], detailTubes=[], detailGluonDots=[], detailAnchorIdx=-1, detailIsProton=true;
+const upMat=()=>new THREE.MeshStandardMaterial({color:0xffd23f,emissive:0xffaa00,emissiveIntensity:1.4,roughness:.25});
+const downMat=()=>new THREE.MeshStandardMaterial({color:0xff3fb0,emissive:0xcc0066,emissiveIntensity:1.4,roughness:.25});
+
+function disposeDetail(){
+  if(detailGroup){ scene.remove(detailGroup); detailGroup=null; }
+  detailQuarks=[]; detailTubes=[]; detailGluonDots=[]; detailAnchorIdx=-1;
+  document.querySelectorAll('.qlabel').forEach(e=>e.remove());
+}
+
+function buildDetail(idx){
+  disposeDetail();
+  detailAnchorIdx=idx;
+  detailIsProton = types[idx]==='p';
+  detailGroup=new THREE.Group();
+
+  // confinement boundary (soft skin)
+  const skin=new THREE.Mesh(
+    new THREE.SphereGeometry(nr*0.95,24,18),
+    new THREE.MeshBasicMaterial({color:detailIsProton?0xff5533:0x4477ff,transparent:true,opacity:0.06,side:THREE.DoubleSide,depthWrite:false})
+  );
+  detailGroup.add(skin);
+
+  const flavors = detailIsProton ? ['u','u','d'] : ['u','d','d'];
+  const R = nr*0.42;
+  for(let i=0;i<3;i++){
+    const ang=(i/3)*Math.PI*2;
+    const base=new THREE.Vector3(R*Math.cos(ang), R*Math.sin(ang)*0.6, R*Math.sin(ang));
+    const isUp = flavors[i]==='u';
+    const geo=new THREE.SphereGeometry(nr*0.16,20,16);
+    const mesh=new THREE.Mesh(geo, isUp?upMat():downMat());
+    detailGroup.add(mesh);
+    const label=document.createElement('div');
+    label.className='plabel qlabel';
+    label.style.color = isUp?'#ffd23f':'#ff3fb0';
+    label.textContent = isUp ? 'u  +2/3' : 'd  −1/3';
+    document.getElementById('labels').appendChild(label);
+    detailQuarks.push({mesh,base,freq:2.2+Math.random()*1.6,phase:Math.random()*Math.PI*2,label,
+      axis:new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize()});
+  }
+  // gluon tubes: connect each pair (3 edges of triangle)
+  const pairs=[[0,1],[1,2],[2,0]];
+  pairs.forEach((pr,pi)=>{
+    const tGeo=new THREE.CylinderGeometry(nr*0.028,nr*0.028,1,8,1,true);
+    const tMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.55,blending:THREE.AdditiveBlending,depthWrite:false});
+    const tube=new THREE.Mesh(tGeo,tMat);
+    detailGroup.add(tube);
+    const dotGeo=new THREE.SphereGeometry(nr*0.045,10,8);
+    const dotMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false});
+    const dot=new THREE.Mesh(dotGeo,dotMat);
+    detailGroup.add(dot);
+    detailTubes.push({tube,dot,a:pr[0],b:pr[1],phase:pi/3});
+  });
+
+  scene.add(detailGroup);
+}
+
+function orientCyl(mesh,a,b){
+  const dir=new THREE.Vector3().subVectors(b,a);
+  const len=Math.max(dir.length(),0.0001);
+  mesh.scale.set(1,len,1);
+  mesh.position.copy(a).addScaledVector(dir,0.5);
+  const up=new THREE.Vector3(0,1,0);
+  mesh.quaternion.setFromUnitVectors(up,dir.clone().normalize());
+}
+
+// ══════════════════════════════════════════════════════════════
+// PION EXCHANGE (residual strong force, PAIR band)
+// ══════════════════════════════════════════════════════════════
+let pionMesh=null, pionLabel=null;
+function disposePion(){
+  if(pionMesh){ scene.remove(pionMesh); pionMesh=null; }
+  if(pionLabel){ pionLabel.remove(); pionLabel=null; }
+}
+function ensurePion(){
+  if(pionMesh) return;
+  pionMesh=new THREE.Mesh(
+    new THREE.SphereGeometry(nr*0.22,16,12),
+    new THREE.MeshBasicMaterial({color:0x39ff8f,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false})
+  );
+  scene.add(pionMesh);
+  pionLabel=document.createElement('div');
+  pionLabel.className='plabel';
+  pionLabel.style.color='#39ff8f';
+  pionLabel.textContent='π (pion exchange)';
+  document.getElementById('labels').appendChild(pionLabel);
+}
+
+// ══════════════════════════════════════════════════════════════
+// CONTROLS: drag orbit + wheel/pinch zoom
+// ══════════════════════════════════════════════════════════════
+let dragging=false, lastX=0,lastY=0;
+canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointerup',()=>dragging=false);
+canvas.addEventListener('pointercancel',()=>dragging=false);
+canvas.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY;
+  lastX=e.clientX; lastY=e.clientY;
+  camTheta -= dx*0.006;
+  camPhi = THREE.MathUtils.clamp(camPhi - dy*0.006, 0.15, Math.PI-0.15);
+});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  zoom = THREE.MathUtils.clamp(zoom + e.deltaY*0.00035, 0, 1);
+  syncZoomUI();
+},{passive:false});
+
+// pinch
+let pinchStart=null;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===2){
+    pinchStart=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  }
+},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  if(e.touches.length===2 && pinchStart){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    const delta=pinchStart-d;
+    zoom=THREE.MathUtils.clamp(zoom+delta*0.0022,0,1);
+    pinchStart=d;
+    syncZoomUI();
+  }
+},{passive:true});
+
+const zsl=document.getElementById('zsl');
+zsl.addEventListener('input',()=>{ zoom=zsl.value/1000; syncZoomUI(false); });
+function syncZoomUI(fromDrag){
+  if(fromDrag!==false) zsl.value=Math.round(zoom*1000);
+  const zval=document.getElementById('zval');
+  const mode=currentMode();
+  if(mode==='MACRO') zval.textContent='NUCLEUS VIEW';
+  else if(mode==='PAIR') zval.textContent='RESIDUAL FORCE';
+  else zval.textContent='QUARK SCALE';
+}
+
+document.getElementById('tg-jiggle').addEventListener('click',()=>{
+  zoom=0; camTheta=0.7; camPhi=1.15; syncZoomUI(); showToast('VIEW RESET');
+});
+let showPions=true, showGluons=true;
+document.getElementById('tg-pion').addEventListener('click',function(){
+  showPions=!showPions; this.classList.toggle('on',showPions);
+});
+document.getElementById('tg-gluon').addEventListener('click',function(){
+  showGluons=!showGluons; this.classList.toggle('on',showGluons);
+});
+
+// ── LEGEND POPOVER ──
+const legendPop=document.getElementById('legend-pop');
+const legendBtn=document.getElementById('legend-btn');
+function toggleLegend(force){
+  const open = force!==undefined ? force : !legendPop.classList.contains('open');
+  legendPop.classList.toggle('open',open);
+  legendBtn.classList.toggle('on',open);
+  legendBtn.setAttribute('aria-expanded',String(open));
+}
+legendBtn.addEventListener('click',e=>{ e.stopPropagation(); toggleLegend(); });
+document.addEventListener('click',e=>{
+  if(legendPop.classList.contains('open') && !legendPop.contains(e.target) && e.target!==legendBtn){
+    toggleLegend(false);
+  }
+});
+
+// ── HELP BUTTON (reopen onboarding) ──
+document.getElementById('help-btn').addEventListener('click',()=>{
+  document.getElementById('onboard').classList.remove('hide');
+});
+
+// ── KEEP BOTTOM BAR HEIGHT IN SYNC (prevents clipping as content reflows) ──
+const botbarEl=document.getElementById('botbar');
+function applyBotbarHeight(h){
+  document.documentElement.style.setProperty('--botbar-h',Math.ceil(h)+'px');
+}
+if('ResizeObserver' in window){
+  new ResizeObserver(entries=>applyBotbarHeight(entries[0].target.offsetHeight)).observe(botbarEl);
+} else {
+  addEventListener('resize',()=>applyBotbarHeight(botbarEl.offsetHeight));
+  applyBotbarHeight(botbarEl.offsetHeight);
+}
+
+// keyboard: arrow keys cycle elements, +/- zoom
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){ selectElement(Math.min(118,Z+1)); }
+  else if(e.key==='ArrowLeft'){ selectElement(Math.max(1,Z-1)); }
+  else if(e.key==='+'||e.key==='='){ zoom=Math.min(1,zoom+0.03); syncZoomUI(); }
+  else if(e.key==='-'||e.key==='_'){ zoom=Math.max(0,zoom-0.03); syncZoomUI(); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// ELEMENT PANEL / SELECTION
+// ══════════════════════════════════════════════════════════════
+const elpanel=document.getElementById('elpanel');
+const elscrim=document.getElementById('elpanel-scrim');
+function openPanel(){
+  elpanel.classList.add('open'); elscrim.classList.add('open');
+  document.getElementById('elsearch').focus({preventScroll:true});
+  const active=ellist.querySelector('.elrow.active');
+  if(active) active.scrollIntoView({block:'center'});
+}
+function closePanel(){ elpanel.classList.remove('open'); elscrim.classList.remove('open'); }
+document.getElementById('elbtn').addEventListener('click',()=>{
+  elpanel.classList.contains('open') ? closePanel() : openPanel();
+});
+document.getElementById('elclose').addEventListener('click',closePanel);
+elscrim.addEventListener('click',closePanel);
+addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePanel(); toggleLegend(false); } });
+
+const ellist=document.getElementById('ellist');
+function renderList(filter){
+  ellist.innerHTML='';
+  const f=(filter||'').trim().toLowerCase();
+  const matches=ELEMENTS.filter(el=>!f || el.name.toLowerCase().includes(f) || el.sym.toLowerCase().includes(f) || String(el.Z)===f);
+  if(matches.length===0){
+    const empty=document.createElement('div');
+    empty.id='elempty';
+    empty.textContent='No element matches "'+filter+'"';
+    ellist.appendChild(empty);
+    return;
+  }
+  matches.forEach(el=>{
+    const row=document.createElement('div');
+    row.className='elrow'+(el.Z===Z?' active':'');
+    row.innerHTML=`<span class="z">${el.Z}</span><span class="sym">${el.sym}</span><span class="nm">${el.name}</span><span class="cnt">${el.Z}p·${el.n}n</span>`;
+    row.addEventListener('click',()=>{ selectElement(el.Z); closePanel(); });
+    ellist.appendChild(row);
+  });
+}
+document.getElementById('elsearch').addEventListener('input',e=>renderList(e.target.value));
+
+document.getElementById('prevbtn').addEventListener('click',()=>selectElement(Math.max(1,Z-1)));
+document.getElementById('nextbtn').addEventListener('click',()=>selectElement(Math.min(118,Z+1)));
+
+function plural(n,noun){ return `${n} ${noun}${n===1?'':'s'}`; }
+
+function selectElement(z){
+  const el=byZ(z);
+  buildNucleus(el.Z, el.n);
+  document.getElementById('tb-badge').textContent=el.sym;
+  document.getElementById('tb-badge').title=el.name+' (Z='+el.Z+')';
+  document.getElementById('tb-name').textContent=el.name.toUpperCase();
+  document.getElementById('tb-count').textContent=`${plural(el.Z,'proton')} · ${plural(el.n,'neutron')} · mass number ${el.Z+el.n}`;
+  document.getElementById('prevbtn').disabled = el.Z<=1;
+  document.getElementById('nextbtn').disabled = el.Z>=118;
+  renderList(document.getElementById('elsearch').value);
+  showToast(el.name.toUpperCase()+' — '+plural(el.Z,'proton')+', '+plural(el.n,'neutron'));
+}
+
+let toastT=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('show'),1600);
+}
+
+function updateHUD(){
+  const el=byZ(Z);
+  document.getElementById('infoline').innerHTML = macroInfo(el);
+}
+function macroInfo(el){
+  return `<b>${el.name} (${el.sym})</b> nucleus — ${plural(el.Z,'proton')} (red) + ${plural(el.n,'neutron')} (blue) bound by the strong nuclear force. Zoom in on one nucleon to see quarks & gluons.`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SCREEN PROJECTION for HTML labels
+// ══════════════════════════════════════════════════════════════
+const v3=new THREE.Vector3();
+function project(pos){
+  v3.copy(pos).project(camera);
+  return { x:(v3.x*0.5+0.5)*innerWidth, y:(-v3.y*0.5+0.5)*innerHeight, visible: v3.z<1 };
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAIN LOOP
+// ══════════════════════════════════════════════════════════════
+let clock=0, lastT=performance.now();
+let lastMode='MACRO';
+
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  const dt=Math.min((now-lastT)/1000,0.05);
+  lastT=now; clock+=dt;
+
+  // jiggle macro nucleons (only meaningfully visible/needed below quark-deep zoom)
+  const m=new THREE.Matrix4();
+  const q=new THREE.Quaternion();
+  const s=new THREE.Vector3(1,1,1);
+  positions.forEach((p,i)=>{
+    const j=jitter[i];
+    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
+    const wp=p.clone().add(off);
+    const rec=window.__idxMap[i];
+    let scale = 1;
+    if(i===heroIndex && zoom>BAND2+0.03) scale=0.0001; // hide hero's macro sphere once fully in quark view
+    m.compose(wp,q,s.clone().multiplyScalar(scale));
+    rec.mesh.setMatrixAt(rec.idx,m);
+  });
+  protonMesh.instanceMatrix.needsUpdate=true;
+  neutronMesh.instanceMatrix.needsUpdate=true;
+
+  // camera distance + orbit
+  const dist=camDistForZoom(zoom);
+  const mode=currentMode();
+
+  // determine hero/partner
+  const provisionalCamPos=new THREE.Vector3(
+    Math.sin(camPhi)*Math.cos(camTheta),
+    Math.cos(camPhi),
+    Math.sin(camPhi)*Math.sin(camTheta)
+  ).multiplyScalar(dist).add(camTarget);
+
+  if(mode!=='MACRO'){
+    const h=findHero(provisionalCamPos);
+    if(h!==heroIndex){
+      heroIndex=h; partnerIndex=findPartner(h);
+      if(mode==='QUARK') buildDetail(heroIndex); else disposeDetail();
+    }
+  } else if(heroIndex!==-1){
+    heroIndex=-1; partnerIndex=-1; disposeDetail(); disposePion();
+  }
+  if(mode==='QUARK' && !detailGroup && heroIndex!==-1) buildDetail(heroIndex);
+  if(mode!=='QUARK' && detailGroup) disposeDetail();
+
+  // camera target: origin -> hero position as we zoom past BAND1
+  let targetPos=new THREE.Vector3(0,0,0);
+  if(heroIndex!==-1){
+    const j=jitter[heroIndex];
+    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
+    targetPos=positions[heroIndex].clone().add(off);
+  }
+  const tblend=THREE.MathUtils.smoothstep(zoom,BAND1-0.08,BAND1+0.15);
+  camTarget.lerp(targetPos, Math.min(1,tblend*0.25+ (mode==='QUARK'?0.4:0)));
+  if(mode==='MACRO') camTarget.lerp(new THREE.Vector3(0,0,0), 0.15);
+
+  camera.position.set(
+    camTarget.x + Math.sin(camPhi)*Math.cos(camTheta)*dist,
+    camTarget.y + Math.cos(camPhi)*dist,
+    camTarget.z + Math.sin(camPhi)*Math.sin(camTheta)*dist
+  );
+  camera.lookAt(camTarget);
+  camera.near = Math.max(0.001, dist*0.01);
+  camera.far = Rnuc*20+50;
+  camera.updateProjectionMatrix();
+
+  // halo opacity fade with zoom (macro shells)
+  nucGroup.children.forEach(c=>{
+    if(c.material && c.material.side===THREE.BackSide){
+      c.material.opacity = c.userData.baseOp || (c.userData.baseOp = c.material.opacity);
+      c.visible = mode==='MACRO';
+    }
+  });
+
+  // PION exchange (PAIR band)
+  if(mode==='PAIR' && showPions && heroIndex!==-1 && partnerIndex!==-1){
+    ensurePion();
+    const jh=jitter[heroIndex], jp=jitter[partnerIndex];
+    const a=positions[heroIndex].clone().add(jh.axis.clone().multiplyScalar(jh.amp*Math.sin(clock*jh.freq+jh.phase)));
+    const b=positions[partnerIndex].clone().add(jp.axis.clone().multiplyScalar(jp.amp*Math.sin(clock*jp.freq+jp.phase)));
+    const t=(Math.sin(clock*2.4)+1)/2;
+    const mid=a.clone().lerp(b,0.5).addScaledVector(new THREE.Vector3(0,1,0),nr*0.9);
+    // quadratic bezier a->mid->b
+    const p1=a.clone().lerp(mid,t), p2=mid.clone().lerp(b,t);
+    const pos=p1.lerp(p2,t);
+    pionMesh.position.copy(pos);
+    pionMesh.material.opacity = 0.55+0.35*Math.sin(clock*6);
+    const sc=project(pos);
+    pionLabel.style.left=sc.x+'px'; pionLabel.style.top=(sc.y-18)+'px';
+    pionLabel.style.opacity = sc.visible?1:0;
+  } else {
+    disposePion();
+  }
+
+  // QUARK detail animation
+  if(mode==='QUARK' && detailGroup && heroIndex!==-1){
+    const j=jitter[heroIndex];
+    const anchor=positions[heroIndex].clone().add(j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase)));
+    detailGroup.position.copy(anchor);
+    const qWorldPos=[];
+    detailQuarks.forEach(qd=>{
+      const wob=qd.axis.clone().multiplyScalar(nr*0.13*Math.sin(clock*qd.freq+qd.phase));
+      const p=qd.base.clone().add(wob);
+      qd.mesh.position.copy(p);
+      qWorldPos.push(p);
+      const wp=anchor.clone().add(p);
+      const sc=project(wp);
+      qd.label.style.left=sc.x+'px'; qd.label.style.top=(sc.y-16)+'px';
+      qd.label.style.opacity = sc.visible ? Math.min(1,(zoom-BAND2)/(1-BAND2)*2) : 0;
+    });
+    detailTubes.forEach(td=>{
+      td.tube.visible = showGluons;
+      td.dot.visible = showGluons;
+      if(!showGluons) return;
+      orientCyl(td.tube, qWorldPos[td.a], qWorldPos[td.b]);
+      const hue=(clock*0.25+td.phase)%1;
+      td.tube.material.color.setHSL(hue,0.9,0.6);
+      td.tube.material.opacity = 0.35+0.25*Math.sin(clock*3+td.phase*6);
+      const t=(Math.sin(clock*2.6+td.phase*10)+1)/2;
+      td.dot.position.copy(qWorldPos[td.a].clone().lerp(qWorldPos[td.b],t));
+      td.dot.material.color.setHSL((hue+0.5)%1,0.9,0.7);
+    });
+  }
+
+  // mode label / info line
+  if(mode!==lastMode){
+    lastMode=mode;
+    document.getElementById('modelabel').textContent =
+      mode==='MACRO'?'MACRO':mode==='PAIR'?'RESIDUAL FORCE':'QUARK · GLUON';
+    const el=byZ(Z);
+    const info=document.getElementById('infoline');
+    if(mode==='MACRO') info.innerHTML=macroInfo(el);
+    else if(mode==='PAIR') info.innerHTML=`<b>Residual strong force:</b> neighboring nucleons constantly exchange virtual <b>pions (π)</b> — this leftover of the strong interaction is what glues the ${el.name} nucleus together.`;
+    else info.innerHTML=`<b>Inside a ${detailIsProton?'proton':'neutron'}:</b> ${detailIsProton?'two up quarks (u) + one down quark (d)':'one up quark (u) + two down quarks (d)'}, bound by <b>gluons</b> carrying the strong force via QCD "color charge" (illustrated as cycling colors).`;
+  }
+  syncZoomUI(true);
+
+  renderer.render(scene,camera);
+}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+renderList('');
+selectElement(1);
+animate();
+
+// ── ONBOARDING ──
+const onboard=document.getElementById('onboard');
+function dismissOnboard(){
+  onboard.classList.add('hide');
+  try{ sessionStorage.setItem('nucleus-onboarded','1'); }catch(e){}
+}
+document.getElementById('onboard-btn').addEventListener('click',dismissOnboard);
+canvas.addEventListener('pointerdown',dismissOnboard,{once:true});
+try{
+  if(sessionStorage.getItem('nucleus-onboarded')==='1') onboard.classList.add('hide');
+}catch(e){}
+</script>
+</body>
+</html>
