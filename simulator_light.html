@@ -830,8 +830,11 @@ input[type=range]::-moz-range-thumb {
   bottom: calc(var(--botbar-h) + 16px);
   left: 50%;
   transform: translateX(-50%) translateY(20px);
-  background: rgba(33,28,66,.92);
+  background: rgba(33,28,66,.78);
+  backdrop-filter: blur(var(--blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(160%);
   border: 1px solid var(--cyan-40);
+  box-shadow: var(--shadow);
   color: #fff;
   font-size: .7rem;
   padding: 8px 18px;
@@ -911,6 +914,22 @@ input[type=range]::-moz-range-thumb {
   font-size:.95rem;line-height:1;text-decoration:none;
 }
 .theme-toggle-btn:hover{background:rgba(124,108,246,.22);}
+
+/* ════════════════════════════════
+   GLASSMORPHISM — frosted micro-surfaces
+   Additive blur pass for small chrome controls;
+   their existing translucent backgrounds/borders
+   are left untouched, this only adds the frost.
+════════════════════════════════ */
+#esym-badge,
+#el-search,
+.panel-close,
+#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn,
+.rbtn,
+.theme-toggle-btn {
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+}
 </style>
 </head>
 <body>

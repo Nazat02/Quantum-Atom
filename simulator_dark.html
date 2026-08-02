@@ -30,6 +30,13 @@
   --topbar-h:   60px;
   --botbar-h:   64px;
   --radius:     8px;
+
+  /* Glassmorphism surface tokens */
+  --glass-bg:      rgba(14,8,4,.52);
+  --glass-bg-hi:   rgba(22,13,6,.65);
+  --glass-border:  rgba(255,255,255,.09);
+  --glass-blur:    blur(20px) saturate(160%);
+  --glass-shadow:  0 8px 32px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
 }
 
 html, body {
@@ -66,8 +73,11 @@ canvas { position:fixed; inset:0; z-index:0; }
 #topbar {
   grid-area: topbar;
   height: var(--topbar-h);
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -195,7 +205,9 @@ canvas { position:fixed; inset:0; z-index:0; }
    SIDE PANELS
 ════════════════════════════════ */
 #left, #right {
-  background: var(--bg);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   overflow: hidden;
   pointer-events: all;
   display: flex;
@@ -207,7 +219,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   position: fixed;
   left: 0; top: var(--topbar-h); bottom: var(--botbar-h);
   width: var(--panel-w);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   transition: transform .24s cubic-bezier(.4,0,.2,1);
   transform: translateX(0);
   z-index: 20;
@@ -216,7 +229,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   position: fixed;
   right: 0; top: var(--topbar-h); bottom: var(--botbar-h);
   width: var(--panel-w);
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   transition: transform .24s cubic-bezier(.4,0,.2,1);
   transform: translateX(0);
   z-index: 20;
@@ -566,8 +580,11 @@ canvas { position:fixed; inset:0; z-index:0; }
 #botbar {
   grid-area: botbar;
   height: var(--botbar-h);
-  background: var(--bg);
-  border-top: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-top: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -647,7 +664,9 @@ input[type=range]::-moz-range-thumb {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.55);
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: 35;
   
   pointer-events: all;
@@ -774,8 +793,11 @@ input[type=range]::-moz-range-thumb {
   bottom: calc(var(--botbar-h) + 16px);
   left: 50%;
   transform: translateX(-50%) translateY(20px);
-  background: #000000;
+  background: var(--glass-bg-hi);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--cyan-40);
+  box-shadow: var(--glass-shadow);
   color: var(--hi);
   font-size: .7rem;
   padding: 8px 18px;
@@ -831,6 +853,21 @@ input[type=range]::-moz-range-thumb {
   text-transform: uppercase;
   white-space: nowrap;
   line-height: 1;
+}
+
+/* ════════════════════════════════
+   GLASSMORPHISM — frosted micro-surfaces
+   Additive blur pass for small chrome controls;
+   their existing translucent backgrounds/borders
+   are left untouched, this only adds the frost.
+════════════════════════════════ */
+#esym-badge,
+#el-search,
+.panel-close,
+#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn,
+.rbtn {
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
 }
 
 @keyframes plasma-outer-glow {
