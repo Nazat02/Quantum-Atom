@@ -19,6 +19,11 @@
   --mono:'Share Tech Mono',monospace;--display:'Rajdhani',sans-serif;
   --proton:#e0281a;--neutron:#2255ee;--up:#d19c00;--down:#e0189a;--pion:#0fae63;
   --radius:8px;--topbar-h:58px;--botbar-h:132px;--panel-w:280px;
+
+  /* Glassmorphism surface tokens */
+  --glass-bg:rgba(255,255,255,.58);--glass-bg-hi:rgba(255,255,255,.74);
+  --glass-border:rgba(255,255,255,.7);--glass-blur:blur(20px) saturate(180%);
+  --glass-shadow:0 8px 32px rgba(76,60,160,.12), inset 0 1px 0 rgba(255,255,255,.6);
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--hi);
   font-family:var(--mono);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
@@ -36,9 +41,9 @@ button{font-family:inherit;cursor:pointer;}
 
 /* ── TOPBAR ── */
 #topbar{grid-row:1;display:flex;align-items:center;gap:8px;padding:0 10px;
-  background:linear-gradient(to bottom, rgba(255,255,255,.96), rgba(255,255,255,.68));
-  border-bottom:1px solid var(--border);backdrop-filter:blur(8px);min-width:0;
-  box-shadow:0 4px 20px rgba(76,60,160,.08);}
+  background:var(--glass-bg);
+  border-bottom:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);min-width:0;
+  box-shadow:var(--glass-shadow);}
 #back-link{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--border);
   border-radius:var(--radius);color:var(--cx2);font-size:.66rem;letter-spacing:.06em;white-space:nowrap;
   transition:.15s;flex-shrink:0;}
@@ -74,8 +79,8 @@ button{font-family:inherit;cursor:pointer;}
 
 /* ── BOTTOM BAR ── */
 #botbar{grid-row:3;display:flex;flex-direction:column;gap:9px;padding:11px 12px 13px;
-  background:linear-gradient(to top, rgba(255,255,255,.96), rgba(255,255,255,.68));border-top:1px solid var(--border);
-  backdrop-filter:blur(8px);}
+  background:var(--glass-bg);border-top:1px solid var(--glass-border);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);box-shadow:var(--glass-shadow);}
 #statusrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 #modelabel{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.07em;color:var(--cx2);
   padding:3px 10px;border:1px solid var(--border-hi);border-radius:12px;background:var(--cx-10);flex-shrink:0;}
@@ -98,8 +103,8 @@ button{font-family:inherit;cursor:pointer;}
 /* ── LEGEND POPOVER ── */
 #legend-pop{position:fixed;right:12px;bottom:calc(var(--botbar-h) + 10px);z-index:25;
   display:flex;flex-direction:column;gap:8px;padding:11px 13px;border-radius:10px;
-  background:rgba(255,255,255,.98);border:1px solid var(--border-hi);backdrop-filter:blur(10px);
-  box-shadow:0 12px 32px rgba(76,60,160,.16);opacity:0;transform:translateY(6px) scale(.98);
+  background:var(--glass-bg-hi);border:1px solid var(--border-hi);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-shadow),0 12px 32px rgba(76,60,160,.1);opacity:0;transform:translateY(6px) scale(.98);
   pointer-events:none;transition:opacity .16s,transform .16s;}
 #legend-pop.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
 #legend-pop .lgitem{display:flex;align-items:center;gap:8px;font-size:.66rem;letter-spacing:.03em;
@@ -114,10 +119,10 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 
 /* ── ELEMENT PANEL ── */
 #elpanel{position:fixed;top:var(--topbar-h);right:0;bottom:var(--botbar-h);width:var(--panel-w);
-  z-index:20;background:rgba(255,255,255,.96);border-left:1px solid var(--border);backdrop-filter:blur(10px);box-shadow:-8px 0 32px rgba(76,60,160,.10);
+  z-index:20;background:var(--glass-bg);border-left:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);box-shadow:-8px 0 32px rgba(76,60,160,.1),inset 1px 0 0 rgba(255,255,255,.5);
   display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;pointer-events:auto;}
 #elpanel.open{transform:translateX(0);}
-#elpanel-scrim{position:fixed;inset:0;z-index:19;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s;}
+#elpanel-scrim{position:fixed;inset:0;z-index:19;background:rgba(28,23,64,.25);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .25s;}
 #elpanel-scrim.open{opacity:1;pointer-events:auto;}
 #elpanel-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;}
 #elsearch{width:100%;padding:8px 10px;background:rgba(255,85,0,.05);border:1px solid var(--border);
@@ -145,16 +150,18 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 
 /* ── TOAST ── */
 #toast{position:fixed;top:calc(var(--topbar-h) + 14px);left:50%;transform:translateX(-50%);z-index:30;
-  background:rgba(255,255,255,.96);border:1px solid var(--border-hi);border-radius:6px;padding:7px 14px;box-shadow:0 6px 20px rgba(76,60,160,.14);
+  background:var(--glass-bg-hi);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--border-hi);border-radius:6px;padding:7px 14px;box-shadow:0 6px 20px rgba(76,60,160,.14);
   font-size:.66rem;letter-spacing:.05em;color:var(--cx2);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
   max-width:min(86vw,360px);text-align:center;}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(4px);}
 
 /* ── ONBOARDING OVERLAY ── */
-#onboard{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);
+#onboard{position:fixed;inset:0;z-index:40;background:rgba(28,23,64,.45);backdrop-filter:blur(4px);
   display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;transition:opacity .3s;}
 #onboard.hide{opacity:0;pointer-events:none;}
-#onboard-card{max-width:340px;border:1px solid var(--border-hi);border-radius:10px;background:rgba(255,255,255,.98);box-shadow:0 20px 60px rgba(76,60,160,.18);
+#onboard-card{max-width:340px;border:1px solid var(--border-hi);border-radius:10px;background:var(--glass-bg-hi);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:0 20px 60px rgba(76,60,160,.16),inset 0 1px 0 rgba(255,255,255,.6);
   padding:20px 20px 16px;text-align:left;}
 #onboard-card h3{font-family:var(--display);font-size:1rem;letter-spacing:.03em;color:var(--cx2);margin-bottom:12px;}
 #onboard-card ul{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:16px;}
@@ -181,6 +188,18 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 }
 @media (max-width:380px){
   #tb-badge{display:none;}
+}
+
+/* ════════════════════════════════
+   GLASSMORPHISM — frosted micro-surfaces
+   Additive blur pass for small chrome controls;
+   existing translucent backgrounds/borders are
+   left untouched, this only adds the frost.
+════════════════════════════════ */
+#back-link,#elbtn,#theme-link,.navbtn,#tb-badge,
+#modelabel,.tgbtn,#zval,#elsearch,#elclose{
+  backdrop-filter:blur(12px) saturate(160%);
+  -webkit-backdrop-filter:blur(12px) saturate(160%);
 }
 </style>
 </head>
