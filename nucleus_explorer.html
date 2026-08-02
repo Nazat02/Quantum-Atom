@@ -197,7 +197,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
     <h3>NUCLEUS EXPLORER</h3>
     <ul>
       <li><span class="ic">↻</span> Drag to orbit around the nucleus</li>
-      <li><span class="ic">⇕</span> Pinch or scroll to zoom continuously — from the whole nucleus, into one proton/neutron, down to its quarks &amp; gluons</li>
+      <li><span class="ic">⇕</span> Pinch or scroll to zoom continuously — from the whole nucleus down to every proton &amp; neutron's quarks, with gluon flux-tubes rippling between them</li>
       <li><span class="ic">☰</span> Tap ELEMENTS to jump to any element, H → Og</li>
       <li><span class="ic">⌨</span> Arrow keys ←→ cycle elements</li>
     </ul>
@@ -393,7 +393,7 @@ function buildNucleus(z,n){
     amp: nr*0.11
   }));
 
-  const geo=new THREE.SphereGeometry(nr,20,16);
+  const geo=new THREE.SphereGeometry(nr,28,20);
   const matP=new THREE.MeshStandardMaterial({color:0xff2200,emissive:0xff1100,emissiveIntensity:1.6,roughness:.3,metalness:.15});
   const matN=new THREE.MeshStandardMaterial({color:0x2255ff,emissive:0x1133ff,emissiveIntensity:1.3,roughness:.3,metalness:.15});
 
@@ -415,6 +415,10 @@ function buildNucleus(z,n){
   neutronMesh.instanceMatrix.needsUpdate=true;
   nucGroup.add(protonMesh,neutronMesh);
 
+  // quark / gluon layer — built once per element for EVERY nucleon
+  // simultaneously (see buildQuarkLayer), just hidden until quark-scale zoom
+  buildQuarkLayer(rnd);
+
   // glow halo shells
   const haloR=Rnuc+nr;
   [[haloR*1.25,.26],[haloR*1.9,.11],[haloR*2.8,.045]].forEach(([r,o])=>{
@@ -424,11 +428,14 @@ function buildNucleus(z,n){
     ));
   });
 
+  // binding web: shows the residual strong force across every
+  // neighboring nucleon pair at once (see buildBondWeb)
+  buildBondWeb(rnd);
+
   scene.add(nucGroup);
 
-  // reset hero/detail tracking
+  // reset spotlight/pion tracking (quark layer itself needs no per-hero rebuild)
   heroIndex=-1; partnerIndex=-1;
-  disposeDetail();
   disposePion();
   updateHUD();
 }
@@ -488,72 +495,224 @@ function findPartner(idx){
 }
 
 // ══════════════════════════════════════════════════════════════
-// QUARK / GLUON DETAIL (for the "hero" nucleon)
+// QUARK / GLUON LAYER — every nucleon's internal structure, shown
+// simultaneously (not just one "hero"). Two InstancedMeshes carry all
+// up/down quarks across the whole nucleus; one InstancedMesh carries
+// every gluon "flux tube". All three are built ONCE per element and
+// simply toggled visible/hidden by zoom band — no per-frame allocation
+// of geometry, which is what keeps this smooth on mobile even for
+// heavy nuclei (Z=118 → 294 nucleons → 882 quarks/tubes).
+//
+// The flux tubes use a vertex-shader displacement (via onBeforeCompile)
+// that ripples radially along the tube's length — a real propagating
+// wave standing in for the gluon field, rather than a static cylinder.
 // ══════════════════════════════════════════════════════════════
-let detailGroup=null, detailQuarks=[], detailTubes=[], detailGluonDots=[], detailAnchorIdx=-1, detailIsProton=true;
-const upMat=()=>new THREE.MeshStandardMaterial({color:0xffd23f,emissive:0xffaa00,emissiveIntensity:1.4,roughness:.25});
-const downMat=()=>new THREE.MeshStandardMaterial({color:0xff3fb0,emissive:0xcc0066,emissiveIntensity:1.4,roughness:.25});
+const quarkUpGeo=new THREE.SphereGeometry(1,32,24);
+const quarkDownGeo=new THREE.SphereGeometry(1,32,24);
+const upQMat=new THREE.MeshStandardMaterial({color:0xffd23f,emissive:0xffaa00,emissiveIntensity:1.6,roughness:.25,metalness:.1});
+const downQMat=new THREE.MeshStandardMaterial({color:0xff3fb0,emissive:0xcc0066,emissiveIntensity:1.6,roughness:.25,metalness:.1});
 
-function disposeDetail(){
-  if(detailGroup){ scene.remove(detailGroup); detailGroup=null; }
-  detailQuarks=[]; detailTubes=[]; detailGluonDots=[]; detailAnchorIdx=-1;
-  document.querySelectorAll('.qlabel').forEach(e=>e.remove());
-}
+const gluonGeo=new THREE.CylinderGeometry(1,1,1,10,22,true);
+gluonGeo.translate(0,0.5,0); // pivot at base; local Y runs 0→1 along the tube
+const gluonMat=new THREE.MeshBasicMaterial({
+  color:0x22ccff,transparent:true,opacity:0.95,wireframe:true,
+  blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide
+});
+gluonMat.onBeforeCompile=(shader)=>{
+  shader.uniforms.uTime={value:0};
+  gluonMat.userData.shader=shader;
+  shader.vertexShader='uniform float uTime;\nvarying float vWave;\n'+shader.vertexShader;
+  shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`
+    #include <begin_vertex>
+    float along = position.y;
+    float wave = sin(along*14.0 - uTime*6.0)*0.5+0.5;
+    float radial = 0.6 + wave*0.9;
+    transformed.x *= radial;
+    transformed.z *= radial;
+    vWave = wave;
+  `);
+  shader.fragmentShader='varying float vWave;\n'+shader.fragmentShader;
+  shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>',`
+    #include <dithering_fragment>
+    gl_FragColor.rgb *= (0.7 + vWave*1.1);
+    gl_FragColor.a *= (0.3 + vWave*0.7);
+  `);
+};
 
-function buildDetail(idx){
-  disposeDetail();
-  detailAnchorIdx=idx;
-  detailIsProton = types[idx]==='p';
-  detailGroup=new THREE.Group();
+let quarkUpMesh=null, quarkDownMesh=null, gluonMesh=null;
+let quarkEntries=[], quarkWorldCache=[];
+const gluonPairs=[[0,1],[1,2],[2,0]];
+const heroLabel=document.createElement('div');
+heroLabel.className='plabel'; heroLabel.style.display='none';
+document.getElementById('labels').appendChild(heroLabel);
 
-  // confinement boundary (soft skin)
-  const skin=new THREE.Mesh(
-    new THREE.SphereGeometry(nr*0.95,24,18),
-    new THREE.MeshBasicMaterial({color:detailIsProton?0xff5533:0x4477ff,transparent:true,opacity:0.06,side:THREE.DoubleSide,depthWrite:false})
-  );
-  detailGroup.add(skin);
-
-  const flavors = detailIsProton ? ['u','u','d'] : ['u','d','d'];
-  const R = nr*0.42;
-  for(let i=0;i<3;i++){
-    const ang=(i/3)*Math.PI*2;
-    const base=new THREE.Vector3(R*Math.cos(ang), R*Math.sin(ang)*0.6, R*Math.sin(ang));
-    const isUp = flavors[i]==='u';
-    const geo=new THREE.SphereGeometry(nr*0.16,20,16);
-    const mesh=new THREE.Mesh(geo, isUp?upMat():downMat());
-    detailGroup.add(mesh);
-    const label=document.createElement('div');
-    label.className='plabel qlabel';
-    label.style.color = isUp?'#ffd23f':'#ff3fb0';
-    label.textContent = isUp ? 'u  +2/3' : 'd  −1/3';
-    document.getElementById('labels').appendChild(label);
-    detailQuarks.push({mesh,base,freq:2.2+Math.random()*1.6,phase:Math.random()*Math.PI*2,label,
-      axis:new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize()});
-  }
-  // gluon tubes: connect each pair (3 edges of triangle)
-  const pairs=[[0,1],[1,2],[2,0]];
-  pairs.forEach((pr,pi)=>{
-    const tGeo=new THREE.CylinderGeometry(nr*0.028,nr*0.028,1,8,1,true);
-    const tMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.55,blending:THREE.AdditiveBlending,depthWrite:false});
-    const tube=new THREE.Mesh(tGeo,tMat);
-    detailGroup.add(tube);
-    const dotGeo=new THREE.SphereGeometry(nr*0.045,10,8);
-    const dotMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false});
-    const dot=new THREE.Mesh(dotGeo,dotMat);
-    detailGroup.add(dot);
-    detailTubes.push({tube,dot,a:pr[0],b:pr[1],phase:pi/3});
+function disposeQuarkLayer(){
+  [quarkUpMesh,quarkDownMesh,gluonMesh].forEach(mesh=>{
+    if(!mesh) return;
+    if(mesh.parent) mesh.parent.remove(mesh);
+    mesh.dispose();
   });
-
-  scene.add(detailGroup);
+  quarkUpMesh=quarkDownMesh=gluonMesh=null;
 }
 
-function orientCyl(mesh,a,b){
-  const dir=new THREE.Vector3().subVectors(b,a);
-  const len=Math.max(dir.length(),0.0001);
-  mesh.scale.set(1,len,1);
-  mesh.position.copy(a).addScaledVector(dir,0.5);
-  const up=new THREE.Vector3(0,1,0);
-  mesh.quaternion.setFromUnitVectors(up,dir.clone().normalize());
+function buildQuarkLayer(rnd){
+  disposeQuarkLayer();
+  const total=Z+N;
+  let upCount=0, downCount=0;
+  types.forEach(t=>{ if(t==='p'){upCount+=2;downCount+=1;} else {upCount+=1;downCount+=2;} });
+  const tubeCount=total*3;
+
+  quarkUpMesh=new THREE.InstancedMesh(quarkUpGeo,upQMat,Math.max(upCount,1));
+  quarkDownMesh=new THREE.InstancedMesh(quarkDownGeo,downQMat,Math.max(downCount,1));
+  quarkUpMesh.count=upCount; quarkDownMesh.count=downCount;
+  quarkUpMesh.visible=false; quarkDownMesh.visible=false;
+
+  gluonMesh=new THREE.InstancedMesh(gluonGeo,gluonMat,Math.max(tubeCount,1));
+  gluonMesh.count=tubeCount; gluonMesh.visible=false;
+
+  const qR=nr*0.16;
+  quarkEntries=new Array(total*3);
+  quarkWorldCache=new Array(total*3);
+  for(let i=0;i<total*3;i++) quarkWorldCache[i]=new THREE.Vector3();
+
+  const triAngles=[0,1,2].map(k=>(k/3)*Math.PI*2);
+  let upI=0, downI=0;
+  for(let i=0;i<total;i++){
+    const flavors = types[i]==='p' ? ['u','u','d'] : ['u','d','d'];
+    // random per-nucleon orientation so triads aren't all aligned — reads
+    // as a lively cloud of nucleons rather than a repeated stamp
+    const axis=new THREE.Vector3(rnd()-.5,rnd()-.5,rnd()-.5).normalize();
+    const q=new THREE.Quaternion().setFromAxisAngle(axis,rnd()*Math.PI*2);
+    for(let sIdx=0;sIdx<3;sIdx++){
+      const local=new THREE.Vector3(Math.cos(triAngles[sIdx]),Math.sin(triAngles[sIdx])*0.6,0)
+        .multiplyScalar(nr*0.42).applyQuaternion(q);
+      const isUp=flavors[sIdx]==='u';
+      quarkEntries[i*3+sIdx]={
+        nucleonIndex:i, isUp, localBase:local,
+        freq:2.0+rnd()*1.6, phase:rnd()*Math.PI*2,
+        wobAxis:new THREE.Vector3(rnd()-.5,rnd()-.5,rnd()-.5).normalize(),
+        meshRef: isUp?quarkUpMesh:quarkDownMesh,
+        instIdx: isUp?upI++:downI++,
+        radius:qR
+      };
+    }
+  }
+  nucGroup.add(quarkUpMesh,quarkDownMesh,gluonMesh);
+}
+
+const _qM=new THREE.Matrix4(), _qQ=new THREE.Quaternion(), _qS=new THREE.Vector3(), _qV=new THREE.Vector3();
+const _identityQ=new THREE.Quaternion(), _yAxis=new THREE.Vector3(0,1,0);
+
+function updateQuarkLayer(nucleonWorldPos){
+  const total=Z+N;
+  for(let i=0;i<total;i++){
+    const base=nucleonWorldPos[i];
+    for(let sIdx=0;sIdx<3;sIdx++){
+      const e=quarkEntries[i*3+sIdx];
+      const wobAmt=nr*0.13*Math.sin(clock*e.freq+e.phase);
+      _qV.set(
+        base.x+e.localBase.x+e.wobAxis.x*wobAmt,
+        base.y+e.localBase.y+e.wobAxis.y*wobAmt,
+        base.z+e.localBase.z+e.wobAxis.z*wobAmt
+      );
+      quarkWorldCache[i*3+sIdx].copy(_qV);
+      _qS.set(e.radius,e.radius,e.radius);
+      _qM.compose(_qV,_identityQ,_qS);
+      e.meshRef.setMatrixAt(e.instIdx,_qM);
+    }
+  }
+  quarkUpMesh.instanceMatrix.needsUpdate=true;
+  quarkDownMesh.instanceMatrix.needsUpdate=true;
+
+  // gluon flux tubes: 3 edges per nucleon's quark triangle
+  for(let i=0;i<total;i++){
+    const base3=i*3;
+    for(let edge=0;edge<3;edge++){
+      const [ai,bi]=gluonPairs[edge];
+      const a=quarkWorldCache[base3+ai], b=quarkWorldCache[base3+bi];
+      _qV.subVectors(b,a);
+      const len=Math.max(_qV.length(),0.0001);
+      _qQ.setFromUnitVectors(_yAxis,_qV.normalize());
+      _qS.set(nr*0.055,len,nr*0.055);
+      _qM.compose(a,_qQ,_qS);
+      gluonMesh.setMatrixAt(base3+edge,_qM);
+    }
+  }
+  gluonMesh.instanceMatrix.needsUpdate=true;
+  if(gluonMat.userData.shader) gluonMat.userData.shader.uniforms.uTime.value=clock;
+}
+
+// ══════════════════════════════════════════════════════════════
+// BINDING WEB — the residual strong force, shown across the WHOLE
+// nucleus at once. Every pair of nucleons close enough to be genuine
+// neighbors gets a connecting line, and a small pion shuttles back
+// and forth along it — this is literally "why the nucleus doesn't
+// fly apart": every proton/neutron is constantly exchanging virtual
+// pions with its neighbors. Built once per element (bond graph is
+// static geometry; only positions animate), so it costs one
+// LineSegments draw call + one InstancedMesh draw call regardless
+// of how many nucleons are present.
+// ══════════════════════════════════════════════════════════════
+const bondLineMat=new THREE.LineBasicMaterial({color:0x39ff8f,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false});
+const pionGeo=new THREE.SphereGeometry(1,20,16);
+const pionInstMat=new THREE.MeshBasicMaterial({color:0x39ff8f,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false});
+
+let bondPairs=[], bondPhases=[], bondLinePositions=null;
+let bondLineGeo=null, bondLineMesh=null, pionInstMesh=null;
+
+function disposeBondWeb(){
+  if(bondLineMesh){ if(bondLineMesh.parent) bondLineMesh.parent.remove(bondLineMesh); bondLineMesh.geometry.dispose(); bondLineMesh=null; }
+  if(pionInstMesh){ if(pionInstMesh.parent) pionInstMesh.parent.remove(pionInstMesh); pionInstMesh.dispose(); pionInstMesh=null; }
+}
+
+function buildBondWeb(rnd){
+  disposeBondWeb();
+  bondPairs=[];
+  const thr=nr*2.7; // ≈ touching-neighbor distance across all element sizes
+  for(let i=0;i<positions.length;i++){
+    for(let j=i+1;j<positions.length;j++){
+      if(positions[i].distanceTo(positions[j])<thr) bondPairs.push([i,j]);
+    }
+  }
+  const bondCount=bondPairs.length;
+
+  bondLinePositions=new Float32Array(Math.max(bondCount,1)*6);
+  bondLineGeo=new THREE.BufferGeometry();
+  bondLineGeo.setAttribute('position',new THREE.BufferAttribute(bondLinePositions,3));
+  bondLineGeo.setDrawRange(0,bondCount*2);
+  bondLineMesh=new THREE.LineSegments(bondLineGeo,bondLineMat);
+  bondLineMesh.frustumCulled=false;
+  nucGroup.add(bondLineMesh);
+
+  pionInstMesh=new THREE.InstancedMesh(pionGeo,pionInstMat,Math.max(bondCount,1));
+  pionInstMesh.count=bondCount;
+  nucGroup.add(pionInstMesh);
+
+  bondPhases=bondPairs.map(()=>({freq:1.5+rnd()*1.5,phase:rnd()*Math.PI*2}));
+}
+
+function updateBondWeb(nucleonWorldPos,camDist){
+  const bondCount=bondPairs.length;
+  // fixed world-space size shrinks to invisibility once the camera pulls
+  // back for the whole nucleus — so size relative to current camera
+  // distance instead, clamped so it never gets silly at close range
+  const pR=THREE.MathUtils.clamp(camDist*0.014, nr*0.1, nr*0.85);
+  for(let k=0;k<bondCount;k++){
+    const [i,j]=bondPairs[k];
+    const a=nucleonWorldPos[i], b=nucleonWorldPos[j];
+    const o=k*6;
+    bondLinePositions[o]=a.x; bondLinePositions[o+1]=a.y; bondLinePositions[o+2]=a.z;
+    bondLinePositions[o+3]=b.x; bondLinePositions[o+4]=b.y; bondLinePositions[o+5]=b.z;
+
+    const ph=bondPhases[k];
+    const t=(Math.sin(clock*ph.freq+ph.phase)+1)/2;
+    _qV.copy(a).lerp(b,t);
+    _qS.set(pR,pR,pR);
+    _qM.compose(_qV,_identityQ,_qS);
+    pionInstMesh.setMatrixAt(k,_qM);
+  }
+  if(bondCount>0) bondLineGeo.attributes.position.needsUpdate=true;
+  pionInstMesh.instanceMatrix.needsUpdate=true;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -750,7 +909,7 @@ function updateHUD(){
   document.getElementById('infoline').innerHTML = macroInfo(el);
 }
 function macroInfo(el){
-  return `<b>${el.name} (${el.sym})</b> nucleus — ${plural(el.Z,'proton')} (red) + ${plural(el.n,'neutron')} (blue) bound by the strong nuclear force. Zoom in on one nucleon to see quarks & gluons.`;
+  return `<b>${el.name} (${el.sym})</b> nucleus — ${plural(el.Z,'proton')} (red) + ${plural(el.n,'neutron')} (blue), held together by the web of exchanged <b>pions</b> you can see linking every neighboring pair. Zoom in to see quarks &amp; gluons.`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -767,6 +926,7 @@ function project(pos){
 // ══════════════════════════════════════════════════════════════
 let clock=0, lastT=performance.now();
 let lastMode='MACRO';
+let nucleonWorldPos=[];
 
 function animate(){
   requestAnimationFrame(animate);
@@ -774,53 +934,60 @@ function animate(){
   const dt=Math.min((now-lastT)/1000,0.05);
   lastT=now; clock+=dt;
 
-  // jiggle macro nucleons (only meaningfully visible/needed below quark-deep zoom)
-  const m=new THREE.Matrix4();
-  const q=new THREE.Quaternion();
-  const s=new THREE.Vector3(1,1,1);
-  positions.forEach((p,i)=>{
-    const j=jitter[i];
-    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
-    const wp=p.clone().add(off);
-    const rec=window.__idxMap[i];
-    let scale = 1;
-    if(i===heroIndex && zoom>BAND2+0.03) scale=0.0001; // hide hero's macro sphere once fully in quark view
-    m.compose(wp,q,s.clone().multiplyScalar(scale));
-    rec.mesh.setMatrixAt(rec.idx,m);
-  });
-  protonMesh.instanceMatrix.needsUpdate=true;
-  neutronMesh.instanceMatrix.needsUpdate=true;
-
-  // camera distance + orbit
   const dist=camDistForZoom(zoom);
   const mode=currentMode();
 
-  // determine hero/partner
   const provisionalCamPos=new THREE.Vector3(
     Math.sin(camPhi)*Math.cos(camTheta),
     Math.cos(camPhi),
     Math.sin(camPhi)*Math.sin(camTheta)
   ).multiplyScalar(dist).add(camTarget);
 
+  // jiggle macro nucleons; their spheres hide once we're at quark scale,
+  // since the quark/gluon layer (built for every nucleon) takes over
+  const m=new THREE.Matrix4();
+  const q=new THREE.Quaternion();
+  const s=new THREE.Vector3(1,1,1);
+  const macroScale = mode==='QUARK' ? 0.0001 : 1;
+  positions.forEach((p,i)=>{
+    const j=jitter[i];
+    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
+    const wp=p.clone().add(off);
+    nucleonWorldPos[i]=wp;
+    const rec=window.__idxMap[i];
+    m.compose(wp,q,s.clone().multiplyScalar(macroScale));
+    rec.mesh.setMatrixAt(rec.idx,m);
+  });
+  protonMesh.instanceMatrix.needsUpdate=true;
+  neutronMesh.instanceMatrix.needsUpdate=true;
+
+  // spotlight nucleon: nearest to camera — drives camera-follow + HUD/label only,
+  // rendering itself now covers every nucleon regardless of this
   if(mode!=='MACRO'){
     const h=findHero(provisionalCamPos);
-    if(h!==heroIndex){
-      heroIndex=h; partnerIndex=findPartner(h);
-      if(mode==='QUARK') buildDetail(heroIndex); else disposeDetail();
-    }
+    heroIndex=h; partnerIndex=findPartner(h);
   } else if(heroIndex!==-1){
-    heroIndex=-1; partnerIndex=-1; disposeDetail(); disposePion();
+    heroIndex=-1; partnerIndex=-1; disposePion();
   }
-  if(mode==='QUARK' && !detailGroup && heroIndex!==-1) buildDetail(heroIndex);
-  if(mode!=='QUARK' && detailGroup) disposeDetail();
 
-  // camera target: origin -> hero position as we zoom past BAND1
+  // quark / gluon layer: every nucleon's internal structure, together
+  const showQuarks = mode==='QUARK';
+  quarkUpMesh.visible=showQuarks;
+  quarkDownMesh.visible=showQuarks;
+  gluonMesh.visible=showQuarks && showGluons;
+  if(showQuarks) updateQuarkLayer(nucleonWorldPos);
+
+  // binding web: residual strong force across every nucleon pair —
+  // this is what visibly holds the nucleus together, shown until we
+  // zoom past nucleon scale into the quarks themselves
+  const showBonds = !showQuarks && showPions;
+  bondLineMesh.visible=showBonds;
+  pionInstMesh.visible=showBonds;
+  if(showBonds) updateBondWeb(nucleonWorldPos,dist);
+
+  // camera target: origin -> spotlight nucleon as we zoom past BAND1
   let targetPos=new THREE.Vector3(0,0,0);
-  if(heroIndex!==-1){
-    const j=jitter[heroIndex];
-    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
-    targetPos=positions[heroIndex].clone().add(off);
-  }
+  if(heroIndex!==-1) targetPos=nucleonWorldPos[heroIndex].clone();
   const tblend=THREE.MathUtils.smoothstep(zoom,BAND1-0.08,BAND1+0.15);
   camTarget.lerp(targetPos, Math.min(1,tblend*0.25+ (mode==='QUARK'?0.4:0)));
   if(mode==='MACRO') camTarget.lerp(new THREE.Vector3(0,0,0), 0.15);
@@ -838,7 +1005,6 @@ function animate(){
   // halo opacity fade with zoom (macro shells)
   nucGroup.children.forEach(c=>{
     if(c.material && c.material.side===THREE.BackSide){
-      c.material.opacity = c.userData.baseOp || (c.userData.baseOp = c.material.opacity);
       c.visible = mode==='MACRO';
     }
   });
@@ -846,9 +1012,7 @@ function animate(){
   // PION exchange (PAIR band)
   if(mode==='PAIR' && showPions && heroIndex!==-1 && partnerIndex!==-1){
     ensurePion();
-    const jh=jitter[heroIndex], jp=jitter[partnerIndex];
-    const a=positions[heroIndex].clone().add(jh.axis.clone().multiplyScalar(jh.amp*Math.sin(clock*jh.freq+jh.phase)));
-    const b=positions[partnerIndex].clone().add(jp.axis.clone().multiplyScalar(jp.amp*Math.sin(clock*jp.freq+jp.phase)));
+    const a=nucleonWorldPos[heroIndex], b=nucleonWorldPos[partnerIndex];
     const t=(Math.sin(clock*2.4)+1)/2;
     const mid=a.clone().lerp(b,0.5).addScaledVector(new THREE.Vector3(0,1,0),nr*0.9);
     // quadratic bezier a->mid->b
@@ -863,34 +1027,16 @@ function animate(){
     disposePion();
   }
 
-  // QUARK detail animation
-  if(mode==='QUARK' && detailGroup && heroIndex!==-1){
-    const j=jitter[heroIndex];
-    const anchor=positions[heroIndex].clone().add(j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase)));
-    detailGroup.position.copy(anchor);
-    const qWorldPos=[];
-    detailQuarks.forEach(qd=>{
-      const wob=qd.axis.clone().multiplyScalar(nr*0.13*Math.sin(clock*qd.freq+qd.phase));
-      const p=qd.base.clone().add(wob);
-      qd.mesh.position.copy(p);
-      qWorldPos.push(p);
-      const wp=anchor.clone().add(p);
-      const sc=project(wp);
-      qd.label.style.left=sc.x+'px'; qd.label.style.top=(sc.y-16)+'px';
-      qd.label.style.opacity = sc.visible ? Math.min(1,(zoom-BAND2)/(1-BAND2)*2) : 0;
-    });
-    detailTubes.forEach(td=>{
-      td.tube.visible = showGluons;
-      td.dot.visible = showGluons;
-      if(!showGluons) return;
-      orientCyl(td.tube, qWorldPos[td.a], qWorldPos[td.b]);
-      const hue=(clock*0.25+td.phase)%1;
-      td.tube.material.color.setHSL(hue,0.9,0.6);
-      td.tube.material.opacity = 0.35+0.25*Math.sin(clock*3+td.phase*6);
-      const t=(Math.sin(clock*2.6+td.phase*10)+1)/2;
-      td.dot.position.copy(qWorldPos[td.a].clone().lerp(qWorldPos[td.b],t));
-      td.dot.material.color.setHSL((hue+0.5)%1,0.9,0.7);
-    });
+  // spotlight label at quark scale — names whichever nucleon is centered
+  if(showQuarks && heroIndex!==-1){
+    const sc=project(nucleonWorldPos[heroIndex]);
+    heroLabel.style.display='block';
+    heroLabel.style.left=sc.x+'px'; heroLabel.style.top=(sc.y-26)+'px';
+    heroLabel.style.opacity = sc.visible?1:0;
+    heroLabel.textContent = types[heroIndex]==='p' ? 'proton · uud' : 'neutron · udd';
+    heroLabel.style.color = types[heroIndex]==='p' ? '#ff5533' : '#4477ff';
+  } else {
+    heroLabel.style.display='none';
   }
 
   // mode label / info line
@@ -902,7 +1048,7 @@ function animate(){
     const info=document.getElementById('infoline');
     if(mode==='MACRO') info.innerHTML=macroInfo(el);
     else if(mode==='PAIR') info.innerHTML=`<b>Residual strong force:</b> neighboring nucleons constantly exchange virtual <b>pions (π)</b> — this leftover of the strong interaction is what glues the ${el.name} nucleus together.`;
-    else info.innerHTML=`<b>Inside a ${detailIsProton?'proton':'neutron'}:</b> ${detailIsProton?'two up quarks (u) + one down quark (d)':'one up quark (u) + two down quarks (d)'}, bound by <b>gluons</b> carrying the strong force via QCD "color charge" (illustrated as cycling colors).`;
+    else info.innerHTML=`<b>Inside every nucleon:</b> all ${plural(el.Z,'proton')} and ${plural(el.n,'neutron')} are shown at once, each a triad of <b>quarks</b> (u/d) bound by <b>gluon</b> flux-tubes whose rippling surface stands in for the propagating strong-force field.`;
   }
   syncZoomUI(true);
 
