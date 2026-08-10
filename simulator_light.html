@@ -1392,6 +1392,20 @@ const SEESAW_AX_TILT       = 3.45  * Math.PI/180; // axial tilt off linear (180�
 // atoms that bend toward it (ideal 90°/180° → experimental 87.5°/175.0°).
 const TSHAPE_AX_ANGLE = 87.5 * Math.PI/180; // angle between the equatorial atom and each axial atom
 
+// PERIOD-2-CENTER RULE: this schema only stores integer bond orders (1/2/3),
+// so any resonance-delocalized species whose true per-bond order is a
+// fraction (~1.5, e.g. NO2, O3, SO2, ClO2) has to be rounded to an integer.
+// Rounding direction is decided by whether the CENTRAL atom can expand its
+// octet:
+//   - Period 2 centers (N, O — no d-orbitals) MUST round DOWN to stay
+//     octet-safe. Rounding up leaves no electron slot for the radical/lone
+//     pair the real structure needs. See NO2, O3.
+//   - Period 3+ centers (S, Cl, ... — can expand octet) round UP to double,
+//     matching the standard textbook depiction. See SO2, SO3, ClO2.
+// This keeps the approximation consistent instead of an ad hoc per-molecule
+// judgment call. It does NOT apply to genuine multi-order structures like
+// N2O, where the correct fix is picking a real resonance structure (see
+// N2O below), not rounding a delocalized fraction.
 const MOLECULES=[
   { key:'h2', formula:'H₂', name:'Hydrogen', geometry:'Linear',
     atoms:[ {Z:1,sym:'H',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
@@ -1479,7 +1493,9 @@ const MOLECULES=[
       {Z:7,sym:'N',dir:[-1,0,0]},
       {Z:8,sym:'O',dir:[1,0,0]},
     ],
-    bonds:[[0,1,3],[0,2,2]] }, // N≡N→O resonance approximated as N≡N=O
+    bonds:[[0,1,3],[0,2,1]] }, // N≡N–O — the dominant resonance structure (formal charges −1 on O, +1 on central N).
+    // FIX: was [0,1,3],[0,2,2] i.e. N≡N=O — gave central N a triple + a double bond (5 bonding
+    // pairs / 10 electrons), which is impossible for a period-2 atom with no d-orbitals to expand into.
   { key:'hcn', formula:'HCN', name:'Hydrogen Cyanide', geometry:'Linear',
     atoms:[
       {Z:6,sym:'C',dir:[0,0,0]},
@@ -1514,7 +1530,9 @@ const MOLECULES=[
       {Z:8,sym:'O',dir:[Math.sin(O3_HALF_ANGLE), -Math.cos(O3_HALF_ANGLE), 0]},
       {Z:8,sym:'O',dir:[-Math.sin(O3_HALF_ANGLE), -Math.cos(O3_HALF_ANGLE), 0]},
     ],
-    bonds:[[0,1],[0,2]] }, // delocalized ~1.5 order resonance approximated as single
+    bonds:[[0,1],[0,2]] }, // delocalized ~1.5 order resonance, rounded DOWN to single — central O is
+    // period 2 and can't expand its octet, so double-double would leave central O with 0 lone pairs
+    // and a +2 formal charge. See the same rule applied to NO2 above and PERIOD-2-CENTER RULE below.
   { key:'ph3', formula:'PH₃', name:'Phosphine', geometry:'Trigonal Pyramidal',
     atoms:[
       {Z:15,sym:'P',dir:[0,0,0]},
@@ -1642,7 +1660,11 @@ const MOLECULES=[
       {Z:8,sym:'O',dir:[Math.sin(NO2_HALF_ANGLE), -Math.cos(NO2_HALF_ANGLE), 0]},
       {Z:8,sym:'O',dir:[-Math.sin(NO2_HALF_ANGLE), -Math.cos(NO2_HALF_ANGLE), 0]},
     ],
-    bonds:[[0,1,2],[0,2,2]] }, // odd-electron radical, real order ≈1.5 per N-O, resonance-averaged to double
+    bonds:[[0,1,1],[0,2,1]] }, // odd-electron radical, real order ≈1.5 per N-O.
+    // FIX: was double-double. N is period 2 and can't expand its octet, so double+double (4 bonding
+    // pairs) leaves no room for the radical electron NO2 actually carries — octet-unsafe. Rounded DOWN
+    // to single-single instead, matching the same period-2-central-atom rule applied to O3 below
+    // (S/Cl-centered radicals like SO2/ClO2 round UP to double, since S and Cl can expand their octet).
   { key:'clo2', formula:'ClO₂', name:'Chlorine Dioxide', geometry:'Bent (118.0°)',
     atoms:[
       {Z:17,sym:'Cl',dir:[0,0,0]},
