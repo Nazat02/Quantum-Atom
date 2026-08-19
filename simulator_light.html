@@ -21,11 +21,16 @@
   --p2:         #fba9d2;
 
   /* Semantic aliases matching simulator usage */
+  /* Single source of truth for the accent RGB triplet — every literal
+     rgba(var(--cyan-rgb),X) usage below is expressed as rgba(var(--cyan-rgb),X)
+     so the ENTIRE UI retints from one variable when antimatter mode
+     flips, instead of drifting out of sync with var(--cyan). */
+  --cyan-rgb:   124,108,246;
   --cyan:       #7c6cf6;
-  --cyan-40:    rgba(124,108,246,.40);
-  --cyan-20:    rgba(124,108,246,.20);
-  --cyan-10:    rgba(124,108,246,.10);
-  --cyan-06:    rgba(124,108,246,.06);
+  --cyan-40:    rgba(var(--cyan-rgb),.40);
+  --cyan-20:    rgba(var(--cyan-rgb),.20);
+  --cyan-10:    rgba(var(--cyan-rgb),.10);
+  --cyan-06:    rgba(var(--cyan-rgb),.06);
   --green:      #38bdf8;
   --amber:      #f472b6;
 
@@ -44,8 +49,8 @@
 
   /* Borders & glass */
   --border:     rgba(255,255,255,.55);
-  --border-v:   rgba(124,108,246,.35);
-  --border-hi:  rgba(124,108,246,.45);
+  --border-v:   rgba(var(--cyan-rgb),.35);
+  --border-hi:  rgba(var(--cyan-rgb),.45);
   --glass:      rgba(255,255,255,.60);
   --glass-hi:   rgba(255,255,255,.80);
 
@@ -65,14 +70,34 @@
   --blur:       22px;
 }
 
+/* ════════════════════════════════
+   ANTIMATTER PALETTE
+   Same target hue as the dark theme — antimatter is a physical state,
+   not a light/dark preference, so it reads identically in both themes.
+   Orbital-cloud shapes never change (charge-conjugate probability
+   densities are geometrically identical to matter's); only the accent
+   color system and particle materials do.
+════════════════════════════════ */
+:root[data-matter="anti"] {
+  --cyan-rgb:   255,46,196;
+  --cyan:       #ff2ec4;
+  --cyan-40:    rgba(255,46,196,.4);
+  --cyan-20:    rgba(255,46,196,.2);
+  --cyan-10:    rgba(255,46,196,.1);
+  --cyan-06:    rgba(255,46,196,.06);
+  --green:      #c724ff;
+  --amber:      #ff5fd8;
+  --border-hi:  rgba(255,46,196,.45);
+}
+
 html, body {
   width:100%; height:100%;
   overflow:hidden;
   background:
-    radial-gradient(900px 600px at 8% -5%,rgba(124,108,246,.22),transparent 60%),
+    radial-gradient(900px 600px at 8% -5%,rgba(var(--cyan-rgb),.22),transparent 60%),
     radial-gradient(800px 700px at 100% 10%,rgba(56,189,248,.18),transparent 55%),
     radial-gradient(900px 800px at 30% 95%,rgba(244,114,182,.15),transparent 55%),
-    radial-gradient(700px 700px at 90% 85%,rgba(124,108,246,.12),transparent 55%),
+    radial-gradient(700px 700px at 90% 85%,rgba(var(--cyan-rgb),.12),transparent 55%),
     linear-gradient(160deg,var(--bg-a) 0%,var(--bg-b) 55%,var(--bg-c) 100%);
   background-attachment: fixed;
   font-family: var(--body);
@@ -107,7 +132,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   grid-area: topbar;
   height: var(--topbar-h);
   background: rgba(255,255,255,.72);
-  border-bottom: 1px solid rgba(124,108,246,.18);
+  border-bottom: 1px solid rgba(var(--cyan-rgb),.18);
   backdrop-filter: blur(var(--blur)) saturate(160%);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(160%);
   display: flex;
@@ -152,11 +177,20 @@ canvas { position:fixed; inset:0; z-index:0; }
   font-size: 1.25rem;
   color: var(--hi);
   line-height: 1;
-  text-shadow: 0 0 14px rgba(124,108,246,.4);
+  text-shadow: 0 0 14px rgba(var(--cyan-rgb),.4);
   padding-right: 5px;
   box-sizing: border-box;
 }
-
+/* Antimatter symbol bar (e.g. H̄, ŌG) — one continuous CSS overline across
+   the whole badge instead of a Unicode combining-overline (\u0305) per
+   character, which drew a visibly uneven bar since each letter's own
+   width/shape shifts where the combining mark sits (e.g. "Og" showed two
+   mismatched bars instead of one even one). */
+#esym-badge .badge-sym.sym-anti {
+  text-decoration: overline;
+  text-decoration-thickness: .1em;
+  text-underline-offset: 0;
+}
 .topbar-text {
   display: flex;
   flex-direction: column;
@@ -218,11 +252,11 @@ canvas { position:fixed; inset:0; z-index:0; }
   letter-spacing: .08em;
   padding: 7px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(124,108,246,.22);
+  border: 1px solid rgba(var(--cyan-rgb),.22);
   cursor: pointer;
   transition: all .18s;
   color: var(--lo);
-  background: rgba(124,108,246,.05);
+  background: rgba(var(--cyan-rgb),.05);
   white-space: nowrap;
   line-height: 1;
   font-family: var(--body);
@@ -231,7 +265,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 .tab svg { opacity: .6; transition: opacity .18s; }
 .tab:hover { color:var(--hi); background:var(--cyan-10); border-color:var(--cyan-40); }
 .tab:hover svg { opacity:1; }
-.tab.on { color:var(--cyan); background:var(--cyan-10); border-color:var(--cyan-40); box-shadow: 0 0 12px rgba(124,108,246,.30); }
+.tab.on { color:var(--cyan); background:var(--cyan-10); border-color:var(--cyan-40); box-shadow: 0 0 12px rgba(var(--cyan-rgb),.30); }
 .tab.on svg { opacity:1; }
 
 /* ════════════════════════════════
@@ -251,7 +285,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   position: fixed;
   left: 0; top: var(--topbar-h); bottom: var(--botbar-h);
   width: var(--panel-w);
-  border-right: 1px solid rgba(124,108,246,.18);
+  border-right: 1px solid rgba(var(--cyan-rgb),.18);
   transition: transform .24s cubic-bezier(.4,0,.2,1);
   transform: translateX(0);
   z-index: 20;
@@ -261,7 +295,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   position: fixed;
   right: 0; top: var(--topbar-h); bottom: var(--botbar-h);
   width: var(--panel-w);
-  border-left: 1px solid rgba(124,108,246,.18);
+  border-left: 1px solid rgba(var(--cyan-rgb),.18);
   transition: transform .24s cubic-bezier(.4,0,.2,1);
   transform: translateX(0);
   z-index: 20;
@@ -276,7 +310,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px 8px;
-  border-bottom: 1px solid rgba(124,108,246,.12);
+  border-bottom: 1px solid rgba(var(--cyan-rgb),.12);
   flex-shrink: 0;
 }
 .panel-title {
@@ -332,8 +366,8 @@ canvas { position:fixed; inset:0; z-index:0; }
 }
 #el-search {
   width: 100%;
-  background: rgba(124,108,246,.05);
-  border: 1px solid rgba(124,108,246,.20);
+  background: rgba(var(--cyan-rgb),.05);
+  border: 1px solid rgba(var(--cyan-rgb),.20);
   border-radius: 8px;
   color: var(--hi);
   font-family: var(--body);
@@ -354,32 +388,32 @@ canvas { position:fixed; inset:0; z-index:0; }
   font-family: var(--body);
   font-weight: 600;
   padding-bottom: 7px;
-  border-bottom: 1px solid rgba(124,108,246,.10);
+  border-bottom: 1px solid rgba(var(--cyan-rgb),.10);
 }
 
 /* Atoms/Molecules mode switch */
 .mode-switch { display:flex; gap:6px; }
 .mode-btn {
   flex:1; padding:8px 6px; border-radius:6px;
-  border:1px solid rgba(124,108,246,.15); background:rgba(124,108,246,.05);
+  border:1px solid rgba(var(--cyan-rgb),.15); background:rgba(var(--cyan-rgb),.05);
   color:var(--lo); font-family:'Rajdhani',sans-serif; font-weight:700;
   font-size:.68rem; letter-spacing:.06em; cursor:pointer;
   transition: background .13s, border-color .13s, color .13s;
 }
 .mode-btn:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
-.mode-btn.on { background:var(--cyan-10); border-color:var(--cyan); color:var(--hi); box-shadow:0 0 10px rgba(124,108,246,.2); }
+.mode-btn.on { background:var(--cyan-10); border-color:var(--cyan); color:var(--hi); box-shadow:0 0 10px rgba(var(--cyan-rgb),.2); }
 .hidden-view { display:none; }
 
 /* Molecule cards */
 .mgrid { display:flex; flex-direction:column; gap:6px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .mcard {
-  cursor:pointer; background:rgba(124,108,246,.05); border:1px solid rgba(124,108,246,.15);
+  cursor:pointer; background:rgba(var(--cyan-rgb),.05); border:1px solid rgba(var(--cyan-rgb),.15);
   border-radius:6px; padding:9px 11px; display:flex; align-items:baseline; justify-content:space-between; gap:8px;
   transition: background .13s, border-color .13s, color .13s;
   text-align:left; user-select:none; -webkit-user-select:none;
 }
 .mcard:hover { background:var(--cyan-10); border-color:var(--cyan-40); }
-.mcard.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(124,108,246,.25); }
+.mcard.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(var(--cyan-rgb),.25); }
 .mcard .mf { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.95rem; color:var(--hi); }
 .mcard .mn { font-size:.62rem; color:var(--lo); letter-spacing:.05em; text-transform:uppercase; }
 
@@ -394,8 +428,8 @@ canvas { position:fixed; inset:0; z-index:0; }
 .ebtn {
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
-  background: rgba(124,108,246,.05);
-  border: 1px solid rgba(124,108,246,.14);
+  background: rgba(var(--cyan-rgb),.05);
+  border: 1px solid rgba(var(--cyan-rgb),.14);
   color: var(--lo);
   font-family: var(--display);
   font-weight: 700;
@@ -419,7 +453,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 .ebtn .z { font-size: .58rem; color: var(--lo); line-height:1; }
 .ebtn:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
 .ebtn:hover .s { color:var(--cyan); }
-.ebtn.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(124,108,246,.30); color:var(--hi); }
+.ebtn.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(var(--cyan-rgb),.30); color:var(--hi); }
 .ebtn.on .s { color:var(--cyan); }
 .ebtn.hidden-el { display:none; }
 
@@ -447,11 +481,11 @@ canvas { position:fixed; inset:0; z-index:0; }
 .ebtn:hover::after { opacity:1; }
 
 .oleg { display:flex; flex-direction:column; gap:8px; }
-.orow { display:flex; align-items:center; gap:9px; padding: 4px 8px; border-radius: 8px; background:rgba(124,108,246,.04); border:1px solid rgba(124,108,246,.10); }
+.orow { display:flex; align-items:center; gap:9px; padding: 4px 8px; border-radius: 8px; background:rgba(var(--cyan-rgb),.04); border:1px solid rgba(var(--cyan-rgb),.10); }
 .orow.excited-row { background:rgba(255,153,0,.10); border-color:rgba(255,153,0,.40); }
 .odot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
 .olbl { font-size: .7rem; color:var(--mid); flex:1; font-family: var(--body); }
-.ocnt { font-size: .7rem; color:var(--hi); font-weight:700; background:rgba(124,108,246,.12); padding:2px 6px; border-radius:4px; font-family: var(--mono); }
+.ocnt { font-size: .7rem; color:var(--hi); font-weight:700; background:rgba(var(--cyan-rgb),.12); padding:2px 6px; border-radius:4px; font-family: var(--mono); }
 
 /* Data rows */
 .data-section { display:flex; flex-direction:column; gap:4px; }
@@ -462,14 +496,14 @@ canvas { position:fixed; inset:0; z-index:0; }
   gap: 8px;
   padding: 6px 9px;
   border-radius: 8px;
-  background: rgba(124,108,246,.04);
-  border: 1px solid rgba(124,108,246,.09);
+  background: rgba(var(--cyan-rgb),.04);
+  border: 1px solid rgba(var(--cyan-rgb),.09);
   transition: background .15s;
 }
-.srow:hover { background:rgba(124,108,246,.09); }
+.srow:hover { background:rgba(var(--cyan-rgb),.09); }
 .sk { font-size: .65rem; color: var(--lo); letter-spacing: .04em; white-space: nowrap; font-family: var(--body); }
 .sv { font-family: var(--display); font-weight: 700; font-size: 1rem; color: var(--hi); }
-.sdiv { height: 1px; background: rgba(124,108,246,.10); margin: 2px 0; }
+.sdiv { height: 1px; background: rgba(var(--cyan-rgb),.10); margin: 2px 0; }
 
 #realbtn {
   width: 100%;
@@ -477,8 +511,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   padding: 10px 12px;
   font-size: .68rem;
   margin-top: 4px;
-  background: rgba(124,108,246,.07);
-  border: 1px solid rgba(124,108,246,.22);
+  background: rgba(var(--cyan-rgb),.07);
+  border: 1px solid rgba(var(--cyan-rgb),.22);
   color: var(--mid);
   font-family: var(--body);
   font-weight: 600;
@@ -498,8 +532,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   padding: 10px 12px;
   font-size: .68rem;
   margin-top: 4px;
-  background: rgba(124,108,246,.07);
-  border: 1px solid rgba(124,108,246,.22);
+  background: rgba(var(--cyan-rgb),.07);
+  border: 1px solid rgba(var(--cyan-rgb),.22);
   color: var(--mid);
   font-family: var(--body);
   font-weight: 600;
@@ -514,10 +548,10 @@ canvas { position:fixed; inset:0; z-index:0; }
 }
 #gridbtn:hover { background:var(--cyan-10); color:var(--hi); border-color:var(--cyan-40); }
 #gridbtn.active {
-  background: rgba(124,108,246,.18);
+  background: rgba(var(--cyan-rgb),.18);
   border-color: var(--cyan);
   color: var(--cyan);
-  box-shadow: 0 0 12px rgba(124,108,246,.25);
+  box-shadow: 0 0 12px rgba(var(--cyan-rgb),.25);
 }
 
 #smoothbtn {
@@ -605,10 +639,38 @@ canvas { position:fixed; inset:0; z-index:0; }
 }
 
 #realbtn.active {
-  background: rgba(124,108,246,.18);
+  background: rgba(var(--cyan-rgb),.18);
   border-color: var(--v1);
   color: var(--v1);
-  box-shadow: 0 0 12px rgba(124,108,246,.35);
+  box-shadow: 0 0 12px rgba(var(--cyan-rgb),.35);
+}
+
+#antibtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(255,46,196,.06);
+  border: 1px solid rgba(255,46,196,.28);
+  color: var(--mid);
+  font-family: var(--body);
+  font-weight: 600;
+  letter-spacing: .04em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#antibtn:hover { background:rgba(255,46,196,.14); color:var(--hi); border-color:rgba(255,46,196,.55); }
+#antibtn.active {
+  background: rgba(255,46,196,.18);
+  border-color: #ff2ec4;
+  color: #c3169a;
+  box-shadow: 0 0 16px rgba(255,46,196,.35), 0 0 32px rgba(199,36,255,.2);
 }
 
 /* ════════════════════════════════
@@ -618,7 +680,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   grid-area: botbar;
   height: var(--botbar-h);
   background: rgba(255,255,255,.72);
-  border-top: 1px solid rgba(124,108,246,.18);
+  border-top: 1px solid rgba(var(--cyan-rgb),.18);
   backdrop-filter: blur(var(--blur)) saturate(160%);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(160%);
   display: flex;
@@ -650,7 +712,7 @@ input[type=range] {
   -webkit-appearance: none;
   width: 140px;
   height: 6px;
-  background: rgba(124,108,246,.20);
+  background: rgba(var(--cyan-rgb),.20);
   border-radius: 3px;
   outline: none;
   cursor: pointer;
@@ -661,7 +723,7 @@ input[type=range]::-webkit-slider-thumb {
   width: 18px; height: 18px;
   border-radius: 50%;
   background: var(--cyan);
-  box-shadow: 0 0 8px rgba(124,108,246,.5);
+  box-shadow: 0 0 8px rgba(var(--cyan-rgb),.5);
   cursor: pointer;
   border: 2px solid rgba(255,255,255,.6);
 }
@@ -669,15 +731,15 @@ input[type=range]::-moz-range-thumb {
   width: 18px; height: 18px;
   border-radius: 50%;
   background: var(--cyan);
-  box-shadow: 0 0 8px rgba(124,108,246,.5);
+  box-shadow: 0 0 8px rgba(var(--cyan-rgb),.5);
   cursor: pointer;
   border: 2px solid rgba(255,255,255,.6);
 }
 #zval { font-size: .7rem; color: var(--green); width: 40px; flex-shrink:0; }
 
 .rbtn {
-  background: rgba(124,108,246,.08);
-  border: 1px solid rgba(124,108,246,.28);
+  background: rgba(var(--cyan-rgb),.08);
+  border: 1px solid rgba(var(--cyan-rgb),.28);
   color: var(--mid);
   font-family: var(--body);
   font-size: .65rem;
@@ -894,8 +956,8 @@ input[type=range]::-moz-range-thumb {
 }
 
 @keyframes plasma-outer-glow {
-  0%,100% { filter: drop-shadow(0 0 6px #7c6cf6) drop-shadow(0 0 18px rgba(124,108,246,.7)) drop-shadow(0 0 36px rgba(124,108,246,.35)); }
-  50%      { filter: drop-shadow(0 0 10px #9b8afb) drop-shadow(0 0 28px rgba(124,108,246,.8)) drop-shadow(0 0 55px rgba(56,189,248,.45)); }
+  0%,100% { filter: drop-shadow(0 0 6px var(--cyan)) drop-shadow(0 0 18px rgba(var(--cyan-rgb),.7)) drop-shadow(0 0 36px rgba(var(--cyan-rgb),.35)); }
+  50%      { filter: drop-shadow(0 0 10px var(--cyan)) drop-shadow(0 0 28px rgba(var(--cyan-rgb),.8)) drop-shadow(0 0 55px rgba(var(--cyan-rgb),.45)); }
 }
 
 /* Hide logo name on very small screens */
@@ -908,12 +970,12 @@ input[type=range]::-moz-range-thumb {
 .theme-toggle-btn {
   display:flex;align-items:center;justify-content:center;
   width:34px;height:34px;border-radius:999px;
-  border:1px solid rgba(124,108,246,.35);
-  background:rgba(124,108,246,.10);color:inherit;
+  border:1px solid rgba(var(--cyan-rgb),.35);
+  background:rgba(var(--cyan-rgb),.10);color:inherit;
   cursor:pointer;transition:all .2s;flex-shrink:0;
   font-size:.95rem;line-height:1;text-decoration:none;
 }
-.theme-toggle-btn:hover{background:rgba(124,108,246,.22);}
+.theme-toggle-btn:hover{background:rgba(var(--cyan-rgb),.22);}
 
 /* ════════════════════════════════
    GLASSMORPHISM — frosted micro-surfaces
@@ -924,7 +986,7 @@ input[type=range]::-moz-range-thumb {
 #esym-badge,
 #el-search,
 .panel-close,
-#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn,
+#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn, #antibtn,
 .rbtn,
 .theme-toggle-btn {
   backdrop-filter: blur(14px) saturate(160%);
@@ -1105,6 +1167,10 @@ input[type=range]::-moz-range-thumb {
         <span class="sv" id="excited-trans" style="font-size:.76rem; color:#dd8800; letter-spacing:.02em;"></span>
       </div>
       <div class="sdiv"></div>
+      <button id="antibtn" title="Charge-conjugate: positrons + antinucleons, identical orbital geometry">
+        <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="9" r="5.4"/><circle cx="11" cy="9" r="5.4"/></svg></span>
+        <span>ANTIMATTER</span>
+      </button>
       <button id="realbtn">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.2 9C3 5.7 5.8 4 9 4s6 1.7 7.8 5c-1.8 3.3-4.6 5-7.8 5S3 12.3 1.2 9z"/><circle cx="9" cy="9" r="2.3"/></svg></span>
         <span>REAL IMAGE MODE</span>
@@ -1282,6 +1348,88 @@ const ORBS=[
   {name:"9s",n:9,l:0,max:2,  R:340000.0,hex:"#f5f0ff",rgb:[.961,.941,1.0]},
   {name:"9p",n:9,l:1,max:6,  R:820000.0,hex:"#e0d0ff",rgb:[.878,.816,1.0]},
 ];
+
+// ══════════════════════════════════════════════
+// ANTIMATTER — charge-conjugation color model
+//
+// Physically, |ψ|² for an antihydrogen orbital is identical in shape to
+// hydrogen's — antimatter atoms are not "inverted" geometry, just opposite
+// charge. So we never touch sampling/geometry code (sampleS, sampleP_lobe,
+// sampleDSub, sampleFSub, buildNucleus positions, etc). The ONLY thing
+// that changes is color: every subshell's hue is rotated into a neon
+// pink/violet band, preserving each subshell's relative saturation/
+// lightness so shells stay visually distinguishable from one another —
+// just unmistakably "antimatter" as an ensemble.
+// ══════════════════════════════════════════════
+let antimatterMode = false;
+
+function hexToRgbTriplet(hex){
+  return [parseInt(hex.slice(1,3),16)/255, parseInt(hex.slice(3,5),16)/255, parseInt(hex.slice(5,7),16)/255];
+}
+function hslToHex(h,s,l){
+  h=((h%360)+360)%360/360;
+  const hue2rgb=(p,q,t)=>{
+    if(t<0)t+=1; if(t>1)t-=1;
+    if(t<1/6) return p+(q-p)*6*t;
+    if(t<1/2) return q;
+    if(t<2/3) return p+(q-p)*(2/3-t)*6;
+    return p;
+  };
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else{
+    const q=l<0.5? l*(1+s): l+s-l*s;
+    const p=2*l-q;
+    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+  }
+  const toHex=v=>Math.max(0,Math.min(255,Math.round(v*255))).toString(16).padStart(2,'0');
+  return '#'+toHex(r)+toHex(g)+toHex(b);
+}
+// Rotates any matter hex color into the neon pink/violet antimatter band
+// (300°–345°), mapping the source hue proportionally so distinct matter
+// colors stay distinct after conversion, and boosting saturation for a
+// consistent neon read regardless of the source color's intensity.
+function toAntiHex(hex){
+  const [r,g,b]=hexToRgbTriplet(hex);
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), l=(max+min)/2, d=max-min;
+  let h=0;
+  if(d!==0){
+    if(max===r) h=((g-b)/d)%6;
+    else if(max===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60; if(h<0) h+=360;
+  }
+  const antiHue = 300 + (h/360)*45;
+  const antiSat = 0.85;
+  const antiL = Math.min(0.72, Math.max(0.30, l));
+  return hslToHex(antiHue, antiSat, antiL);
+}
+
+// Snapshot the authored matter colors once, before any mutation, so
+// toggling back to matter mode is an exact restore rather than a
+// lossy re-derivation.
+const ORBS_MATTER_HEX = ORBS.map(o=>o.hex);
+const ORBS_ANTI_HEX = ORBS_MATTER_HEX.map(toAntiHex);
+
+function applyMatterPalette(){
+  ORBS.forEach((o,i)=>{ o.hex=ORBS_MATTER_HEX[i]; o.rgb=hexToRgbTriplet(o.hex); });
+}
+function applyAntimatterPalette(){
+  ORBS.forEach((o,i)=>{ o.hex=ORBS_ANTI_HEX[i]; o.rgb=hexToRgbTriplet(o.hex); });
+}
+
+// Legend dot colors (keyed by angular momentum l, indexed within l) —
+// same matter/anti relationship as ORBS above, kept as a separate map
+// since the legend colors are sub-orbital (m_l) tinted, not shell-level.
+const SUB_HEX_MATTER={
+  0:['#ff9944'],
+  1:['#ff8866','#66ffaa','#aaaaff'],
+  2:['#ff4499','#ff7733','#ffaa00','#aadd00','#ff22cc'],
+  3:['#8855dd','#dd5599','#4488ff','#dd8822','#22aa88','#bbaa22','#9955bb'],
+};
+const SUB_HEX_ANTI=Object.fromEntries(
+  Object.entries(SUB_HEX_MATTER).map(([l,arr])=>[l,arr.map(toAntiHex)])
+);
 
 // ══════════════════════════════════════════════
 // PERFORMANCE — bounded point-cloud density
@@ -2036,13 +2184,15 @@ function makeNucleus(Z, N){
   const nr = Math.max(0.007, 0.011 - total * 0.00004);
   const Rnuc = 0.012 * Math.pow(total, 1/3);
 
-  // Materials
+  // Materials — antiprotons/antineutrons get the neon pink/violet pair
+  // instead of the matter red/blue, keeping the same two-tone legibility
+  // between the two nucleon types.
   const matP = new THREE.MeshStandardMaterial({
-    color: 0xff2020, emissive: 0xcc0000, emissiveIntensity: 1.5,
+    color: antimatterMode?0xff2ec4:0xff2020, emissive: antimatterMode?0xff17ad:0xcc0000, emissiveIntensity: 1.5,
     roughness: 0.20, metalness: 0.2
   });
   const matN = new THREE.MeshStandardMaterial({
-    color: 0x2060ff, emissive: 0x0033cc, emissiveIntensity: 1.5,
+    color: antimatterMode?0xc724ff:0x2060ff, emissive: antimatterMode?0xa20ee0:0x0033cc, emissiveIntensity: 1.5,
     roughness: 0.25, metalness: 0.2
   });
   const geoN = new THREE.SphereGeometry(nr, 16, 16);
@@ -2083,10 +2233,11 @@ function makeNucleus(Z, N){
 
   // Glow halo — reduced so nucleus is clearly visible
   const haloR = Rnuc + nr;
+  const haloColor=antimatterMode?0xd400ff:0xff3d9a;
   [[haloR*1.2, .10],[haloR*1.8, .04]].forEach(([r,o])=>
     g.add(new THREE.Mesh(
       new THREE.SphereGeometry(r,16,16),
-      new THREE.MeshBasicMaterial({color:0xff3d9a,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false})
+      new THREE.MeshBasicMaterial({color:haloColor,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false})
     ))
   );
 
@@ -2095,10 +2246,17 @@ function makeNucleus(Z, N){
   canvas.width = canvas.height = 128;
   const ctx = canvas.getContext('2d');
   const grad = ctx.createRadialGradient(64,64,0, 64,64,64);
-  grad.addColorStop(0,   'rgba(255,255,255,0.9)');
-  grad.addColorStop(0.15,'rgba(255,160,210,0.6)');
-  grad.addColorStop(0.4, 'rgba(255,60,160,0.25)');
-  grad.addColorStop(1.0, 'rgba(180,0,100,0.0)');
+  if(antimatterMode){
+    grad.addColorStop(0,   'rgba(255,255,255,0.9)');
+    grad.addColorStop(0.15,'rgba(255,140,235,0.65)');
+    grad.addColorStop(0.4, 'rgba(255,46,196,0.3)');
+    grad.addColorStop(1.0, 'rgba(150,0,220,0.0)');
+  } else {
+    grad.addColorStop(0,   'rgba(255,255,255,0.9)');
+    grad.addColorStop(0.15,'rgba(255,160,210,0.6)');
+    grad.addColorStop(0.4, 'rgba(255,60,160,0.25)');
+    grad.addColorStop(1.0, 'rgba(180,0,100,0.0)');
+  }
   ctx.fillStyle = grad;
   ctx.fillRect(0,0,128,128);
   const spriteTex = new THREE.CanvasTexture(canvas);
@@ -2108,8 +2266,8 @@ function makeNucleus(Z, N){
   sunSprite.userData.isSunSprite = true;
   g.add(sunSprite);
 
-  // Point light — pink to illuminate nucleons from inside
-  g.add(new THREE.PointLight(0xff3daa, 4, 25));
+  // Point light — pink for matter (this theme's brand), electric magenta for antimatter
+  g.add(new THREE.PointLight(antimatterMode?0xff17d0:0xff3daa, 4, 25));
   return g;
 }
 
@@ -2452,7 +2610,7 @@ let ultraMeshes = [];
 
 function buildUltraCloud(orb){
   const grp = new THREE.Group();
-  let [cr, cg, cb] = realMode ? [0.486, 0.424, 0.965] : orb.rgb;
+  let [cr, cg, cb] = realMode ? realColor(orb.R) : orb.rgb;
   const GOLD=[1.0,0.72,0.05];
   const isSubExcited = i => !!(orb.occ && orb.occ[i] && orb.occ[i].excited);
   const goldBlend = (base) => [base[0]*0.35+GOLD[0]*0.65, base[1]*0.35+GOLD[1]*0.65, base[2]*0.35+GOLD[2]*0.65];
@@ -2462,32 +2620,19 @@ function buildUltraCloud(orb){
   const alpha  = 1.05 * Math.pow(10 / (orb.R + 3), 0.22);
 
   // Ultra mode: vivid distinct colors per axis/sub — clearly visible on white background
-  const AX_TINTS = realMode ? [
-    [0.486, 0.424, 0.965],
-    [0.608, 0.541, 0.984],
-    [0.357, 0.294, 0.831],
-  ] : [
+  const AX_TINTS = realMode ? realAxTints() : [
     [0.95, 0.22, 0.22],   // px — vivid red
     [0.10, 0.72, 0.25],   // py — vivid green
     [0.18, 0.38, 0.95],   // pz — vivid blue
   ];
-  const SUB_TINTS = realMode ? [
-    [0.486, 0.424, 0.965],
-    [0.608, 0.541, 0.984],
-    [0.655, 0.545, 0.980],
-    [0.357, 0.294, 0.831],
-    [0.769, 0.710, 0.992],
-  ] : [
+  const SUB_TINTS = realMode ? realSubTints() : [
     [0.92, 0.12, 0.55],   // dz²    — vivid magenta/pink
     [0.95, 0.48, 0.05],   // dxy    — vivid orange
     [0.12, 0.75, 0.55],   // dxz    — vivid teal
     [0.25, 0.35, 0.95],   // dyz    — vivid blue
     [0.75, 0.15, 0.90],   // dx²-y² — vivid purple
   ];
-  const F_SUB_TINTS = realMode ? [
-    [0.60, 0.333, 0.878],[0.694, 0.40, 0.878],[0.416, 0.361, 0.941],[0.522, 0.467, 0.949],
-    [0.44, 0.30, 0.90],[0.70, 0.25, 0.60],[0.35, 0.55, 0.90],
-  ] : [
+  const F_SUB_TINTS = realMode ? realFSubTints() : [
     [0.62, 0.10, 0.85],   // fz³            — vivid violet
     [0.85, 0.15, 0.45],   // fxz²           — vivid rose
     [0.15, 0.45, 0.90],   // fyz²           — vivid azure
@@ -2732,9 +2877,30 @@ function updateSmoothUniforms(){}
 
 function realColor(R){
   const maxR=75,t=Math.min(R/maxR,1);
+  // Antimatter: vivid pink -> deeper rose/magenta gradient, staying in
+  // one recognizable hue family (matches the dark-theme approach) rather
+  // than jumping all the way to cyan, which read as two unrelated colors
+  // instead of a single "this is antimatter" identity.
+  if(antimatterMode) return[0.95-t*0.20, 0.25-t*0.15, 0.62-t*0.12];
   // violet #7c6cf6 → deeper #5b4bd4 as shells get larger
   return[0.486-t*0.129, 0.424-t*0.130, 0.965-t*0.134];
 }
+
+// Fixed per-lobe vivid palettes for the Ultra (solid-mesh) renderers —
+// same role as realColor() but distinct hues per axis/sub-orbital rather
+// than a single R-dependent gradient. Matter values match the violet set
+// already used in buildUltraCloud; antimatter values stay inside one
+// pink/rose/magenta family — enough hue variation to tell orbitals apart
+// up close, while still reading as "pink" from a distance.
+const REAL_AX_TINTS_MATTER   = [[0.486,0.424,0.965],[0.608,0.541,0.984],[0.357,0.294,0.831]];
+const REAL_SUB_TINTS_MATTER  = [[0.486,0.424,0.965],[0.608,0.541,0.984],[0.655,0.545,0.980],[0.357,0.294,0.831],[0.769,0.710,0.992]];
+const REAL_FSUB_TINTS_MATTER = [[0.60,0.333,0.878],[0.694,0.40,0.878],[0.416,0.361,0.941],[0.522,0.467,0.949],[0.44,0.30,0.90],[0.70,0.25,0.60],[0.35,0.55,0.90]];
+const REAL_AX_TINTS_ANTI   = [[0.95,0.20,0.55],[1.00,0.40,0.70],[0.80,0.10,0.75]];
+const REAL_SUB_TINTS_ANTI  = [[0.95,0.20,0.55],[1.00,0.40,0.70],[0.80,0.10,0.75],[0.90,0.30,0.85],[0.70,0.05,0.50]];
+const REAL_FSUB_TINTS_ANTI = [[0.95,0.20,0.55],[1.00,0.40,0.70],[0.80,0.10,0.75],[0.90,0.30,0.85],[0.70,0.05,0.50],[1.00,0.55,0.80],[0.75,0.15,0.90]];
+function realAxTints(){ return antimatterMode?REAL_AX_TINTS_ANTI:REAL_AX_TINTS_MATTER; }
+function realSubTints(){ return antimatterMode?REAL_SUB_TINTS_ANTI:REAL_SUB_TINTS_MATTER; }
+function realFSubTints(){ return antimatterMode?REAL_FSUB_TINTS_ANTI:REAL_FSUB_TINTS_MATTER; }
 
 function makePointCloud(count,sampler,rgb){
   count=Math.min(count,MAX_CLOUD_POINTS); // hard backstop — see PERFORMANCE block above
@@ -3183,8 +3349,8 @@ function buildBondAwarePCloudSmooth(orb,bonds){
 // the neighboring atom the way the point-cloud pi bend does.
 function buildBondAwarePMesh(orb,bonds){
   const grp=new THREE.Group();
-  const[cr,cg,cb]=realMode?[1.0,0.08,0.04]:orb.rgb;
-  const AX_TINTS=realMode?[[1.0,0.08,0.04],[1.0,0.12,0.06],[1.0,0.06,0.08]]:[
+  const[cr,cg,cb]=realMode?realColor(orb.R):orb.rgb;
+  const AX_TINTS=realMode?realAxTints():[
     [cr,cg*0.55,cb*0.55],[cr*0.65,cg,cb*0.55],[cr*0.55,cg*0.55,cb]];
   const rimPow=1.2+orb.R*0.008;
   const alpha=1.05*Math.pow(10/(orb.R+3),0.22);
@@ -3377,7 +3543,7 @@ function buildHybridPCloudSmooth(orb, hybridInfo){
 // in that mode.
 function buildHybridPMesh(orb, hybridInfo){
   const grp=new THREE.Group();
-  const[cr,cg,cb]=realMode?[1.0,0.08,0.04]:orb.rgb;
+  const[cr,cg,cb]=realMode?realColor(orb.R):orb.rgb;
   const rimPow=1.2+orb.R*0.008;
   const alpha=1.05*Math.pow(10/(orb.R+3),0.22);
   const innerR=pInnerRadius(orb.n,orb.R);
@@ -3571,27 +3737,27 @@ function updateUI(Z){
   ).join(' ');
   const stateStr=(excited&&excited.reached>0)?` · EXCITED · ${excited.reached} e⁻ PROMOTED`:'';
 
-  document.getElementById('ename').textContent=el.name.toUpperCase();
-  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ELECTRON${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}${stateStr}`;
+  const particleWord=antimatterMode?'POSITRON':'ELECTRON';
+  document.getElementById('ename').textContent=(antimatterMode?'ANTI-':'')+el.name.toUpperCase();
+  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ${particleWord}${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}${stateStr}`;
   document.getElementById('econf').innerHTML=confStr;
   document.getElementById('econf-right').innerHTML=confStr;
   document.getElementById('badge-z').textContent=Z;
   document.getElementById('badge-sym').textContent=el.sym;
+  document.getElementById('badge-sym').classList.toggle('sym-anti',antimatterMode);
   document.getElementById('sz').textContent=Z;
   document.getElementById('se').textContent=Z;
   document.getElementById('sp').textContent=Z;
   document.getElementById('sn').textContent=el.n;
   document.getElementById('sper').textContent=el.p;
   document.getElementById('sgrp').textContent=el.g;
+  document.getElementById('sp').previousElementSibling.textContent=antimatterMode?'ANTIPROTONS':'PROTONS';
+  document.getElementById('sn').previousElementSibling.textContent=antimatterMode?'ANTINEUTRONS':'NEUTRONS';
+  document.getElementById('se').previousElementSibling.textContent=antimatterMode?'POSITRONS':'ELECTRONS';
 
   const leg=document.getElementById('oleg');
   leg.innerHTML='';
-  const SUB_HEX={
-    0:['#ff9944'],
-    1:['#ff8866','#66ffaa','#aaaaff'],
-    2:['#ff4499','#ff7733','#ffaa00','#aadd00','#ff22cc'],
-    3:['#8855dd','#dd5599','#4488ff','#dd8822','#22aa88','#bbaa22','#9955bb'],
-  };
+  const SUB_HEX=antimatterMode?SUB_HEX_ANTI:SUB_HEX_MATTER;
   cfg.forEach(o=>{
     const hexArr=SUB_HEX[o.l];
     o.occ.forEach((s,i)=>{
@@ -3708,10 +3874,12 @@ function updateMoleculeUI(mol){
   const totalN=mol.atoms.reduce((s,a)=>{const el=ELS.find(e=>e.Z===a.Z);return s+(el?el.n:0);},0);
   const totalE=totalP;
 
-  document.getElementById('ename').textContent=mol.name.toUpperCase();
-  document.getElementById('emeta').textContent=`${mol.atoms.length} ATOMS · ${totalE} ELECTRONS · ${mol.geometry.toUpperCase()}`;
+  const particleWord=antimatterMode?'POSITRON':'ELECTRON';
+  document.getElementById('ename').textContent=(antimatterMode?'ANTI-':'')+mol.name.toUpperCase();
+  document.getElementById('emeta').textContent=`${mol.atoms.length} ATOMS · ${totalE} ${particleWord}S · ${mol.geometry.toUpperCase()}`;
   document.getElementById('badge-z').textContent=mol.atoms.length;
   document.getElementById('badge-sym').textContent=mol.formula;
+  document.getElementById('badge-sym').classList.toggle('sym-anti',antimatterMode);
 
   const cfgStr=moleculeConfigString(mol);
   document.getElementById('econf').innerHTML=cfgStr;
@@ -3727,6 +3895,9 @@ function updateMoleculeUI(mol){
   document.getElementById('sz').previousElementSibling.textContent='ATOMS';
   document.getElementById('sper').previousElementSibling.textContent='FORMULA';
   document.getElementById('sgrp').previousElementSibling.textContent='GEOMETRY';
+  document.getElementById('sp').previousElementSibling.textContent=antimatterMode?'ANTIPROTONS':'PROTONS';
+  document.getElementById('sn').previousElementSibling.textContent=antimatterMode?'ANTINEUTRONS':'NEUTRONS';
+  document.getElementById('se').previousElementSibling.textContent=antimatterMode?'POSITRONS':'ELECTRONS';
 
   document.getElementById('excited-trans-row').style.display='none';
   document.getElementById('excitedbtn').style.display='none';
@@ -3827,11 +3998,33 @@ document.getElementById('rbtn').onclick=()=>{
   showToast('VIEW RESET');
 };
 
+// Background clear-color for REAL IMAGE / ULTRA modes — mirrors realColor()'s
+// violet<->pink-cyan swap so the light backdrop stays consistent with the
+// orbitals for whichever matter state is active.
+function getClearColor(){
+  if(ultraMode) return antimatterMode?0xfff0f8:0xf5eeff;
+  if(realMode)  return antimatterMode?0xffe8f5:0xe8f0ff;
+  return 0xf0eeff;
+}
+
+const antibtn=document.getElementById('antibtn');
+antibtn.onclick=()=>{
+  antimatterMode=!antimatterMode;
+  antibtn.classList.toggle('active',antimatterMode);
+  document.documentElement.setAttribute('data-matter', antimatterMode?'anti':'matter');
+  if(antimatterMode) applyAntimatterPalette(); else applyMatterPalette();
+  renderer.setClearColor(getClearColor());
+  showToast(antimatterMode?'ANTIMATTER MODE — POSITRONS + ANTINUCLEONS':'MATTER MODE');
+  rebuildScene();
+  if(moleculeMode && curMoleculeKey){ updateMoleculeUI(MOLECULES.find(m=>m.key===curMoleculeKey)); }
+  else { updateUI(curZ); }
+};
+
 const realbtn=document.getElementById('realbtn');
 realbtn.onclick=()=>{
   realMode=!realMode;
   realbtn.classList.toggle('active',realMode);
-  renderer.setClearColor(realMode?0xe8f0ff:0xf0eeff);
+  renderer.setClearColor(getClearColor());
   showToast(realMode?'REAL IMAGE MODE ON':'REAL IMAGE MODE OFF');
   rebuildScene();
 };
@@ -3858,12 +4051,7 @@ const ultrabtn=document.getElementById('ultrabtn');
 ultrabtn.onclick=()=>{
   ultraMode=!ultraMode;
   ultrabtn.classList.toggle('active',ultraMode);
-  // Ultra gets its own tinted background
-  if(ultraMode){
-    renderer.setClearColor(0xf5eeff);
-  } else {
-    renderer.setClearColor(realMode?0xe8f0ff:0xf0eeff);
-  }
+  renderer.setClearColor(getClearColor());
   showToast(ultraMode?'ULTRA MODE ON':'ULTRA MODE OFF');
   rebuildScene();
 };
