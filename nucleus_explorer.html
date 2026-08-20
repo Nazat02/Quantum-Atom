@@ -361,14 +361,199 @@ addEventListener('resize',resize);resize();
 // ══════════════════════════════════════════════════════════════
 // NUCLEUS BUILD
 // ══════════════════════════════════════════════════════════════
-let nucGroup=null, protonMesh=null, neutronMesh=null;
+let nucGroup=null;
 let positions=[], types=[], jitter=[], nr=0.5, Rnuc=1;
 let Z=1,N=0;
+
+// Grain-cloud state: protonCloud/neutronCloud are THREE.Points whose
+// position buffers are rewritten every frame from
+// (nucleon center) + (static local Gaussian offset). Owner/local arrays
+// map each grain back to its parent nucleon so the whole cloud rides
+// along with that nucleon's existing macro jitter.
+let protonCloud=null, neutronCloud=null;
+let protonOwner=null, protonLocal=null, protonPosAttr=null;
+let neutronOwner=null, neutronLocal=null, neutronPosAttr=null;
+
+function disposeNucleonGrains(){
+  [protonCloud,neutronCloud].forEach(c=>{
+    if(!c) return;
+    if(c.parent) c.parent.remove(c);
+    c.geometry.dispose();
+  });
+  protonCloud=neutronCloud=null;
+}
+
+// Builds one merged grain cloud each for protons and neutrons. Grain
+// count per nucleon is budget-scaled so light nuclei (few nucleons)
+// render richly fuzzy individual clouds while heavy nuclei (up to 294
+// nucleons at Oganesson) stay within a sane total point budget.
+function buildNucleonGrains(rnd){
+  disposeNucleonGrains();
+  const total=Z+N;
+  // Density budget raised ~4x (was 45000/40..200) for a noticeably denser,
+  // fuzzier grain cloud on every nucleon, from light isotopes up through
+  // heavy nuclei like Oganesson.
+  const perNucleon=THREE.MathUtils.clamp(Math.floor(180000/Math.max(total,1)),150,700);
+  const sigma=nr*0.42; // Gaussian spread ≈ nucleon's former "radius" nr
+
+  function build(ownerIndices,color){
+    const count=ownerIndices.length;
+    const grainCount=count*perNucleon; // legitimately 0 when this type is absent (e.g. Hydrogen has 0 neutrons)
+    const pos=new Float32Array(grainCount*3);
+    const col=new Float32Array(grainCount*3);
+    const alp=new Float32Array(grainCount);
+    const phase=new Float32Array(grainCount);
+    const freq=new Float32Array(grainCount);
+    const owner=new Array(grainCount);
+    const local=new Array(grainCount);
+    let k=0;
+    ownerIndices.forEach(i=>{
+      for(let g=0;g<perNucleon;g++,k++){
+        const off=sampleGaussianCloud(sigma,rnd);
+        owner[k]=i; local[k]=off;
+        pos[k*3]=positions[i].x+off.x; pos[k*3+1]=positions[i].y+off.y; pos[k*3+2]=positions[i].z+off.z;
+        col[k*3]=color[0]; col[k*3+1]=color[1]; col[k*3+2]=color[2];
+        alp[k]=0.78+rnd()*0.22;
+        phase[k]=rnd()*Math.PI*2;
+        freq[k]=1.2+rnd()*2.4;
+      }
+    });
+    const geo=new THREE.BufferGeometry();
+    const posAttr=new THREE.BufferAttribute(pos,3);
+    posAttr.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position',posAttr);
+    geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+    geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+    geo.setAttribute('aPhase',new THREE.BufferAttribute(phase,1));
+    geo.setAttribute('aFreq',new THREE.BufferAttribute(freq,1));
+    const points=new THREE.Points(geo,nucleonGrainMat);
+    points.frustumCulled=false;
+    return {points,posAttr,owner,local};
+  }
+
+  const protonIdx=[], neutronIdx=[];
+  types.forEach((t,i)=>{ (t==='p'?protonIdx:neutronIdx).push(i); });
+
+  const pr=build(protonIdx,[1.0,0.20,0.13]);
+  protonCloud=pr.points; protonPosAttr=pr.posAttr; protonOwner=pr.owner; protonLocal=pr.local;
+  const nb=build(neutronIdx,[0.20,0.40,1.0]);
+  neutronCloud=nb.points; neutronPosAttr=nb.posAttr; neutronOwner=nb.owner; neutronLocal=nb.local;
+}
+
+// Called every frame with the latest jittered world position of every
+// nucleon — translates each grain's static local offset by its
+// parent's current position, so the whole fuzzy cloud rides along with
+// the nucleon-level jiggle already driving the physics.
+function updateNucleonGrains(nucleonWorldPos){
+  const pp=protonPosAttr.array;
+  for(let k=0;k<protonOwner.length;k++){
+    const w=nucleonWorldPos[protonOwner[k]], off=protonLocal[k];
+    pp[k*3]=w.x+off.x; pp[k*3+1]=w.y+off.y; pp[k*3+2]=w.z+off.z;
+  }
+  protonPosAttr.needsUpdate=true;
+  const np=neutronPosAttr.array;
+  for(let k=0;k<neutronOwner.length;k++){
+    const w=nucleonWorldPos[neutronOwner[k]], off=neutronLocal[k];
+    np[k*3]=w.x+off.x; np[k*3+1]=w.y+off.y; np[k*3+2]=w.z+off.z;
+  }
+  neutronPosAttr.needsUpdate=true;
+  nucleonGrainMat.uniforms.uTime.value=clock;
+}
 
 function seededRand(seed){ // deterministic per-element shuffle
   let s = seed*9301+49297;
   return function(){ s=(s*9301+49297)%233280; return s/233280; };
 }
+
+// ══════════════════════════════════════════════════════════════
+// WAVE-PARTICLE GRAIN SHADER — shared by every nucleon (proton/
+// neutron) and every pion in the residual-force network.
+//
+// A nucleon isn't a hard little ball with a surface — it's a bound
+// quantum state with a genuine position-space probability density.
+// Instead of one opaque sphere, each nucleon/pion is drawn as a swarm
+// of individually-sampled "maybe-here" grains whose positions are
+// drawn FROM that density (so the cloud is dense where |ψ|² is large
+// and thins out exactly the way the real probability distribution
+// does — see sampleGaussianCloud / sampleYukawaCloud below). Each
+// grain also flickers independently in brightness over time, standing
+// in for the position/amplitude uncertainty of a quantum wavepacket —
+// nothing here is ever fully "there," it's a shimmering field of
+// probability, same visual language as the electron-orbital clouds in
+// the atom simulator.
+// ══════════════════════════════════════════════════════════════
+const GRAIN_VERT=`
+attribute float aA;
+attribute vec3 aC;
+attribute float aPhase;
+attribute float aFreq;
+uniform float uTime;
+uniform float uSize;
+varying float vA;
+varying vec3 vC;
+void main(){
+  vC=aC;
+  // Independent per-grain flicker = quantum fluctuation: brightness
+  // wobbles around a mean rather than holding a fixed hard value.
+  float flicker=0.5+0.5*sin(uTime*aFreq+aPhase);
+  vA=aA*(0.72+0.28*flicker);
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  gl_Position=projectionMatrix*mv;
+  float dist=length(mv.xyz);
+  gl_PointSize=clamp(uSize/dist, 1.4, 15.0);
+}`;
+const GRAIN_FRAG=`
+varying float vA;
+varying vec3 vC;
+void main(){
+  vec2 uv=gl_PointCoord-vec2(0.5);
+  float r=length(uv)*2.0;
+  if(r>1.0) discard;
+  float core=exp(-r*r*6.0);
+  float halo=exp(-r*r*1.8)*(1.0-r*0.5);
+  float a=vA*(core*0.9+halo*0.55);
+  gl_FragColor=vec4(vC*(0.7+core*0.6), a);
+}`;
+function makeGrainMaterial(uSize){
+  return new THREE.ShaderMaterial({
+    vertexShader:GRAIN_VERT, fragmentShader:GRAIN_FRAG,
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    uniforms:{ uTime:{value:0}, uSize:{value:uSize} }
+  });
+}
+
+// Standard-normal deviate via Box-Muller, driven by our seeded RNG so
+// element layouts stay fully deterministic/reproducible.
+function randNormal(rnd){
+  let u=0,v=0;
+  while(u<=1e-9) u=rnd();
+  while(v<=1e-9) v=rnd();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(Math.PI*2*v);
+}
+// A nucleon's ground-state wavepacket is modeled as an isotropic 3D
+// Gaussian in position space, |ψ(r)|² ∝ exp(-r²/2σ²) — the minimum-
+// uncertainty solution for a particle localized in a well, and the
+// same functional form used for the 1s electron cloud elsewhere in
+// this app. Sampling directly from this density means point FREQUENCY
+// already encodes probability — no separate density calculation
+// needed, exactly like importance sampling.
+function sampleGaussianCloud(sigma,rnd){
+  return new THREE.Vector3(randNormal(rnd),randNormal(rnd),randNormal(rnd)).multiplyScalar(sigma);
+}
+// A pion's exchange amplitude between nucleons follows the Yukawa form
+// |ψ_π(r)| ∝ exp(-r/λ)/r — the actual field shape responsible for the
+// short-range residual strong force. We sample radius from that
+// exponential falloff (rejecting the 1/r singularity at the origin by
+// sampling from an offset shell) and place it isotropically.
+function sampleYukawaCloud(lambda,rnd){
+  const r=lambda*(-Math.log(Math.max(rnd(),1e-6)))*0.55 + lambda*0.12;
+  const u=rnd()*2-1, th=rnd()*Math.PI*2, s=Math.sqrt(Math.max(1-u*u,0));
+  return new THREE.Vector3(s*Math.cos(th)*r, s*Math.sin(th)*r, u*r);
+}
+
+// Shared materials — created once, geometry swapped per element/frame.
+const nucleonGrainMat=makeGrainMaterial(120);
+const pionGrainMat=makeGrainMaterial(70);
 
 function buildNucleus(z,n){
   Z=z;N=n;
@@ -411,27 +596,8 @@ function buildNucleus(z,n){
     amp: nr*0.11
   }));
 
-  const geo=new THREE.SphereGeometry(nr,28,20);
-  const matP=new THREE.MeshStandardMaterial({color:0xff2200,emissive:0xff1100,emissiveIntensity:1.6,roughness:.3,metalness:.15});
-  const matN=new THREE.MeshStandardMaterial({color:0x2255ff,emissive:0x1133ff,emissiveIntensity:1.3,roughness:.3,metalness:.15});
-
-  const pCount=Z, nCount=N;
-  protonMesh=new THREE.InstancedMesh(geo,matP,Math.max(pCount,1));
-  neutronMesh=new THREE.InstancedMesh(geo,matN,Math.max(nCount,1));
-  protonMesh.count=pCount; neutronMesh.count=nCount;
-
-  // index maps: global nucleon index -> {mesh, instanceIdx}
-  window.__idxMap=[];
-  let pI=0,nI=0;
-  const m=new THREE.Matrix4();
-  positions.forEach((p,i)=>{
-    m.makeTranslation(p.x,p.y,p.z);
-    if(types[i]==='p'){ protonMesh.setMatrixAt(pI,m); window.__idxMap[i]={mesh:protonMesh,idx:pI}; pI++; }
-    else { neutronMesh.setMatrixAt(nI,m); window.__idxMap[i]={mesh:neutronMesh,idx:nI}; nI++; }
-  });
-  protonMesh.instanceMatrix.needsUpdate=true;
-  neutronMesh.instanceMatrix.needsUpdate=true;
-  nucGroup.add(protonMesh,neutronMesh);
+  buildNucleonGrains(rnd);
+  nucGroup.add(protonCloud,neutronCloud);
 
   // quark / gluon layer — built once per element for EVERY nucleon
   // simultaneously (see buildQuarkLayer), just hidden until quark-scale zoom
@@ -490,15 +656,29 @@ function currentMode(){
   return 'QUARK';
 }
 
+// Hero selection uses REST positions (no jitter) so the jiggle animation
+// can't tip a near-tie from frame to frame. It also requires the new
+// candidate to be meaningfully closer (margin) and respects a short
+// cooldown after any switch — without this, two nucleons of similar
+// distance to the camera cause heroIndex to flip every few frames,
+// which yanks camTarget back and forth and reads as the view zooming
+// in/out on its own mid-gesture.
+let lastHeroSwitchT=-Infinity;
+const HERO_SWITCH_MARGIN=1.15;   // candidate must be >=15% closer (squared: 1.15^2) to steal the slot
+const HERO_SWITCH_COOLDOWN=0.25; // seconds
 function findHero(camPos){
   let best=-1,bd=Infinity;
   positions.forEach((p,i)=>{
-    const j=jitter[i];
-    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
-    const wp=p.clone().add(off);
-    const d=wp.distanceToSquared(camPos);
+    const d=p.distanceToSquared(camPos); // rest position, not jittered
     if(d<bd){bd=d;best=i;}
   });
+  if(heroIndex!==-1 && best!==heroIndex){
+    const curD=positions[heroIndex].distanceToSquared(camPos);
+    const withinCooldown=(clock-lastHeroSwitchT)<HERO_SWITCH_COOLDOWN;
+    const meaningfullyCloser=bd*(HERO_SWITCH_MARGIN*HERO_SWITCH_MARGIN)<curD;
+    if(withinCooldown||!meaningfullyCloser) return heroIndex; // keep current hero — avoid flip-flop
+  }
+  if(best!==heroIndex) lastHeroSwitchT=clock;
   return best;
 }
 function findPartner(idx){
@@ -663,24 +843,30 @@ function updateQuarkLayer(nucleonWorldPos){
 // ══════════════════════════════════════════════════════════════
 // BINDING WEB — the residual strong force, shown across the WHOLE
 // nucleus at once. Every pair of nucleons close enough to be genuine
-// neighbors gets a connecting line, and a small pion shuttles back
-// and forth along it — this is literally "why the nucleus doesn't
-// fly apart": every proton/neutron is constantly exchanging virtual
-// pions with its neighbors. Built once per element (bond graph is
-// static geometry; only positions animate), so it costs one
-// LineSegments draw call + one InstancedMesh draw call regardless
-// of how many nucleons are present.
+// neighbors gets a connecting line, and a fuzzy pion grain-cloud
+// shuttles back and forth along it — this is literally "why the
+// nucleus doesn't fly apart": every proton/neutron is constantly
+// exchanging virtual pions with its neighbors.
+//
+// Each pion is sampled from the Yukawa radial profile (see
+// sampleYukawaCloud above) instead of drawn as a solid sphere — same
+// wave-particle-duality treatment as the nucleons. Grain COUNT per
+// pion, and grain brightness, both scale with a density factor derived
+// from how packed the nucleus is (bond count per nucleon): heavier,
+// denser nuclei have more neighbor pairs exchanging simultaneously, so
+// their residual-force network reads as visibly thicker and more
+// energetic, not just "more dots in more places."
 // ══════════════════════════════════════════════════════════════
 const bondLineMat=new THREE.LineBasicMaterial({color:0x39ff8f,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false});
-const pionGeo=new THREE.SphereGeometry(1,20,16);
-const pionInstMat=new THREE.MeshBasicMaterial({color:0x39ff8f,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false});
 
-let bondPairs=[], bondPhases=[], bondLinePositions=null;
-let bondLineGeo=null, bondLineMesh=null, pionInstMesh=null;
+let bondPairs=[], bondPhases=[], bondLinePositions=null, bondBasePos=[];
+let bondLineGeo=null, bondLineMesh=null;
+let pionCloud=null, pionPosAttr=null, pionGrainBond=null, pionGrainUnit=null;
+let pionDensityFactor=1;
 
 function disposeBondWeb(){
   if(bondLineMesh){ if(bondLineMesh.parent) bondLineMesh.parent.remove(bondLineMesh); bondLineMesh.geometry.dispose(); bondLineMesh=null; }
-  if(pionInstMesh){ if(pionInstMesh.parent) pionInstMesh.parent.remove(pionInstMesh); pionInstMesh.dispose(); pionInstMesh=null; }
+  if(pionCloud){ if(pionCloud.parent) pionCloud.parent.remove(pionCloud); pionCloud.geometry.dispose(); pionCloud=null; }
 }
 
 function buildBondWeb(rnd){
@@ -693,6 +879,7 @@ function buildBondWeb(rnd){
     }
   }
   const bondCount=bondPairs.length;
+  const total=Z+N;
 
   bondLinePositions=new Float32Array(Math.max(bondCount,1)*6);
   bondLineGeo=new THREE.BufferGeometry();
@@ -702,11 +889,49 @@ function buildBondWeb(rnd){
   bondLineMesh.frustumCulled=false;
   nucGroup.add(bondLineMesh);
 
-  pionInstMesh=new THREE.InstancedMesh(pionGeo,pionInstMat,Math.max(bondCount,1));
-  pionInstMesh.count=bondCount;
-  nucGroup.add(pionInstMesh);
-
   bondPhases=bondPairs.map(()=>({freq:1.5+rnd()*1.5,phase:rnd()*Math.PI*2}));
+  bondBasePos=bondPairs.map(()=>new THREE.Vector3());
+
+  // Denser nucleus (more nucleons ⇒ more simultaneous neighbor pairs
+  // per unit volume) ⇒ visibly denser pion field. Bonds-per-nucleon is
+  // the actual local "how much exchange activity is happening here"
+  // signal; we fold total nucleon count in too so heavy elements read
+  // as unmistakably more active than light ones even at a glance.
+  const bondsPerNucleon = bondCount/Math.max(total,1);
+  pionDensityFactor=THREE.MathUtils.clamp(0.6+bondsPerNucleon*0.18+total*0.0035,0.7,2.8);
+
+  const perBondGrain=THREE.MathUtils.clamp(Math.floor((5200*pionDensityFactor)/Math.max(bondCount,1)),5,26);
+  const grainTotal=bondCount*perBondGrain; // legitimately 0 when there are no neighbor bonds (e.g. lone-nucleon Hydrogen)
+  const pos=new Float32Array(grainTotal*3);
+  const col=new Float32Array(grainTotal*3);
+  const alp=new Float32Array(grainTotal);
+  const phase=new Float32Array(grainTotal);
+  const freq=new Float32Array(grainTotal);
+  pionGrainBond=new Array(grainTotal);
+  pionGrainUnit=new Array(grainTotal);
+  const baseAlpha=THREE.MathUtils.clamp(0.5*pionDensityFactor,0.4,0.95);
+  let k=0;
+  for(let b=0;b<bondCount;b++){
+    for(let g=0;g<perBondGrain;g++,k++){
+      pionGrainBond[k]=b;
+      pionGrainUnit[k]=sampleYukawaCloud(1,rnd); // unit-λ shape, scaled live each frame
+      col[k*3]=0.22; col[k*3+1]=1.0; col[k*3+2]=0.56;
+      alp[k]=baseAlpha*(0.6+rnd()*0.5);
+      phase[k]=rnd()*Math.PI*2;
+      freq[k]=1.6+rnd()*3.0;
+    }
+  }
+  const geo=new THREE.BufferGeometry();
+  pionPosAttr=new THREE.BufferAttribute(pos,3);
+  pionPosAttr.setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position',pionPosAttr);
+  geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+  geo.setAttribute('aPhase',new THREE.BufferAttribute(phase,1));
+  geo.setAttribute('aFreq',new THREE.BufferAttribute(freq,1));
+  pionCloud=new THREE.Points(geo,pionGrainMat);
+  pionCloud.frustumCulled=false;
+  nucGroup.add(pionCloud);
 }
 
 function updateBondWeb(nucleonWorldPos,camDist){
@@ -714,7 +939,7 @@ function updateBondWeb(nucleonWorldPos,camDist){
   // fixed world-space size shrinks to invisibility once the camera pulls
   // back for the whole nucleus — so size relative to current camera
   // distance instead, clamped so it never gets silly at close range
-  const pR=THREE.MathUtils.clamp(camDist*0.014, nr*0.1, nr*0.85);
+  const pR=THREE.MathUtils.clamp(camDist*0.014, nr*0.1, nr*0.85)*(0.7+0.3*pionDensityFactor);
   for(let k=0;k<bondCount;k++){
     const [i,j]=bondPairs[k];
     const a=nucleonWorldPos[i], b=nucleonWorldPos[j];
@@ -724,29 +949,56 @@ function updateBondWeb(nucleonWorldPos,camDist){
 
     const ph=bondPhases[k];
     const t=(Math.sin(clock*ph.freq+ph.phase)+1)/2;
-    _qV.copy(a).lerp(b,t);
-    _qS.set(pR,pR,pR);
-    _qM.compose(_qV,_identityQ,_qS);
-    pionInstMesh.setMatrixAt(k,_qM);
+    bondBasePos[k].copy(a).lerp(b,t);
   }
   if(bondCount>0) bondLineGeo.attributes.position.needsUpdate=true;
-  pionInstMesh.instanceMatrix.needsUpdate=true;
+
+  const pp=pionPosAttr.array;
+  for(let g=0;g<pionGrainBond.length;g++){
+    const base=bondBasePos[pionGrainBond[g]], u=pionGrainUnit[g];
+    pp[g*3]=base.x+u.x*pR; pp[g*3+1]=base.y+u.y*pR; pp[g*3+2]=base.z+u.z*pR;
+  }
+  pionPosAttr.needsUpdate=true;
+  pionGrainMat.uniforms.uTime.value=clock;
 }
 
 // ══════════════════════════════════════════════════════════════
-// PION EXCHANGE (residual strong force, PAIR band)
+// PION EXCHANGE — single spotlighted pion (residual strong force,
+// PAIR band), shuttling between the camera's nearest nucleon and its
+// closest neighbor. Rendered as the same Yukawa grain cloud as the
+// binding web's pions, at a size boosted by the same density factor.
 // ══════════════════════════════════════════════════════════════
 let pionMesh=null, pionLabel=null;
 function disposePion(){
-  if(pionMesh){ scene.remove(pionMesh); pionMesh=null; }
+  if(pionMesh){ scene.remove(pionMesh); pionMesh.geometry.dispose(); pionMesh=null; }
   if(pionLabel){ pionLabel.remove(); pionLabel=null; }
 }
 function ensurePion(){
   if(pionMesh) return;
-  pionMesh=new THREE.Mesh(
-    new THREE.SphereGeometry(nr*0.22,16,12),
-    new THREE.MeshBasicMaterial({color:0x39ff8f,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false})
-  );
+  const grainCount=Math.round(THREE.MathUtils.clamp(16*pionDensityFactor,10,34));
+  const radius=nr*0.24*(0.75+0.25*pionDensityFactor);
+  const rnd=seededRand(Math.round((heroIndex+1)*137+partnerIndex*13+1));
+  const pos=new Float32Array(grainCount*3);
+  const col=new Float32Array(grainCount*3);
+  const alp=new Float32Array(grainCount);
+  const phase=new Float32Array(grainCount);
+  const freq=new Float32Array(grainCount);
+  for(let g=0;g<grainCount;g++){
+    const off=sampleYukawaCloud(radius,rnd);
+    pos[g*3]=off.x; pos[g*3+1]=off.y; pos[g*3+2]=off.z;
+    col[g*3]=0.22; col[g*3+1]=1.0; col[g*3+2]=0.56;
+    alp[g]=0.6+rnd()*0.4;
+    phase[g]=rnd()*Math.PI*2;
+    freq[g]=1.8+rnd()*3.0;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+  geo.setAttribute('aPhase',new THREE.BufferAttribute(phase,1));
+  geo.setAttribute('aFreq',new THREE.BufferAttribute(freq,1));
+  pionMesh=new THREE.Points(geo,pionGrainMat);
+  pionMesh.frustumCulled=false;
   scene.add(pionMesh);
   pionLabel=document.createElement('div');
   pionLabel.className='plabel';
@@ -759,11 +1011,20 @@ function ensurePion(){
 // CONTROLS: drag orbit + wheel/pinch zoom
 // ══════════════════════════════════════════════════════════════
 let dragging=false, lastX=0,lastY=0;
-canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
+// Touch fires BOTH raw touch events (used below for pinch) and pointer
+// events (used here for orbit-drag) for the same fingers. Without this
+// guard, a two-finger pinch also drives orbit-drag off whichever finger's
+// pointermove happens to land last each frame, fighting the pinch and
+// making the view jump around while you're zooming.
+let activeTouches=0;
+canvas.addEventListener('pointerdown',e=>{
+  if(activeTouches>=2) return;
+  dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);
+});
 canvas.addEventListener('pointerup',()=>dragging=false);
 canvas.addEventListener('pointercancel',()=>dragging=false);
 canvas.addEventListener('pointermove',e=>{
-  if(!dragging) return;
+  if(!dragging || activeTouches>=2) return;
   const dx=e.clientX-lastX, dy=e.clientY-lastY;
   lastX=e.clientX; lastY=e.clientY;
   camTheta -= dx*0.006;
@@ -778,7 +1039,9 @@ canvas.addEventListener('wheel',e=>{
 // pinch
 let pinchStart=null;
 canvas.addEventListener('touchstart',e=>{
-  if(e.touches.length===2){
+  activeTouches=e.touches.length;
+  if(activeTouches>=2){
+    dragging=false; // hand off fully to pinch; stop orbit-drag fighting it
     pinchStart=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
   }
 },{passive:true});
@@ -790,6 +1053,10 @@ canvas.addEventListener('touchmove',e=>{
     pinchStart=d;
     syncZoomUI();
   }
+},{passive:true});
+canvas.addEventListener('touchend',e=>{
+  activeTouches=e.touches.length;
+  if(activeTouches<2) pinchStart=null;
 },{passive:true});
 
 const zsl=document.getElementById('zsl');
@@ -952,32 +1219,32 @@ function animate(){
   const dt=Math.min((now-lastT)/1000,0.05);
   lastT=now; clock+=dt;
 
-  const dist=camDistForZoom(zoom);
   const mode=currentMode();
+  const dist=camDistForZoom(zoom);
 
-  const provisionalCamPos=new THREE.Vector3(
+  // View-direction unit vector — computed from orbit angles only, independent
+  // of camTarget, so it can be used to keep the camera's actual distance
+  // from the ORIGIN monotonic (see camRadius calc below).
+  const dirVec=new THREE.Vector3(
     Math.sin(camPhi)*Math.cos(camTheta),
     Math.cos(camPhi),
     Math.sin(camPhi)*Math.sin(camTheta)
-  ).multiplyScalar(dist).add(camTarget);
+  );
 
-  // jiggle macro nucleons; their spheres hide once we're at quark scale,
-  // since the quark/gluon layer (built for every nucleon) takes over
-  const m=new THREE.Matrix4();
-  const q=new THREE.Quaternion();
-  const s=new THREE.Vector3(1,1,1);
-  const macroScale = mode==='QUARK' ? 0.0001 : 1;
+  const provisionalCamPos=dirVec.clone().multiplyScalar(dist).add(camTarget);
+
+  // jiggle macro nucleons; their fuzzy grain clouds hide once we're at
+  // quark scale, since the quark/gluon layer (built for every nucleon)
+  // takes over
   positions.forEach((p,i)=>{
     const j=jitter[i];
     const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
-    const wp=p.clone().add(off);
-    nucleonWorldPos[i]=wp;
-    const rec=window.__idxMap[i];
-    m.compose(wp,q,s.clone().multiplyScalar(macroScale));
-    rec.mesh.setMatrixAt(rec.idx,m);
+    nucleonWorldPos[i]=p.clone().add(off);
   });
-  protonMesh.instanceMatrix.needsUpdate=true;
-  neutronMesh.instanceMatrix.needsUpdate=true;
+  const showNucleonGrains = mode!=='QUARK';
+  protonCloud.visible=showNucleonGrains;
+  neutronCloud.visible=showNucleonGrains;
+  if(showNucleonGrains) updateNucleonGrains(nucleonWorldPos);
 
   // spotlight nucleon: nearest to camera — drives camera-follow + HUD/label only,
   // rendering itself now covers every nucleon regardless of this
@@ -1000,7 +1267,7 @@ function animate(){
   // zoom past nucleon scale into the quarks themselves
   const showBonds = !showQuarks && showPions;
   bondLineMesh.visible=showBonds;
-  pionInstMesh.visible=showBonds;
+  pionCloud.visible=showBonds;
   if(showBonds) updateBondWeb(nucleonWorldPos,dist);
 
   // camera target: origin -> spotlight nucleon as we zoom past BAND1
@@ -1010,11 +1277,20 @@ function animate(){
   camTarget.lerp(targetPos, Math.min(1,tblend*0.25+ (mode==='QUARK'?0.4:0)));
   if(mode==='MACRO') camTarget.lerp(new THREE.Vector3(0,0,0), 0.15);
 
-  camera.position.set(
-    camTarget.x + Math.sin(camPhi)*Math.cos(camTheta)*dist,
-    camTarget.y + Math.cos(camPhi)*dist,
-    camTarget.z + Math.sin(camPhi)*Math.sin(camTheta)*dist
-  );
+  // camRadius is the distance from camTarget out to the camera. Using
+  // camDistForZoom(zoom) directly here was the bug: as zoom increases past
+  // BAND1, camTarget itself drifts outward from the origin toward the hero
+  // nucleon (which sits near the nucleus surface — a large displacement).
+  // dist only shrinks a little over that same range, so the camera's actual
+  // position (camTarget + dirVec*dist) moved FARTHER from the nucleus before
+  // coming back in — a real, visible zoom-out baked into a "zoom in" drag.
+  // Fix: subtract camTarget's own displacement along the view direction from
+  // the radius, so the camera's distance from the world origin — not just
+  // from the ever-shifting pivot — tracks camDistForZoom(zoom) monotonically.
+  const camProj=camTarget.dot(dirVec);
+  const camRadius=THREE.MathUtils.clamp(dist-camProj, nr*0.05, dist);
+
+  camera.position.copy(camTarget).addScaledVector(dirVec, camRadius);
   camera.lookAt(camTarget);
   camera.near = Math.max(0.001, dist*0.01);
   camera.far = Rnuc*20+50;
@@ -1037,7 +1313,10 @@ function animate(){
     const p1=a.clone().lerp(mid,t), p2=mid.clone().lerp(b,t);
     const pos=p1.lerp(p2,t);
     pionMesh.position.copy(pos);
-    pionMesh.material.opacity = 0.55+0.35*Math.sin(clock*6);
+    // per-object pulse (safe: scale is Object3D state, not shared-material
+    // state — pionGrainMat itself is reused by the whole binding web too)
+    const pulse=0.85+0.25*Math.sin(clock*6);
+    pionMesh.scale.setScalar(pulse);
     const sc=project(pos);
     pionLabel.style.left=sc.x+'px'; pionLabel.style.top=(sc.y-18)+'px';
     pionLabel.style.opacity = sc.visible?1:0;
