@@ -358,7 +358,15 @@ canvas { position:fixed; inset:0; z-index:0; }
 
 /* ── Search box ── */
 .search-wrap {
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(255,255,255,.82);
+  backdrop-filter: blur(var(--blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(160%);
+  padding: 8px 0 6px;
+  margin: -8px 0 0;
+  border-bottom: 1px solid rgba(var(--cyan-rgb),.12);
 }
 .search-wrap svg {
   position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
@@ -673,6 +681,34 @@ canvas { position:fixed; inset:0; z-index:0; }
   box-shadow: 0 0 16px rgba(255,46,196,.35), 0 0 32px rgba(199,36,255,.2);
 }
 
+#sphericalbtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(16,185,129,.07);
+  border: 1px solid rgba(16,185,129,.22);
+  color: var(--mid);
+  font-family: var(--body);
+  font-weight: 600;
+  letter-spacing: .04em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#sphericalbtn:hover { background:rgba(16,185,129,.14); color:var(--hi); border-color:rgba(16,185,129,.55); }
+#sphericalbtn.active {
+  background: rgba(16,185,129,.18);
+  border-color: #10b981;
+  color: #0a8f63;
+  box-shadow: 0 0 16px rgba(16,185,129,.35), 0 0 32px rgba(16,185,129,.2);
+}
+
 /* ════════════════════════════════
    BOTTOM BAR
 ════════════════════════════════ */
@@ -848,6 +884,15 @@ input[type=range]::-moz-range-thumb {
     padding: 10px 14px 28px;
   }
 
+  /* Match the sticky search bar's backing to the mobile sheet's own
+     near-opaque background (see #left/#right above) so grid rows
+     scrolling underneath it stay fully hidden. */
+  .search-wrap {
+    background: rgba(255,255,255,.95);
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
+  }
+
   /* 5 columns on mobile */
   .egrid { grid-template-columns: repeat(5, 1fr); gap: 5px; }
   .ebtn {
@@ -986,7 +1031,7 @@ input[type=range]::-moz-range-thumb {
 #esym-badge,
 #el-search,
 .panel-close,
-#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn, #antibtn,
+#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn, #antibtn, #sphericalbtn,
 .rbtn,
 .theme-toggle-btn {
   backdrop-filter: blur(14px) saturate(160%);
@@ -1186,6 +1231,10 @@ input[type=range]::-moz-range-thumb {
       <button id="ultrabtn">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="currentColor" stroke="none"><path d="M9 1.2C6.8 4.3 4.5 7.1 4.5 10.3a4.5 4.5 0 0 0 9 0c0-1.9-.8-3.4-1.8-4.7.2 1.7-.6 3.1-2.1 3.1-1.7 0-2.4-1.7-1.4-3.3.5-.8 1-1.7.8-4.2z"/></svg></span>
         <span>ULTRA MODE</span>
+      </button>
+      <button id="sphericalbtn" title="Show p/d/f orbitals as simplified sphere-halves instead of true lobe shapes">
+        <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5.6" r="4.2"/><circle cx="9" cy="12.4" r="4.2"/></svg></span>
+        <span>SPHERICAL MODE</span>
       </button>
       <button id="excitedbtn">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="currentColor" stroke="none"><path d="M9.8 1L3.6 10.4h3.7L6.4 17l7.9-9.9H10.7L11.6 1z"/></svg></span>
@@ -2334,7 +2383,118 @@ function sampleS(R){
   return{x:r*Math.sin(phi)*Math.cos(th),y:r*Math.sin(phi)*Math.sin(th),z:r*Math.cos(phi),a};
 }
 
+// ══════════════════════════════════════════════
+// SPHERICAL MODE — schematic rounded-blob lobes
+// A simplified, teaching-friendly stand-in for p/d/f lobes. Each lobe is
+// two pieces joined at the equator with matched position, slope, AND
+// curvature (so there is no seam a viewer could ever spot):
+//   • Outer half (facing away from the nucleus): an untouched hemisphere
+//     of a sphere, radius sphereR — this is the "outer side" bulge that
+//     already looked right and was never changed.
+//   • Inner half (facing the nucleus): NOT more of that sphere. A plain
+//     sphere's own curvature flares from 0 to ~15% width in the first
+//     1% of its length — fast enough that it reads as "a round ball that
+//     happens to touch a point," not a gradual taper. Instead this half
+//     is a quintic-Hermite curve, solved so it starts at the exact same
+//     radius/slope/curvature the sphere has at the equator (guaranteeing
+//     the surfaces meet with zero visible kink) but is free to stretch
+//     out over a longer axial distance before reaching zero at the inner
+//     shell — a soft, unhurried neck that visibly narrows over its whole
+//     length rather than pinching shut right at the tip.
+// A p orbital reads as "a dumbbell of two soft round lobes with long
+// tapering necks that merge into the shell at the center"; d/f lobes use
+// the same shape at each of their real lobe directions. Not a more
+// physically accurate shape — a stylized alternate look, toggleable
+// independently of Real Image / Smooth / Ultra modes so it can combine
+// with any of them.
+let sphericalMode = false;
+
+// How much longer the inner neck is than the outer sphere's own radius.
+// 1.0 would make the neck as short as the sphere's natural polar taper
+// (the "balloon on a string" look); higher values stretch it into a
+// longer, more gradual narrowing. Tunable in one place.
+const HEMI_NECK_ELONGATION = 1.6;
+// Outer bulge radius, as a fraction of the available (R-innerR) span.
+// Single source of truth for both the point-cloud sampler and the mesh
+// builder below — previously duplicated as a literal in each, which is
+// exactly the kind of thing that silently drifts out of sync on a future
+// edit. Smaller values pull the whole lobe (bulge + neck) in closer to
+// the nucleus; larger values push it farther out.
+const HEMI_SPHERE_SCALE = 0.42;
+
+// Radius of the lobe's silhouette at axial distance x from the point
+// where it touches the inner shell (x=0) out to the far tip
+// (x = sphereR + neckLen). Single source of truth shared by the
+// point-cloud sampler and the solid-mesh builder, so the two rendering
+// paths can never visually diverge.
+function hemiLobeRadiusAt(x, sphereR, neckLen){
+  if(x >= neckLen){
+    // Outer region: literally an untouched sphere — same formula, same
+    // radius, as the original "outer side" bulge.
+    const d = Math.min(sphereR, x - neckLen);
+    return sphereR * Math.sqrt(Math.max(0, 1 - (d/sphereR)*(d/sphereR)));
+  }
+  // Inner region: quintic Hermite curve on u=x/neckLen ∈ [0,1], solved so
+  //   p(0)=0, p'(0)=0, p''(0)=0            — soft, non-cusp touch point
+  //   p(1)=sphereR, p'(1)=0, p''(1) matches the sphere's own curvature
+  //                                          at the equator exactly
+  // guaranteeing C2 continuity at the seam (x=neckLen) for any neckLen.
+  const u = Math.max(0, Math.min(1, x / neckLen));
+  const m = neckLen / sphereR;
+  const c3 = sphereR * (10 - m*m/2);
+  const c4 = sphereR * (m*m - 15);
+  const c5 = sphereR * (6 - m*m/2);
+  const u3 = u*u*u;
+  return c3*u3 + c4*u3*u + c5*u3*u*u;
+}
+
+// Generic dome-shell sampler: point lies in a thin fuzzy shell hugging
+// the hemiLobeRadiusAt profile above, oriented along an arbitrary unit
+// direction (ux,uy,uz). Shared by p (axis-aligned) and d/f
+// (arbitrary-direction) lobes.
+function sampleHemisphereDir(R, ux, uy, uz, innerR){
+  const sphereR = Math.max((R - innerR) * HEMI_SPHERE_SCALE, R * 0.10);
+  const neckLen = sphereR * HEMI_NECK_ELONGATION;
+
+  // Pick an axial position along the whole lobe, weighted so each region
+  // gets point density roughly proportional to its own length (keeps the
+  // cloud looking evenly dense along the taper instead of bunching up).
+  const totalLen = sphereR + neckLen;
+  const x = Math.random() < (sphereR/totalLen)
+    ? neckLen + Math.random()*sphereR   // outer sphere region
+    : Math.random()*neckLen;            // inner neck region
+  const rBase = hemiLobeRadiusAt(x, sphereR, neckLen);
+
+  const th = Math.random() * 2 * Math.PI;
+  // Fuzzy shell thickness around the profile curve — same jitter style as
+  // the rest of the app's point clouds.
+  const jitterScale = sphereR * 0.14;
+  const jitter = (Math.random()+Math.random()+Math.random()+Math.random()-2)*0.5*jitterScale;
+  const rad = Math.max(0, rBase + jitter);
+  const a = Math.exp(-Math.pow(jitter/jitterScale, 2));
+
+  const axial = innerR + x;
+  // Orthonormal basis around (ux,uy,uz)
+  const bx = Math.abs(ux) < 0.8 ? 1 : 0, by = Math.abs(ux) >= 0.8 ? 1 : 0, bz = 0;
+  let px = uy*bz - uz*by, py = uz*bx - ux*bz, pz = ux*by - uy*bx;
+  const pl = Math.sqrt(px*px+py*py+pz*pz) + 1e-9;
+  px/=pl; py/=pl; pz/=pl;
+  const qx = uy*pz - uz*py, qy = uz*px - ux*pz, qz = ux*py - uy*px;
+  return {
+    x: ux*axial + px*rad*Math.cos(th) + qx*rad*Math.sin(th),
+    y: uy*axial + py*rad*Math.cos(th) + qy*rad*Math.sin(th),
+    z: uz*axial + pz*rad*Math.cos(th) + qz*rad*Math.sin(th),
+    a
+  };
+}
+function sampleHemisphereAxis(R, axis, innerR){
+  const sign = Math.random() < 0.5 ? 1 : -1;
+  const ux = axis===0?sign:0, uy = axis===1?sign:0, uz = axis===2?sign:0;
+  return sampleHemisphereDir(R, ux, uy, uz, innerR);
+}
+
 function sampleP_lobe(R, axis, innerR){
+  if(sphericalMode) return sampleHemisphereAxis(R, axis, innerR);
   // innerR = radius of the enclosing s-shell; lobes start there, not at nucleus
   const lobeLen = R - innerR;
   const sign = Math.random() < 0.5 ? 1 : -1;
@@ -2361,14 +2521,14 @@ function sampleDSub(R,sub){
 
   // Core helper: sample a teardrop lobe along an axis direction (ax,ay,az)
   function lobe(ax,ay,az){
+    const len=Math.sqrt(ax*ax+ay*ay+az*az);
+    const ux=ax/len,uy=ay/len,uz=az/len;
+    if(sphericalMode) return sampleHemisphereDir(R, ux, uy, uz, R*0.30);
     const t=Math.random();
     const axl=R*(0.35+t*0.9);
     const maxRad=R*0.38*Math.sin(t*Math.PI*0.9);
     const rad=maxRad*Math.sqrt(Math.random());
     const ph=Math.random()*2*Math.PI;
-    // Build orthonormal basis around the lobe axis
-    const len=Math.sqrt(ax*ax+ay*ay+az*az);
-    const ux=ax/len,uy=ay/len,uz=az/len;
     // Pick a perpendicular vector
     const bx=Math.abs(ux)<0.8?1:0, by=Math.abs(ux)>=0.8?1:0, bz=0;
     // Cross product ux ^ b
@@ -2470,6 +2630,11 @@ function fAngularMax(sub){
 // |angular|² probability density, then places the point along that
 // direction with a radial taper matching the p/d lobe style.
 function sampleFSub(R,sub){
+  if(sphericalMode){
+    const dirs=fPeakDirections(sub);
+    const d=dirs[Math.floor(Math.random()*dirs.length)];
+    return sampleHemisphereDir(R, d[0], d[1], d[2], R*0.22);
+  }
   const maxV=fAngularMax(sub);
   let x,y,z,val,tries=0;
   do{
@@ -2606,10 +2771,56 @@ function makeLobeMesh(R, axisVec, mat, innerR){
   return mesh;
 }
 
+// Spherical-mode variant of makeLobeMesh: a genuine, uncapped sphere
+// instead of a tapered teardrop, offset along the lobe axis so its near
+// pole sits exactly at the inner shell radius (touching it) and its far
+// pole is the outward tip — visually "a dumbbell of two soft round
+// lobes". Since it's an ordinary, unmodified THREE.SphereGeometry, both
+// poles are natural points with continuous curvature by construction —
+// no custom taper math, no edge-fade shader, no seam to go wrong. Reuses
+// the same plain bubbleMat shader as makeLobeMesh. Same call signature so
+// the two are drop-in swappable.
+function makeHemisphereLobeMesh(R, axisVec, mat, innerR){
+  const sphereR = Math.max((R - innerR) * HEMI_SPHERE_SCALE, R * 0.10);
+  const neckLen = sphereR * HEMI_NECK_ELONGATION;
+
+  // Lathe the exact same silhouette hemiLobeRadiusAt describes for the
+  // point-cloud sampler — one shared curve, so the mesh and particle
+  // renderers can never visually diverge. Points run from the touch
+  // point (x=0, at innerR) out to the far tip (x=sphereR+neckLen);
+  // matches makeLobeMesh's own (radius, y) convention.
+  const segs = 64;
+  const totalLen = sphereR + neckLen;
+  const profile = [];
+  for(let i = 0; i <= segs; i++){
+    const x = (i/segs) * totalLen;
+    const rr = hemiLobeRadiusAt(x, sphereR, neckLen);
+    profile.push(new THREE.Vector2(Math.max(0, rr), innerR + x));
+  }
+  const geo  = new THREE.LatheGeometry(profile, 48);
+  const mesh = new THREE.Mesh(geo, mat);
+
+  const from   = new THREE.Vector3(0, 1, 0);
+  const target = new THREE.Vector3(axisVec[0], axisVec[1], axisVec[2]).normalize();
+  const dot    = from.dot(target);
+
+  if(dot > 0.9999){
+  } else if(dot < -0.9999){
+    mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
+  } else {
+    const axis = new THREE.Vector3().crossVectors(from, target).normalize();
+    mesh.quaternion.setFromAxisAngle(axis, Math.acos(dot));
+  }
+
+  mesh.position.set(0, 0, 0);
+  return mesh;
+}
+
 let ultraMeshes = [];
 
 function buildUltraCloud(orb){
   const grp = new THREE.Group();
+  const lobeMeshFn = sphericalMode ? makeHemisphereLobeMesh : makeLobeMesh;
   let [cr, cg, cb] = realMode ? realColor(orb.R) : orb.rgb;
   const GOLD=[1.0,0.72,0.05];
   const isSubExcited = i => !!(orb.occ && orb.occ[i] && orb.occ[i].excited);
@@ -2684,8 +2895,8 @@ function buildUltraCloud(orb){
       const tint = s.excited ? goldBlend(AX_TINTS[ax]) : AX_TINTS[ax];
       const mat = bubbleMat(tint, alpha * (s.excited?1.0:0.88), rimPow);
       const [dx,dy,dz] = axes[ax];
-      grp.add(makeLobeMesh(orb.R, [ dx,  dy,  dz], mat, innerR));
-      grp.add(makeLobeMesh(orb.R, [-dx, -dy, -dz], mat, innerR));
+      grp.add(lobeMeshFn(orb.R, [ dx,  dy,  dz], mat, innerR));
+      grp.add(lobeMeshFn(orb.R, [-dx, -dy, -dz], mat, innerR));
     });
 
   } else if(orb.l === 2){
@@ -2726,7 +2937,7 @@ function buildUltraCloud(orb){
       for(const dir of shape.dirs){
         const len = Math.sqrt(dir[0]*dir[0]+dir[1]*dir[1]+dir[2]*dir[2]);
         const nd  = [dir[0]/len, dir[1]/len, dir[2]/len];
-        grp.add(makeLobeMesh(orb.R, nd, mat, dInnerR));
+        grp.add(lobeMeshFn(orb.R, nd, mat, dInnerR));
       }
       // dz² torus ring in the XZ plane
       if(shape.torus){
@@ -2754,7 +2965,7 @@ function buildUltraCloud(orb){
       const tint = s.excited ? goldBlend(F_SUB_TINTS[sub]) : F_SUB_TINTS[sub];
       const mat = bubbleMat(tint, alpha * (s.excited?0.9:0.80), rimPow + 0.35);
       for(const dir of fPeakDirections(sub)){
-        grp.add(makeLobeMesh(orb.R, dir, mat, fInnerR));
+        grp.add(lobeMeshFn(orb.R, dir, mat, fInnerR));
       }
     });
   }
@@ -4053,6 +4264,14 @@ ultrabtn.onclick=()=>{
   ultrabtn.classList.toggle('active',ultraMode);
   renderer.setClearColor(getClearColor());
   showToast(ultraMode?'ULTRA MODE ON':'ULTRA MODE OFF');
+  rebuildScene();
+};
+
+const sphericalbtn=document.getElementById('sphericalbtn');
+sphericalbtn.onclick=()=>{
+  sphericalMode=!sphericalMode;
+  sphericalbtn.classList.toggle('active',sphericalMode);
+  showToast(sphericalMode?'SPHERICAL MODE ON':'SPHERICAL MODE OFF');
   rebuildScene();
 };
 
