@@ -1577,6 +1577,16 @@ const CLO2_HALF_ANGLE = 59.0 * Math.PI/180; // half of ClO2's ~118.0° bond angl
 // shared by every AX3 molecule with no lone pairs on the hub (BF3, BCl3, SO3, AlCl3).
 const TRIG3_A = Math.cos(120*Math.PI/180); // -0.5
 const TRIG3_B = Math.sin(120*Math.PI/180); // ≈0.8660
+// Regular-hexagon step angle (60°) — used to CHAIN a ring's C-C bond
+// directions (see the ring-topology note on resolveMoleculeAtoms above) and
+// to place each ring carbon's outward substituent. A hexagon walked with a
+// constant 60° turn at every vertex closes exactly regardless of individual
+// edge length, which is what lets benzene's alternating Kekulé single/double
+// bond lengths still form a clean ring: three unit vectors 120° apart always
+// sum to zero, and a hexagon's bonds split into exactly two such interleaved
+// triples (all single, all double), so each triple's contribution cancels
+// independently and the walk returns to its start after 6 steps.
+const HEX_A = Math.PI/3;
 // See-saw (AX4E, e.g. SF4): a trigonal-bipyramidal parent with one equatorial
 // lone pair. That lone pair pushes the remaining two equatorial atoms together
 // (ideal 120° → experimental ~101.5°) and bends the two axial atoms slightly
@@ -1968,6 +1978,54 @@ const MOLECULES=[
       {Z:9,sym:'F',dir:[0,1,0]}, {Z:9,sym:'F',dir:[0,-1,0]},
     ],
     bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single — the two lone pairs sit axial, above/below the F4 plane
+
+  // ── Aromatic (6-membered delocalized ring) ──
+  // A ring has no single hub atom, so it's authored as a CHAIN instead of a
+  // star (see the ring-topology note on resolveMoleculeAtoms): each carbon
+  // anchors to the PREVIOUS carbon, walking all the way around. Every C-C
+  // bond direction advances by exactly HEX_A (60°) from the last, which is
+  // what closes the chain into a perfect hexagon after 6 steps (see the
+  // HEX_A comment above). The 6th bond (C5-C0) is the ring closure: both
+  // its atoms are already positioned by the time it's declared, so it
+  // contributes bond order/rendering (the Kekulé pattern below) without
+  // affecting positions. Each carbon's outward C-H bond sits at the third
+  // trigonal-planar direction (120° from each of its two ring bonds),
+  // exactly the same "3 bonds, no lone pair" geometry already used for
+  // BF3/SO3's hub — just centered on a ring atom instead of a hub atom.
+  //
+  // Real benzene's 6 C-C bonds are chemically identical (delocalized, bond
+  // order ≈1.5, uniform ~139pm length), but this schema only stores integer
+  // bond orders (see the PERIOD-2-CENTER RULE note above). Unlike NO2/O3's
+  // non-canonical rounding, benzene's fix is exact: alternate single/double
+  // around the ring, i.e. render one of its two equivalent real Kekulé
+  // resonance structures. Every carbon ends up with bond-order sum 4 (1 C-H
+  // + 1 C=C + 1 C-C), matching real valence.
+  { key:'c6h6', formula:'C₆H₆', name:'Benzene', geometry:'Hexagonal Planar (Aromatic)',
+    // The 6 sp² ring carbons (indices into `atoms` below). Each keeps one
+    // unhybridized 2pz electron perpendicular to the ring plane; in the
+    // real molecule these don't stay localized on one atom — they merge
+    // into a single delocalized π cloud above AND below the ring (see
+    // buildAromaticPiCloud). Any future ring/aromatic molecule can reuse
+    // this same field.
+    aromaticRing:{atoms:[0,1,2,3,4,5]},
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]},                                         // C0 — origin
+      {Z:6,sym:'C',dir:[Math.cos(0*HEX_A),Math.sin(0*HEX_A),0]},         // C1, off C0
+      {Z:6,sym:'C',dir:[Math.cos(1*HEX_A),Math.sin(1*HEX_A),0]},         // C2, off C1
+      {Z:6,sym:'C',dir:[Math.cos(2*HEX_A),Math.sin(2*HEX_A),0]},         // C3, off C2
+      {Z:6,sym:'C',dir:[Math.cos(3*HEX_A),Math.sin(3*HEX_A),0]},         // C4, off C3
+      {Z:6,sym:'C',dir:[Math.cos(4*HEX_A),Math.sin(4*HEX_A),0]},         // C5, off C4
+      {Z:1,sym:'H',dir:[Math.cos(4*HEX_A),Math.sin(4*HEX_A),0]},         // H0, off C0
+      {Z:1,sym:'H',dir:[Math.cos(5*HEX_A),Math.sin(5*HEX_A),0]},         // H1, off C1
+      {Z:1,sym:'H',dir:[Math.cos(6*HEX_A),Math.sin(6*HEX_A),0]},         // H2, off C2
+      {Z:1,sym:'H',dir:[Math.cos(7*HEX_A),Math.sin(7*HEX_A),0]},         // H3, off C3
+      {Z:1,sym:'H',dir:[Math.cos(8*HEX_A),Math.sin(8*HEX_A),0]},         // H4, off C4
+      {Z:1,sym:'H',dir:[Math.cos(9*HEX_A),Math.sin(9*HEX_A),0]},         // H5, off C5
+    ],
+    bonds:[
+      [0,1,2],[1,2,1],[2,3,2],[3,4,1],[4,5,2],[5,0,1], // ring: alternating Kekulé C=C/C-C, closed by [5,0]
+      [0,6,1],[1,7,1],[2,8,1],[3,9,1],[4,10,1],[5,11,1], // all six C-H, single
+    ] },
 ];
 
 // Compact aufbau-exception table: [orbitalName, electronCount] pairs only.
@@ -2224,6 +2282,12 @@ scene.add(gridGroup);
 const pivot=new THREE.Group();
 scene.add(pivot);
 let atomGrp=null;
+// The aromatic π-cloud (benzene's delocalized ring) gets its own slow,
+// continuous spin independent of the mouse-drag pivot — see PI_SPIN_SPEED
+// in the render loop. Tracked separately from atomGrp's other children
+// since it's the only piece that animates on its own.
+let aromaticRingGroup=null;
+const PI_SPIN_SPEED=0.45; // rad/s, slow enough to read as circulation, not a blur
 
 // NUCLEUS — packed protons (red) + neutrons (blue)
 function makeNucleus(Z, N){
@@ -3219,6 +3283,7 @@ function buildAtom(Z){
     });
     atomGrp=null;
   }
+  aromaticRingGroup=null; // single atoms never have a ring
   atomGrp=new THREE.Group();
   pivot.add(atomGrp);
   const elData = ELS.find(e=>e.Z===Z);
@@ -3333,19 +3398,57 @@ function bondLength(Za,Zb,order){
   return base*orderMult;
 }
 
-// Turns a molecule's { hub, dir vectors } geometry recipe into real world
-// positions, computed fresh at build time (after getConfig is available)
-// so bond lengths always match the atoms actually being rendered.
+// Turns a molecule's { atoms, bonds, dir vectors } geometry recipe into real
+// world positions, computed fresh at build time (after getConfig is
+// available) so bond lengths always match the atoms actually being
+// rendered.
+//
+// Originally this assumed a pure hub-and-spoke star: atom 0 was the only
+// reference point, and every other atom's position was `dir*L` measured
+// straight from it. That's exactly right for every AXn molecule in this
+// file (H2O, NH3, SF6, ...) but it can't represent a RING — benzene, and
+// aromatic molecules generally — because a ring has no single atom that
+// every other atom bonds to.
+//
+// The general fix: instead of hard-coding "measure from atom 0", each atom
+// is resolved relative to whichever OTHER atom it shares a bond with that
+// has ALREADY been resolved (found by walking mol.bonds). Atom 0 is still
+// the fixed origin, so every existing star-shaped molecule resolves through
+// the exact same math as before — each of its peripheral atoms has exactly
+// one bond, and it's always to atom 0. A ring just chains that same math
+// around its atoms instead of radiating it from one hub: atom 1 anchors off
+// atom 0, atom 2 off atom 1, and so on. A ring-CLOSING bond back to an
+// earlier atom (e.g. benzene's 6th C-C bond) needs no special handling
+// here — both its endpoints are already resolved by the time it's found,
+// so it's simply skipped for POSITIONING. It's still used for bond
+// ORDER/rendering everywhere else (buildBondDescriptors, buildRawBondDirs,
+// the bond-order guide lines below), and — by construction, since equal
+// per-vertex bond angles make the walk return to its start — the ring
+// closes exactly.
+//
+// Authoring requirement: list each non-origin atom AFTER the atom it
+// anchors to (its bonds entry must reference an earlier index). Every
+// hub-and-spoke molecule already in this file satisfies this trivially,
+// and so does every ring molecule added alongside this change.
 function resolveMoleculeAtoms(mol){
-  const hub=mol.atoms[0];
-  return mol.atoms.map((a,idx)=>{
-    if(a===hub) return {Z:a.Z, sym:a.sym, pos:[0,0,0]};
-    const bond=(mol.bonds||[]).find(b=>(b[0]===0&&b[1]===idx)||(b[1]===0&&b[0]===idx));
-    const order=bond?(bond[2]||1):1;
-    const L=bondLength(hub.Z, a.Z, order);
-    return {Z:a.Z, sym:a.sym, pos:[a.dir[0]*L, a.dir[1]*L, a.dir[2]*L]};
-  });
+  const positions=new Array(mol.atoms.length);
+  positions[0]=[0,0,0];
+  for(let idx=1; idx<mol.atoms.length; idx++){
+    const a=mol.atoms[idx];
+    const bond=(mol.bonds||[]).find(b=>
+      (b[0]===idx && positions[b[1]]) || (b[1]===idx && positions[b[0]])
+    );
+    // Fallback (shouldn't trigger for well-formed data): anchor straight to
+    // the origin atom, preserving the old hub-and-spoke behavior exactly.
+    const anchorIdx = bond ? (bond[0]===idx ? bond[1] : bond[0]) : 0;
+    const order = bond ? (bond[2]||1) : 1;
+    const anchorPos = positions[anchorIdx];
+    const L=bondLength(mol.atoms[anchorIdx].Z, a.Z, order);
+    positions[idx]=[anchorPos[0]+a.dir[0]*L, anchorPos[1]+a.dir[1]*L, anchorPos[2]+a.dir[2]*L];
+  }
+  return mol.atoms.map((a,idx)=>({Z:a.Z, sym:a.sym, pos:positions[idx]}));
 }
+
 
 // ── Real orbital bending for bonds (replaces the old synthetic glow) ──
 // A bond here isn't a separate decoration placed between two atoms — it's
@@ -3766,6 +3869,154 @@ function buildHybridPMesh(orb, hybridInfo){
   return grp;
 }
 
+// ── Aromatic π-system (delocalized ring cloud) ──
+// Real sp² hybridization only remixes the valence ns orbital with TWO of
+// the three valence np orbitals — the two lying in the molecular plane —
+// into the 3 in-plane sp² lobes already built above. The THIRD p orbital,
+// perpendicular to the plane, is left untouched, one per ring atom, each
+// holding a single electron. In an aromatic ring these don't stay
+// localized: they merge into one continuous cloud that wraps all the way
+// around the ring, above AND below the molecular plane, with a node
+// exactly in that plane (same as any p orbital's own node at its
+// nucleus) — the textbook "two donuts" picture of aromaticity. Modeled
+// here as ONE shared cloud spanning every ring atom, not 6 independent
+// per-atom lobes, because that's what "delocalized" means.
+//
+// Shape: `ringRadius` is the ring's own circumradius, `tubeHalfWidth`
+// gives the donut some in-plane thickness, and `height` is how far the
+// cloud reaches perpendicular to the plane. The radial bulge
+// (tubeHalfWidth*sin) and belly-peaked alpha (exp(-(t-0.5)²·8)) are the
+// exact same profile sampleP_lobe/sampleHybridLobe already use for an
+// ordinary p lobe — thin at the node, fattest mid-lobe, tapering to a
+// point at the tip — just swept around a circle instead of a straight axis.
+// Samples one point in LOCAL ring-frame coordinates (x,z in-plane, y along
+// the ring normal) — no center/u/v baked in, so the whole cloud can be
+// spun later by just rotating its parent group (see applyRingFrame /
+// PI_SPIN_SPEED) instead of re-sampling every point every frame.
+function sampleAromaticPiLobeLocal(ringRadius, tubeHalfWidth, height, signDir, innerR){
+  const theta = Math.random()*2*Math.PI;
+  const t = Math.random();
+  // Same nodal gap sampleP_lobe already uses for an ordinary p orbital:
+  // the lobe starts at innerR (not the plane itself) so the upper/lower
+  // donuts don't touch — a real node, not a filled-in seam.
+  const axial = (innerR + t*(height-innerR))*signDir;
+  const bulge = tubeHalfWidth*Math.sin(t*Math.PI*0.85);
+  const rOut = bulge*(Math.random()*2-1);
+  const rho = ringRadius+rOut;
+  const a = Math.exp(-Math.pow(t-0.5,2)*8.0);
+  return { x: rho*Math.cos(theta), y: axial, z: rho*Math.sin(theta), a };
+}
+
+// Shared geometry every render mode below derives from: ring centroid,
+// plane normal (from any 3 ring atoms — a planar ring makes every triple
+// agree), an orthonormal in-plane basis (u,v) to place points around the
+// ring, and the ring's own circumradius.
+function aromaticRingFrame(ringPositions){
+  const center=new THREE.Vector3();
+  ringPositions.forEach(p=>center.add(p));
+  center.multiplyScalar(1/ringPositions.length);
+  const e1=new THREE.Vector3().subVectors(ringPositions[1],ringPositions[0]);
+  const e2=new THREE.Vector3().subVectors(ringPositions[2],ringPositions[0]);
+  const normal=new THREE.Vector3().crossVectors(e1,e2).normalize();
+  const u=e1.clone().normalize();
+  const v=new THREE.Vector3().crossVectors(normal,u).normalize();
+  const ringRadius=ringPositions.reduce((s,p)=>s+p.distanceTo(center),0)/ringPositions.length;
+  return {center,u,v,normal,ringRadius};
+}
+
+// Orients a wrapper group so its LOCAL Y axis points along the ring's real
+// normal (and local X/Z span the ring plane), then positions it at the
+// ring's centroid. Every point/mesh inside is built in that local frame,
+// so spinning the wrapper's own rotation.y afterward rotates the whole
+// π-cloud cleanly about the ring's true axis — not about some unrelated
+// point like atomGrp's origin.
+function applyRingFrame(obj,center,u,v,normal){
+  // Right-handed triple (u, normal, u×normal) rather than (u, normal, v) —
+  // aromaticRingFrame's v is defined as normal×u, which is the OTHER
+  // cyclic order and makes (u,normal,v) a mirror (det -1), not a pure
+  // rotation. Recomputing the third axis here keeps this a proper
+  // rotation, so rotation.y spins the cloud instead of also mirroring it.
+  const w=new THREE.Vector3().crossVectors(u,normal);
+  const m=new THREE.Matrix4().makeBasis(u,normal,w);
+  obj.quaternion.setFromRotationMatrix(m);
+  obj.position.copy(center);
+}
+
+function buildAromaticPiCloud(ringPositions, orb){
+  const wrap=new THREE.Group();
+  const{center,u,v,normal,ringRadius}=aromaticRingFrame(ringPositions);
+  applyRingFrame(wrap,center,u,v,normal);
+  const tubeHalfWidth=ringRadius*0.32;
+  const height=orb.R*0.95;
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const perLobe=Math.round(22000*computeRadiusBoost(orb.R));
+  [1,-1].forEach(signDir=>{
+    wrap.add(makePointCloud(perLobe, ()=>sampleAromaticPiLobeLocal(ringRadius,tubeHalfWidth,height,signDir,innerR), [r,g,b]));
+  });
+  return wrap;
+}
+
+// Smooth-mode twin of buildAromaticPiCloud — identical ring geometry,
+// rendered through the soft smooth shader instead of the grainy one.
+function buildAromaticPiCloudSmooth(ringPositions, orb){
+  const wrap=new THREE.Group();
+  const{center,u,v,normal,ringRadius}=aromaticRingFrame(ringPositions);
+  applyRingFrame(wrap,center,u,v,normal);
+  const tubeHalfWidth=ringRadius*0.32;
+  const height=orb.R*0.95;
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
+  const perLobe=Math.round(4500*computeRadiusBoost(orb.R));
+  [1,-1].forEach(signDir=>{
+    wrap.add(makeSmoothPointCloud(perLobe, ()=>sampleAromaticPiLobeLocal(ringRadius,tubeHalfWidth,height,signDir,innerR), [r,g,b]));
+  });
+  return wrap;
+}
+
+// Ultra-mode (solid mesh) twin. Same trick as makeLobeMesh — a profile
+// curve (radius-from-axis as a function of height) revolved 360° via
+// LatheGeometry — except the profile's radius is offset by ringRadius
+// before revolving, so the sweep traces out a ring instead of a point.
+// Built once per lobe (up/down), matching the "one shared delocalized
+// cloud" approach used above rather than one mesh per ring atom. Both
+// lobes are built directly in the wrapper's local frame (LatheGeometry
+// already revolves about local Y, which applyRingFrame has aligned to the
+// ring's real normal), so no per-mesh quaternion juggling is needed —
+// the down lobe is just the same profile with negative Y.
+function buildAromaticPiMesh(ringPositions, orb){
+  const wrap=new THREE.Group();
+  const{center,u,v,normal,ringRadius}=aromaticRingFrame(ringPositions);
+  applyRingFrame(wrap,center,u,v,normal);
+  const tubeHalfWidth=ringRadius*0.32;
+  const height=orb.R*0.95;
+  const innerR=pInnerRadius(orb.n,orb.R);
+  const[cr,cg,cb]=realMode?realColor(orb.R):orb.rgb;
+  const rimPow=1.2+orb.R*0.008;
+  const alpha=1.05*Math.pow(10/(orb.R+3),0.22);
+  const mat=bubbleMat([cr,cg,cb], alpha*0.85, rimPow+0.3);
+  const segs=96;
+  [1,-1].forEach(signDir=>{
+    const points=[];
+    // Start the profile at innerR, not the ring plane itself — otherwise
+    // the lathe-revolved mesh comes to a zero-thickness point exactly on
+    // the plane and the upper/lower lobes visually fuse with no node.
+    // signDir flips the whole profile to the other side of the plane —
+    // the wrapper's local Y (=the ring's real normal) already points the
+    // "up" lobe correctly, so no extra per-mesh rotation is needed here.
+    for(let i=0;i<=segs;i++){
+      const t=i/segs;
+      const h=(innerR+t*(height-innerR))*signDir;
+      const rr=tubeHalfWidth*Math.sin(Math.PI*t);
+      points.push(new THREE.Vector2(Math.max(0.001,ringRadius+rr), h));
+    }
+    const geo=new THREE.LatheGeometry(points,128);
+    const mesh=new THREE.Mesh(geo,mat);
+    wrap.add(mesh);
+  });
+  return wrap;
+}
+
 // Collects, per atom, EVERY bond direction regardless of axis alignment
 // (unlike buildBondDescriptors, which drops anything that isn't
 // cartesian-aligned). This is how buildMolecule decides an atom needs
@@ -3782,6 +4033,22 @@ function buildRawBondDirs(mol,atoms){
     byAtom[j].push({dir:{x:-dx/L,y:-dy/L,z:-dz/L}, L, otherZ:atoms[i].Z});
   });
   return byAtom;
+}
+
+// True sp² / trigonal-planar hub detection: exactly 3 bonds, coplanar and
+// mutually canceling (each ~120° from the other two), with NO lone pair —
+// the same zero-sum test completeTetrahedronDirs already uses below to
+// tell BF3/SO3/AlCl3's genuine trigonal-planar hub apart from NH3's
+// tetrahedral-with-a-lone-pair hub. Reused here to also suppress that
+// hub's own valence-shell s orbital: real sp² hybridization mixes ns into
+// the 3 sp² lobes, so there's no leftover pure ns sphere left to render
+// once a hub takes this path — true for BF3's B(2s), SO3's S(3s),
+// AlCl3's Al(3s), and every sp² ring carbon in an aromatic molecule (2s)
+// alike.
+function isSp2PlanarHub(rawBonds){
+  if(!rawBonds || rawBonds.length!==3) return false;
+  const sum=rawBonds.reduce((a,b)=>({x:a.x+b.dir.x,y:a.y+b.dir.y,z:a.z+b.dir.z}),{x:0,y:0,z:0});
+  return Math.hypot(sum.x,sum.y,sum.z) < 0.15;
 }
 
 // MOLECULE — builds one full, real electron cloud per atom (same buildCloud/
@@ -3802,6 +4069,7 @@ function buildMolecule(key){
     });
     atomGrp=null;
   }
+  aromaticRingGroup=null; // cleared here; re-set below only if this molecule has a ring
   atomGrp=new THREE.Group();
   pivot.add(atomGrp);
 
@@ -3822,8 +4090,17 @@ function buildMolecule(key){
     // tetrahedral-ish angles like H2O/NH3/CH4) — linear/planar molecules
     // have every bond axis-aligned already and never hit this path.
     const needsHybrid = rawBonds && rawBonds.length>0 && rawBonds.some(b=>!nearestAxis(b.dir));
+    // True sp² hubs (3 bonds, no lone pair, coplanar and mutually
+    // canceling — BF3/SO3/AlCl3's hub, and every ring carbon in an
+    // aromatic molecule) mix their OWN valence-shell s orbital into the 3
+    // in-plane hybrid lobes below. There's no leftover pure ns sphere to
+    // draw once that mixing happens for real, so it's skipped in the loop
+    // below instead of rendered as an independent shell.
+    const isSp2Hub = isSp2PlanarHub(rawBonds);
     let atomMaxR=0;
     cfg.forEach(orb=>{
+      // Absorbed into the sp² hybrid lobes — see isSp2Hub above.
+      if(isSp2Hub && orb.l===0 && orb.n===valenceOrbObj.n) return;
       const isValenceP = orb===valenceOrbObj && orb.l===1;
       // Bending/hybridizing applies in every render mode now — Ultra and
       // Smooth each have their own mesh/point builder below (see
@@ -3864,6 +4141,23 @@ function buildMolecule(key){
     label.position.set(atom.pos[0]+dir[0]*2.4, atom.pos[1]+dir[1]*2.4, atom.pos[2]+dir[2]*2.4);
     atomGrp.add(label);
   });
+
+  // Aromatic π-system — one shared, delocalized cloud spanning the whole
+  // ring (see buildAromaticPiCloud above), built once here rather than as
+  // part of any single atom's per-atom loop above.
+  if(mol.aromaticRing){
+    const ringPositions=mol.aromaticRing.atoms.map(i=>{
+      const p=atoms[i].pos;
+      return new THREE.Vector3(p[0],p[1],p[2]);
+    });
+    const ringZ=atoms[mol.aromaticRing.atoms[0]].Z;
+    const ringOrb=getConfig(ringZ).slice(-1)[0]; // ring atom's valence p orbital (carbon's 2p for benzene)
+    const piCloud = ultraMode ? buildAromaticPiMesh(ringPositions, ringOrb)
+                  : smoothMode ? buildAromaticPiCloudSmooth(ringPositions, ringOrb)
+                  : buildAromaticPiCloud(ringPositions, ringOrb);
+    atomGrp.add(piCloud);
+    aromaticRingGroup=piCloud; // animated in the render loop
+  }
 
   // Subtle bond guide lines — connectivity AND order reference; the actual
   // bonding density is now the bent orbital lobes themselves (see
@@ -4389,6 +4683,10 @@ function loop(){
   camera.position.z=camZ;
   if(autoSpin)rotY+=dt*.2;
   pivot.rotation.y=rotY;pivot.rotation.x=rotX;
+  // Benzene's delocalized π-cloud circulates continuously around the ring,
+  // independent of the mouse-drag/auto-spin above (which just turns the
+  // whole molecule to look at it from another angle).
+  if(aromaticRingGroup) aromaticRingGroup.rotation.y+=dt*PI_SPIN_SPEED;
   if(atomGrp)atomGrp.traverse(o=>{
     if(o.isPointLight) o.intensity=4+Math.sin(t*3.5)*.9;
     // Sun sprite scales with distance — always a bright glowing dot from far
