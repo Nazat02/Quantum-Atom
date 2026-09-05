@@ -2411,11 +2411,28 @@ function makeAtomLabel(text, color){
 const VERT=`
 attribute float aA;
 attribute vec3 aC;
+attribute float aSeed;
+attribute vec3 aJDir;
+attribute float aJFreq;
+uniform float uTime;
 varying float vA;
 varying vec3 vC;
+
 void main(){
   vC=aC; vA=aA;
-  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  // Per-grain jitter: each point wobbles along its own random direction
+  // (aJDir) at its own random speed (aJFreq) and phase (aSeed), scaled
+  // to a small fraction of its own distance from the nucleus. The
+  // direction/frequency are precomputed once in JS at build time (not
+  // hashed fresh every frame on the GPU) — same visual randomness per
+  // grain, far less per-vertex trig work, which is what was causing the
+  // frame-rate drop on dense clouds. Keeps the OVERALL cloud envelope
+  // exactly where it was sampled; only individual grains flicker in
+  // place. Ultra mode's solid lobes don't use this shader.
+  float amp=length(position)*0.028;
+  float phase=aSeed*6.28318;
+  vec3 p = position + aJDir*(sin(uTime*aJFreq+phase)*amp);
+  vec4 mv=modelViewMatrix*vec4(p,1.0);
   gl_Position=projectionMatrix*mv;
   float dist=length(mv.xyz);
   gl_PointSize=clamp(500.0/dist, 2.0, 6.0);
@@ -2882,6 +2899,14 @@ function makeHemisphereLobeMesh(R, axisVec, mat, innerR){
 
 let ultraMeshes = [];
 
+// Every non-Ultra point-cloud material (plain grainy AND Smooth mode —
+// both share this one registry) gets pushed here so the render loop can
+// advance their uTime uniform each frame, animating the per-grain jitter
+// added in VERT/SMOOTH_VERT below. Reset alongside ultraMeshes whenever
+// an atom/molecule is rebuilt so we don't keep updating disposed
+// materials from a previous selection.
+let grainyMaterials = [];
+
 function buildUltraCloud(orb){
   const grp = new THREE.Group();
   const lobeMeshFn = sphericalMode ? makeHemisphereLobeMesh : makeLobeMesh;
@@ -3047,11 +3072,23 @@ function updateUltraUniforms(camera){}
 const SMOOTH_VERT = `
 attribute float aA;
 attribute vec3 aC;
+attribute float aSeed;
+attribute vec3 aJDir;
+attribute float aJFreq;
+uniform float uTime;
 varying float vA;
 varying vec3 vC;
+
 void main(){
   vC=aC; vA=aA;
-  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  // Same lightweight per-grain jitter as VERT above (see comment there)
+  // — precomputed direction/frequency attributes instead of a per-frame
+  // GPU hash, kept identical so Smooth mode fluctuates the same way
+  // plain grainy mode does, just rendered through Smooth's soft shader.
+  float amp=length(position)*0.028;
+  float phase=aSeed*6.28318;
+  vec3 p = position + aJDir*(sin(uTime*aJFreq+phase)*amp);
+  vec4 mv=modelViewMatrix*vec4(p,1.0);
   gl_Position=projectionMatrix*mv;
   float dist=length(mv.xyz);
   gl_PointSize=clamp(400.0/dist, 1.5, 4.0);
@@ -3177,6 +3214,25 @@ function realAxTints(){ return antimatterMode?REAL_AX_TINTS_ANTI:REAL_AX_TINTS_M
 function realSubTints(){ return antimatterMode?REAL_SUB_TINTS_ANTI:REAL_SUB_TINTS_MATTER; }
 function realFSubTints(){ return antimatterMode?REAL_FSUB_TINTS_ANTI:REAL_FSUB_TINTS_MATTER; }
 
+// Precomputes each grain's random jitter direction + wobble frequency
+// ONCE on the CPU, at buffer build time — this is what VERT/SMOOTH_VERT
+// read as aJDir/aJFreq. Doing the randomization here instead of hashing
+// it fresh in the shader every frame (the original approach) removes a
+// pile of per-vertex sin/normalize calls from the hot path, which is
+// what was causing the frame-rate drop on the bigger clouds; the actual
+// per-grain randomness looks identical either way.
+function makeJitterAttrs(count){
+  const dir=new Float32Array(count*3);
+  const freq=new Float32Array(count);
+  for(let i=0;i<count;i++){
+    let vx=Math.random()*2-1, vy=Math.random()*2-1, vz=Math.random()*2-1;
+    const l=Math.hypot(vx,vy,vz)||1;
+    dir[i*3]=vx/l; dir[i*3+1]=vy/l; dir[i*3+2]=vz/l;
+    freq[i]=1.1+Math.random()*1.3;
+  }
+  return{dir,freq};
+}
+
 function makePointCloud(count,sampler,rgb){
   count=Math.min(count,MAX_CLOUD_POINTS); // hard backstop — see PERFORMANCE block above
   const pos=new Float32Array(count*3);
@@ -3189,11 +3245,18 @@ function makePointCloud(count,sampler,rgb){
     col[i*3]=r;col[i*3+1]=g;col[i*3+2]=b;
     alp[i]=1.0;
   }
+  const seed=new Float32Array(count);
+  for(let i=0;i<count;i++) seed[i]=Math.random();
+  const jit=makeJitterAttrs(count);
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
   geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
   geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
-  const mat=new THREE.ShaderMaterial({vertexShader:VERT,fragmentShader:FRAG,transparent:false,depthWrite:true,blending:THREE.NormalBlending});
+  geo.setAttribute('aSeed',new THREE.BufferAttribute(seed,1));
+  geo.setAttribute('aJDir',new THREE.BufferAttribute(jit.dir,3));
+  geo.setAttribute('aJFreq',new THREE.BufferAttribute(jit.freq,1));
+  const mat=new THREE.ShaderMaterial({vertexShader:VERT,fragmentShader:FRAG,transparent:false,depthWrite:true,blending:THREE.NormalBlending,uniforms:{uTime:{value:0}}});
+  grainyMaterials.push(mat);
   return new THREE.Points(geo,mat);
 }
 
@@ -3214,11 +3277,18 @@ function makeSmoothPointCloud(count,sampler,rgb){
     col[i*3]=r;col[i*3+1]=g;col[i*3+2]=b;
     alp[i]=1.0;
   }
+  const seed=new Float32Array(count);
+  for(let i=0;i<count;i++) seed[i]=Math.random();
+  const jit=makeJitterAttrs(count);
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
   geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
   geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
-  const mat=new THREE.ShaderMaterial({vertexShader:SMOOTH_VERT,fragmentShader:SMOOTH_FRAG,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+  geo.setAttribute('aSeed',new THREE.BufferAttribute(seed,1));
+  geo.setAttribute('aJDir',new THREE.BufferAttribute(jit.dir,3));
+  geo.setAttribute('aJFreq',new THREE.BufferAttribute(jit.freq,1));
+  const mat=new THREE.ShaderMaterial({vertexShader:SMOOTH_VERT,fragmentShader:SMOOTH_FRAG,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{uTime:{value:0}}});
+  grainyMaterials.push(mat);
   return new THREE.Points(geo,mat);
 }
 
@@ -3275,6 +3345,7 @@ let curMoleculeKey=null;
 
 function buildAtom(Z){
   ultraMeshes = [];
+  grainyMaterials = [];
   if(atomGrp){
     pivot.remove(atomGrp);
     atomGrp.traverse(o=>{
@@ -3817,7 +3888,12 @@ function buildHybridPCloud(orb, hybridInfo){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
   const radiusBoost=computeRadiusBoost(orb.R);
-  const innerR=pInnerRadius(orb.n,orb.R);
+  // sp3 hybrid lobes have no leftover ns sphere to butt up against
+  // (it's mixed into the lobes themselves — see the isSp2Hub/needsHybrid
+  // skip above), so unlike the plain bond-aware p lobes they should
+  // start close to the nucleus, not at the old same-n s-shell radius
+  // (that gap made sense only when a literal s-sphere sat there).
+  const innerR=orb.R*0.10;
   const perLobe=Math.round(5000*radiusBoost);
   hybridInfo.dirs.forEach((dir,i)=>{
     // Lone pairs get a slightly cooler, dimmer tint than bonding lobes so
@@ -3836,7 +3912,12 @@ function buildHybridPCloudSmooth(orb, hybridInfo){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
   const radiusBoost=computeRadiusBoost(orb.R);
-  const innerR=pInnerRadius(orb.n,orb.R);
+  // sp3 hybrid lobes have no leftover ns sphere to butt up against
+  // (it's mixed into the lobes themselves — see the isSp2Hub/needsHybrid
+  // skip above), so unlike the plain bond-aware p lobes they should
+  // start close to the nucleus, not at the old same-n s-shell radius
+  // (that gap made sense only when a literal s-sphere sat there).
+  const innerR=orb.R*0.10;
   const perLobe=Math.round(5000*radiusBoost);
   hybridInfo.dirs.forEach((dir,i)=>{
     const tint=hybridInfo.bonded[i]?[1,1,1]:[0.72,0.82,1.0];
@@ -3860,7 +3941,12 @@ function buildHybridPMesh(orb, hybridInfo){
   const[cr,cg,cb]=realMode?realColor(orb.R):orb.rgb;
   const rimPow=1.2+orb.R*0.008;
   const alpha=1.05*Math.pow(10/(orb.R+3),0.22);
-  const innerR=pInnerRadius(orb.n,orb.R);
+  // sp3 hybrid lobes have no leftover ns sphere to butt up against
+  // (it's mixed into the lobes themselves — see the isSp2Hub/needsHybrid
+  // skip above), so unlike the plain bond-aware p lobes they should
+  // start close to the nucleus, not at the old same-n s-shell radius
+  // (that gap made sense only when a literal s-sphere sat there).
+  const innerR=orb.R*0.10;
   hybridInfo.dirs.forEach((dir,i)=>{
     const tint=hybridInfo.bonded[i]?[cr,cg,cb]:[cr*0.72,cg*0.82,cb*1.0];
     const mat=bubbleMat(tint, alpha*(hybridInfo.bonded[i]?0.92:0.80), rimPow);
@@ -4061,6 +4147,7 @@ function buildMolecule(key){
   const mol=MOLECULES.find(m=>m.key===key);
   if(!mol) return;
   ultraMeshes=[];
+  grainyMaterials=[];
   if(atomGrp){
     pivot.remove(atomGrp);
     atomGrp.traverse(o=>{
@@ -4100,7 +4187,13 @@ function buildMolecule(key){
     let atomMaxR=0;
     cfg.forEach(orb=>{
       // Absorbed into the sp² hybrid lobes — see isSp2Hub above.
-      if(isSp2Hub && orb.l===0 && orb.n===valenceOrbObj.n) return;
+      // Same logic applies to true sp3 hubs (CH4, NH3, H2O): sp3
+      // hybridization mixes the ns orbital into all 4 hybrid lobes, so
+      // there's no leftover pure ns sphere to draw there either — it
+      // was previously only skipped for sp2, leaving a stray 2s sphere
+      // floating at CH4's carbon (and NH3/H2O's central atom) alongside
+      // the 4 correct tetrahedral lobes.
+      if((isSp2Hub||needsHybrid) && orb.l===0 && orb.n===valenceOrbObj.n) return;
       const isValenceP = orb===valenceOrbObj && orb.l===1;
       // Bending/hybridizing applies in every render mode now — Ultra and
       // Smooth each have their own mesh/point builder below (see
@@ -4709,6 +4802,15 @@ function loop(){
     }
   });
   updateSmoothUniforms();
+  // Advance every grainy/Smooth point-cloud's uTime uniform so the
+  // per-grain jitter baked into VERT/SMOOTH_VERT actually animates.
+  // Ultra mode's solid lobes don't go through these materials, so this
+  // has no effect there — matching the "grains fluctuate, Ultra doesn't"
+  // request.
+  for(let i=0;i<grainyMaterials.length;i++){
+    const gm=grainyMaterials[i];
+    if(gm && gm.uniforms && gm.uniforms.uTime) gm.uniforms.uTime.value=t;
+  }
   if(ultraMode) updateUltraUniforms(camera);
   // Status line only actually needs to change when curZ/molecule or the
   // zoom-dependent visible-orbital set changes — not on every single frame.
