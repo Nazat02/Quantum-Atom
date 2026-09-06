@@ -2007,7 +2007,7 @@ const MOLECULES=[
     // into a single delocalized π cloud above AND below the ring (see
     // buildAromaticPiCloud). Any future ring/aromatic molecule can reuse
     // this same field.
-    aromaticRing:{atoms:[0,1,2,3,4,5]},
+    aromaticRings:[{atoms:[0,1,2,3,4,5]}],
     atoms:[
       {Z:6,sym:'C',dir:[0,0,0]},                                         // C0 — origin
       {Z:6,sym:'C',dir:[Math.cos(0*HEX_A),Math.sin(0*HEX_A),0]},         // C1, off C0
@@ -2025,6 +2025,180 @@ const MOLECULES=[
     bonds:[
       [0,1,2],[1,2,1],[2,3,2],[3,4,1],[4,5,2],[5,0,1], // ring: alternating Kekulé C=C/C-C, closed by [5,0]
       [0,6,1],[1,7,1],[2,8,1],[3,9,1],[4,10,1],[5,11,1], // all six C-H, single
+    ] },
+
+  // ── Fused Polycyclic Aromatics ──
+  // Same ring-chain trick as benzene above, generalized to MULTIPLE fused
+  // hexagons. Each molecule below carries an `aromaticRings` array (one
+  // entry per 6-membered face) instead of benzene's single `aromaticRing`,
+  // so it renders one π-cloud disk per ring. Every ring C-C bond uses a
+  // posOrder override of 1.5 (see resolveMoleculeAtoms) so the whole fused
+  // lattice — built by chaining hexagon after hexagon, sharing edges (and,
+  // for pyrene/benzo[a]pyrene, sharing single "peri" atoms touched by 3
+  // rings at once) — closes up geometrically exact, the same way real
+  // delocalized aromatic C-C bonds are all one uniform length.
+  { key:'c10h8', formula:'C₁₀H₈', name:'Naphthalene', geometry:'Fused Bicyclic Aromatic',
+    aromaticRings:[{atoms:[1,0,2,3,4,5]},{atoms:[8,9,1,5,6,7]}],
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]}, // C0 — origin
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C1, off C0
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C2, off C0
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C3, off C2
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C4, off C3
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C5, off C4
+      {Z:6,sym:'C',dir:[0.866026,-0.500000,0]}, // C6, off C5
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C7, off C6
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C8, off C7
+      {Z:6,sym:'C',dir:[-0.866025,0.500000,0]}, // C9, off C8
+      {Z:1,sym:'H',dir:[-0.000000,1.000000,0]}, // H off C0
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C2
+      {Z:1,sym:'H',dir:[-0.866025,-0.500000,0]}, // H off C3
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C4
+      {Z:1,sym:'H',dir:[0.000000,-1.000000,0]}, // H off C6
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C7
+      {Z:1,sym:'H',dir:[0.866025,0.500000,0]}, // H off C8
+      {Z:1,sym:'H',dir:[0.000000,1.000000,0]}, // H off C9
+    ],
+    bonds:[
+      [0,1,1,1.5],[0,2,2,1.5],[2,3,1,1.5],[3,4,2,1.5],[4,5,1,1.5],[5,6,2,1.5],[6,7,1,1.5],[7,8,2,1.5],[8,9,1,1.5],[1,5,1,1.5],[1,9,2,1.5],[0,10,1],[2,11,1],[3,12,1],[4,13,1],[6,14,1],[7,15,1],[8,16,1],[9,17,1]
+    ] },
+
+  { key:'c14h10', formula:'C₁₄H₁₀', name:'Anthracene', geometry:'Fused Tricyclic Aromatic (Linear)',
+    aromaticRings:[{atoms:[1,0,2,3,4,5]},{atoms:[8,13,1,5,6,7]},{atoms:[11,12,8,7,9,10]}],
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]}, // C0 — origin
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C1, off C0
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C2, off C0
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C3, off C2
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C4, off C3
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C5, off C4
+      {Z:6,sym:'C',dir:[0.866026,-0.500000,0]}, // C6, off C5
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C7, off C6
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C8, off C7
+      {Z:6,sym:'C',dir:[0.866026,-0.500000,0]}, // C9, off C7
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C10, off C9
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C11, off C10
+      {Z:6,sym:'C',dir:[-0.866025,0.500000,0]}, // C12, off C11
+      {Z:6,sym:'C',dir:[-0.866025,0.500000,0]}, // C13, off C8
+      {Z:1,sym:'H',dir:[-0.000000,1.000000,0]}, // H off C0
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C2
+      {Z:1,sym:'H',dir:[-0.866025,-0.500000,0]}, // H off C3
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C4
+      {Z:1,sym:'H',dir:[0.000000,-1.000000,0]}, // H off C6
+      {Z:1,sym:'H',dir:[0.000000,-1.000000,0]}, // H off C9
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C10
+      {Z:1,sym:'H',dir:[0.866025,0.500000,0]}, // H off C11
+      {Z:1,sym:'H',dir:[0.000000,1.000000,0]}, // H off C12
+      {Z:1,sym:'H',dir:[0.000000,1.000000,0]}, // H off C13
+    ],
+    bonds:[
+      [0,1,1,1.5],[0,2,2,1.5],[2,3,1,1.5],[3,4,2,1.5],[4,5,1,1.5],[5,6,1,1.5],[6,7,2,1.5],[7,8,1,1.5],[7,9,1,1.5],[9,10,2,1.5],[10,11,1,1.5],[11,12,2,1.5],[8,13,2,1.5],[1,5,2,1.5],[1,13,1,1.5],[12,8,1,1.5],[0,14,1],[2,15,1],[3,16,1],[4,17,1],[6,18,1],[9,19,1],[10,20,1],[11,21,1],[12,22,1],[13,23,1]
+    ] },
+
+  { key:'c14h10b', formula:'C₁₄H₁₀', name:'Phenanthrene', geometry:'Fused Tricyclic Aromatic (Angular)',
+    aromaticRings:[{atoms:[1,0,2,3,4,5]},{atoms:[12,13,1,5,6,7]},{atoms:[11,7,6,8,9,10]}],
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]}, // C0 — origin
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C1, off C0
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C2, off C0
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C3, off C2
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C4, off C3
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C5, off C4
+      {Z:6,sym:'C',dir:[0.866026,-0.500000,0]}, // C6, off C5
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C7, off C6
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C8, off C6
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C9, off C8
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C10, off C9
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C11, off C10
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C12, off C7
+      {Z:6,sym:'C',dir:[-0.866025,0.500000,0]}, // C13, off C12
+      {Z:1,sym:'H',dir:[-0.000000,1.000000,0]}, // H off C0
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C2
+      {Z:1,sym:'H',dir:[-0.866025,-0.500000,0]}, // H off C3
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C4
+      {Z:1,sym:'H',dir:[-0.866025,-0.500000,0]}, // H off C8
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C9
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C10
+      {Z:1,sym:'H',dir:[0.866025,0.500000,0]}, // H off C11
+      {Z:1,sym:'H',dir:[0.866025,0.500000,0]}, // H off C12
+      {Z:1,sym:'H',dir:[0.000000,1.000000,0]}, // H off C13
+    ],
+    bonds:[
+      [0,1,1,1.5],[0,2,2,1.5],[2,3,1,1.5],[3,4,2,1.5],[4,5,1,1.5],[5,6,2,1.5],[6,7,1,1.5],[6,8,1,1.5],[8,9,2,1.5],[9,10,1,1.5],[10,11,2,1.5],[7,12,2,1.5],[12,13,1,1.5],[7,11,1,1.5],[1,5,1,1.5],[1,13,2,1.5],[0,14,1],[2,15,1],[3,16,1],[4,17,1],[8,18,1],[9,19,1],[10,20,1],[11,21,1],[12,22,1],[13,23,1]
+    ] },
+
+  { key:'c16h10', formula:'C₁₆H₁₀', name:'Pyrene', geometry:'Fused Tetracyclic Aromatic (Peri-fused)',
+    aromaticRings:[{atoms:[1,0,2,3,4,12]},{atoms:[14,15,1,12,11,13]},{atoms:[4,3,5,6,7,8]},{atoms:[11,12,4,8,9,10]}],
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]}, // C0 — origin
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C1, off C0
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C2, off C0
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C3, off C2
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C4, off C3
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C5, off C3
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C6, off C5
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C7, off C6
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C8, off C7
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C9, off C8
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C10, off C9
+      {Z:6,sym:'C',dir:[0.000001,1.000000,0]}, // C11, off C10
+      {Z:6,sym:'C',dir:[-0.866026,0.500000,0]}, // C12, off C11
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C13, off C11
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C14, off C13
+      {Z:6,sym:'C',dir:[-0.866025,0.500000,0]}, // C15, off C14
+      {Z:1,sym:'H',dir:[-0.000000,1.000000,0]}, // H off C0
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C2
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C5
+      {Z:1,sym:'H',dir:[-0.866025,-0.500000,0]}, // H off C6
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C7
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C9
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C10
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C13
+      {Z:1,sym:'H',dir:[0.866025,0.500000,0]}, // H off C14
+      {Z:1,sym:'H',dir:[0.000000,1.000000,0]}, // H off C15
+    ],
+    bonds:[
+      [0,1,2,1.5],[0,2,1,1.5],[2,3,2,1.5],[3,4,1,1.5],[3,5,1,1.5],[5,6,2,1.5],[6,7,1,1.5],[7,8,2,1.5],[8,9,1,1.5],[9,10,2,1.5],[10,11,1,1.5],[11,12,1,1.5],[11,13,2,1.5],[13,14,1,1.5],[14,15,2,1.5],[4,12,2,1.5],[1,12,1,1.5],[4,8,1,1.5],[1,15,1,1.5],[0,16,1],[2,17,1],[5,18,1],[6,19,1],[7,20,1],[9,21,1],[10,22,1],[13,23,1],[14,24,1],[15,25,1]
+    ] },
+
+  { key:'c20h12', formula:'C₂₀H₁₂', name:'Benzo[a]pyrene', geometry:'Fused Pentacyclic Aromatic (Peri-fused)',
+    aromaticRings:[{atoms:[1,0,2,3,4,12]},{atoms:[14,15,1,12,11,13]},{atoms:[4,3,5,6,7,8]},{atoms:[11,12,4,8,9,10]},{atoms:[17,18,19,15,14,16]}],
+    atoms:[
+      {Z:6,sym:'C',dir:[0,0,0]}, // C0 — origin
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C1, off C0
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C2, off C0
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C3, off C2
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C4, off C3
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C5, off C3
+      {Z:6,sym:'C',dir:[0.000000,-1.000000,0]}, // C6, off C5
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C7, off C6
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C8, off C7
+      {Z:6,sym:'C',dir:[0.866025,-0.500000,0]}, // C9, off C8
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C10, off C9
+      {Z:6,sym:'C',dir:[0.000001,1.000000,0]}, // C11, off C10
+      {Z:6,sym:'C',dir:[-0.866026,0.500000,0]}, // C12, off C11
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C13, off C11
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C14, off C13
+      {Z:6,sym:'C',dir:[-0.866025,0.500000,0]}, // C15, off C14
+      {Z:6,sym:'C',dir:[0.866025,0.500000,0]}, // C16, off C14
+      {Z:6,sym:'C',dir:[0.000000,1.000000,0]}, // C17, off C16
+      {Z:6,sym:'C',dir:[-0.866025,0.500000,0]}, // C18, off C17
+      {Z:6,sym:'C',dir:[-0.866025,-0.500000,0]}, // C19, off C18
+      {Z:1,sym:'H',dir:[-0.000000,1.000000,0]}, // H off C0
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C2
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C5
+      {Z:1,sym:'H',dir:[-0.866025,-0.500000,0]}, // H off C6
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C7
+      {Z:1,sym:'H',dir:[-0.000000,-1.000000,0]}, // H off C9
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C10
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C13
+      {Z:1,sym:'H',dir:[0.866025,-0.500000,0]}, // H off C16
+      {Z:1,sym:'H',dir:[0.866025,0.500000,0]}, // H off C17
+      {Z:1,sym:'H',dir:[-0.000000,1.000000,0]}, // H off C18
+      {Z:1,sym:'H',dir:[-0.866025,0.500000,0]}, // H off C19
+    ],
+    bonds:[
+      [0,1,2,1.5],[0,2,1,1.5],[2,3,2,1.5],[3,4,1,1.5],[3,5,1,1.5],[5,6,2,1.5],[6,7,1,1.5],[7,8,2,1.5],[8,9,1,1.5],[9,10,2,1.5],[10,11,1,1.5],[11,12,1,1.5],[11,13,2,1.5],[13,14,1,1.5],[14,15,1,1.5],[14,16,2,1.5],[16,17,1,1.5],[17,18,2,1.5],[18,19,1,1.5],[4,12,2,1.5],[1,12,1,1.5],[19,15,2,1.5],[4,8,1,1.5],[1,15,1,1.5],[0,20,1],[2,21,1],[5,22,1],[6,23,1],[7,24,1],[9,25,1],[10,26,1],[13,27,1],[16,28,1],[17,29,1],[18,30,1],[19,31,1]
     ] },
 ];
 
@@ -2286,7 +2460,7 @@ let atomGrp=null;
 // continuous spin independent of the mouse-drag pivot — see PI_SPIN_SPEED
 // in the render loop. Tracked separately from atomGrp's other children
 // since it's the only piece that animates on its own.
-let aromaticRingGroup=null;
+let aromaticRingGroup=[];
 const PI_SPIN_SPEED=0.45; // rad/s, slow enough to read as circulation, not a blur
 
 // NUCLEUS — packed protons (red) + neutrons (blue)
@@ -3354,7 +3528,7 @@ function buildAtom(Z){
     });
     atomGrp=null;
   }
-  aromaticRingGroup=null; // single atoms never have a ring
+  aromaticRingGroup=[]; // single atoms never have a ring
   atomGrp=new THREE.Group();
   pivot.add(atomGrp);
   const elData = ELS.find(e=>e.Z===Z);
@@ -3512,9 +3686,22 @@ function resolveMoleculeAtoms(mol){
     // Fallback (shouldn't trigger for well-formed data): anchor straight to
     // the origin atom, preserving the old hub-and-spoke behavior exactly.
     const anchorIdx = bond ? (bond[0]===idx ? bond[1] : bond[0]) : 0;
+    // bond[3], when present, is a POSITION-ONLY order override (posOrder).
+    // Fused polycyclic aromatics (naphthalene, pyrene, ...) still need a
+    // per-bond Kekulé order (bond[2]) for the double/single guide-line
+    // rendering, but using THAT order for bondLength() would make
+    // alternating-length edges around an irregular (non-hexagonal-only)
+    // perimeter — a lattice built by chaining many hexagons doesn't have
+    // benzene's "3-vectors-120°-apart cancel out" symmetry to force exact
+    // closure. Every aromatic ring bond is instead given posOrder=1.5 (the
+    // real physical picture too: delocalization makes every aromatic C-C
+    // bond the same ~1.5-order length), so every ring edge is drawn at one
+    // uniform length and the fused-ring lattice closes exactly by
+    // construction, same as benzene's single ring does.
     const order = bond ? (bond[2]||1) : 1;
+    const posOrder = bond ? (bond[3]!==undefined ? bond[3] : order) : 1;
     const anchorPos = positions[anchorIdx];
-    const L=bondLength(mol.atoms[anchorIdx].Z, a.Z, order);
+    const L=bondLength(mol.atoms[anchorIdx].Z, a.Z, posOrder);
     positions[idx]=[anchorPos[0]+a.dir[0]*L, anchorPos[1]+a.dir[1]*L, anchorPos[2]+a.dir[2]*L];
   }
   return mol.atoms.map((a,idx)=>({Z:a.Z, sym:a.sym, pos:positions[idx]}));
@@ -4156,7 +4343,7 @@ function buildMolecule(key){
     });
     atomGrp=null;
   }
-  aromaticRingGroup=null; // cleared here; re-set below only if this molecule has a ring
+  aromaticRingGroup=[]; // cleared here; repopulated below only if this molecule has ring(s)
   atomGrp=new THREE.Group();
   pivot.add(atomGrp);
 
@@ -4235,21 +4422,27 @@ function buildMolecule(key){
     atomGrp.add(label);
   });
 
-  // Aromatic π-system — one shared, delocalized cloud spanning the whole
-  // ring (see buildAromaticPiCloud above), built once here rather than as
-  // part of any single atom's per-atom loop above.
-  if(mol.aromaticRing){
-    const ringPositions=mol.aromaticRing.atoms.map(i=>{
-      const p=atoms[i].pos;
-      return new THREE.Vector3(p[0],p[1],p[2]);
+  // Aromatic π-system(s) — one shared, delocalized cloud per ring (see
+  // buildAromaticPiCloud above), built once here rather than as part of
+  // any single atom's per-atom loop above. Fused polycyclic aromatics
+  // (naphthalene, pyrene, benzo[a]pyrene, ...) carry MULTIPLE rings, each
+  // getting its own disk — real fused-ring systems delocalize per-ring-ish
+  // (each 6-membered face still reads as its own π lobe pair above/below
+  // that face) rather than one cloud spanning the whole fused perimeter.
+  if(mol.aromaticRings){
+    mol.aromaticRings.forEach(ring=>{
+      const ringPositions=ring.atoms.map(i=>{
+        const p=atoms[i].pos;
+        return new THREE.Vector3(p[0],p[1],p[2]);
+      });
+      const ringZ=atoms[ring.atoms[0]].Z;
+      const ringOrb=getConfig(ringZ).slice(-1)[0]; // ring atom's valence p orbital (carbon's 2p for aromatic carbons)
+      const piCloud = ultraMode ? buildAromaticPiMesh(ringPositions, ringOrb)
+                    : smoothMode ? buildAromaticPiCloudSmooth(ringPositions, ringOrb)
+                    : buildAromaticPiCloud(ringPositions, ringOrb);
+      atomGrp.add(piCloud);
+      aromaticRingGroup.push(piCloud);
     });
-    const ringZ=atoms[mol.aromaticRing.atoms[0]].Z;
-    const ringOrb=getConfig(ringZ).slice(-1)[0]; // ring atom's valence p orbital (carbon's 2p for benzene)
-    const piCloud = ultraMode ? buildAromaticPiMesh(ringPositions, ringOrb)
-                  : smoothMode ? buildAromaticPiCloudSmooth(ringPositions, ringOrb)
-                  : buildAromaticPiCloud(ringPositions, ringOrb);
-    atomGrp.add(piCloud);
-    aromaticRingGroup=piCloud; // animated in the render loop
   }
 
   // Subtle bond guide lines — connectivity AND order reference; the actual
@@ -4779,7 +4972,7 @@ function loop(){
   // Benzene's delocalized π-cloud circulates continuously around the ring,
   // independent of the mouse-drag/auto-spin above (which just turns the
   // whole molecule to look at it from another angle).
-  if(aromaticRingGroup) aromaticRingGroup.rotation.y+=dt*PI_SPIN_SPEED;
+  aromaticRingGroup.forEach(g=>{ g.rotation.y+=dt*PI_SPIN_SPEED; });
   if(atomGrp)atomGrp.traverse(o=>{
     if(o.isPointLight) o.intensity=4+Math.sin(t*3.5)*.9;
     // Sun sprite scales with distance — always a bright glowing dot from far
