@@ -341,7 +341,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
   opacity: .4; pointer-events:none;
 }
-#el-search {
+#el-search, #build-input {
   width: 100%;
   background: rgba(var(--cyan-rgb),.05);
   border: 1px solid var(--border);
@@ -354,8 +354,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   transition: border-color .18s;
   letter-spacing: .05em;
 }
-#el-search::placeholder { color: var(--lo); }
-#el-search:focus { border-color: var(--cyan-40); background: var(--cyan-10); }
+#el-search::placeholder, #build-input::placeholder { color: var(--lo); }
+#el-search:focus, #build-input:focus { border-color: var(--cyan-40); background: var(--cyan-10); }
 
 /* Section label */
 .ptitle {
@@ -392,6 +392,45 @@ canvas { position:fixed; inset:0; z-index:0; }
 .mcard.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(var(--cyan-rgb),.25); }
 .mcard .mf { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.95rem; color:var(--hi); }
 .mcard .mn { font-size:.62rem; color:var(--lo); letter-spacing:.05em; text-transform:uppercase; }
+
+/* Build mode — universal element/molecule resolver (see
+   universal-build-blueprint-v3.md for the design behind this) */
+#build-view .search-wrap { margin-bottom: 8px; }
+#build-go {
+  width:100%; margin-top:2px;
+}
+#build-status {
+  margin-top:10px; padding:10px 12px; border-radius:6px;
+  border:1px solid rgba(var(--cyan-rgb),.15); background:rgba(var(--cyan-rgb),.04);
+  font-size:.72rem; line-height:1.55; color:var(--lo); display:none;
+}
+#build-status.show { display:block; }
+#build-status.ok  { border-color: rgba(120,220,120,.4); color: var(--hi); }
+#build-status.warn{ border-color: var(--amber); color: var(--hi); }
+#build-status.err { border-color: rgba(255,90,90,.4); color: var(--hi); }
+#build-status.info{ color: var(--mid); }
+#build-suggest-chip {
+  display:inline-block; margin-top:8px; padding:6px 10px; border-radius:14px;
+  border:1px solid var(--cyan-40); background:var(--cyan-10); color:var(--hi);
+  font-size:.68rem; cursor:pointer; user-select:none;
+}
+#build-suggest-chip:hover { background:var(--cyan-20); }
+
+.build-examples-section { margin-top:16px; }
+.chip-grid {
+  display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.ex-chip {
+  appearance:none; padding:6px 11px; border-radius:12px;
+  border:1px solid rgba(var(--cyan-rgb),.15); background:rgba(var(--cyan-rgb),.04);
+  color:var(--mid); font-family:'Share Tech Mono', monospace; font-size:.64rem;
+  letter-spacing:.02em; cursor:pointer; white-space:nowrap; user-select:none;
+  transition: background .13s, border-color .13s, color .13s, box-shadow .13s;
+}
+.ex-chip:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
+.ex-chip:active { background:var(--cyan-20); box-shadow:0 0 10px rgba(var(--cyan-rgb),.2); }
+.build-examples-note { margin-top:11px; font-size:.62rem; color:var(--lo); line-height:1.6; }
 
 /* Element grid */
 .egrid {
@@ -970,6 +1009,7 @@ input[type=range]::-moz-range-thumb {
 ════════════════════════════════ */
 #esym-badge,
 #el-search,
+#build-input,
 .panel-close,
 #realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn, #antibtn, #sphericalbtn,
 .rbtn {
@@ -1125,6 +1165,7 @@ input[type=range]::-moz-range-thumb {
       <div class="mode-switch" id="mode-switch">
         <button class="mode-btn on" id="mode-elements" onclick="setLeftMode('elements')">ATOMS</button>
         <button class="mode-btn" id="mode-molecules" onclick="setLeftMode('molecules')">MOLECULES</button>
+        <button class="mode-btn" id="mode-build" onclick="setLeftMode('build')">BUILD</button>
       </div>
       <div id="elements-view">
         <div class="search-wrap">
@@ -1143,6 +1184,22 @@ input[type=range]::-moz-range-thumb {
         <div class="mgrid" id="mgrid"></div>
         <div class="ptitle">Composition</div>
         <div class="oleg" id="mleg"></div>
+      </div>
+      <div id="build-view" class="hidden-view">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="build-input" placeholder="Type an element or molecule..." autocomplete="off" autocorrect="off" spellcheck="false" maxlength="60">
+        </div>
+        <button class="mode-btn" id="build-go" onclick="runBuild()">GO</button>
+        <div id="build-status"></div>
+        <div class="build-examples-section">
+          <div class="ptitle">Quick Examples</div>
+          <div class="chip-grid" id="build-examples"></div>
+          <div class="build-examples-note">Or type any of the 118 elements, or any compound name &mdash; looked up online if it&rsquo;s not already in the local library.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -2964,18 +3021,25 @@ function bubbleMat(rgb, alpha, rimPow){
 }
 
 // Build a lobe mesh — lobes have a node at nucleus, bulge outward from innerR to R.
-function makeLobeMesh(R, axisVec, mat, innerR){
+function makeLobeMesh(R, axisVec, mat, innerR, peakT){
   const lobeLen = R - innerR;
   const maxW    = lobeLen * 0.35;
   const segs    = 120;
   const points  = [];
+  // peakT lets a caller move where the lobe is widest (default 0.5,
+  // i.e. plain sin(pi*t), unchanged for every existing caller). A lower
+  // peakT balloons out early then tapers a long way to a point — used
+  // for hybrid sigma lobes so sp/sp2/sp3 read as visually distinct
+  // (see hybridLobePeakT/lobeWidthProfile).
+  const p = peakT==null ? 0.5 : Math.min(0.98,Math.max(0.02,peakT));
 
   points.push(new THREE.Vector2(0, innerR));
 
   for(let i = 1; i <= segs; i++){
     const t  = i / segs;
     const h  = innerR + t * lobeLen;
-    const rr = maxW * Math.sin(Math.PI * t);
+    const shape = t<=p ? Math.sin(Math.PI/2*(t/p)) : Math.sin(Math.PI/2*((1-t)/(1-p)));
+    const rr = maxW * shape;
     points.push(new THREE.Vector2(Math.max(0, rr), h));
   }
 
@@ -3604,7 +3668,7 @@ function bondLength(Za,Zb,order){
   if(Za===1 || Zb===1){
     const heavyZ = Za===1 ? Zb : Za;
     const hOrb=valenceOrb(1), heavyOrb=valenceOrb(heavyZ);
-    if(heavyOrb.l===1) return heavyOrb.R; // p-type valence orbital: seat H right at the lobe's outer edge
+    if(heavyOrb.l===1) return heavyOrb.R - 0.4*hOrb.R; // p-type valence orbital: seat H just INSIDE the lobe's outer edge (not exactly tangent to it) so its own 1s shell visibly overlaps the carbon lobe instead of floating at a hairline gap
     // Fallback for a (currently unused) s-type heavy valence orbital: an
     // s-shell has no lobe to nest inside, so seat H just inside its shell.
     return 0.82*heavyOrb.R + 0.6*hOrb.R;
@@ -3751,8 +3815,30 @@ function piAxisIndices(order,bondIdx){
 // direction, order, which axis/sign is sigma, and which axes are pi).
 function buildBondDescriptors(mol,atoms){
   const byAtom=atoms.map(()=>[]);
-  (mol.bonds||[]).forEach(([i,j,order],bondIdx)=>{
+  (mol.bonds||[]).forEach(([i,j,order,posOrder,skipPiAxis],bondIdx)=>{
     const ord=order||1;
+    // Optional 5th array element: true when this bond's pi visual is
+    // handled by a dedicated renderer instead (see mol.tripleBonds below)
+    // — every existing curated bond stops at 3 elements, so this is
+    // undefined/falsy there and changes nothing for them.
+    //
+    // FIX (alkyne ghost-lobe bug): this used to zero out piAxisIndices
+    // entirely for these bonds (`skipPiAxis ? [] : ...`), which correctly
+    // stopped the shared sigma/pi bending path from touching them, but
+    // ALSO erased the only record of which two axes the dedicated
+    // renderer (e.g. an alkyne's triple-bond spindle) already owns. With
+    // no record of that, each carbon's own per-axis cloud loop fell
+    // through to axisNeededForBonding — which had no bond referencing
+    // that axis either — and, whenever the atom's raw ground-state fill
+    // happened to populate that axis anyway (carbon's 2p² always leaves
+    // exactly one of its two non-bonding p orbitals singly occupied),
+    // rendered it as a plain, un-tapered "ghost" dumbbell duplicating one
+    // side of the real pi-cross. That's what made alkynes (ethyne,
+    // 1-butyne, ...) render as a lopsided flower/clover of extra lobes
+    // instead of a clean sigma-core + 2-perpendicular-pi-lens triple
+    // bond. Keeping piAxisIndices populated (tagged `externalPi`)
+    // preserves that "this axis is spoken for" information so the cloud
+    // loop below can suppress it outright — see axisHandledExternally.
     const pa=piAxisIndices(ord,bondIdx);
     const pi=atoms[i].pos, pj=atoms[j].pos;
     const dx=pj[0]-pi[0], dy=pj[1]-pi[1], dz=pj[2]-pi[2];
@@ -3765,10 +3851,26 @@ function buildBondDescriptors(mol,atoms){
     // bond length L. Capping off L was the earlier HF/HCl bug: F's own R
     // (41) is huge next to H's R (3), so an L-based cap let F's lobe
     // stretch and swallow H whole instead of just reaching to touch it.
-    if(axI) byAtom[i].push({dirLocal:dirIJ,order:ord,axisIndex:axI.i,axisSign:axI.s,piAxisIndices:pa,L,otherR:valenceR(atoms[j].Z)});
-    if(axJ) byAtom[j].push({dirLocal:dirJI,order:ord,axisIndex:axJ.i,axisSign:axJ.s,piAxisIndices:pa,L,otherR:valenceR(atoms[i].Z)});
+    if(axI) byAtom[i].push({dirLocal:dirIJ,order:ord,axisIndex:axI.i,axisSign:axI.s,piAxisIndices:pa,externalPi:!!skipPiAxis,L,otherR:valenceR(atoms[j].Z)});
+    if(axJ) byAtom[j].push({dirLocal:dirJI,order:ord,axisIndex:axJ.i,axisSign:axJ.s,piAxisIndices:pa,externalPi:!!skipPiAxis,L,otherR:valenceR(atoms[i].Z)});
   });
   return byAtom;
+}
+// True when this atom's lobe on axis `ax` is already fully drawn by a
+// dedicated renderer elsewhere — currently just the alkyne triple-bond
+// pi-cross (buildTripleBondSheath*, driven by mol.tripleBonds) — rather
+// than by this atom's own per-axis cloud below. Distinct from
+// axisNeededForBonding just below: that function asks "should this axis
+// render AT ALL", this one asks "has something ELSE already rendered it,
+// so THIS atom-level pass must stay out of the way". Checked first, and
+// unconditionally (regardless of the atom's own ground-state occupancy),
+// so a real electron sitting in that orbital doesn't leak out as a
+// plain, un-tapered ghost lobe duplicating the dedicated lens shape —
+// see the FIX comment on the `externalPi` flag above for the bug this
+// closes.
+function axisHandledExternally(ax,bonds){
+  if(!bonds) return false;
+  return bonds.some(b=>b.externalPi && b.piAxisIndices && b.piAxisIndices.includes(ax));
 }
 // A free atom's ground-state electron filling (Hund's rule) doesn't always
 // leave every perpendicular p-orbital occupied — e.g. carbon's 2p² fills
@@ -3788,7 +3890,7 @@ function axisNeededForBonding(ax,bonds){
 }
 // Bends one sampleP_lobe point according to this atom's bond list. Returns
 // the point unchanged if it's not part of any sigma/pi lobe for a bond.
-function sampleBondAwareP(R,axis,innerR,bonds){
+function sampleBondAwareP(R,axis,innerR,bonds,sChar){
   const base=sampleP_lobe(R,axis,innerR);
   if(!bonds || bonds.length===0) return base;
   const axialVal=axis===0?base.x:axis===1?base.y:base.z;
@@ -3797,6 +3899,30 @@ function sampleBondAwareP(R,axis,innerR,bonds){
 
   const sigmaBond=bonds.find(b=>b.axisIndex===axis && b.axisSign===sign);
   if(sigmaBond){
+    const gap=Math.max(0, sigmaBond.L - R);
+    const BOND_ROOT_R=3.0;
+    if(sigmaBond.externalPi){
+      // The sigma bond between the two carbons is real and needs its own
+      // visible shape — it was removed entirely last pass by mistake.
+      // The earlier attempt (narrow~0.28) read as a thin rod because its
+      // perpendicular width was tiny next to the pi-cross spindle's own
+      // lobes. Widen it out substantially here instead — a proper fat
+      // spindle (lens-shaped: thick at the midpoint between the two
+      // carbons, tapering back down to nothing right at each 1s core) —
+      // so it reads as its own voluminous shape, not a stick. No
+      // overshoot on reach (t*t*gap stops exactly at the gap, meeting
+      // the other carbon's rooted point) so it still can't push past the
+      // other nucleus into the spindle beyond it.
+      const reach=t*t*gap;
+      const spindleNarrow=0.18+1.15*(4*t*(1-t)); // ~0.18 at each 1s core, ~1.33 at the midpoint
+      const rooted=sign*(BOND_ROOT_R+t*(R-BOND_ROOT_R));
+      return {
+        x:(axis===0?rooted:base.x*spindleNarrow)+sigmaBond.dirLocal.x*reach,
+        y:(axis===1?rooted:base.y*spindleNarrow)+sigmaBond.dirLocal.y*reach,
+        z:(axis===2?rooted:base.z*spindleNarrow)+sigmaBond.dirLocal.z*reach,
+        a:base.a
+      };
+    }
     // Reach used to be capped ONLY by the partner's own size
     // (otherR*1.0), which implicitly assumed the natural gap left to
     // close (L - R) was always small and roughly proportional to
@@ -3815,17 +3941,43 @@ function sampleBondAwareP(R,axis,innerR,bonds){
     // match the same overshoot ratio (~36% of the partner's own R)
     // that already produces a good, solidly-fused look for the
     // symmetric molecules, so none of those change.
-    const gap=Math.max(0, sigmaBond.L - R);
-    const reach=t*t*Math.min(R*0.60, sigmaBond.otherR*1.0, gap+0.36*sigmaBond.otherR);
-    const narrow=1-0.5*t;
+    const reach=t*t*Math.min(R*0.60, sigmaBond.otherR*2.2, gap+0.55*sigmaBond.otherR);
+    // Higher bond order = more s-character = a tighter, more directional
+    // sigma lobe in reality (that's WHY multiple-bond sigmas are
+    // shorter/stronger). Visually this is also the direct fix for the
+    // "sigma looks too fat" report on alkynes: only the two PERPENDICULAR
+    // components are scaled here (reach along the bond axis is untouched),
+    // so the lobe still reaches just as far to meet its partner — it just
+    // stops ballooning out sideways on the way there. order===1 keeps
+    // orderNarrow at 1, so every existing single-bond sigma is unchanged.
+    const orderNarrow = sigmaBond.order>=3 ? 0.8 : sigmaBond.order===2 ? 0.75 : 1;
+    // How ROUND vs POINTED this lobe looks is driven by the hub's actual
+    // hybridization (sp/sp2/sp3), not just bond order — see
+    // hybridLobePeakT. sChar is only passed for a genuinely hybridized
+    // hub (buildBondDescriptors' isSpHub/isSp2Hub/isTetraHub); an
+    // ordinary un-hybridized bond (sChar null/undefined) keeps the exact
+    // original flat (1-0.5t) taper, unchanged.
+    const narrow=(sChar==null ? (1-0.5*t) : lobeWidthProfile(t,hybridLobePeakT(sChar)))*orderNarrow;
+    // The reach fix above only ever closed the FAR side of this lobe (the
+    // tip, toward the bonded partner). The NEAR side — where the lobe
+    // roots against this atom's own nucleus — was left starting exactly
+    // at pInnerRadius (8 units for n=2), which is well outside the 1s
+    // cloud's own radius (3 units). On a terminal bond like alkyne C–H,
+    // where nothing else fills that space, the gap between the 1s shell
+    // and the lobe root reads as a visible floating disconnect. Remap the
+    // root from pInnerRadius down to BOND_ROOT_R (matching the 1s radius)
+    // so the lobe starts flush against the 1s shell instead — same t
+    // (position along the lobe) as before, so the tip/reach math above is
+    // untouched, only the near root is pulled in.
+    const rooted=sign*(BOND_ROOT_R+t*(R-BOND_ROOT_R));
     return {
-      x:(axis===0?base.x:base.x*narrow)+sigmaBond.dirLocal.x*reach,
-      y:(axis===1?base.y:base.y*narrow)+sigmaBond.dirLocal.y*reach,
-      z:(axis===2?base.z:base.z*narrow)+sigmaBond.dirLocal.z*reach,
+      x:(axis===0?rooted:base.x*narrow)+sigmaBond.dirLocal.x*reach,
+      y:(axis===1?rooted:base.y*narrow)+sigmaBond.dirLocal.y*reach,
+      z:(axis===2?rooted:base.z*narrow)+sigmaBond.dirLocal.z*reach,
       a:base.a
     };
   }
-  const piBond=bonds.find(b=>b.piAxisIndices.includes(axis));
+  const piBond=bonds.find(b=>b.piAxisIndices.includes(axis) && !b.externalPi);
   if(piBond){
     // v1 (proportional share of a combined budget) and v2 (each atom
     // independently sweeps ~92% of L) both only ever TRANSLATED the lobe
@@ -3864,13 +4016,46 @@ function sampleBondAwareP(R,axis,innerR,bonds){
 // Same structure as buildCloud's l===1 branch, but samples through
 // sampleBondAwareP so this specific orbital's lobes bend toward this
 // atom's real bonded partner(s).
-function buildBondAwarePCloud(orb,bonds){
+// Maps a hub's s-character (sp=0.5, sp2=1/3, sp3=0.25, or null for a
+// plain un-hybridized bond) to where a bonded lobe's cross-section is
+// widest, as a fraction of the way from the nucleus (t=0) to the bonded
+// partner (t=1). A low peak (near the root) means the lobe balloons out
+// early then tapers a long way to a point — the classic pointed p-like
+// "dumbbell" silhouette. A peak near the middle (or past it) means it
+// swells and rounds off more symmetrically — a plumper, more
+// "sphere-like" lobe. This follows the real physics of s+p mixing: a
+// hybrid orbital's back lobe (and overall roundness) scales directly
+// with how much s-character is mixed in — sp (50% s) has the fattest
+// back lobe and reads roundest, sp2 (1/3 s) is leaner, and sp3 (1/4 s,
+// the least s-character of the three) has the smallest back lobe and
+// looks the most like a plain elongated p-orbital dumbbell.
+function hybridLobePeakT(sChar){
+  if(sChar==null) return 0.5;  // ordinary, non-hybridized bond — unchanged (symmetric) look
+  if(sChar>0.45) return 0.58;  // sp (50% s) — roundest, biggest back lobe
+  if(sChar>0.30) return 0.38;  // sp2 (1/3 s) — in between
+  return 0.18;                 // sp3 (1/4 s) — leanest, most pointed/p-like
+}
+// Half-sine ramp up to peakT, half-sine ramp back down to 0 at t=1 — a
+// smoothly rounded single-lobe silhouette whose peak position (not just
+// its height) is what actually reads as "pointed" vs "round".
+function lobeWidthProfile(t, peakT){
+  const p=Math.min(0.98,Math.max(0.02,peakT));
+  return t<=p ? Math.sin(Math.PI/2*(t/p)) : Math.sin(Math.PI/2*((1-t)/(1-p)));
+}
+
+function buildBondAwarePCloud(orb,bonds,sChar){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
   const radiusBoost=computeRadiusBoost(orb.R);
   const innerR=pInnerRadius(orb.n,orb.R);
   const perAxis=Math.round(5000*radiusBoost);
   (orb.occ||[]).forEach((s,ax)=>{
+    // Fully suppressed: this axis's real lobe is already drawn by a
+    // dedicated renderer elsewhere (alkyne pi-cross) — see
+    // axisHandledExternally. Checked before the occupancy test below so
+    // a genuinely-occupied ground-state p-orbital on this axis doesn't
+    // leak out as a plain, un-tapered ghost lobe duplicating it.
+    if(axisHandledExternally(ax,bonds)) return;
     // Skip only if truly unoccupied AND no bond on this atom needs this
     // axis for sigma/pi bonding (see axisNeededForBonding) — a bonded
     // center promotes an electron into an otherwise-empty perpendicular
@@ -3878,7 +4063,7 @@ function buildBondAwarePCloud(orb,bonds){
     if(s.e===0 && !axisNeededForBonding(ax,bonds)) return;
     const tint=P_AXIS_TINT[ax];
     let c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
-    grp.add(makePointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds),c));
+    grp.add(makePointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds,sChar),c));
   });
   return grp;
 }
@@ -3887,17 +4072,18 @@ function buildBondAwarePCloud(orb,bonds){
 // rendered through the big/soft smooth shader so Smooth Orbitals mode
 // shows bent (bonded) lobes instead of falling back to plain unbent
 // dumbbells, which is what left bonds invisible in that mode.
-function buildBondAwarePCloudSmooth(orb,bonds){
+function buildBondAwarePCloudSmooth(orb,bonds,sChar){
   const grp=new THREE.Group();
   const[r,g,b]=realMode?realColor(orb.R):orb.rgb;
   const radiusBoost=computeRadiusBoost(orb.R);
   const innerR=pInnerRadius(orb.n,orb.R);
   const perAxis=Math.round(5000*radiusBoost);
   (orb.occ||[]).forEach((s,ax)=>{
+    if(axisHandledExternally(ax,bonds)) return;
     if(s.e===0 && !axisNeededForBonding(ax,bonds)) return;
     const tint=P_AXIS_TINT[ax];
     let c=realMode?[r,g,b]:[r*0.5+tint[0]*0.5,g*0.5+tint[1]*0.5,b*0.5+tint[2]*0.5];
-    grp.add(makeSmoothPointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds),c));
+    grp.add(makeSmoothPointCloud(perAxis,()=>sampleBondAwareP(orb.R,ax,innerR,bonds,sChar),c));
   });
   return grp;
 }
@@ -3911,7 +4097,7 @@ function buildBondAwarePCloudSmooth(orb,bonds){
 // A lobe with a pi-bonded partner (double/triple bonds) is tilted a
 // fraction of the way toward the bond axis so it visually reaches toward
 // the neighboring atom the way the point-cloud pi bend does.
-function buildBondAwarePMesh(orb,bonds){
+function buildBondAwarePMesh(orb,bonds,sChar){
   const grp=new THREE.Group();
   const[cr,cg,cb]=realMode?realColor(orb.R):orb.rgb;
   const AX_TINTS=realMode?realAxTints():[
@@ -3921,6 +4107,7 @@ function buildBondAwarePMesh(orb,bonds){
   const innerR=pInnerRadius(orb.n,orb.R);
   const axes=[[1,0,0],[0,1,0],[0,0,1]];
   (orb.occ||[]).forEach((s,ax)=>{
+    if(axisHandledExternally(ax,bonds)) return;
     if(s.e===0 && !axisNeededForBonding(ax,bonds)) return;
     const tint=AX_TINTS[ax];
     const mat=bubbleMat(tint,alpha*(s.excited?1.0:0.88),rimPow);
@@ -3929,7 +4116,17 @@ function buildBondAwarePMesh(orb,bonds){
       const sign=(dir[0]+dir[1]+dir[2])>=0?1:-1; // works since exactly one component is nonzero
       const sigmaBond=bonds.find(b=>b.axisIndex===ax && b.axisSign===sign);
       if(sigmaBond){
-        grp.add(makeLobeMesh(Math.max(innerR+1e-3,sigmaBond.L), dir, mat, innerR));
+        // Real sigma bond — rendered as its own solid lobe mesh, rooted
+        // at this carbon's 1s radius and capped at exactly sigmaBond.L
+        // (no overshoot) so it meets the other atom's own lobe without
+        // pushing past it. The triple-bond's own sigma axis (externalPi)
+        // keeps the default symmetric peak (a fat, round spindle); an
+        // ordinary hybridized bond's peak comes from the hub's actual
+        // s-character instead, so sp/sp2/sp3 read as visually distinct
+        // shapes here too, matching the point-cloud/smooth renderers.
+        const BOND_ROOT_R=3.0;
+        const peakT=sigmaBond.externalPi?0.5:hybridLobePeakT(sChar);
+        grp.add(makeLobeMesh(Math.max(BOND_ROOT_R+1e-3,sigmaBond.L), dir, mat, BOND_ROOT_R, peakT));
         return;
       }
       const piBond=bonds.find(b=>b.piAxisIndices && b.piAxisIndices.includes(ax));
@@ -4239,6 +4436,253 @@ function buildAromaticPiCloudSmooth(ringPositions, orb){
   return wrap;
 }
 
+// ── Localized (non-aromatic) double-bond π-cloud ──
+// A genuine sp² double bond (alkene C=C, or any C=O in a ketone/aldehyde/
+// acid) can't use the axis-aligned bond-bending system above (see the
+// header comment in bBuildOrganicObject in the Build engine for why: no
+// orientation puts 2 of a trigonal-planar carbon's 3 bonds onto cartesian
+// axes 90° apart when they're really 120° apart), nor the ring system
+// above it (that's for a delocalized aromatic π system, not one localized
+// bond).
+//
+// Shape: each of the two lobes (above/below the sp² plane) is a genuine
+// CURVE, not a straight prism — it starts pinched down near the innerR
+// node right at one nucleus, arcs up to its fullest bulge over the middle
+// of the bond, and pinches back down to the node at the other nucleus.
+// That's a quadratic Bézier arc (p0 → p1 → p2), which is what lets it
+// taper to a point at both ends the same way every other lobe in this app
+// already tapers to a node at its own single nucleus — just following a
+// curved path between two nuclei instead of a straight line from one.
+function piBondArcPoint(s, bondHalfLength, archHeight, innerR, signDir){
+  const oneMinusS=1-s;
+  const x = oneMinusS*oneMinusS*(-bondHalfLength) + s*s*bondHalfLength;
+  const y = (oneMinusS*oneMinusS*innerR + 2*oneMinusS*s*archHeight + s*s*innerR) * signDir;
+  return {x,y};
+}
+function samplePiBondLobeLocal(bondHalfLength, tubeRadius, archHeight, signDir, innerR){
+  const s=Math.random();
+  const {x,y}=piBondArcPoint(s, bondHalfLength, archHeight, innerR, signDir);
+  // Thin near both nuclei, fattest at the bond's middle — same node-to-
+  // bulge taper every other lobe already uses, applied along the arc.
+  const localTaper=Math.sin(s*Math.PI);
+  const r=tubeRadius*(0.3+0.7*localTaper)*Math.sqrt(Math.random());
+  const theta=Math.random()*2*Math.PI;
+  const a=0.5+0.5*localTaper;
+  return {x, y:y+r*Math.sin(theta), z:r*Math.cos(theta), a};
+}
+// Frame for one localized double bond: origin at the bond midpoint, local
+// Y along the sp² plane's normal (so the two lobes sit above/below the
+// plane, same convention as the aromatic ring's frame), local X along the
+// bond itself. `planeNormal` comes from the bonded carbon's own other two
+// substituent directions (any two non-parallel real bonds on a genuinely
+// planar sp² center define that plane) — real per-molecule geometry, not
+// a guess.
+function applyPiBondFrame(obj, midpoint, bondDir, planeNormal){
+  const w=new THREE.Vector3().crossVectors(bondDir,planeNormal);
+  const m=new THREE.Matrix4().makeBasis(bondDir,planeNormal,w);
+  obj.quaternion.setFromRotationMatrix(m);
+  obj.position.copy(midpoint);
+}
+// gapMult (default 1, unchanged for every existing alkene/carbonyl caller)
+// pushes innerR further out from the bond axis before the Bézier taper
+// even starts — used by the triple-bond cross renderer below to leave a
+// visible GAP between the slim sigma core and where each π spindle
+// begins, instead of the two visually fusing together.
+// tintOverride (default null → original light-blue π tint, unchanged for
+// every existing caller) lets two π systems sharing one bond (only
+// possible case: alkyne pi cross) render in distinguishably different
+// hues instead of both reading as one undifferentiated blob.
+function buildLocalizedPiCloud(posA, posB, planeNormal, orb, gapMult, tintOverride){
+  gapMult = gapMult||1;
+  const wrap=new THREE.Group();
+  const a=new THREE.Vector3(posA[0],posA[1],posA[2]);
+  const b=new THREE.Vector3(posB[0],posB[1],posB[2]);
+  const midpoint=new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+  const bondVec=new THREE.Vector3().subVectors(b,a);
+  const bondHalfLength=bondVec.length()*0.5;
+  const bondDir=bondVec.clone().normalize();
+  applyPiBondFrame(wrap,midpoint,bondDir,planeNormal);
+  // Sized relative to the bond itself (not the atom's full unbonded
+  // radius) so this reads as one distinct lens sitting ON the bond,
+  // never ballooning past it — same idea as N2/CO2's pi lobes, which
+  // stay scaled to the bond they belong to.
+  const tubeRadius=Math.max(bondHalfLength*0.42, 1e-3);
+  const archHeight=Math.min(orb.R*0.95, bondHalfLength*1.15);
+  // Rooted at the same core radius every other lobe on this atom already
+  // uses — the pi lobe should touch in near the nucleus/inner shell just
+  // like the sigma hybrid lobes do, not float out at some bond-scaled
+  // offset (that was mixing two unrelated unit scales, which is why it
+  // looked like a floating gap instead of a rooted lobe).
+  const innerR=pInnerRadius(orb.n,orb.R)*gapMult;
+  const[br,bg,bb]=realMode?realColor(orb.R):orb.rgb;
+  // Tinted like N2's own perpendicular π-axis lobes (P_AXIS_TINT[2]) so
+  // this reads as visually DISTINCT from the plain sigma hybrid lobes
+  // (which render in pure, untinted atom color) rather than blending into
+  // one undifferentiated mass of the same green/etc.
+  const dt=tintOverride||[0.65,0.65,1.0];
+  const[r,g,bcol]=realMode?[br,bg,bb]:[br*0.5+dt[0]*0.5, bg*0.5+dt[1]*0.5, bb*0.5+dt[2]*0.5];
+  const perLobe=Math.round(7000*computeRadiusBoost(orb.R));
+  [1,-1].forEach(signDir=>{
+    wrap.add(makePointCloud(perLobe, ()=>samplePiBondLobeLocal(bondHalfLength,tubeRadius,archHeight,signDir,innerR), [r,g,bcol]));
+  });
+  return wrap;
+}
+function buildLocalizedPiCloudSmooth(posA, posB, planeNormal, orb, gapMult, tintOverride){
+  gapMult = gapMult||1;
+  const wrap=new THREE.Group();
+  const a=new THREE.Vector3(posA[0],posA[1],posA[2]);
+  const b=new THREE.Vector3(posB[0],posB[1],posB[2]);
+  const midpoint=new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+  const bondVec=new THREE.Vector3().subVectors(b,a);
+  const bondHalfLength=bondVec.length()*0.5;
+  const bondDir=bondVec.clone().normalize();
+  applyPiBondFrame(wrap,midpoint,bondDir,planeNormal);
+  const tubeRadius=Math.max(bondHalfLength*0.42, 1e-3);
+  const archHeight=Math.min(orb.R*0.95, bondHalfLength*1.15);
+  const innerR=pInnerRadius(orb.n,orb.R)*gapMult; // same root every other lobe on this atom already uses — this is what actually sits near the atom's own inner/core shell, not a bond-length-scaled offset (that was mixing two unrelated unit scales, which is why it floated way out); gapMult widens it for the alkyne pi-cross (see buildLocalizedPiCloud)
+  const[br,bg,bb]=realMode?realColor(orb.R):orb.rgb;
+  const dt=tintOverride||[0.65,0.65,1.0];
+  const[r,g,bcol]=realMode?[br,bg,bb]:[br*0.5+dt[0]*0.5, bg*0.5+dt[1]*0.5, bb*0.5+dt[2]*0.5];
+  const perLobe=Math.round(1500*computeRadiusBoost(orb.R));
+  [1,-1].forEach(signDir=>{
+    wrap.add(makeSmoothPointCloud(perLobe, ()=>samplePiBondLobeLocal(bondHalfLength,tubeRadius,archHeight,signDir,innerR), [r,g,bcol]));
+  });
+  return wrap;
+}
+
+// Ultra-mode (solid mesh) twin of buildLocalizedPiCloud — a hand-built
+// tapered tube following the exact same quadratic Bézier arc
+// (piBondArcPoint) the point-cloud twins sample from, so the solid
+// version is a genuine curved banana tapering to a point at each
+// nucleus, not a flat-ended rod. Built as a plain custom BufferGeometry
+// (explicit ring-by-ring vertices + our own triangle indices) rather than
+// post-processing THREE's built-in TubeGeometry, since that means every
+// vertex's position is something this code puts there directly — nothing
+// depends on guessing how a library's internal vertex layout happens to
+// be ordered.
+function buildLocalizedPiMesh(posA, posB, planeNormal, orb, gapMult, tintOverride){
+  gapMult = gapMult||1;
+  const wrap=new THREE.Group();
+  const a=new THREE.Vector3(posA[0],posA[1],posA[2]);
+  const b=new THREE.Vector3(posB[0],posB[1],posB[2]);
+  const midpoint=new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+  const bondVec=new THREE.Vector3().subVectors(b,a);
+  const bondHalfLength=bondVec.length()*0.5;
+  const bondDir=bondVec.clone().normalize();
+  applyPiBondFrame(wrap,midpoint,bondDir,planeNormal);
+
+  const tubeRadius=Math.max(bondHalfLength*0.42, 1e-3);
+  const archHeight=Math.min(orb.R*0.95, bondHalfLength*1.15);
+  const innerR=pInnerRadius(orb.n,orb.R)*gapMult; // same root every other lobe on this atom already uses — this is what actually sits near the atom's own inner/core shell, not a bond-length-scaled offset (that was mixing two unrelated unit scales, which is why it floated way out); gapMult widens it for the alkyne pi-cross (see buildLocalizedPiCloud)
+  const[br,bg,bb]=realMode?realColor(orb.R):orb.rgb;
+  const dt=tintOverride||[0.65,0.65,1.0];
+  const[cr,cg,cb]=realMode?[br,bg,bb]:[br*0.5+dt[0]*0.5, bg*0.5+dt[1]*0.5, bb*0.5+dt[2]*0.5];
+  const rimPow=1.2+orb.R*0.008;
+  const alpha=1.05*Math.pow(10/(orb.R+3),0.22);
+  const mat=bubbleMat([cr,cg,cb], alpha*0.85, rimPow+0.3);
+
+  const segs=32, radialSegs=14, vertsPerRing=radialSegs+1;
+  const worldZ=new THREE.Vector3(0,0,1); // every arc point lies in local z=0, so this is a stable reference for building each ring's own perpendicular frame
+
+  [1,-1].forEach(signDir=>{
+    const positions=[], indices=[];
+    for(let ring=0; ring<=segs; ring++){
+      const s=ring/segs;
+      const c=piBondArcPoint(s, bondHalfLength, archHeight, innerR, signDir);
+      // Tangent via finite difference along the same arc formula — cheap
+      // and accurate enough for a smooth curve sampled at 32 rings.
+      const sN=Math.min(s+0.01,1), sP=Math.max(s-0.01,0);
+      const cN=piBondArcPoint(sN, bondHalfLength, archHeight, innerR, signDir);
+      const cP=piBondArcPoint(sP, bondHalfLength, archHeight, innerR, signDir);
+      const tangent=new THREE.Vector3(cN.x-cP.x, cN.y-cP.y, 0).normalize();
+      const side=new THREE.Vector3().crossVectors(tangent, worldZ).normalize();
+      const normal=new THREE.Vector3().crossVectors(side, tangent).normalize();
+      const taper=0.15+0.85*Math.sin(s*Math.PI); // node at both nuclei, full bulge mid-arc — same taper the point-cloud version uses
+      const r=tubeRadius*taper;
+      for(let v=0; v<vertsPerRing; v++){
+        const theta=(v/radialSegs)*Math.PI*2;
+        const cosT=Math.cos(theta), sinT=Math.sin(theta);
+        positions.push(
+          c.x + (side.x*cosT + normal.x*sinT)*r,
+          c.y + (side.y*cosT + normal.y*sinT)*r,
+          0   + (side.z*cosT + normal.z*sinT)*r
+        );
+      }
+    }
+    for(let ring=0; ring<segs; ring++){
+      for(let v=0; v<radialSegs; v++){
+        const i0=ring*vertsPerRing+v, i1=i0+vertsPerRing, i2=i0+1, i3=i1+1;
+        indices.push(i0,i1,i2, i1,i3,i2);
+      }
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    wrap.add(new THREE.Mesh(geo,mat));
+  });
+  return wrap;
+}
+
+// ── Triple-bond π-cross (alkynes: sp carbons) ──
+// A real triple bond is 1 sigma + 2 mutually PERPENDICULAR pi bonds. An sp
+// carbon has no third real substituent to pin down which way those two pi
+// planes face (unlike an sp2 alkene, where the other two substituents
+// define the plane) — so this picks a stable, arbitrary orthonormal frame
+// around the bond axis (triplePiAxes) and reuses the exact same tapered
+// Bézier-arc lens (piBondArcPoint / buildLocalizedPiCloud*) the alkene
+// C=C already renders with, called twice with two 90°-apart plane
+// normals. That gives 4 lobes total (a genuine "spindle" taper — pinched
+// to a point at each nucleus, fattest at mid-bond — same shape language
+// as every other lobe in this app), crossed at 90° so both pi systems
+// are individually spottable instead of fusing into one blob, and each
+// pi system gets its own tint (green / blue, matching this app's existing
+// P_AXIS_TINT palette) so "two" reads at a glance rather than one.
+// TRIPLE_PI_GAP widens buildLocalizedPiCloud*'s innerR so there's a clear
+// visible GAP between these lobes and the sigma core — which the
+// orderNarrow fix in sampleBondAwareP above now renders as a much
+// thinner lobe for order>=2 bonds instead of the old, too-fat default.
+const TRIPLE_PI_GAP=1.0; // multiplies pInnerRadius; lowered from 1.9, then 1.3 — both still left the pi-cross lens tips visibly floating away from the carbon's core (1s + hybrid sigma root) instead of rooting into it. 1.0 seats the pi lobes at exactly the same innerR the sigma hybrid lobe itself starts from (pInnerRadius(orb.n,orb.R), no extra multiplier), so the pi cross and sigma core share one common root point right at the nucleus instead of the pi cross starting further out — revisit if a future bond-length/orbital-radius rework shifts that balance
+function triplePiAxes(bondDir){
+  const helper=Math.abs(bondDir.y)<0.99 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+  const e1=new THREE.Vector3().crossVectors(bondDir,helper).normalize();
+  const e2=new THREE.Vector3().crossVectors(bondDir,e1).normalize();
+  return [e1,e2];
+}
+// Names kept as buildTripleBondSheath/Smooth/Mesh (not renamed to
+// "Cross") so the mol.tripleBonds call sites below don't need touching —
+// same public interface, reimplemented internals.
+function buildTripleBondSheath(posA, posB, orb){
+  const a=new THREE.Vector3(posA[0],posA[1],posA[2]);
+  const b=new THREE.Vector3(posB[0],posB[1],posB[2]);
+  const bondDir=new THREE.Vector3().subVectors(b,a).normalize();
+  const[e1,e2]=triplePiAxes(bondDir);
+  const wrap=new THREE.Group();
+  wrap.add(buildLocalizedPiCloud(posA,posB,e1,orb,TRIPLE_PI_GAP,P_AXIS_TINT[1]));
+  wrap.add(buildLocalizedPiCloud(posA,posB,e2,orb,TRIPLE_PI_GAP,P_AXIS_TINT[2]));
+  return wrap;
+}
+function buildTripleBondSheathSmooth(posA, posB, orb){
+  const a=new THREE.Vector3(posA[0],posA[1],posA[2]);
+  const b=new THREE.Vector3(posB[0],posB[1],posB[2]);
+  const bondDir=new THREE.Vector3().subVectors(b,a).normalize();
+  const[e1,e2]=triplePiAxes(bondDir);
+  const wrap=new THREE.Group();
+  wrap.add(buildLocalizedPiCloudSmooth(posA,posB,e1,orb,TRIPLE_PI_GAP,P_AXIS_TINT[1]));
+  wrap.add(buildLocalizedPiCloudSmooth(posA,posB,e2,orb,TRIPLE_PI_GAP,P_AXIS_TINT[2]));
+  return wrap;
+}
+function buildTripleBondSheathMesh(posA, posB, orb){
+  const a=new THREE.Vector3(posA[0],posA[1],posA[2]);
+  const b=new THREE.Vector3(posB[0],posB[1],posB[2]);
+  const bondDir=new THREE.Vector3().subVectors(b,a).normalize();
+  const[e1,e2]=triplePiAxes(bondDir);
+  const wrap=new THREE.Group();
+  wrap.add(buildLocalizedPiMesh(posA,posB,e1,orb,TRIPLE_PI_GAP,P_AXIS_TINT[1]));
+  wrap.add(buildLocalizedPiMesh(posA,posB,e2,orb,TRIPLE_PI_GAP,P_AXIS_TINT[2]));
+  return wrap;
+}
+
 // Ultra-mode (solid mesh) twin. Same trick as makeLobeMesh — a profile
 // curve (radius-from-axis as a function of height) revolved 360° via
 // LatheGeometry — except the profile's radius is offset by ringRadius
@@ -4315,6 +4759,23 @@ function isSp2PlanarHub(rawBonds){
   const sum=rawBonds.reduce((a,b)=>({x:a.x+b.dir.x,y:a.y+b.dir.y,z:a.z+b.dir.z}),{x:0,y:0,z:0});
   return Math.hypot(sum.x,sum.y,sum.z) < 0.15;
 }
+// True sp / linear hub detection: exactly 2 bonds, ~180° apart (each
+// bond entry is one SIGMA direction regardless of bond order, so an
+// alkyne carbon — one triple bond + one C-H single bond — shows up here
+// as length-2, not length-4). Mirrors isSp2PlanarHub's zero-sum idea but
+// for the 2-substituent case: real sp hybridization mixes the valence ns
+// orbital into the 2 collinear sp lobes, so — exactly like the sp2 hub
+// above — there's no leftover pure ns sphere to draw once a hub takes
+// this path. This was the missing case: every alkyne/nitrile/allene sp
+// carbon fell through both isSp2PlanarHub (needs 3 bonds) and needsHybrid
+// (only fires for non-axis-aligned, tetrahedral-ish angles), so its 2s
+// sphere rendered as a stray, un-hybridized ghost sitting on top of the
+// triple-bond cross.
+function isSpLinearHub(rawBonds){
+  if(!rawBonds || rawBonds.length!==2) return false;
+  const d=rawBonds[0].dir.x*rawBonds[1].dir.x+rawBonds[0].dir.y*rawBonds[1].dir.y+rawBonds[0].dir.z*rawBonds[1].dir.z;
+  return d < -0.95;
+}
 
 // MOLECULE — builds one full, real electron cloud per atom (same buildCloud/
 // buildSmoothCloud/buildUltraCloud + getConfig() used for single atoms) and
@@ -4363,16 +4824,35 @@ function buildMolecule(key){
     // draw once that mixing happens for real, so it's skipped in the loop
     // below instead of rendered as an independent shell.
     const isSp2Hub = isSp2PlanarHub(rawBonds);
+    const isSpHub = isSpLinearHub(rawBonds);
+    // Axis-aligned 4-substituent hubs (a straight zig-zag alkane's CH2/CH3
+    // carbons) are just as genuinely sp3 as the non-axis-aligned ones that
+    // trigger needsHybrid below — real sp3 hybridization doesn't care
+    // whether this renderer happened to approximate the bond directions
+    // onto cartesian axes. Previously only the non-axis-aligned tetrahedral
+    // case (needsHybrid) suppressed the leftover 2s sphere, so a plain
+    // alkane backbone carbon fell through to the bond-aware (non-hybrid)
+    // p-cloud branch below and kept a stray, un-hybridized 2s sphere
+    // floating at its center — same bug class as the sp2/sp fixes above.
+    const isTetraHub = rawBonds && rawBonds.length===4;
+    // s-character of this hub's hybrid orbitals — sp mixes 1 s + 1 p
+    // (50% s), sp2 mixes 1 s + 2 p (1/3 s), sp3 mixes 1 s + 3 p (1/4 s).
+    // Passed down to the bond-aware lobe builders so each hybridization
+    // gets a visually distinct lobe shape (see hybridLobePeakT) instead
+    // of every bonded lobe using the same generic taper regardless of
+    // hybridization. null for a plain, non-hybridized center.
+    const sChar = isSpHub?0.5 : isSp2Hub?(1/3) : (isTetraHub||needsHybrid)?0.25 : null;
     let atomMaxR=0;
     cfg.forEach(orb=>{
-      // Absorbed into the sp² hybrid lobes — see isSp2Hub above.
-      // Same logic applies to true sp3 hubs (CH4, NH3, H2O): sp3
-      // hybridization mixes the ns orbital into all 4 hybrid lobes, so
-      // there's no leftover pure ns sphere to draw there either — it
-      // was previously only skipped for sp2, leaving a stray 2s sphere
-      // floating at CH4's carbon (and NH3/H2O's central atom) alongside
-      // the 4 correct tetrahedral lobes.
-      if((isSp2Hub||needsHybrid) && orb.l===0 && orb.n===valenceOrbObj.n) return;
+      // Absorbed into the sp²/sp hybrid lobes — see isSp2Hub/isSpHub
+      // above. Same logic applies to true sp3 hubs (CH4, NH3, H2O, and
+      // ordinary alkane backbone carbons): sp3 hybridization mixes the ns
+      // orbital into all 4 hybrid lobes, so there's no leftover pure ns
+      // sphere to draw there either — it was previously only skipped for
+      // sp2, leaving a stray 2s sphere floating at CH4's carbon (and
+      // NH3/H2O's central atom, and every alkyne/alkane carbon) alongside
+      // the correctly-hybridized lobes.
+      if((isSp2Hub||isSpHub||needsHybrid||isTetraHub) && orb.l===0 && orb.n===valenceOrbObj.n) return;
       const isValenceP = orb===valenceOrbObj && orb.l===1;
       // Bending/hybridizing applies in every render mode now — Ultra and
       // Smooth each have their own mesh/point builder below (see
@@ -4393,7 +4873,7 @@ function buildMolecule(key){
         const hybridInfo={dirs:hybridDirs,bonded,outerR};
         cloud=ultraMode?buildHybridPMesh(orb,hybridInfo):smoothMode?buildHybridPCloudSmooth(orb,hybridInfo):buildHybridPCloud(orb,hybridInfo);
       } else if(canReshape && bonds && bonds.length>0){
-        cloud=ultraMode?buildBondAwarePMesh(orb,bonds):smoothMode?buildBondAwarePCloudSmooth(orb,bonds):buildBondAwarePCloud(orb,bonds);
+        cloud=ultraMode?buildBondAwarePMesh(orb,bonds,sChar):smoothMode?buildBondAwarePCloudSmooth(orb,bonds,sChar):buildBondAwarePCloud(orb,bonds,sChar);
       } else {
         cloud=ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e);
       }
@@ -4434,6 +4914,49 @@ function buildMolecule(key){
                     : buildAromaticPiCloud(ringPositions, ringOrb);
       atomGrp.add(piCloud);
       aromaticRingGroup.push(piCloud);
+    });
+  }
+
+  // Localized (non-aromatic) double bonds — alkene C=C, or any ketone/
+  // aldehyde/acid C=O — get their own π-cloud here (see
+  // buildLocalizedPiCloud above for why they need a separate, non-axis-
+  // dependent path from both the aromatic ring system above and the
+  // axis-aligned bond-bending system used for simple linear/planar
+  // inorganics). The plane normal comes from whichever of the bond's two
+  // atoms actually has 2+ OTHER real bonds to define that plane with —
+  // skipped (not guessed) if neither side has enough real geometry to
+  // determine one.
+  if(mol.piBonds){
+    mol.piBonds.forEach(pb=>{
+      const [i,j]=pb.atoms;
+      const rbI=rawBondsByAtom[i]||[], rbJ=rawBondsByAtom[j]||[];
+      const others = rbI.length>=2 ? rbI : rbJ;
+      if(others.length<2) return;
+      const normal=new THREE.Vector3().crossVectors(
+        new THREE.Vector3(others[0].dir.x,others[0].dir.y,others[0].dir.z),
+        new THREE.Vector3(others[1].dir.x,others[1].dir.y,others[1].dir.z)
+      );
+      if(normal.lengthSq()<1e-8) return; // degenerate (collinear) — skip rather than guess an orientation
+      normal.normalize();
+      const orb=getConfig(atoms[i].Z).slice(-1)[0];
+      const piCloud = ultraMode ? buildLocalizedPiMesh(atoms[i].pos, atoms[j].pos, normal, orb)
+                    : smoothMode ? buildLocalizedPiCloudSmooth(atoms[i].pos, atoms[j].pos, normal, orb)
+                    : buildLocalizedPiCloud(atoms[i].pos, atoms[j].pos, normal, orb);
+      atomGrp.add(piCloud);
+    });
+  }
+
+  // Triple bonds (alkynes) get a rotationally-symmetric spindle instead —
+  // see buildTripleBondSheath above for why this is a dedicated renderer
+  // rather than reusing either the aromatic ring or alkene-lens systems.
+  if(mol.tripleBonds){
+    mol.tripleBonds.forEach(tb=>{
+      const [i,j]=tb.atoms;
+      const orb=getConfig(atoms[i].Z).slice(-1)[0];
+      const sheath = ultraMode ? buildTripleBondSheathMesh(atoms[i].pos, atoms[j].pos, orb)
+                   : smoothMode ? buildTripleBondSheathSmooth(atoms[i].pos, atoms[j].pos, orb)
+                   : buildTripleBondSheath(atoms[i].pos, atoms[j].pos, orb);
+      atomGrp.add(sheath);
     });
   }
 
@@ -4704,13 +5227,1098 @@ function selectMolecule(key){
   showToast(`${mol.formula} — ${mol.name.toUpperCase()}`);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// UNIVERSAL "BUILD" — resolveMolecule() orchestrator
+//
+// Design reference: universal-build-blueprint-v3.md. The single most
+// important architectural fact this code relies on: buildMolecule(),
+// rebuildScene(), arrow-key cycling, and the status line all re-derive
+// "the current molecule" by searching MOLECULES for curMoleculeKey —
+// none of them hold a reference to a molecule object. So a Build result
+// is never kept in a side cache; it's pushed straight into the live
+// MOLECULES array (bRegisterMolecule, below) under a namespaced
+// 'build:' key, and selectMolecule(key) is called exactly as an Explore
+// card click would. Every mode toggle (Ultra/Antimatter/Smooth) then
+// keeps working on it for free, because to those features it's just
+// another row in the array.
+//
+// Scope, honestly stated: Tier 2 (the offline rule engine below) only
+// builds pure sp3 (tetrahedral) shapes — straight or singly-branched
+// alkanes, monocyclic cycloalkanes, and a single -OH/-NH2/ether
+// substitution. Alkenes, alkynes, carboxylic acids, and anything needing
+// real sp2/sp bond angles are NOT attempted here; guessing at geometry
+// this engine doesn't model would violate the one rule everything else
+// is built around — never render a structure that hasn't been checked.
+// Those names fall through to Tier 3 (PubChem) instead.
+// ══════════════════════════════════════════════════════════════════════
+
+// ── text normalization ──────────────────────────────────────────────
+function bNormalize(s){
+  return String(s||'').toLowerCase().trim().replace(/[^a-z0-9\-\s,]/g,'').replace(/\s+/g,' ');
+}
+function bDeSubscript(s){
+  const map={'₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9'};
+  return String(s).replace(/[₀-₉]/g,ch=>map[ch]||ch).toLowerCase();
+}
+function bSlug(s){ return bNormalize(s).replace(/\s+/g,'-'); }
+function bTitleCase(s){ return s.replace(/(^|[\s-])([a-z])/g,(m,sep,ch)=>sep+ch.toUpperCase()); }
+
+// Small Levenshtein distance for "did you mean" — only needs to be
+// correct, not fast; every string here is a handful of characters.
+function bEditDistance(a,b){
+  a=a||''; b=b||'';
+  const dp=[];
+  for(let i=0;i<=a.length;i++){ dp.push([i]); }
+  for(let j=1;j<=b.length;j++){ dp[0][j]=j; }
+  for(let i=1;i<=a.length;i++){
+    for(let j=1;j<=b.length;j++){
+      dp[i][j]=a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j-1],dp[i-1][j],dp[i][j-1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+// Common names that don't literally equal a curated `name` field. Tier 1's
+// direct scan below already catches "water"==name "Water", so this only
+// needs genuine synonyms.
+const MOLECULE_ALIASES = {
+  'dry ice':'co2', 'laughing gas':'n2o', 'nitrous':'n2o',
+  'marsh gas':'ch4', 'natural gas':'ch4'
+};
+
+// ── shared vector helpers (all directions are {x,y,z} unit vectors) ──
+function bVec(x,y,z){ return {x,y,z}; }
+function bNeg(v){ return {x:-v.x,y:-v.y,z:-v.z}; }
+function bDirArr(v){ return [v.x,v.y,v.z]; }
+function bRotateZ(v,angle){
+  const c=Math.cos(angle), s=Math.sin(angle);
+  return {x:v.x*c-v.y*s, y:v.x*s+v.y*c, z:v.z};
+}
+// Given the tetrahedral-known directions FROM one atom (1 or 2 heavy
+// neighbors), returns however many NEW directions remain out of the full
+// tetrahedron — reusing completeTetrahedronDirs, the exact function the
+// renderer itself already uses for this at draw time, so Build's geometry
+// can never quietly drift from the render engine's own.
+function bRemainingTetraSlots(knownDirs){
+  const full=completeTetrahedronDirs(knownDirs);
+  return full.slice(knownDirs.length);
+}
+
+// ── atom-count / formula helpers (also used by Tier 3 and categorize) ──
+function bCountFormula(atoms){
+  const counts={};
+  atoms.forEach(a=>{ counts[a.sym]=(counts[a.sym]||0)+1; });
+  return counts;
+}
+function bFormulaString(counts){
+  const SUB={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+  const toSub=n=>n>1?String(n).split('').map(d=>SUB[d]).join(''):'';
+  const syms=Object.keys(counts).filter(s=>counts[s]>0);
+  const order=syms.includes('C') ? ['C','H',...syms.filter(s=>s!=='C'&&s!=='H').sort()] : syms.sort();
+  return order.filter(s=>counts[s]).map(s=>s+toSub(counts[s])).join('');
+}
+
+// ── universal categorization — runs on ANY resolved molecule, curated,
+//    Tier-2-built, or Tier-3-looked-up alike ──
+function categorize(mol){
+  const counts=bCountFormula(mol.atoms);
+  const hasC=!!counts['C'], hasH=!!counts['H'];
+  const cls=(hasC&&hasH)?'organic':'inorganic';
+  const orders=(mol.bonds||[]).map(b=>b.length>2?(b[2]||1):1);
+  const maxOrder=orders.length?Math.max(...orders):1;
+  const atomCount=mol.atoms.length;
+  let family='other';
+  if(mol.aromaticRings && mol.aromaticRings.length) family='aromatic';
+  else if(mol.functionalGroup==='alcohol') family='alcohol';
+  else if(mol.functionalGroup==='amine') family='amine';
+  else if(mol.functionalGroup==='ether') family='ether';
+  else if(hasC && maxOrder===3) family='alkyne';
+  else if(hasC && maxOrder===2) family='alkene';
+  else if(hasC && hasH) family='alkane';
+  else if(atomCount===2) family='diatomic';
+  else if(atomCount===3) family='triatomic';
+  return {class:cls, family, shape: mol.geometry || 'Complex'};
+}
+
+// Registers a resolved molecule into the live MOLECULES array (never a
+// separate cache — see the header comment above) and, if it isn't there
+// already, appends a clickable Explore card so it stays reachable
+// (search, arrow-key cycling, re-selection) for the rest of the session.
+function bRegisterMolecule(mol){
+  const existingIdx=MOLECULES.findIndex(m=>m.key===mol.key);
+  if(existingIdx>=0) MOLECULES[existingIdx]=mol; else MOLECULES.push(mol);
+  bAppendExploreCard(mol);
+}
+function bAppendExploreCard(mol){
+  if(document.querySelector(`.mcard[data-mol="${mol.key}"]`)) return;
+  const mg=document.getElementById('mgrid');
+  if(!mg) return;
+  const b=document.createElement('button');
+  b.className='mcard';
+  b.dataset.mol=mol.key;
+  b.title=mol.name;
+  b.innerHTML=`<span class="mf">${mol.formula}</span><span class="mn">${mol.name}</span>`;
+  b.onclick=()=>selectMolecule(mol.key);
+  mg.appendChild(b);
+}
+
+// ── Tier 0: bare element name/symbol ──────────────────────────────────
+function bTier0Lookup(norm){
+  return ELS.find(e=>bNormalize(e.name)===norm || bNormalize(e.sym)===norm) || null;
+}
+
+// ── Tier 1: curated + already-built registry (MOLECULES itself) ──────
+function bTier1Lookup(norm){
+  const aliased = MOLECULE_ALIASES[norm] || norm;
+  return MOLECULES.find(m=>
+    bNormalize(m.key)===aliased ||
+    bNormalize(m.name)===aliased ||
+    bDeSubscript(m.formula)===bDeSubscript(aliased)
+  ) || null;
+}
+
+// ── "Did you mean?" against curated names + aliases ───────────────────
+function bNearestKnownName(norm){
+  let best=null, bestDist=Infinity;
+  const candidates=MOLECULES.map(m=>({text:bNormalize(m.name),label:m.name}))
+    .concat(ELS.map(e=>({text:bNormalize(e.name),label:e.name})))
+    .concat(Object.keys(MOLECULE_ALIASES).map(a=>({text:a,label:a})));
+  candidates.forEach(c=>{
+    const d=bEditDistance(norm,c.text);
+    if(d<bestDist){ bestDist=d; best=c.label; }
+  });
+  return (best && bestDist>0 && bestDist<=2) ? best : null;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TIER 2 — rule-built sp3 families (instant, offline)
+// ══════════════════════════════════════════════════════════════════════
+const CHAIN_PREFIXES={
+  meth:1,eth:2,prop:3,but:4,pent:5,hex:6,hept:7,oct:8,non:9,dec:10,
+  undec:11,dodec:12,tridec:13,tetradec:14,pentadec:15,hexadec:16,
+  heptadec:17,octadec:18,nonadec:19,icos:20,eicos:20
+};
+const TETRA_ALPHA=Math.acos(-1/3);          // exact tetrahedral bond angle — same constant completeTetrahedronDirs uses
+const ZIGZAG_HALF=(Math.PI-TETRA_ALPHA)/2;  // deflection of each main-chain bond from a straight axis
+
+// ── trigonal-planar (sp2) and linear (sp) completion — same idea as
+//    completeTetrahedronDirs, just for double/triple-bond carbons. Kept
+//    separate rather than folded into that function since it belongs to
+//    the render engine and this is authoring-time-only geometry. ──
+function bRotateAxis(v,axis,angle){
+  const c=Math.cos(angle), s=Math.sin(angle);
+  const dot=v.x*axis.x+v.y*axis.y+v.z*axis.z;
+  const cx=axis.y*v.z-axis.z*v.y, cy=axis.z*v.x-axis.x*v.z, cz=axis.x*v.y-axis.y*v.x;
+  return {
+    x: v.x*c+cx*s+axis.x*dot*(1-c),
+    y: v.y*c+cy*s+axis.y*dot*(1-c),
+    z: v.z*c+cz*s+axis.z*dot*(1-c)
+  };
+}
+function bTrigonalComplete(knownDirs){
+  if(knownDirs.length>=3) return knownDirs;
+  if(knownDirs.length===2){
+    const sx=knownDirs[0].x+knownDirs[1].x, sy=knownDirs[0].y+knownDirs[1].y, sz=knownDirs[0].z+knownDirs[1].z;
+    const l=Math.hypot(sx,sy,sz)||1;
+    return [knownDirs[0],knownDirs[1],bVec(-sx/l,-sy/l,-sz/l)];
+  }
+  if(knownDirs.length===1){
+    const v1=knownDirs[0];
+    const refUp=Math.abs(v1.z)<0.9 ? bVec(0,0,1) : bVec(1,0,0);
+    const nx=v1.y*refUp.z-v1.z*refUp.y, ny=v1.z*refUp.x-v1.x*refUp.z, nz=v1.x*refUp.y-v1.y*refUp.x;
+    const nl=Math.hypot(nx,ny,nz)||1;
+    const axis=bVec(nx/nl,ny/nl,nz/nl);
+    return [v1, bRotateAxis(v1,axis,2*Math.PI/3), bRotateAxis(v1,axis,-2*Math.PI/3)];
+  }
+  return knownDirs;
+}
+function bLinearComplete(knownDirs){
+  if(knownDirs.length>=2) return knownDirs;
+  if(knownDirs.length===1) return [knownDirs[0], bNeg(knownDirs[0])];
+  return knownDirs;
+}
+// Routes to the right completion scheme for a carbon's hybridization —
+// sp3 (tetrahedral, default), sp2 (one double bond), sp (one triple
+// bond) — returning only the NEWLY generated directions.
+function bGeometryComplete(hyb, knownDirs){
+  if(hyb==='sp') return bLinearComplete(knownDirs).slice(knownDirs.length);
+  if(hyb==='sp2') return bTrigonalComplete(knownDirs).slice(knownDirs.length);
+  return bRemainingTetraSlots(knownDirs);
+}
+
+const HALOGEN_Z={F:9,Cl:17,Br:35,I:53};
+
+// ── name → substituent stripping (repeatable, so "1,2-dichloro..." and
+//    stacked branches like "3-ethyl-2-methyl..." both work) ──
+function bStripHalogens(s){
+  const nameToElem={fluoro:'F',chloro:'Cl',bromo:'Br',iodo:'I'};
+  const multCount={di:2,tri:3,tetra:4};
+  const halogens=[];
+  let changed=true;
+  while(changed){
+    changed=false;
+    const m=s.match(/^(\d+(?:,\d+)*)-(di|tri|tetra)?(fluoro|chloro|bromo|iodo)(.*)$/);
+    if(m){
+      const locants=m[1].split(',').map(Number);
+      const need=m[2]?multCount[m[2]]:1;
+      if(locants.length!==need) return null; // malformed count/locant mismatch — decline rather than guess
+      const elem=nameToElem[m[3]];
+      locants.forEach(loc=>halogens.push({locant:loc, elem}));
+      s=m[4].replace(/^-/,'');
+      changed=true;
+    }
+  }
+  return {halogens, rest:s};
+}
+function bStripBranches(s){
+  const multCount={di:2,tri:3,tetra:4};
+  const branches=[];
+  let changed=true;
+  while(changed){
+    changed=false;
+    const m=s.match(/^(\d+(?:,\d+)*)-(di|tri|tetra)?(methyl|ethyl)(.*)$/);
+    if(m){
+      const locants=m[1].split(',').map(Number);
+      const need=m[2]?multCount[m[2]]:1;
+      if(locants.length!==need) return null; // malformed count/locant mismatch — decline rather than guess
+      locants.forEach(loc=>branches.push({locant:loc, type:m[3]}));
+      s=m[4].replace(/^-/,'');
+      changed=true;
+    }
+  }
+  return {branches, rest:s};
+}
+
+// Matches the base chain + its one functional suffix, accepting both
+// "2-butanol" (locant-first) and "butan-2-ol" (modern infix) styles.
+function bMatchSuffix(s){
+  let m;
+  if((m=s.match(/^([a-z]+)an-(\d+)-amine$/))) return {type:'amine', locant:+m[2], prefixKey:m[1]};
+  if((m=s.match(/^(?:(\d+)-)?([a-z]+)an?amine$/))) return {type:'amine', locant:m[1]?+m[1]:1, prefixKey:m[2]};
+  if((m=s.match(/^([a-z]+)an-(\d+)-ol$/))) return {type:'ol', locant:+m[2], prefixKey:m[1]};
+  if((m=s.match(/^(?:(\d+)-)?([a-z]+)anol$/))) return {type:'ol', locant:m[1]?+m[1]:1, prefixKey:m[2]};
+  if((m=s.match(/^([a-z]+)an-(\d+)-one$/))) return {type:'one', locant:+m[2], prefixKey:m[1]};
+  if((m=s.match(/^(?:(\d+)-)?([a-z]+)anone$/))) return {type:'one', locant:m[1]?+m[1]:2, prefixKey:m[2]};
+  if((m=s.match(/^([a-z]+)anal$/))) return {type:'al', locant:1, prefixKey:m[1]};
+  if((m=s.match(/^([a-z]+)anoicacid$/))) return {type:'acid', locant:1, prefixKey:m[1]};
+  if((m=s.match(/^([a-z]+)-(\d+)-ene$/))) return {type:'ene', locant:+m[2], prefixKey:m[1]};
+  if((m=s.match(/^(?:(\d+)-)?([a-z]+)ene$/))) return {type:'ene', locant:m[1]?+m[1]:1, prefixKey:m[2]};
+  if((m=s.match(/^([a-z]+)-(\d+)-yne$/))) return {type:'yne', locant:+m[2], prefixKey:m[1]};
+  if((m=s.match(/^(?:(\d+)-)?([a-z]+)yne$/))) return {type:'yne', locant:m[1]?+m[1]:1, prefixKey:m[2]};
+  if((m=s.match(/^([a-z]+)ane$/))) return {type:'ane', locant:null, prefixKey:m[1]};
+  return null;
+}
+
+// Full parse: strips any number of halogen + methyl/ethyl-branch
+// prefixes, then matches exactly one base functional suffix. Declines
+// (returns null → falls through to Tier 3) rather than guess whenever a
+// substituent would land on a carbon this engine doesn't have safe
+// geometry for (e.g. a halogen on a double-bond carbon).
+function bParseOrganicName(norm){
+  let s=norm.replace(/\s+/g,'');
+  const hstrip=bStripHalogens(s);
+  if(!hstrip) return null;
+  s=hstrip.rest;
+  const bstrip=bStripBranches(s);
+  if(!bstrip) return null;
+  s=bstrip.rest;
+  const suf=bMatchSuffix(s);
+  if(!suf) return null;
+  const chainLength=CHAIN_PREFIXES[suf.prefixKey];
+  if(!chainLength || chainLength>20) return null;
+
+  if((suf.type==='ene'||suf.type==='yne') && (chainLength<2 || suf.locant<1 || suf.locant>chainLength-1)) return null;
+  if((suf.type==='ol'||suf.type==='amine') && (suf.locant<1 || suf.locant>chainLength)) return null;
+  if(suf.type==='one' && (chainLength<3 || suf.locant<2 || suf.locant>chainLength-1)) return null;
+  if((suf.type==='al'||suf.type==='acid') && chainLength<1) return null;
+
+  for(const br of bstrip.branches){ if(br.locant<2 || br.locant>chainLength-1) return null; }
+  for(const h of hstrip.halogens){ if(h.locant<1 || h.locant>chainLength) return null; }
+
+  // v1-scope guard: keep the unsaturated/carbonyl carbons free of any
+  // OTHER substitution — vinyl/allylic/alpha substitution is real
+  // chemistry this engine doesn't attempt geometry for.
+  const reservedLocants = (suf.type==='ene'||suf.type==='yne') ? [suf.locant, suf.locant+1]
+    : (suf.type==='one') ? [suf.locant]
+    : (suf.type==='al'||suf.type==='acid') ? [1]
+    : [];
+  for(const br of bstrip.branches) if(reservedLocants.includes(br.locant)) return null;
+  for(const h of hstrip.halogens) if(reservedLocants.includes(h.locant)) return null;
+
+  return {chainLength, branches:bstrip.branches, halogens:hstrip.halogens, suf};
+}
+
+function bExpectedOrganicFormula(spec){
+  const branchC=spec.branches.reduce((s,b)=>s+(b.type==='methyl'?1:2),0);
+  const totalC=spec.chainLength+branchC;
+  let H=2*totalC+2;
+  const out={C:totalC};
+  if(spec.suf.type==='ene') H-=2;
+  if(spec.suf.type==='yne') H-=4;
+  if(spec.suf.type==='ol') out.O=(out.O||0)+1;
+  if(spec.suf.type==='amine'){ H+=1; out.N=(out.N||0)+1; }
+  if(spec.suf.type==='one'){ H-=2; out.O=(out.O||0)+1; }
+  if(spec.suf.type==='al'){ H-=2; out.O=(out.O||0)+1; }
+  if(spec.suf.type==='acid'){ H-=2; out.O=(out.O||0)+2; }
+  spec.halogens.forEach(h=>{ H-=1; out[h.elem]=(out[h.elem]||0)+1; });
+  out.H=H;
+  return out;
+}
+
+// Builds the {atoms,bonds} shape for a fully-parsed organic spec — one
+// pass over the main chain. Every non-carbonyl carbon gets whatever
+// tetrahedral/trigonal/linear slots its hybridization allows (via
+// bGeometryComplete); branches, halogens, and the -OH/-NH2 hetero atom
+// are all just "reserved" slots on that same carbon, handled the same
+// way regardless of which one they are. The carbonyl carbon (ketone/
+// aldehyde/acid) is handled once, separately, right after, since it
+// needs oxygen atom(s) of its own rather than plain hydrogens.
+function bBuildOrganicObject(spec){
+  const n=spec.chainLength;
+  if(n<1||n>20) return null;
+  if(n===1){
+    if(spec.branches.length||spec.halogens.length||spec.suf.type!=='ane') return null; // single-carbon substitution needs geometry this engine doesn't attempt
+    return {
+      atoms:[{Z:6,sym:'C',dir:[0,0,0]},
+        {Z:1,sym:'H',dir:[TET,TET,TET]},{Z:1,sym:'H',dir:[TET,-TET,-TET]},
+        {Z:1,sym:'H',dir:[-TET,TET,-TET]},{Z:1,sym:'H',dir:[-TET,-TET,TET]}],
+      bonds:[[0,1,1],[0,2,1],[0,3,1],[0,4,1]], geometry:'Tetrahedral'
+    };
+  }
+
+  // Hybridization per carbon is decided FIRST, before any geometry, because
+  // a triple bond's sp carbons need the chain skeleton built differently
+  // (see below) — geometry has to follow chemistry here, not the other
+  // way around.
+  const hyb=new Array(n).fill('sp3');
+  let unsatA=null, unsatB=null, unsatOrder=1;
+  if(spec.suf.type==='ene'||spec.suf.type==='yne'){
+    unsatA=spec.suf.locant-1; unsatB=spec.suf.locant;
+    hyb[unsatA]=hyb[unsatB]= spec.suf.type==='ene' ? 'sp2' : 'sp';
+    unsatOrder = spec.suf.type==='ene' ? 2 : 3;
+  }
+  let carbonylIdx=null, carbonylKind=null;
+  if(spec.suf.type==='one'){ carbonylIdx=spec.suf.locant-1; carbonylKind='one'; hyb[carbonylIdx]='sp2'; }
+  if(spec.suf.type==='al'){ carbonylIdx=0; carbonylKind='al'; hyb[carbonylIdx]='sp2'; }
+  if(spec.suf.type==='acid'){ carbonylIdx=0; carbonylKind='acid'; hyb[carbonylIdx]='sp2'; }
+  const piBonds=[]; // localized (non-aromatic) double bonds that need an explicit π-cloud — see below
+  const tripleBonds=[]; // alkyne triple bonds — rendered as a dedicated spindle, see below
+
+  // Chain skeleton. Ordinary sp3 stretches use the same flat zig-zag every
+  // plain alkane already uses. A triple bond is different: real sp carbons
+  // are exactly linear (180°), so BOTH triple-bond carbons — and the
+  // single bonds immediately touching them on either side — have no
+  // geometric freedom at all; forcing that whole run onto one cartesian
+  // axis is what lets the renderer's existing axis-aligned π-bond system
+  // (built for CO2/HCN-style linear molecules) actually draw the triple
+  // bond's two real π lobes, instead of quietly rendering it as a
+  // plain-looking single bond just because the chain happened to be at an
+  // angle. A double bond's 120° sp2 geometry can't be axis-forced the same
+  // way — no orientation puts 2 of a trigonal-planar carbon's 3 bonds onto
+  // cartesian axes 90° apart when they're really 120° apart — so alkenes
+  // and every C=O (ketone/aldehyde/acid) instead get an explicit piBonds
+  // entry below, drawn by a dedicated cloud that doesn't depend on axis
+  // alignment at all.
+  const stepDirs=[null];
+  const atoms=[{Z:6,sym:'C',dir:[0,0,0]}];
+  const bonds=[];
+  for(let i=1;i<n;i++){
+    const forcedAxis = hyb[i]==='sp' || hyb[i-1]==='sp';
+    let d;
+    if(forcedAxis){
+      d=bVec(1,0,0);
+    } else {
+      const sign=(i%2===1)?1:-1;
+      d=bVec(Math.cos(ZIGZAG_HALF), sign*Math.sin(ZIGZAG_HALF), 0);
+    }
+    stepDirs[i]=d;
+    atoms.push({Z:6,sym:'C',dir:bDirArr(d)});
+    bonds.push([i-1,i,1]);
+  }
+  if(unsatA!==null){
+    const bi=bonds.findIndex(bd=>bd[0]===unsatA&&bd[1]===unsatB);
+    if(bi>=0){
+      bonds[bi][2]=unsatOrder;
+      if(spec.suf.type==='yne'){
+        // Suppress the shared axis-based pi system for this specific bond
+        // (see buildBondDescriptors' skipPiAxis) — its pi visual is drawn
+        // by the dedicated triple-bond spindle instead, avoiding a
+        // double-rendered/crossed look where this bond's atoms also carry
+        // an H on the same cartesian axis.
+        bonds[bi][3]=undefined;
+        bonds[bi][4]=true;
+      }
+    }
+    if(spec.suf.type==='ene') piBonds.push({atoms:[unsatA,unsatB]});
+    if(spec.suf.type==='yne') tripleBonds.push({atoms:[unsatA,unsatB]});
+  }
+  const knownHeavy=i=>{
+    const arr=[];
+    if(i>0) arr.push(bNeg(stepDirs[i]));
+    if(i<n-1) arr.push(stepDirs[i+1]);
+    return arr;
+  };
+
+  const reservedByHost={};
+  spec.branches.forEach(b=>{ (reservedByHost[b.locant-1]=reservedByHost[b.locant-1]||[]).push({kind:'branch', type:b.type}); });
+  spec.halogens.forEach(h=>{ (reservedByHost[h.locant-1]=reservedByHost[h.locant-1]||[]).push({kind:'halogen', elem:h.elem}); });
+  if(spec.suf.type==='ol'||spec.suf.type==='amine'){
+    const hostIdx=spec.suf.locant-1;
+    (reservedByHost[hostIdx]=reservedByHost[hostIdx]||[]).push({kind:'hetero', type:spec.suf.type});
+  }
+
+  function attachBranch(hostIdx, dir, armLen){
+    const armDirs=bBuildAlkylArmDirs(dir, armLen);
+    let anchor=hostIdx;
+    armDirs.forEach(d=>{ const cIdx=atoms.length; atoms.push({Z:6,sym:'C',dir:bDirArr(d)}); bonds.push([anchor,cIdx,1]); anchor=cIdx; });
+    for(let k=0;k<armLen;k++){
+      const cIdx=atoms.length-armLen+k;
+      const kn=[bNeg(armDirs[k])];
+      if(k<armLen-1) kn.push(armDirs[k+1]);
+      bRemainingTetraSlots(kn).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([cIdx,atoms.length-1,1]); });
+    }
+  }
+
+  for(let i=0;i<n;i++){
+    if(i===carbonylIdx) continue; // handled after this loop
+    const known=knownHeavy(i);
+    const slots=bGeometryComplete(hyb[i], known);
+    const reserved=reservedByHost[i]||[];
+    if(reserved.length>slots.length) return null; // more substituents than this carbon has room for — decline rather than guess
+
+    let slotIdx=0;
+    for(const sub of reserved){
+      const dir=slots[slotIdx++];
+      if(sub.kind==='branch'){
+        attachBranch(i, dir, sub.type==='methyl'?1:2);
+      } else if(sub.kind==='halogen'){
+        atoms.push({Z:HALOGEN_Z[sub.elem], sym:sub.elem, dir:bDirArr(dir)});
+        bonds.push([i,atoms.length-1,1]);
+      } else if(sub.kind==='hetero'){
+        const heteroZ=sub.type==='ol'?8:7, heteroSym=sub.type==='ol'?'O':'N';
+        const heteroIdx=atoms.length;
+        atoms.push({Z:heteroZ,sym:heteroSym,dir:bDirArr(dir)});
+        bonds.push([i,heteroIdx,1]);
+        const heteroSlots=bRemainingTetraSlots([bNeg(dir)]);
+        const hCount=sub.type==='ol'?1:2;
+        heteroSlots.slice(0,hCount).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([heteroIdx,atoms.length-1,1]); });
+      }
+    }
+    for(;slotIdx<slots.length;slotIdx++){
+      atoms.push({Z:1,sym:'H',dir:bDirArr(slots[slotIdx])});
+      bonds.push([i,atoms.length-1,1]);
+    }
+  }
+
+  // Carbonyl carbon (ketone/aldehyde/acid) — separate because it needs
+  // oxygen atom(s) of its own, not just hydrogens.
+  if(carbonylIdx!==null){
+    const known=knownHeavy(carbonylIdx);
+    const slots=bTrigonalComplete(known).slice(known.length); // 1 slot for ketone, 2 for aldehyde/acid
+    const oIdx=atoms.length;
+    atoms.push({Z:8,sym:'O',dir:bDirArr(slots[0])});
+    bonds.push([carbonylIdx,oIdx,2]); // C=O
+    piBonds.push({atoms:[carbonylIdx,oIdx]});
+    if(carbonylKind==='al'){
+      atoms.push({Z:1,sym:'H',dir:bDirArr(slots[1])});
+      bonds.push([carbonylIdx,atoms.length-1,1]);
+    } else if(carbonylKind==='acid'){
+      const ohIdx=atoms.length;
+      atoms.push({Z:8,sym:'O',dir:bDirArr(slots[1])});
+      bonds.push([carbonylIdx,ohIdx,1]);
+      const ohSlots=bRemainingTetraSlots([bNeg(slots[1])]);
+      atoms.push({Z:1,sym:'H',dir:bDirArr(ohSlots[0])});
+      bonds.push([ohIdx,atoms.length-1,1]);
+    }
+  }
+
+  let functionalGroup=null;
+  if(spec.suf.type==='ol') functionalGroup='alcohol';
+  else if(spec.suf.type==='amine') functionalGroup='amine';
+  else if(spec.suf.type==='ene') functionalGroup='alkene';
+  else if(spec.suf.type==='yne') functionalGroup='alkyne';
+  else if(carbonylIdx!==null) functionalGroup='carbonyl';
+  else if(spec.halogens.length) functionalGroup='halogenated';
+
+  const geometry = spec.suf.type==='ene' ? 'Chain with a trigonal-planar double bond'
+    : spec.suf.type==='yne' ? 'Chain with a linear triple bond'
+    : carbonylIdx!==null ? 'Chain with a trigonal-planar carbonyl'
+    : spec.branches.length ? 'Branched tetrahedral chain'
+    : 'Tetrahedral chain';
+
+  return {atoms, bonds, geometry, functionalGroup, piBonds, tripleBonds};
+}
+function bBuildAlkylArmDirs(startDirFromOrigin, length){
+  const dirs=[startDirFromOrigin];
+  for(let i=1;i<length;i++){
+    const slots=bRemainingTetraSlots([bNeg(dirs[i-1])]);
+    dirs.push(slots[0]);
+  }
+  return dirs;
+}
+
+// Parses "di<alkyl>yl ether" — a deliberately narrow, safe slice of ether
+// naming (symmetric only; see header comment for why asymmetric ethers
+// fall through to Tier 3 instead of being guessed at).
+function bParseEtherName(norm){
+  const s=norm.replace(/\s+/g,' ').trim();
+  const m=s.match(/^di([a-z]+)yl ether$/);
+  if(!m) return null;
+  const chainLength=CHAIN_PREFIXES[m[1]];
+  if(!chainLength||chainLength>6) return null;
+  return {chainLength};
+}
+function bBuildEtherObject(spec){
+  const n=spec.chainLength;
+  const atoms=[{Z:8,sym:'O',dir:[0,0,0]}];
+  const bonds=[];
+  const armStarts=[
+    bVec(Math.sin(H2O_HALF_ANGLE), -Math.cos(H2O_HALF_ANGLE), 0),
+    bVec(-Math.sin(H2O_HALF_ANGLE), -Math.cos(H2O_HALF_ANGLE), 0)
+  ];
+  armStarts.forEach(startDir=>{
+    const dirs=bBuildAlkylArmDirs(startDir,n);
+    const baseIdx=atoms.length;
+    let anchor=0;
+    dirs.forEach(d=>{
+      const cIdx=atoms.length;
+      atoms.push({Z:6,sym:'C',dir:bDirArr(d)});
+      bonds.push([anchor,cIdx,1]);
+      anchor=cIdx;
+    });
+    for(let i=0;i<n;i++){
+      const cIdx=baseIdx+i;
+      const known=[bNeg(dirs[i])];
+      if(i<n-1) known.push(dirs[i+1]);
+      bRemainingTetraSlots(known).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([cIdx,atoms.length-1,1]); });
+    }
+  });
+  return {atoms, bonds, geometry:'Bent (ether)', functionalGroup:'ether'};
+}
+
+// Monocyclic cycloalkanes, rendered as a flat regular-polygon ring — a
+// known, documented simplification (real rings above C3 pucker into
+// chair/envelope shapes); reuses the same ring-closing bond pattern
+// resolveMoleculeAtoms already supports for benzene.
+function bBuildCycloalkaneObject(ringSize){
+  const n=ringSize;
+  if(n<3||n>12) return null;
+  const turn=2*Math.PI/n;
+  const atoms=[{Z:6,sym:'C',dir:[0,0,0]}];
+  const bonds=[];
+  const stepDirs=[null];
+  const base=bVec(1,0,0);
+  for(let i=1;i<n;i++){
+    const d=bRotateZ(base,(i-1)*turn);
+    stepDirs[i]=d;
+    atoms.push({Z:6,sym:'C',dir:bDirArr(d)});
+    bonds.push([i-1,i,1]);
+  }
+  bonds.push([n-1,0,1]); // ring-closing bond — listed last so resolveMoleculeAtoms's positioning walk (which takes the FIRST matching bond per atom) always anchors off the previous ring atom, not this one
+  const closingDir=bRotateZ(base,(n-1)*turn);
+
+  for(let i=0;i<n;i++){
+    const toNext = i<n-1 ? stepDirs[i+1] : closingDir;
+    const toPrev = i>0 ? bNeg(stepDirs[i]) : bNeg(closingDir);
+    bRemainingTetraSlots([toPrev,toNext]).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([i,atoms.length-1,1]); });
+  }
+  return {atoms, bonds, geometry:'Cyclic (flat-ring approximation)'};
+}
+
+// Tries every Tier-2 shape in turn; on success, formula-checks the result
+// against what the parser predicted BEFORE ever registering it — a
+// mismatch means decline and fall through to Tier 3, never render a
+// guess.
+// ── Aromatic (benzene-ring) family — regular sp2 hexagon, same
+//    alternating-Kekulé bond pattern the curated Benzene entry already
+//    uses (verified against it, byte-for-byte), so it renders with the
+//    real delocalized π-cloud (aromaticRings), not a plain sp3 ring. ──
+const HEX_TURN=2*Math.PI/6;
+const ARENE_ALIASES={
+  benzene:{implicit:null},
+  toluene:{implicit:{kind:'branch',type:'methyl'}},
+  methylbenzene:{implicit:{kind:'branch',type:'methyl'}},
+  ethylbenzene:{implicit:{kind:'branch',type:'ethyl'}},
+  phenol:{implicit:{kind:'hetero',type:'ol'}},
+  hydroxybenzene:{implicit:{kind:'hetero',type:'ol'}},
+  aniline:{implicit:{kind:'hetero',type:'amine'}},
+  aminobenzene:{implicit:{kind:'hetero',type:'amine'}},
+  chlorobenzene:{implicit:{kind:'halogen',elem:'Cl'}},
+  bromobenzene:{implicit:{kind:'halogen',elem:'Br'}},
+  fluorobenzene:{implicit:{kind:'halogen',elem:'F'}},
+  iodobenzene:{implicit:{kind:'halogen',elem:'I'}}
+};
+// Ring + substituted side-chain compounds — a ring alias alone (above)
+// can't express these, since the amine sits partway ALONG a short alkyl
+// arm, not directly on the ring. armLen = arm carbons; heteroPos = which
+// one (1-indexed from the ring) carries the hetero group.
+const ARENE_ARM_ALIASES={
+  phenethylamine:{armLen:2, heteroPos:2, heteroType:'amine'},
+  amphetamine:{armLen:3, heteroPos:2, heteroType:'amine'}
+};
+// Reuses the exact same halogen/branch stripping as the acyclic engine
+// (so "1,2-dichlorobenzene", "4-chlorotoluene", "1,3,5-trimethylbenzene"
+// all work), then matches whatever's left against the small alias table
+// above. Declines — rather than guess — if two substituents would land
+// on the same ring carbon, or a substituent this engine doesn't model
+// (nitro, vinyl, a second ring, etc.) is requested.
+function bParseAromaticName(norm){
+  let s=norm.replace(/\s+/g,'');
+  const hstrip=bStripHalogens(s);
+  if(!hstrip) return null;
+  s=hstrip.rest;
+  const bstrip=bStripBranches(s);
+  if(!bstrip) return null;
+  s=bstrip.rest;
+  const alias=ARENE_ALIASES[s];
+  const armAlias=ARENE_ARM_ALIASES[s];
+  if(!alias && !armAlias) return null;
+
+  const subs=[];
+  hstrip.halogens.forEach(h=>subs.push({locant:h.locant, kind:'halogen', elem:h.elem}));
+  bstrip.branches.forEach(b=>subs.push({locant:b.locant, kind:'branch', type:b.type}));
+  if(alias && alias.implicit) subs.push(Object.assign({locant:1}, alias.implicit));
+  if(armAlias){
+    // v1 scope: an arm alias is the whole molecule on its own — no
+    // stacking additional ring halogens/branches on top of it yet.
+    if(hstrip.halogens.length || bstrip.branches.length) return null;
+    subs.push({locant:1, kind:'arm', armLen:armAlias.armLen, heteroPos:armAlias.heteroPos, heteroType:armAlias.heteroType});
+  }
+
+  const seen=new Set();
+  for(const sub of subs){
+    if(sub.locant<1||sub.locant>6) return null;
+    if(seen.has(sub.locant)) return null; // one substituent per ring carbon — real chemistry allows more, this engine doesn't attempt that geometry
+    seen.add(sub.locant);
+  }
+  return {substituents:subs};
+}
+function bExpectedAromaticFormula(subs){
+  let C=6, H=6;
+  const out={};
+  subs.forEach(s=>{
+    if(s.kind==='halogen'){ H-=1; out[s.elem]=(out[s.elem]||0)+1; }
+    else if(s.kind==='branch'){ const c=s.type==='methyl'?1:2, h=s.type==='methyl'?3:5; C+=c; H+=(h-1); }
+    else if(s.kind==='hetero'){ if(s.type==='ol'){ out.O=(out.O||0)+1; } else { H+=1; out.N=(out.N||0)+1; } }
+    else if(s.kind==='arm'){
+      H-=1; // the ring H the arm replaces
+      C+=s.armLen;
+      let armH=0;
+      for(let k=1;k<=s.armLen;k++){
+        const slots = k<s.armLen ? 2 : 3; // interior arm carbon has 2 free slots, the terminal one has 3
+        armH += (k===s.heteroPos) ? slots-1 : slots;
+      }
+      H+=armH;
+      H += s.heteroType==='ol' ? 1 : 2;
+      if(s.heteroType==='ol') out.O=(out.O||0)+1; else out.N=(out.N||0)+1;
+    }
+  });
+  out.C=C; out.H=H;
+  return out;
+}
+function bBuildAromaticRingObject(substituents){
+  const atoms=[{Z:6,sym:'C',dir:[0,0,0]}];
+  const bonds=[];
+  const stepDirs=[null];
+  const base=bVec(1,0,0);
+  for(let i=1;i<6;i++){
+    const d=bRotateZ(base,(i-1)*HEX_TURN);
+    stepDirs[i]=d;
+    atoms.push({Z:6,sym:'C',dir:bDirArr(d)});
+    bonds.push([i-1,i,(i%2===1)?2:1]); // alternating Kekulé — matches curated Benzene's own bond list exactly
+  }
+  bonds.push([5,0,1]);
+  const closingDir=bRotateZ(base,5*HEX_TURN);
+
+  const bySlot={};
+  substituents.forEach(s=>{ bySlot[s.locant-1]=s; });
+
+  for(let i=0;i<6;i++){
+    const toNext = i<5 ? stepDirs[i+1] : closingDir;
+    const toPrev = i>0 ? bNeg(stepDirs[i]) : bNeg(closingDir);
+    const slot=bTrigonalComplete([toPrev,toNext])[2]; // the one sp2 direction left over from the ring itself
+    const sub=bySlot[i];
+    if(!sub){
+      atoms.push({Z:1,sym:'H',dir:bDirArr(slot)});
+      bonds.push([i,atoms.length-1,1]);
+    } else if(sub.kind==='halogen'){
+      atoms.push({Z:HALOGEN_Z[sub.elem], sym:sub.elem, dir:bDirArr(slot)});
+      bonds.push([i,atoms.length-1,1]);
+    } else if(sub.kind==='branch'){
+      const armLen=sub.type==='methyl'?1:2;
+      const armDirs=bBuildAlkylArmDirs(slot, armLen);
+      let anchor=i;
+      armDirs.forEach(d=>{ const cIdx=atoms.length; atoms.push({Z:6,sym:'C',dir:bDirArr(d)}); bonds.push([anchor,cIdx,1]); anchor=cIdx; });
+      for(let k=0;k<armLen;k++){
+        const cIdx=atoms.length-armLen+k;
+        const kn=[bNeg(armDirs[k])];
+        if(k<armLen-1) kn.push(armDirs[k+1]);
+        bRemainingTetraSlots(kn).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([cIdx,atoms.length-1,1]); });
+      }
+    } else if(sub.kind==='hetero'){
+      const heteroZ=sub.type==='ol'?8:7, heteroSym=sub.type==='ol'?'O':'N';
+      const heteroIdx=atoms.length;
+      atoms.push({Z:heteroZ,sym:heteroSym,dir:bDirArr(slot)});
+      bonds.push([i,heteroIdx,1]);
+      const heteroSlots=bRemainingTetraSlots([bNeg(slot)]);
+      const hCount=sub.type==='ol'?1:2;
+      heteroSlots.slice(0,hCount).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([heteroIdx,atoms.length-1,1]); });
+    } else if(sub.kind==='arm'){
+      // A short alkyl arm off the ring, exactly like the 'branch' case,
+      // except one of ITS carbons (heteroPos, 1-indexed along the arm)
+      // carries an -OH/-NH2 instead of a plain hydrogen — this is what
+      // lets phenethylamine/amphetamine-style molecules build correctly.
+      const armDirs=bBuildAlkylArmDirs(slot, sub.armLen);
+      const carbonIdxs=[];
+      let anchor=i;
+      armDirs.forEach(d=>{ const cIdx=atoms.length; atoms.push({Z:6,sym:'C',dir:bDirArr(d)}); bonds.push([anchor,cIdx,1]); anchor=cIdx; carbonIdxs.push(cIdx); });
+      for(let k=0;k<sub.armLen;k++){
+        const cIdx=carbonIdxs[k];
+        const kn=[bNeg(armDirs[k])];
+        if(k<sub.armLen-1) kn.push(armDirs[k+1]);
+        const slots2=bRemainingTetraSlots(kn);
+        if(sub.heteroPos===k+1){
+          const heteroZ2=sub.heteroType==='ol'?8:7, heteroSym2=sub.heteroType==='ol'?'O':'N';
+          const heteroIdx2=atoms.length;
+          atoms.push({Z:heteroZ2,sym:heteroSym2,dir:bDirArr(slots2[0])});
+          bonds.push([cIdx,heteroIdx2,1]);
+          const heteroSlots2=bRemainingTetraSlots([bNeg(slots2[0])]);
+          const hCount2=sub.heteroType==='ol'?1:2;
+          heteroSlots2.slice(0,hCount2).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([heteroIdx2,atoms.length-1,1]); });
+          slots2.slice(1).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([cIdx,atoms.length-1,1]); });
+        } else {
+          slots2.forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([cIdx,atoms.length-1,1]); });
+        }
+      }
+    }
+  }
+  return {atoms, bonds, aromaticRings:[{atoms:[0,1,2,3,4,5]}], geometry:'Hexagonal Planar (Aromatic)', functionalGroup:'aromatic'};
+}
+
+function bResolveTier2(norm){
+  let built=null, expected=null;
+
+  const orgSpec=bParseOrganicName(norm);
+  if(orgSpec){
+    built=bBuildOrganicObject(orgSpec);
+    if(built) expected=bExpectedOrganicFormula(orgSpec);
+  } else {
+    const areneSpec=bParseAromaticName(norm);
+    if(areneSpec){
+      built=bBuildAromaticRingObject(areneSpec.substituents);
+      if(built) expected=bExpectedAromaticFormula(areneSpec.substituents);
+    } else {
+      const etherSpec=bParseEtherName(norm);
+      if(etherSpec){
+        built=bBuildEtherObject(etherSpec);
+        if(built) expected={C:etherSpec.chainLength*2, H:etherSpec.chainLength*4+2, O:1};
+      } else {
+        const ringMatch=norm.replace(/\s+/g,'').match(/^cyclo([a-z]+)ane$/);
+        if(ringMatch){
+          const ringSize=CHAIN_PREFIXES[ringMatch[1]];
+          if(ringSize){
+            built=bBuildCycloalkaneObject(ringSize);
+            if(built) expected={C:ringSize, H:ringSize*2};
+          }
+        }
+      }
+    }
+  }
+  if(!built||!expected) return null; // not a shape Tier 2 recognizes — fall through
+
+  const actual=bCountFormula(built.atoms);
+  const eKeys=Object.keys(expected);
+  const aKeys=Object.keys(actual).filter(k=>actual[k]>0);
+  const matches = eKeys.length===aKeys.length && eKeys.every(k=>actual[k]===expected[k]);
+  if(!matches){
+    console.warn('[Build] Tier 2 self-check failed for "'+norm+'" — expected',expected,'got',actual);
+    return null; // falls through to Tier 3 rather than render an unverified structure
+  }
+
+  const key='build:'+bSlug(norm);
+  const mol={
+    key, formula:bFormulaString(actual), name:bTitleCase(norm),
+    geometry:built.geometry||'Tetrahedral', atoms:built.atoms, bonds:built.bonds,
+    functionalGroup:built.functionalGroup||null, aromaticRings:built.aromaticRings||null,
+    piBonds:(built.piBonds&&built.piBonds.length)?built.piBonds:null,
+    tripleBonds:(built.tripleBonds&&built.tripleBonds.length)?built.tripleBonds:null, builtBy:'tier2'
+  };
+  bRegisterMolecule(mol);
+  return {status:'rendered', key, mol};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TIER 3 — PubChem lookup (needs internet; cached into MOLECULES after)
+// NOTE: field names below follow PubChem's documented PUG-REST JSON
+// schema (compound.atoms.{aid,element}, compound.bonds.{aid1,aid2,order},
+// compound.coords[0].conformers[0].{x,y,z}). This hasn't been exercised
+// against a live response in this environment (bash tool has no network
+// access here) — verify against a real PubChem call before relying on it
+// in production, and adjust field paths if PubChem's schema has drifted.
+// ══════════════════════════════════════════════════════════════════════
+async function bPubChemSpellingSuggestion(rawName){
+  try{
+    const res=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/${encodeURIComponent(rawName)}/json?limit=1`);
+    if(!res.ok) return null;
+    const data=await res.json();
+    return data?.dictionary_terms?.compound?.[0] || null;
+  }catch(e){ return null; }
+}
+
+function bConvertPubChemRecord(rec){
+  const compound=rec?.PC_Compounds?.[0];
+  if(!compound) return null;
+  const elements=compound.atoms?.element, aids=compound.atoms?.aid;
+  const conf=compound.coords?.[0]?.conformers?.[0];
+  if(!elements||!aids||!conf) return null;
+  const xs=conf.x, ys=conf.y, zs=conf.z||aids.map(()=>0);
+
+  const bondList=(compound.bonds?.aid1||[]).map((a1,i)=>({a1, a2:compound.bonds.aid2[i], order:compound.bonds.order?.[i]||1}));
+  const aidToIdx={}; aids.forEach((aid,i)=>{ aidToIdx[aid]=i; });
+  const N=aids.length;
+  const pos=aids.map((_,i)=>({x:xs[i],y:ys[i],z:zs[i]}));
+  const symFor=z=>(ELS.find(e=>e.Z===z)||{sym:'?'}).sym;
+
+  const adj=aids.map(()=>[]);
+  bondList.forEach(b=>{
+    const i=aidToIdx[b.a1], j=aidToIdx[b.a2];
+    if(i===undefined||j===undefined) return;
+    adj[i].push({to:j}); adj[j].push({to:i});
+  });
+
+  const visited=new Array(N).fill(false);
+  const atoms=new Array(N);
+  const bfs=start=>{
+    visited[start]=true;
+    atoms[start]={Z:elements[start], sym:symFor(elements[start]), dir:[0,0,0]};
+    const queue=[start];
+    while(queue.length){
+      const cur=queue.shift();
+      adj[cur].forEach(edge=>{
+        if(visited[edge.to]) return;
+        visited[edge.to]=true;
+        const dx=pos[edge.to].x-pos[cur].x, dy=pos[edge.to].y-pos[cur].y, dz=pos[edge.to].z-pos[cur].z;
+        const L=Math.hypot(dx,dy,dz)||1;
+        atoms[edge.to]={Z:elements[edge.to], sym:symFor(elements[edge.to]), dir:[dx/L,dy/L,dz/L]};
+        queue.push(edge.to);
+      });
+    }
+  };
+  for(let i=0;i<N;i++) if(!visited[i]) bfs(i);
+  if(atoms.some(a=>!a)) return null; // disconnected structure — refuse rather than guess
+
+  const bonds=[];
+  bondList.forEach(b=>{
+    const i=aidToIdx[b.a1], j=aidToIdx[b.a2];
+    if(i===undefined||j===undefined) return;
+    bonds.push([i,j,Math.max(1,Math.min(3,Math.round(b.order||1)))]);
+  });
+  return {atoms, bonds, geometry:'Complex'};
+}
+
+async function bResolveTier3(rawName, norm){
+  const cidRes=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(rawName)}/cids/JSON`);
+  if(!cidRes.ok){
+    const sugg=await bPubChemSpellingSuggestion(rawName);
+    return sugg ? {status:'suggestion', suggestion:sugg} : null;
+  }
+  const cidData=await cidRes.json();
+  const cid=cidData?.IdentifierList?.CID?.[0];
+  if(!cid) return null;
+
+  const recRes=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/record/JSON?record_type=3d`);
+  if(!recRes.ok) return null;
+  const rec=await recRes.json();
+  const built=bConvertPubChemRecord(rec);
+  if(!built) return null;
+  // Every atom's own point-cloud is ALREADY hard-capped per orbital
+  // (MAX_CLOUD_POINTS, defined earlier) regardless of how many atoms the
+  // molecule has — so a bigger molecule doesn't blow up any single
+  // cloud, it just means more total objects in the scene. There's no
+  // real reason to refuse a molecule pre-emptively just for being
+  // sizeable; the only genuine risk is one truly enormous request
+  // locking up the tab, so this is a practical backstop for THIS
+  // device/browser, not a designed "molecule size limit" — attempt the
+  // render below it, however large.
+  if(built.atoms.length>500) return {status:'notfound', reason:'toolarge'};
+
+  const actual=bCountFormula(built.atoms);
+  const key='build:'+bSlug(norm);
+  const mol={ key, formula:bFormulaString(actual), name:bTitleCase(norm), geometry:built.geometry, atoms:built.atoms, bonds:built.bonds, builtBy:'tier3' };
+  bRegisterMolecule(mol);
+  return {status:'rendered', key, mol};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Orchestrator — the only entry point the UI calls
+// ══════════════════════════════════════════════════════════════════════
+async function resolveMolecule(rawInput){
+  const trimmed=String(rawInput||'').trim();
+  if(!trimmed) return {status:'notfound', reason:'empty'};
+  if(trimmed.length>60) return {status:'notfound', reason:'toolong'};
+  const norm=bNormalize(trimmed);
+
+  const el=bTier0Lookup(norm);
+  if(el) return {status:'element', Z:el.Z, name:el.name};
+
+  const hit=bTier1Lookup(norm);
+  if(hit) return {status:'rendered', key:hit.key, mol:hit};
+
+  const t2=bResolveTier2(norm);
+  if(t2) return t2;
+
+  const suggestion=bNearestKnownName(norm);
+  if(suggestion) return {status:'suggestion', suggestion};
+
+  if(!navigator.onLine) return {status:'notfound', reason:'offline'};
+  try{
+    const t3=await bResolveTier3(trimmed, norm);
+    if(t3) return t3;
+  }catch(err){
+    console.warn('[Build] Tier 3 lookup failed:', err);
+    return {status:'notfound', reason:'network'};
+  }
+  return {status:'notfound', reason:'unknown'};
+}
+
+// ── UI wiring ──────────────────────────────────────────────────────────
+function bShowBuildStatus(text, kind, suggestionText){
+  const el=document.getElementById('build-status');
+  if(!el) return;
+  el.className='show '+(kind||'');
+  if(suggestionText){
+    el.innerHTML=`${text} <span id="build-suggest-chip">${suggestionText}</span>`;
+    const chip=document.getElementById('build-suggest-chip');
+    if(chip) chip.onclick=()=>{ document.getElementById('build-input').value=suggestionText; runBuild(); };
+  } else {
+    el.textContent=text;
+  }
+}
+
+async function runBuild(){
+  const input=document.getElementById('build-input');
+  const raw=input ? input.value : '';
+  if(!raw || !raw.trim()){ bShowBuildStatus('Type a name to get started.', 'warn'); return; }
+  bShowBuildStatus('⏳ Looking it up...', 'info');
+  const outcome=await resolveMolecule(raw);
+  if(outcome.status==='element'){
+    select(outcome.Z);
+    setLeftMode('elements');
+    bShowBuildStatus(`✅ Built: ${outcome.name}`, 'ok');
+  } else if(outcome.status==='rendered'){
+    selectMolecule(outcome.key);
+    // Still render regardless of size — MAX_CLOUD_POINTS already bounds
+    // each atom's own point-cloud, so this is a heads-up about pace, not
+    // a capability question.
+    const big = outcome.mol.atoms.length>150;
+    bShowBuildStatus(`✅ Built: ${outcome.mol.name} (${outcome.mol.formula})${big?' — large molecule, may render a bit slower':''}`, 'ok');
+  } else if(outcome.status==='suggestion'){
+    bShowBuildStatus('✍️ Did you mean', 'warn', outcome.suggestion);
+  } else {
+    const msg = outcome.reason==='offline' ? '📡 No internet connection, and it\u2019s not in the local library.'
+      : outcome.reason==='toolong' ? 'That name is too long — try something shorter.'
+      : outcome.reason==='toolarge' ? '⚠️ Unsupported on this device at this size (500+ atoms).'
+      : outcome.reason==='network' ? '📡 Lookup failed — check your connection and try again.'
+      : '❓ Not found. Double-check the spelling, or it may not be supported yet.';
+    bShowBuildStatus(msg, 'err');
+  }
+}
+
+document.getElementById('build-input')?.addEventListener('keydown', e=>{ if(e.key==='Enter') runBuild(); });
+
+// ── Quick-example chips for Build mode ──────────────────────────────────
+const BUILD_EXAMPLES=['ethane','but-2-ene','1-butyne','ethanol','propanoic acid','butan-2-one','1,2-dichloroethane','toluene','chlorobenzene','phenol','aniline','diethyl ether','cyclododecane','dodecane'];
+(function renderBuildExamples(){
+  const grid=document.getElementById('build-examples');
+  if(!grid) return;
+  BUILD_EXAMPLES.forEach(name=>{
+    const chip=document.createElement('button');
+    chip.type='button';
+    chip.className='ex-chip';
+    chip.textContent=name;
+    chip.onclick=()=>{
+      const input=document.getElementById('build-input');
+      if(input){ input.value=name; input.focus(); }
+      runBuild();
+    };
+    grid.appendChild(chip);
+  });
+})();
+
+// ── Regression list — run window.runBuildSelfTest() from the console.
+//    Deliberately offline-only (Tier 3 is skipped) so this never depends
+//    on network availability; catches a regression the moment any Tier 0-2
+//    rule changes. ──
+const BUILD_GOLDEN_TESTS=[
+  {input:'ethane', expectFormula:'C2H6'},
+  {input:'2-methylbutane', expectFormula:'C5H12'},
+  {input:'ethanol', expectFormula:'C2H6O'},
+  {input:'2-methylpropan-1-ol', expectFormula:'C4H10O'},
+  {input:'diethyl ether', expectFormula:'C4H10O'},
+  {input:'cyclohexane', expectFormula:'C6H12'},
+  {input:'cyclododecane', expectFormula:'C12H24'},
+  {input:'dodecane', expectFormula:'C12H26'},
+  {input:'propene', expectFormula:'C3H6'},
+  {input:'but-2-ene', expectFormula:'C4H8'},
+  {input:'1-butyne', expectFormula:'C4H6'},
+  {input:'propanal', expectFormula:'C3H6O'},
+  {input:'butan-2-one', expectFormula:'C4H8O'},
+  {input:'propanoic acid', expectFormula:'C3H6O2'},
+  {input:'2-chloropropane', expectFormula:'C3H7Cl'},
+  {input:'1,2-dichloroethane', expectFormula:'C2H4Cl2'},
+  {input:'1,1,1-trifluoroethane', expectFormula:'C2H3F3'},
+  {input:'2-chloro-2-methylbutane', expectFormula:'C5H11Cl'},
+  {input:'toluene', expectFormula:'C7H8'},
+  {input:'chlorobenzene', expectFormula:'C6H5Cl'},
+  {input:'phenol', expectFormula:'C6H6O'},
+  {input:'aniline', expectFormula:'C6H7N'},
+  {input:'1,2-dichlorobenzene', expectFormula:'C6H4Cl2'},
+  {input:'4-chlorotoluene', expectFormula:'C7H7Cl'},
+  {input:'amphetamine', expectFormula:'C9H13N'},
+  {input:'phenethylamine', expectFormula:'C8H11N'},
+  {input:'wateer', expectSuggestion:'Water'},
+  {input:'xyzzyplex', expectNotFound:true}
+];
+window.runBuildSelfTest=function(){
+  const results=BUILD_GOLDEN_TESTS.map(t=>{
+    const norm=bNormalize(t.input);
+    let outcome;
+    const el=bTier0Lookup(norm);
+    if(el) outcome={status:'element'};
+    else {
+      const hit=bTier1Lookup(norm);
+      if(hit) outcome={status:'rendered', mol:hit};
+      else {
+        const t2=bResolveTier2(norm);
+        if(t2) outcome=t2;
+        else {
+          const sugg=bNearestKnownName(norm);
+          outcome=sugg ? {status:'suggestion', suggestion:sugg} : {status:'notfound'};
+        }
+      }
+    }
+    let pass=false, detail='';
+    if(t.expectFormula){ pass=outcome.status==='rendered' && outcome.mol && bDeSubscript(outcome.mol.formula)===t.expectFormula.toLowerCase(); detail=outcome.mol?outcome.mol.formula:outcome.status; }
+    else if(t.expectSuggestion){ pass=outcome.status==='suggestion' && outcome.suggestion===t.expectSuggestion; detail=outcome.suggestion||outcome.status; }
+    else if(t.expectNotFound){ pass=outcome.status==='notfound'; detail=outcome.status; }
+    return {input:t.input, pass, detail};
+  });
+  console.table(results);
+  const failed=results.filter(r=>!r.pass);
+  console.log(failed.length===0 ? '✅ All Build golden tests passed' : `❌ ${failed.length} Build golden test(s) failed`);
+  return results;
+};
+
+
 function setLeftMode(mode){
-  const isEl=mode==='elements';
+  const isEl=mode==='elements', isMol=mode==='molecules', isBuild=mode==='build';
   document.getElementById('mode-elements').classList.toggle('on',isEl);
-  document.getElementById('mode-molecules').classList.toggle('on',!isEl);
+  document.getElementById('mode-molecules').classList.toggle('on',isMol);
+  document.getElementById('mode-build').classList.toggle('on',isBuild);
   document.getElementById('elements-view').classList.toggle('hidden-view',!isEl);
-  document.getElementById('molecules-view').classList.toggle('hidden-view',isEl);
-  document.getElementById('left-panel-title').textContent=isEl?'Select Element':'Select Molecule';
+  document.getElementById('molecules-view').classList.toggle('hidden-view',!isMol);
+  document.getElementById('build-view').classList.toggle('hidden-view',!isBuild);
+  document.getElementById('left-panel-title').textContent=isEl?'Select Element':isMol?'Select Molecule':'Build Anything';
 }
 
 // Molecule cards
