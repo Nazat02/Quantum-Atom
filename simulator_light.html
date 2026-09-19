@@ -628,6 +628,34 @@ canvas { position:fixed; inset:0; z-index:0; }
   box-shadow: 0 0 12px rgba(60,140,255,.3);
 }
 
+#hyperbtn {
+  width: 100%;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: .68rem;
+  margin-top: 4px;
+  background: rgba(60,60,72,.06);
+  border: 1px solid rgba(60,60,72,.26);
+  color: var(--mid);
+  font-family: var(--body);
+  font-weight: 600;
+  letter-spacing: .04em;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#hyperbtn:hover { background:rgba(60,60,72,.13); color:var(--hi); border-color:rgba(60,60,72,.5); }
+#hyperbtn.active {
+  background: linear-gradient(135deg,#1d1d24 0%,#4a4a55 55%,#8d8d98 100%);
+  border-color: #17171c;
+  color: #f4f4f6;
+  box-shadow: 0 0 12px rgba(30,30,40,.38), 0 0 26px rgba(30,30,40,.14);
+}
+
 #ultrabtn {
   width: 100%;
   text-align: center;
@@ -1070,7 +1098,7 @@ input[type=range]::-moz-range-thumb {
 #el-search,
 #build-input,
 .panel-close,
-#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #excitedbtn, #antibtn, #sphericalbtn,
+#realbtn, #gridbtn, #smoothbtn, #ultrabtn, #hyperbtn, #excitedbtn, #antibtn, #sphericalbtn,
 .rbtn,
 .theme-toggle-btn {
   backdrop-filter: blur(14px) saturate(160%);
@@ -1287,6 +1315,10 @@ input[type=range]::-moz-range-thumb {
       <button id="ultrabtn">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="currentColor" stroke="none"><path d="M9 1.2C6.8 4.3 4.5 7.1 4.5 10.3a4.5 4.5 0 0 0 9 0c0-1.9-.8-3.4-1.8-4.7.2 1.7-.6 3.1-2.1 3.1-1.7 0-2.4-1.7-1.4-3.3.5-.8 1-1.7.8-4.2z"/></svg></span>
         <span>ULTRA MODE</span>
+      </button>
+      <button id="hyperbtn" title="Hyper-realistic microscopy view: every cloud becomes a grey-to-black density gradient, like an atomic-force-microscope image">
+        <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.8l6.2 3.6v7.2L9 16.2l-6.2-3.6V5.4z"/><circle cx="9" cy="9" r="2.4" fill="currentColor" stroke="none" opacity=".85"/></svg></span>
+        <span>HYPER REALISTIC</span>
       </button>
       <button id="sphericalbtn" title="Show p/d/f orbitals as simplified sphere-halves instead of true lobe shapes">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5.6" r="4.2"/><circle cx="9" cy="12.4" r="4.2"/></svg></span>
@@ -3873,6 +3905,7 @@ function makeNucleus(Z, N){
   positions.forEach(([x,y,z], i) => {
     const mesh = new THREE.Mesh(geoN, types[i]==='p' ? matP : matN);
     mesh.position.set(x, y, z);
+    mesh.userData.nucleon = types[i]; // 'p' | 'n' — used by HYPER REALISTIC's nucleus overlay
     g.add(mesh);
   });
 
@@ -3913,6 +3946,7 @@ function makeNucleus(Z, N){
 
   // Point light — pink for matter (this theme's brand), electric magenta for antimatter
   g.add(new THREE.PointLight(antimatterMode?0xff17d0:0xff3daa, 4, 25));
+  g.userData.nucRadius = haloR; // true cluster radius, for HYPER REALISTIC's zoom-scaled overlay
   return g;
 }
 
@@ -4292,6 +4326,7 @@ const P_AXIS_TINT=[[1.0,0.45,0.45],[0.45,1.0,0.55],[0.65,0.65,1.0]];
 let realMode = false;
 let smoothMode = false;
 let ultraMode = false;
+let hyperMode = false; // HYPER REALISTIC (light theme only) — grey/black AFM-style density view, see HyperRealistic below
 
 // ══════════════════════════════════════════════
 // ULTRA MODE — mesh-based Fresnel bubble shells
@@ -8020,12 +8055,41 @@ smoothbtn.onclick=()=>{
 
 const ultrabtn=document.getElementById('ultrabtn');
 ultrabtn.onclick=()=>{
+  // Ultra draws solid mesh shells; HYPER REALISTIC needs the point clouds — mutually exclusive.
+  if(!ultraMode && hyperMode) setHyperMode(false);
   ultraMode=!ultraMode;
   ultrabtn.classList.toggle('active',ultraMode);
   renderer.setClearColor(getClearColor());
   showToast(ultraMode?'ULTRA MODE ON':'ULTRA MODE OFF');
   rebuildScene();
 };
+
+
+const hyperbtn=document.getElementById('hyperbtn');
+function setHyperMode(on, msg){
+  on=!!on;
+  if(on===hyperMode) return;
+  if(on && !HyperRealistic.isSupported()){
+    showToast('HYPER REALISTIC needs WebGL2 float render targets');
+    return;
+  }
+  hyperMode=on;
+  hyperbtn.classList.toggle('active',on);
+  document.body.classList.toggle('hyper-on',on);
+  if(on){
+    if(ultraMode){ // Ultra's mesh shells can't be density-mapped — fall back to the point clouds
+      ultraMode=false;
+      ultrabtn.classList.remove('active');
+      renderer.setClearColor(getClearColor());
+      rebuildScene();
+    }
+  }else{
+    HyperRealistic.release();
+    renderer.setClearColor(getClearColor());
+  }
+  showToast(msg || (on?'HYPER REALISTIC ON':'HYPER REALISTIC OFF'));
+}
+hyperbtn.onclick=()=>setHyperMode(!hyperMode);
 
 const sphericalbtn=document.getElementById('sphericalbtn');
 sphericalbtn.onclick=()=>{
@@ -8118,6 +8182,369 @@ window.addEventListener('keydown',e=>{
     closePanel('left');closePanel('right');
   }
 });
+
+// ══════════════════════════════════════════════
+// HYPER REALISTIC MODE  (light theme only)
+// ──────────────────────────────────────────────
+// Renders the electron clouds the way an atomic-force / STM microscope
+// would image them: no hue at all, just a soft grey→black density
+// gradient with a pale halo around every dense region — from far away a
+// molecule reads as a dark smudge of overlapping blobs on a light-grey
+// field.
+//
+// Implementation is a self-contained post-process, so it works with EVERY
+// existing cloud builder (atoms, molecules, bonds, π-clouds, excited
+// states, antimatter, Smooth/Grain, Real-Image colours) without touching
+// any of them:
+//   1. DENSITY   every THREE.Points cloud is drawn with an additive
+//                gaussian-splat material into a half-res float target
+//                (per-pixel value ≈ how many electron samples overlap
+//                along the line of sight). Meshes/lines/sprites/grid are
+//                hidden for this pass only.
+//   2. BLUR      two separable gaussians: a tight one (the dark core) and
+//                a wide one (used to carve the bright halo, difference-of-
+//                gaussians style).
+//   3. EXPOSE    the tight-blur target is mip-mapped; the coarsest mip
+//                gives the mean density of the OCCUPIED pixels, so the
+//                tone curve auto-adapts to any atom, molecule or zoom —
+//                no per-scene tuning constants.
+//   4. COMPOSITE tone-map to greyscale (+ faint vignette and sensor noise)
+//                straight to the screen; atom-symbol labels are then drawn
+//                on top so molecule mode stays readable.
+// Needs WebGL2 + float render targets; if missing, the button reports it
+// and the normal renderer keeps running.
+// ══════════════════════════════════════════════
+const HYPER_POINT_VERT = `
+attribute float aSeed;
+attribute vec3  aJDir;
+attribute float aJFreq;
+uniform float uTime;
+uniform float uScale;
+void main(){
+  // identical grain jitter to VERT so the cloud still shimmers
+  float amp = length(position) * 0.028;
+  vec3 p = position + aJDir * (sin(uTime * aJFreq + aSeed * 6.28318) * amp);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * mv;
+  float dist = length(mv.xyz);
+  gl_PointSize = clamp(uScale * 700.0 / dist, 4.0, 16.0);
+}`;
+
+const HYPER_POINT_FRAG = `
+void main(){
+  vec2 uv = gl_PointCoord - vec2(0.5);
+  float r2 = dot(uv, uv) * 4.0;
+  if(r2 > 1.0) discard;
+  float w = exp(-r2 * 3.5);
+  gl_FragColor = vec4(w, w, w, w);
+}`;
+
+const HYPER_QUAD_VERT = `
+varying vec2 vUv;
+void main(){
+  vUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}`;
+
+const HYPER_BLUR_FRAG = `
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D tSrc;
+uniform vec2  uStep;
+uniform float uSigma;
+uniform float uCoverage;
+varying vec2 vUv;
+void main(){
+  float k = -0.5 / (uSigma * uSigma);
+  float reach = ceil(uSigma * 3.0);
+  float acc = 0.0;
+  float wsum = 0.0;
+  for(int i = -36; i <= 36; i++){
+    float fi = float(i);
+    if(abs(fi) > reach) continue;
+    float w = exp(fi * fi * k);
+    acc  += texture2D(tSrc, vUv + uStep * fi).r * w;
+    wsum += w;
+  }
+  acc /= wsum;
+  // .g = "is this pixel occupied?" — its mip average is the occupied fraction
+  float cov = uCoverage > 0.5 ? step(0.35, acc) : 0.0;
+  gl_FragColor = vec4(acc, cov, 0.0, 1.0);
+}`;
+
+const HYPER_NUC_VERT = `
+varying vec3 vN;
+void main(){
+  vN = normalize(normalMatrix * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const HYPER_NUC_FRAG = `
+precision highp float;
+uniform float uBase;   // albedo: proton ~0.04 (deep dark), neutron ~0.55 (light dark)
+varying vec3 vN;
+void main(){
+  vec3 n = normalize(vN);
+  float d = clamp(dot(n, normalize(vec3(-0.45, 0.65, 0.62))), 0.0, 1.0);
+  float rim = pow(1.0 - clamp(n.z, 0.0, 1.0), 2.5);
+  float g = uBase * (0.62 + 0.55 * d) + pow(d, 28.0) * 0.32;   // soft shading + tiny specular glint
+  g *= 1.0 - 0.30 * rim;                                        // darker edge so each nucleon reads as a sphere
+  gl_FragColor = vec4(vec3(clamp(g, 0.0, 1.0)), 1.0);
+}`;
+
+const HYPER_COMPOSITE_FRAG = `
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D tS;   // fine blur   (also carries the exposure mip chain)
+uniform sampler2D tM;   // medium blur
+uniform sampler2D tL;   // wide blur
+uniform float uK;
+uniform float uGamma;
+uniform float uHaloC;
+uniform float uBg;
+uniform float uTime;
+uniform vec2  uRes;
+varying vec2 vUv;
+float hash(vec2 p){
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+void main(){
+  float ds = texture2D(tS, vUv).r;
+  float dm = texture2D(tM, vUv).r;
+  float dl = texture2D(tL, vUv).r;
+  // auto-exposure: mean density over occupied pixels (coarsest mip of tS)
+  float meanOcc = 6.0;
+  vec2 mn = textureLod(tS, vec2(0.5), 30.0).rg;
+  if(mn.g > 0.0004) meanOcc = mn.r / mn.g;
+  float m = max(meanOcc * uK, 0.05);
+  float x = ds / m, y = dm / m, l = dl / m;
+
+  // multi-scale density: blend three gaussians so the gradient has no visible steps,
+  // then subtract the wide one (difference of gaussians) to open a pale halo
+  float body = 0.42 * x + 0.36 * y + 0.22 * l;
+  float v = body - uHaloC * 0.85 * l;
+  float core = pow(clamp(v, 0.0, 2.4), uGamma);
+  float dark = 1.0 - exp(-1.7 * core);              // soft grey -> black roll-off
+  dark = mix(dark, dark * dark * (3.0 - 2.0 * dark), 0.45); // gentle S-curve: deeper blacks, silkier mid-greys
+
+  float aura = smoothstep(0.0, 1.3, l) * 0.10 * (1.0 - dark);   // faint grey glow around clouds
+  float ring = smoothstep(0.0, 0.35, -v) * (1.0 - smoothstep(0.35, 0.9, -v)); // pale halo just outside
+  float g = uBg - 0.95 * dark - aura + 0.85 * (1.0 - uBg) * ring;
+
+  vec2 q = vUv - 0.5;
+  g *= 1.0 - 0.15 * dot(q, q);                      // faint vignette
+  // triangular dither kills 8-bit banding in the long gradients; very light grain on top
+  float n = hash(vUv * uRes + fract(uTime)) + hash(vUv * uRes * 1.37 + 7.1 + fract(uTime * 1.3)) - 1.0;
+  g += n * (1.0 / 255.0) + (hash(vUv * uRes + 3.7) - 0.5) * 0.006;
+  gl_FragColor = vec4(vec3(clamp(g, 0.0, 1.0)), 1.0);
+}`;
+
+const HyperRealistic = (function(){
+  const CFG = {
+    rtScale:   0.75,  // density/blur targets run at 3/4 of the drawing-buffer resolution (crisper, smoother)
+    sigmaCore: 3.2,   // px @ 540-line reference height
+    sigmaMid:  7.0,
+    sigmaHalo: 14.0,
+    exposure:  1.35,  // lower = darker
+    gamma:     0.75,
+    halo:      0.7,
+    paper:     0.90   // background grey
+  };
+  let failed = false;
+  let quadScene=null, quadCam=null, quadMesh=null;
+  let blurMat=null, compMat=null, pointMat=null, nucProtonMat=null, nucNeutronMat=null;
+  let rtD=null, rtH=null, rtS=null, rtM=null, rtL=null, rtW=0, rtHt=0;
+  const _sz = new THREE.Vector2();
+
+  function isSupported(){
+    if(failed) return false;
+    try{
+      if(!renderer.capabilities.isWebGL2) return false;
+      const gl = renderer.getContext();
+      return !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+    }catch(e){ return false; }
+  }
+
+  function init(){
+    pointMat = new THREE.ShaderMaterial({
+      vertexShader: HYPER_POINT_VERT, fragmentShader: HYPER_POINT_FRAG,
+      uniforms: { uTime:{value:0}, uScale:{value:1} },
+      transparent:true, depthTest:false, depthWrite:false,
+      blending:THREE.CustomBlending, blendEquation:THREE.AddEquation,
+      blendSrc:THREE.OneFactor, blendDst:THREE.OneFactor
+    });
+    blurMat = new THREE.ShaderMaterial({
+      vertexShader: HYPER_QUAD_VERT, fragmentShader: HYPER_BLUR_FRAG,
+      uniforms: { tSrc:{value:null}, uStep:{value:new THREE.Vector2()}, uSigma:{value:1}, uCoverage:{value:0} },
+      depthTest:false, depthWrite:false
+    });
+    compMat = new THREE.ShaderMaterial({
+      vertexShader: HYPER_QUAD_VERT, fragmentShader: HYPER_COMPOSITE_FRAG,
+      uniforms: {
+        tS:{value:null}, tM:{value:null}, tL:{value:null},
+        uK:{value:CFG.exposure}, uGamma:{value:CFG.gamma}, uHaloC:{value:CFG.halo}, uBg:{value:CFG.paper},
+        uTime:{value:0}, uRes:{value:new THREE.Vector2(1,1)}
+      },
+      depthTest:false, depthWrite:false
+    });
+    const nucOpts = { vertexShader:HYPER_NUC_VERT, fragmentShader:HYPER_NUC_FRAG,
+                      transparent:true, depthTest:false, depthWrite:false }; // transparent => three sorts nucleons back-to-front
+    nucProtonMat  = new THREE.ShaderMaterial(Object.assign({uniforms:{uBase:{value:0.04}}}, nucOpts));
+    nucNeutronMat = new THREE.ShaderMaterial(Object.assign({uniforms:{uBase:{value:0.55}}}, nucOpts));
+    quadMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), blurMat);
+    quadMesh.frustumCulled = false;
+    quadScene = new THREE.Scene();
+    quadScene.add(quadMesh);
+    quadCam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  }
+
+  function makeRT(w,h,mips){
+    const rt = new THREE.WebGLRenderTarget(w,h,{
+      minFilter: mips ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.HalfFloatType,
+      depthBuffer:false, stencilBuffer:false
+    });
+    rt.texture.generateMipmaps = !!mips;
+    return rt;
+  }
+  function freeTargets(){
+    [rtD,rtH,rtS,rtM,rtL].forEach(r=>{ if(r) r.dispose(); });
+    rtD=rtH=rtS=rtM=rtL=null; rtW=rtHt=0;
+  }
+  function allocate(w,h){
+    freeTargets();
+    rtD=makeRT(w,h,false); rtH=makeRT(w,h,false); rtS=makeRT(w,h,true); rtM=makeRT(w,h,false); rtL=makeRT(w,h,false);
+    rtW=w; rtHt=h;
+  }
+
+  function blur(src,dst,dx,dy,sigma,coverage){
+    const u = blurMat.uniforms;
+    u.tSrc.value = src.texture;
+    // big sigmas sample every `stride` texels (bilinear-filtered) so the tap count stays bounded
+    const stride = Math.max(1, Math.ceil(sigma/12));
+    u.uStep.value.set(stride*dx/rtW, stride*dy/rtHt);
+    u.uSigma.value = sigma/stride;
+    u.uCoverage.value = coverage ? 1 : 0;
+    quadMesh.material = blurMat;
+    renderer.setRenderTarget(dst);
+    renderer.render(quadScene, quadCam);
+  }
+
+  // Runs one frame. Returns false if it could not (caller falls back to the normal renderer).
+  function render(t){
+    if(!isSupported()) return false;
+    const touched = [];   // [object, prevMaterialOrNull] — restored in finally
+    try{
+      if(!quadScene) init();
+      renderer.getDrawingBufferSize(_sz);
+      const w = Math.max(2, Math.round(_sz.x*CFG.rtScale));
+      const h = Math.max(2, Math.round(_sz.y*CFG.rtScale));
+      if(w!==rtW || h!==rtHt) allocate(w,h);
+      const sc = Math.min(1.9, Math.max(0.6, Math.min(w,h)/540));
+
+      // 1 · density pass — Points only, additive gaussian splats
+      pointMat.uniforms.uTime.value  = t;
+      pointMat.uniforms.uScale.value = sc;
+      scene.traverse(o=>{
+        if(o.isPoints){ touched.push([o,o.material]); o.material = pointMat; }
+        else if((o.isMesh||o.isLine||o.isSprite) && o.visible){ touched.push([o,null]); o.visible = false; }
+      });
+      renderer.setRenderTarget(rtD);
+      renderer.setClearColor(0x000000, 0);
+      renderer.render(scene, camera);
+      for(let i=touched.length-1;i>=0;i--){
+        const [o,m]=touched[i]; if(m) o.material=m; else o.visible=true;
+      }
+      touched.length = 0;
+
+      // 2 · blur: tight (→ rtS, mip-mapped for exposure) and wide (→ rtL)
+      const s1 = CFG.sigmaCore*sc, s2 = CFG.sigmaMid*sc, s3 = CFG.sigmaHalo*sc;
+      blur(rtD, rtH, 1,0, s1, false);
+      blur(rtH, rtS, 0,1, s1, true);
+      blur(rtD, rtH, 1,0, s2, false);
+      blur(rtH, rtM, 0,1, s2, false);
+      blur(rtD, rtH, 1,0, s3, false);
+      blur(rtH, rtL, 0,1, s3, false);
+
+      // 3+4 · expose + composite to screen
+      const cu = compMat.uniforms;
+      cu.tS.value = rtS.texture; cu.tM.value = rtM.texture; cu.tL.value = rtL.texture;
+      cu.uTime.value = t; cu.uRes.value.set(_sz.x, _sz.y);
+      quadMesh.material = compMat;
+      renderer.setRenderTarget(null);
+      renderer.setClearColor(0xe6e6e6, 1);
+      renderer.render(quadScene, quadCam);
+
+      // nucleus overlay — protons deep black, neutrons light grey, drawn at TRUE size so it
+      // stays tiny, shrinks with the atom as you zoom out, and vanishes when it drops below a pixel.
+      const nucGroups = new Set();
+      scene.traverse(o=>{
+        if(o.isMesh && o.userData && o.userData.nucleon){
+          touched.push([o,o.material]);
+          o.material = o.userData.nucleon==='p' ? nucProtonMat : nucNeutronMat;
+          nucGroups.add(o.parent);
+        }else if((o.isMesh||o.isPoints||o.isLine||o.isSprite) && o.visible){
+          touched.push([o,null]); o.visible=false;
+        }
+      });
+      if(nucGroups.size){
+        // True size only — never enlarged. Once a nucleus is under ~0.8 px on screen it is simply
+        // not drawn, so zooming out makes it disappear instead of growing.
+        const worldPerPx = 2*camera.position.z*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/Math.max(1,innerHeight);
+        const hiddenGroups = [];
+        let drawn = 0;
+        nucGroups.forEach(g=>{
+          const r = (g.userData && g.userData.nucRadius) || 0.02;
+          if(r/worldPerPx < 0.8){ hiddenGroups.push(g); g.visible = false; } else drawn++;
+        });
+        if(drawn){
+          renderer.autoClear = false;
+          renderer.setRenderTarget(null);
+          renderer.render(scene, camera);
+          renderer.autoClear = true;
+        }
+        hiddenGroups.forEach(g=>{ g.visible = true; });
+      }
+      for(let i=touched.length-1;i>=0;i--){
+        const [o,m]=touched[i]; if(m) o.material=m; else o.visible=true;
+      }
+      touched.length = 0;
+
+      // atom-symbol labels stay on top (molecule mode)
+      let labels = 0;
+      scene.traverse(o=>{
+        if(o.isSprite && o.userData && o.userData.isAtomLabel){ labels++; return; }
+        if((o.isMesh||o.isPoints||o.isLine||o.isSprite) && o.visible){ touched.push([o,null]); o.visible=false; }
+      });
+      if(labels){
+        renderer.autoClear = false;
+        renderer.render(scene, camera);
+        renderer.autoClear = true;
+      }
+      for(let i=touched.length-1;i>=0;i--){ touched[i][0].visible = true; }
+      touched.length = 0;
+      renderer.setClearColor(getClearColor());
+      return true;
+    }catch(err){
+      console.error('[HyperRealistic] disabled:', err);
+      failed = true;
+      return false;
+    }finally{
+      for(let i=touched.length-1;i>=0;i--){
+        const [o,m]=touched[i]; if(m) o.material=m; else o.visible=true;
+      }
+      renderer.autoClear = true;
+      renderer.setRenderTarget(null);
+    }
+  }
+
+  function release(){ freeTargets(); }
+  return { isSupported, render, release };
+})();
 
 window.addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight;
@@ -8213,7 +8640,14 @@ function loop(){
     lastSvisText = svisText;
     document.getElementById('svis').textContent = svisText;
   }
-  renderer.render(scene,camera);
+  if(hyperMode){
+    if(!HyperRealistic.render(t)){
+      setHyperMode(false,'HYPER REALISTIC unavailable on this device');
+      renderer.render(scene,camera);
+    }
+  }else{
+    renderer.render(scene,camera);
+  }
 }
 
 // INIT
