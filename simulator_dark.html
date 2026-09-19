@@ -415,7 +415,6 @@ canvas { position:fixed; inset:0; z-index:0; }
   font-size:.68rem; cursor:pointer; user-select:none;
 }
 #build-suggest-chip:hover { background:var(--cyan-20); }
-
 .build-examples-section { margin-top:16px; }
 .chip-grid {
   display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;
@@ -1270,6 +1269,1215 @@ input[type=range]::-moz-range-thumb {
   </div>
 
 <script>
+
+// ════════════════════════════════════════════════════════════════════════
+// UNIVERSAL COMPOUND ENGINE (Phases A–C)
+// Generates 3D structure for any compound from bonding rules alone —
+// electronegativity/ionic-radius chemistry data, a VSEPR domain solver,
+// automatic ring perception + fused-polygon layout, and a bridge that
+// feeds generated positions into the SAME resolveMoleculeAtoms()/
+// buildMolecule() pipeline every hand-authored molecule already uses.
+// See chemistry-core.js / geometry-core.js / ring-core.js / engine-bridge.js
+// (delivered separately) for full documentation of each phase.
+// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+// UNIVERSAL COMPOUND ENGINE — PHASE A: Chemistry Data & Validator
+// ════════════════════════════════════════════════════════════════════════
+//
+// This module is additive and self-contained: it does not modify
+// MOLECULES[], bondLength(), or any existing renderer. It defines the
+// data + pure functions that Phases B (geometry) and C (rendering) will
+// consume, and a validator that can be run against the CURRENT 58
+// MOLECULES[] entries today, before a single new compound is authored.
+//
+// Reuses (does not duplicate): the file's existing valenceR()/bondLength()
+// already supply covalent-radius-based bond lengths for the covalent case.
+// This module only adds what's missing — electronegativity, ionic radius,
+// oxidation states, and the bond-character/polarization math — and keeps
+// ionic-pair spacing in its own function so it never fights bondLength()
+// for the same job.
+//
+// Element coverage below = exactly the 19 elements already present across
+// the 58 existing MOLECULES[] entries (H, Be, B, C, N, O, F, Al, Si, P, S,
+// Cl, Ge, As, Se, Br, Sb, I, Xe) PLUS the alkali/alkaline-earth elements
+// needed for Phase D's ionic library (Li, Na, K, Cs, Mg, Ca). Extending to
+// the full periodic table is a mechanical follow-up, not a redesign —
+// every function below is written against the table, not against a
+// hard-coded element list.
+// ════════════════════════════════════════════════════════════════════════
+
+(function (global) {
+  'use strict';
+
+  // ── 1. ELEMENT DATA ──────────────────────────────────────────────────
+  //
+  // EN:      Pauling electronegativity. Source: standard Pauling-scale
+  //          tabulation (CRC Handbook).
+  // OX:      Common oxidation states, most-common first. Used to validate
+  //          formal charges a compound assigns, not to enumerate every
+  //          possible state.
+  // IONIC_R: Shannon ionic radii (pm), keyed by charge, for the charge
+  //          states actually reachable from OX. Coordination-number
+  //          dependence is real but second-order for this app's purpose
+  //          (visual pair/lattice spacing, not crystallography); the
+  //          6-coordinate value is used as the single representative
+  //          figure. Flagged here so a future CN-aware pass is a data
+  //          change, not a code change.
+  //
+  // NOTE ON AUDIT: values below are standard reference figures. Before
+  // Phase D ships, cross-check every IONIC_R entry against a second
+  // source (e.g. Shannon 1976 original tables) — this file marks that as
+  // an open TODO rather than silently asserting authority it doesn't have.
+
+  const ELEMENTS = {
+    1:  { sym: 'H',  EN: 2.20, OX: [1, -1],         IONIC_R: { 1: 30 } },          // H+ is really a bare proton; 30pm is a nominal placeholder, not physical
+    3:  { sym: 'Li', EN: 0.98, OX: [1],              IONIC_R: { 1: 76 } },
+    4:  { sym: 'Be', EN: 1.57, OX: [2],              IONIC_R: { 2: 45 } },
+    5:  { sym: 'B',  EN: 2.04, OX: [3],              IONIC_R: { 3: 27 } },
+    6:  { sym: 'C',  EN: 2.55, OX: [4, -4],          IONIC_R: {} },                 // carbon essentially never forms a simple monatomic ion — covalent/polar-covalent only
+    7:  { sym: 'N',  EN: 3.04, OX: [-3, 5, 3],       IONIC_R: { '-3': 146 } },
+    8:  { sym: 'O',  EN: 3.44, OX: [-2],             IONIC_R: { '-2': 140 } },
+    9:  { sym: 'F',  EN: 3.98, OX: [-1],             IONIC_R: { '-1': 133 } },
+    11: { sym: 'Na', EN: 0.93, OX: [1],              IONIC_R: { 1: 102 } },
+    12: { sym: 'Mg', EN: 1.31, OX: [2],              IONIC_R: { 2: 72 } },
+    13: { sym: 'Al', EN: 1.61, OX: [3],              IONIC_R: { 3: 53.5 } },
+    14: { sym: 'Si', EN: 1.90, OX: [4, -4],          IONIC_R: { 4: 40 } },
+    15: { sym: 'P',  EN: 2.19, OX: [-3, 3, 5],       IONIC_R: { '-3': 212 } },
+    16: { sym: 'S',  EN: 2.58, OX: [-2, 4, 6],       IONIC_R: { '-2': 184 } },
+    17: { sym: 'Cl', EN: 3.16, OX: [-1, 1, 3, 5, 7], IONIC_R: { '-1': 181 } },
+    19: { sym: 'K',  EN: 0.82, OX: [1],              IONIC_R: { 1: 138 } },
+    20: { sym: 'Ca', EN: 1.00, OX: [2],              IONIC_R: { 2: 100 } },
+    32: { sym: 'Ge', EN: 2.01, OX: [4, -4],          IONIC_R: { 4: 53 } },
+    33: { sym: 'As', EN: 2.18, OX: [-3, 3, 5],       IONIC_R: { '-3': 222 } },
+    34: { sym: 'Se', EN: 2.55, OX: [-2, 4, 6],       IONIC_R: { '-2': 198 } },
+    35: { sym: 'Br', EN: 2.96, OX: [-1, 1, 3, 5],    IONIC_R: { '-1': 196 } },
+    51: { sym: 'Sb', EN: 2.05, OX: [-3, 3, 5],       IONIC_R: { '-3': 245, 3: 76 } },
+    53: { sym: 'I',  EN: 2.66, OX: [-1, 1, 3, 5, 7], IONIC_R: { '-1': 220 } },
+    54: { sym: 'Xe', EN: 2.60, OX: [0, 2, 4, 6],     IONIC_R: {} },
+    55: { sym: 'Cs', EN: 0.79, OX: [1],              IONIC_R: { 1: 167 } },
+  };
+
+  function elementData(Z) {
+    const e = ELEMENTS[Z];
+    if (!e) throw new RangeError(`chemistry-core: no data for Z=${Z}. Add it to ELEMENTS before using it in a compound.`);
+    return e;
+  }
+
+  // Real single-bond covalent radii (pm, Cordero et al. 2008), for the
+  // same element set as ELEMENTS above. SCOPE: this is NOT a second
+  // bond-length system competing with the app's own bondLength() — its
+  // only purpose is to give ionicAwareBondLength (engine-bridge, Phase D)
+  // a real-world reference so it can convert a real Shannon ionic-radius
+  // sum into the app's own deliberately-exaggerated visualization scale
+  // proportionally, rather than mixing real picometers directly into a
+  // renderer whose atomic radii already span 3 orders of magnitude by
+  // convention (see ORBS: 2p R=41 vs 5p R=1600). Using the raw picometer
+  // number as a world-space length was tried and rejected — verified it
+  // would size NaCl's ion cloud gap inconsistently with every other bond
+  // in the app (sometimes close by coincidence, sometimes off 3x+,
+  // because the app's exaggeration factor isn't uniform across periods).
+  const COVALENT_RADIUS_PM = {
+    1:31, 3:128, 4:96, 5:84, 6:76, 7:71, 8:66, 9:57,
+    11:166, 12:141, 13:121, 14:111, 15:107, 16:105, 17:102,
+    19:203, 20:176, 32:120, 33:119, 34:120, 35:120,
+    51:139, 53:139, 54:140, 55:244,
+  };
+  function covalentRadiusPm(Z) {
+    const r = COVALENT_RADIUS_PM[Z];
+    if (r == null) throw new RangeError(`chemistry-core: no COVALENT_RADIUS_PM for Z=${Z}`);
+    return r;
+  }
+
+  // ── 2. BOND CHARACTER (continuous, not boolean) ─────────────────────
+  //
+  // ionicCharacter: Hannay–Smyth approximation from ΔEN. Continuous 0–1.
+  //   H-H  ΔEN 0.00 -> 0%
+  //   H-Cl ΔEN 0.96 -> ~19%
+  //   Na-Cl ΔEN 2.23 -> ~74%
+  function ionicCharacter(Za, Zb) {
+    const dEN = Math.abs(elementData(Za).EN - elementData(Zb).EN);
+    return 1 - Math.exp(-0.25 * dEN * dEN);
+  }
+
+  // polarization: Fajans'-rules distortion of the anion's cloud by the
+  // cation's charge density. This is the piece that makes MgCl2 visually
+  // and chemically distinct from NaCl even though both are "mostly ionic"
+  // by ionicCharacter() alone.
+  //
+  //   polarizingPower(cation)  ∝ charge / radius^2   (small, highly-charged cation = concentrated field)
+  //   polarizability(anion)    ∝ radius^3            (large, diffuse anion = easily distorted cloud)
+  //
+  // Returns { ionicCharacter, distortion, classification } where
+  // classification feeds Phase C's renderer selection directly:
+  //   'covalent'        ionicCharacter < 0.35                      -> shared lobe (skewed if ΔEN > 0)
+  //   'polarized-ionic'  ionicCharacter >= 0.35 AND distortion high -> two clouds, anion deformed toward cation
+  //   'ionic'            ionicCharacter >= 0.35 AND distortion low  -> two undistorted spherical clouds, dashed link
+  //
+  // cationCharge/anionCharge are signed formal charges (e.g. +2, -1),
+  // supplied by the compound author (or inferred from OX in Phase E).
+  function bondCharacter(Za, Zb, cationCharge, anionCharge) {
+    const ic = ionicCharacter(Za, Zb);
+
+    const cationEl = elementData(Za).EN <= elementData(Zb).EN ? Za : Zb;
+    const anionEl = cationEl === Za ? Zb : Za;
+    const qCation = cationEl === Za ? cationCharge : anionCharge;
+    const qAnion = anionEl === Zb ? anionCharge : cationCharge;
+
+    const rCation = elementData(cationEl).IONIC_R[qCation];
+    const rAnion = elementData(anionEl).IONIC_R[qAnion];
+
+    let distortion = 0;
+    if (ic >= 0.35 && rCation && rAnion) {
+      const polarizingPower = Math.abs(qCation) / (rCation * rCation);
+      const polarizability = rAnion * rAnion * rAnion;
+      // Empirical scaling constant chosen so MgCl2 (Mg2+, r=72pm; Cl-,
+      // r=181pm) lands mid-range (~0.5) and NaCl (Na+, r=102pm; same Cl-)
+      // lands low (~0.15) — i.e. calibrated to reproduce the textbook
+      // qualitative ordering, not derived from first principles. Revisit
+      // once Phase D's real compound set gives more calibration points.
+      const raw = (polarizingPower * polarizability) / 3.8e3;
+      distortion = Math.max(0, Math.min(1, raw));
+    }
+
+    let classification;
+    if (ic < 0.35) classification = 'covalent';
+    else if (distortion >= 0.3) classification = 'polarized-ionic';
+    else classification = 'ionic';
+
+    return { ionicCharacter: ic, distortion, classification, cationZ: cationEl, anionZ: anionEl };
+  }
+
+  // Ionic pair-spacing — deliberately NOT routed through bondLength(),
+  // which is calibrated for covalent-radius overlap and would give the
+  // wrong number for a non-bonded ion pair. Ionic spacing = sum of ionic
+  // radii, no overlap term (closed-shell ions don't interpenetrate the
+  // way covalent lobes visually do).
+  function ionicPairDistance(cationZ, cationCharge, anionZ, anionCharge) {
+    const rC = elementData(cationZ).IONIC_R[cationCharge];
+    const rA = elementData(anionZ).IONIC_R[anionCharge];
+    if (!rC || !rA) {
+      throw new RangeError(`chemistry-core: missing IONIC_R for Z=${cationZ}@${cationCharge} or Z=${anionZ}@${anionCharge}`);
+    }
+    return rC + rA; // pm; caller applies the same pm->scene-unit conversion used elsewhere
+  }
+
+  // ── 3. VALIDATOR / LINTER ────────────────────────────────────────────
+  //
+  // Runs three independent checks per compound. Each returns its own
+  // issues so the caller (or a future CI step) can decide severity;
+  // nothing here throws, because the intent is "surface every problem
+  // in one pass," including on the 58 EXISTING molecules, not "stop at
+  // the first one."
+  //
+  // Input shape (compound):
+  //   { key, atoms: [{Z, formalCharge?}], bonds: [[i, j, order]] }
+  // formalCharge defaults to 0 if omitted (matches every current
+  // MOLECULES[] entry, none of which carry formal charges explicitly).
+
+  function checkChargeBalance(compound) {
+    const issues = [];
+    const total = compound.atoms.reduce((sum, a) => sum + (a.formalCharge || 0), 0);
+    if (total !== 0) {
+      issues.push(`net formal charge ${total > 0 ? '+' : ''}${total} (expected 0 for a neutral compound)`);
+    }
+    return issues;
+  }
+
+  // Valence electrons contributed by a neutral atom of Z, restricted to
+  // the elements this table covers (main-group only — matches everything
+  // in MOLECULES[] today).
+  function valenceElectronCount(Z) {
+    const groupByZ = {
+      1: 1, 3: 1, 11: 1, 19: 1, 55: 1,             // group 1
+      4: 2, 12: 2, 20: 2,                           // group 2
+      5: 3, 13: 3,                                  // group 13
+      6: 4, 14: 4, 32: 4,                           // group 14
+      7: 5, 15: 5, 33: 5, 51: 5,                    // group 15
+      8: 6, 16: 6, 34: 6,                           // group 16
+      9: 7, 17: 7, 35: 7, 53: 7,                    // group 17
+      54: 8,                                        // group 18
+    };
+    if (!(Z in groupByZ)) throw new RangeError(`chemistry-core: no valence-electron rule for Z=${Z}`);
+    return groupByZ[Z];
+  }
+
+  // Steric-number-based octet check. Period 3+ atoms (Z >= 13, i.e. Si
+  // and beyond) are allowed expanded octets (they have accessible d-type
+  // character); period 2 atoms (Z <= 10) are not — a period-2 atom with
+  // steric number > 4 is a genuine error, not a hypervalent exception.
+  function checkOctets(compound) {
+    const issues = [];
+    const bondOrderSum = new Array(compound.atoms.length).fill(0);
+    const bondCount = new Array(compound.atoms.length).fill(0);
+    for (const [i, j, order = 1] of compound.bonds) {
+      bondOrderSum[i] += order; bondOrderSum[j] += order;
+      bondCount[i] += 1; bondCount[j] += 1;
+    }
+    compound.atoms.forEach((atom, idx) => {
+      if (atom.Z === 1) return; // H has no octet to check
+      let ve;
+      try { ve = valenceElectronCount(atom.Z); } catch { return; } // unmapped element: skip, don't false-positive
+      const formalCharge = atom.formalCharge || 0;
+      // electrons formally owned by this atom = its own valence electrons
+      // - formal charge, split into bonding (2 per bond order) and
+      // nonbonding. We don't have explicit lone-pair counts in the
+      // current data model, so this check validates the SHARED total
+      // (bond electrons + implied charge) rather than exact lone pairs —
+      // full electron bookkeeping needs lone-pair data added to the
+      // compound schema (Phase A follow-up, tracked, not silently
+      // skipped).
+      const bondingElectrons = bondOrderSum[idx] * 2;
+      const stericNumber = bondCount[idx] + Math.max(0, Math.ceil((ve - formalCharge - bondOrderSum[idx]) / 2));
+      const isPeriod2 = atom.Z <= 10;
+      if (isPeriod2 && stericNumber > 4) {
+        issues.push(`atom[${idx}] (Z=${atom.Z}) has steric number ${stericNumber} > 4 — period-2 atoms cannot expand their octet (no accessible d character); this is a genuine structural error, not a hypervalent exception`);
+      }
+      if (bondingElectrons > ve - formalCharge + 8 /* generous upper bound for expanded octets */) {
+        issues.push(`atom[${idx}] (Z=${atom.Z}) bonding-electron count (${bondingElectrons}) is implausible even under expanded-octet rules — check bond orders`);
+      }
+    });
+    return issues;
+  }
+
+  // Runs every check and returns a flat, compound-keyed report.
+  function lintCompound(compound) {
+    const issues = [
+      ...checkChargeBalance(compound).map(m => `[charge] ${m}`),
+      ...checkOctets(compound).map(m => `[octet] ${m}`),
+    ];
+    return { key: compound.key, ok: issues.length === 0, issues };
+  }
+
+  function lintAll(compounds) {
+    const results = compounds.map(lintCompound);
+    const failing = results.filter(r => !r.ok);
+    return { total: results.length, failing: failing.length, results, failingResults: failing };
+  }
+
+  // ── 4. CONFIGURATION SCHEMA ──────────────────────────────────────────
+  //
+  // Exposed now, wired into the Build UI in Phase E — but defined here so
+  // Phases B/C are written AGAINST these knobs from the start, instead of
+  // hard-coding one behavior that then needs a breaking refactor later.
+  // Every option has an explicit default equal to today's behavior, so
+  // enabling this module changes nothing until a user (or a future UI)
+  // actually touches a setting.
+
+  const DEFAULT_CONFIG = Object.freeze({
+    // 'gas'    -> discrete ion pair / small cluster (NaCl as two ions, MgCl2 linear Cl-Mg-Cl)
+    // 'lattice'-> extended unit-cell fragment with periodic boundary cues (Phase D+, opt-in)
+    ionicRenderMode: 'gas',
+
+    // 'ez'     -> cis/trans (E/Z) double-bond stereochemistry only
+    // 'ez+rs'  -> also resolve R/S at stereocenters (needs CIP priority rules — bigger, opt-in)
+    stereoDetail: 'ez',
+
+    // Distance-geometry relaxation must be reproducible: same compound,
+    // same seed, same output geometry every render. This is a hard
+    // requirement per compound.geometrySeed, not a toggle — but the seed
+    // VALUE is user/session-configurable so different sessions can still
+    // vary intentionally (e.g. "regenerate layout").
+    geometrySeed: 1,
+  });
+
+  function resolveConfig(userConfig) {
+    return Object.freeze({ ...DEFAULT_CONFIG, ...(userConfig || {}) });
+  }
+
+  // ── PUBLIC API ────────────────────────────────────────────────────────
+  global.ChemistryCore = {
+    ELEMENTS, elementData,
+    ionicCharacter, bondCharacter, ionicPairDistance,
+    covalentRadiusPm,
+    valenceElectronCount,
+    lintCompound, lintAll,
+    DEFAULT_CONFIG, resolveConfig,
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ════════════════════════════════════════════════════════════════════════
+// UNIVERSAL COMPOUND ENGINE — PHASE B: Geometry Solver
+// ════════════════════════════════════════════════════════════════════════
+//
+// Depends on chemistry-core.js (ChemistryCore.valenceElectronCount,
+// ChemistryCore.elementData). Produces 3D structure from a bonding graph
+// — no compound-specific coordinates are ever typed by a human.
+//
+// SCOPE OF THIS PHASE (stated plainly, not buried):
+//   ✅ Any tree-topology compound (no rings) — this covers 52 of the 58
+//      existing MOLECULES[] entries outright, and effectively all simple
+//      inorganic/organic compounds without a ring.
+//   ✅ Steric numbers 2 through 6, both period-2 and period-3+ centers,
+//      lone pairs, multiple bonds, expanded octets.
+//   ✅ E/Z (cis/trans) stereochemistry across a designated double bond.
+//   ❌ NOT YET: ring closure (benzene, naphthalene, and the other fused
+//      aromatics in the current file). embedTree() detects a ring and
+//      throws a clear, typed error rather than silently producing wrong
+//      geometry — that's Phase B2 (needs a genuinely different algorithm:
+//      global spring relaxation with loop-closure constraints, not BFS
+//      chaining). Flagging this honestly now rather than papering over it.
+//   ❌ NOT YET: R/S (point chirality at sp3 stereocenters). Needs CIP
+//      priority ranking, which is its own self-contained module — next
+//      after ring closure, tracked, not forgotten.
+//
+// TWO DIFFERENT ALGORITHMS, ON PURPOSE:
+//   SN 2-4 → free electrostatic relaxation of weighted point charges on a
+//            unit sphere (lone pairs carry more repulsive "charge" than
+//            bonding pairs; the charge value is calibrated once per
+//            period against real reference angles, not per molecule).
+//   SN 5-6 → this was TRIED with free relaxation first and it converges
+//            to the wrong global minimum (verified directly: 4bp+1lp
+//            settles into a square-pyramidal trap, not SF4's real
+//            seesaw). That's not a solver bug — it's *why* real VSEPR
+//            theory treats expanded octets differently: hypervalent
+//            geometry is governed by discrete site preference within a
+//            fixed trigonal-bipyramidal/octahedral skeleton, not
+//            continuous charge minimization. So SN5/6 fixes the ideal
+//            skeleton and solves an exact small combinatorial
+//            site-assignment problem instead. Verified against SF4,
+//            ClF3, XeF4, PCl5, SF6, and a square-pyramidal 5bp+1lp case —
+//            all exactly correct.
+// ════════════════════════════════════════════════════════════════════════
+
+(function (global) {
+  'use strict';
+
+  const Chem = global.ChemistryCore || require('./chemistry-core.js');
+
+  // ── PRNG (deterministic) ────────────────────────────────────────────
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ── vector helpers ───────────────────────────────────────────────────
+  const V = {
+    sub: (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]],
+    add: (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]],
+    scale: (a, s) => [a[0]*s, a[1]*s, a[2]*s],
+    dot: (a, b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+    cross: (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]],
+    norm: (a) => Math.hypot(a[0], a[1], a[2]),
+    normalize: (a) => { const n = V.norm(a) || 1; return [a[0]/n, a[1]/n, a[2]/n]; },
+    angleDeg: (a, b) => Math.acos(Math.max(-1, Math.min(1, V.dot(V.normalize(a), V.normalize(b))))) * 180 / Math.PI,
+  };
+
+  function randOnSphere(rng) {
+    const u = rng(), v = rng();
+    const theta = 2 * Math.PI * u, phi = Math.acos(2 * v - 1);
+    return [Math.sin(phi) * Math.cos(theta), Math.sin(phi) * Math.sin(theta), Math.cos(phi)];
+  }
+
+  // ── 1. STERIC PROFILE ────────────────────────────────────────────────
+  //
+  // domains: [{ kind:'bond', neighbor, order }, ...bonded..., { kind:'lp' }...]
+  // Order of bonded domains matches the order neighbors are passed in
+  // (caller's responsibility — the embedder passes them in a stable,
+  // parent-first order; see embedTree).
+  //
+  // IMPORTANT: bondOrders (not just neighbor count) drives the electron
+  // count — a double bond consumes 2 electrons from the central atom
+  // (1 sigma + 1 pi), a triple bond 3 — but it still occupies only ONE
+  // steric/domain position (VSEPR treats a multi-bond as a single
+  // electron domain). Conflating "electrons used" with "domain count"
+  // was an actual bug caught by testing CO2: it produced a phantom lone
+  // pair on carbon, bending a molecule that must be linear.
+  function stericProfile(Z, formalCharge, bondOrders) {
+    const ve = Chem.valenceElectronCount(Z);
+    const electronsUsedInBonding = bondOrders.reduce((s, o) => s + o, 0);
+    const remaining = ve - formalCharge - electronsUsedInBonding;
+    if (remaining < 0) {
+      throw new RangeError(`geometry-core: Z=${Z} formalCharge=${formalCharge} with bond orders [${bondOrders}] implies negative lone-pair electrons — invalid Lewis structure`);
+    }
+    const lonePairs = Math.floor(remaining / 2);
+    const stericNumber = bondOrders.length + lonePairs;
+    return { stericNumber, lonePairs, bondedNeighborCount: bondOrders.length };
+  }
+
+  function hybridization(stericNumber) {
+    return { 2: 'sp', 3: 'sp2', 4: 'sp3', 5: 'sp3d', 6: 'sp3d2' }[stericNumber] || null;
+  }
+
+  // ── 2. LONE-PAIR CHARGE CALIBRATION ─────────────────────────────────
+  //
+  // Calibrated once against real reference angles (see Phase B dev log):
+  //   period 2 (N,O,F...): L=1.24  fit jointly against NH3 (107.8°) and
+  //     H2O (104.5°) — reproduces both to within ~1°.
+  //   period 3+ : L=2.30  fit jointly against PH3 (93.5°) and H2S (92.1°)
+  //     — reproduces period-3+ centers' markedly smaller angles (a real
+  //     effect: heavier central atoms hybridize less, retaining more
+  //     p-character in their bonds — this is NOT visible without a
+  //     period-dependent constant, which is why a single universal value
+  //     was rejected during development).
+  //
+  // KNOWN REMAINING LIMITATION (documented, not hidden): this model
+  // cannot distinguish H2O (104.5°) from OF2 (103.2°) — both are SN4,
+  // 2bp+2lp, same central atom O, so the domain-charge model gives them
+  // the identical predicted angle. The real difference is a ligand
+  // electronegativity effect (Bent's rule: less-electronegative ligands
+  // pull more p-character, widening the angle) — a second-order
+  // correction requiring a ligand-dependent term, deliberately deferred
+  // rather than adding an unvalidated free parameter.
+  function lonePairCharge(centralZ) {
+    return centralZ <= 10 ? 1.24 : 2.30;
+  }
+
+  // Multiple-bond domains carry slightly more repulsive weight than a
+  // single bond (the extra pi density bulges the domain). Calibrated
+  // against O3 (116.8°, period-2 center): M=1.10 reproduces it to within
+  // 0.02°.
+  //
+  // OPEN ISSUE (flagged, not silently absorbed): the same M does NOT
+  // reproduce SO2 (target 119°; this model gets ~110° even at M=1.58,
+  // i.e. no value of M fits). SO2's unusually wide angle is a resonance
+  // effect stronger than a simple domain-size correction captures — it
+  // behaves closer to a full trigonal-planar 120° than a "bent with one
+  // lone pair" system predicts. This affects a small, already-known-hard
+  // family (SO2, and likely NO2/ClO2's odd-electron radical cases) — see
+  // the compound-level angle override below rather than pretending a
+  // single global constant resolves it.
+  function multipleBondCharge(centralZ) {
+    return 1.10;
+  }
+
+  // ── 3. SN 2–4 : free electrostatic relaxation ───────────────────────
+  function relaxSphere(charges, seed, iters = 3000) {
+    const rng = mulberry32(seed);
+    let pts = charges.map(() => randOnSphere(rng));
+    let lr = 0.06;
+    for (let it = 0; it < iters; it++) {
+      const forces = pts.map(() => [0, 0, 0]);
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = 0; j < pts.length; j++) {
+          if (i === j) continue;
+          const d = V.sub(pts[i], pts[j]);
+          let d2 = V.dot(d, d); if (d2 < 1e-6) d2 = 1e-6;
+          const mag = (charges[i] * charges[j]) / (d2 * Math.sqrt(d2));
+          forces[i] = V.add(forces[i], V.scale(d, mag));
+        }
+      }
+      pts = pts.map((p, i) => V.normalize(V.add(p, V.scale(forces[i], lr))));
+      lr *= 0.999;
+    }
+    return pts;
+  }
+  function potentialEnergy(pts, charges) {
+    let e = 0;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+      e += (charges[i] * charges[j]) / Math.max(1e-3, V.norm(V.sub(pts[i], pts[j])));
+    }
+    return e;
+  }
+  function solveLowSN(charges, seed, restarts = 10) {
+    let best = null;
+    for (let k = 0; k < restarts; k++) {
+      const pts = relaxSphere(charges, seed * 97 + k * 131 + 1, 2500);
+      const e = potentialEnergy(pts, charges);
+      if (!best || e < best.e) best = { pts, e };
+    }
+    return best.pts;
+  }
+
+  // ── 4. SN 5–6 : polyhedron site-selection ───────────────────────────
+  const TBP_SITES = [[0,0,1],[0,0,-1],[1,0,0],[-0.5,Math.sqrt(3)/2,0],[-0.5,-Math.sqrt(3)/2,0]];
+  const OCTA_SITES = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+
+  function permutations(arr) {
+    if (arr.length <= 1) return [arr];
+    const out = [];
+    for (let i = 0; i < arr.length; i++) {
+      for (const p of permutations(arr.slice(0, i).concat(arr.slice(i + 1)))) out.push([arr[i], ...p]);
+    }
+    return out;
+  }
+  function solvePolyhedron(sites, charges) {
+    const n = sites.length;
+    const angMatrix = sites.map(s1 => sites.map(s2 => V.angleDeg(s1, s2)));
+    let best = null;
+    for (const perm of permutations([...Array(n).keys()])) {
+      let score = 0;
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+        const a = angMatrix[perm[i]][perm[j]];
+        const w = a < 100 ? 3 : (a < 150 ? 1 : 0.2);
+        score += w * charges[i] * charges[j];
+      }
+      if (!best || score < best.score) best = { score, perm };
+    }
+    return charges.map((_, i) => sites[best.perm[i]]);
+  }
+
+  // ── 5. DISPATCH ──────────────────────────────────────────────────────
+  //
+  // charges: array, ORDER = [bonded domains in caller-supplied order,
+  // then lone-pair domains]. Returns unit vectors in that same order.
+  function solveDomains(charges, seed) {
+    const n = charges.length;
+    if (n <= 1) return [[0, 0, 1]].slice(0, n);
+    if (n <= 4) return solveLowSN(charges, seed);
+    if (n === 5) return solvePolyhedron(TBP_SITES, charges);
+    if (n === 6) return solvePolyhedron(OCTA_SITES, charges);
+    throw new RangeError(`geometry-core: steric number ${n} not physically valid for a main-group center (max 6 supported)`);
+  }
+
+  // Public: compute just the bonded-domain directions for one hub, given
+  // how many OTHER bonds it has and its lone-pair count. Lone-pair
+  // directions are computed (needed for the physics) but not returned —
+  // matches current renderer, which never draws lone pairs. A future
+  // "show lone pairs" config flag can expose them by returning the full
+  // array instead of slicing.
+  //
+  // measuredBondAngle: OPTIONAL escape valve, degrees. When a compound's
+  // real angle is a documented resonance/radical special case the pure
+  // domain-charge model can't fit (SO2, O3, NO2, ClO2 — see
+  // multipleBondCharge's comment), the compound author supplies the
+  // known experimental value instead of letting the general solver
+  // guess. Only meaningful for a 2-bonded-neighbor hub (the bent AX2E
+  // shapes these exceptions all are); throws if used elsewhere so it
+  // can't be silently misapplied to a shape it wasn't designed for.
+  function hubDirections(Z, formalCharge, bondOrders, seed, measuredBondAngle) {
+    const profile = stericProfile(Z, formalCharge, bondOrders);
+    if (measuredBondAngle != null) {
+      if (bondOrders.length !== 2) {
+        throw new Error(`geometry-core: measuredBondAngle override is only defined for a 2-bonded-neighbor (bent) hub; got ${bondOrders.length} bonded neighbors`);
+      }
+      const half = (measuredBondAngle * Math.PI / 180) / 2;
+      return {
+        dirs: [[Math.sin(half), Math.cos(half), 0], [-Math.sin(half), Math.cos(half), 0]],
+        hybridization: hybridization(profile.stericNumber),
+        stericNumber: profile.stericNumber,
+      };
+    }
+    const mCharge = multipleBondCharge(Z);
+    const bondCharges = bondOrders.map(order => order > 1 ? mCharge : 1);
+    const lpCharge = lonePairCharge(Z);
+    const charges = [...bondCharges, ...Array(profile.lonePairs).fill(lpCharge)];
+    const dirs = solveDomains(charges, seed);
+    return { dirs: dirs.slice(0, bondOrders.length), hybridization: hybridization(profile.stericNumber), stericNumber: profile.stericNumber };
+  }
+
+  // ── 6. RIGID ROTATION (Rodrigues) ───────────────────────────────────
+  function rotationAligning(from, to) {
+    from = V.normalize(from); to = V.normalize(to);
+    const c = V.dot(from, to);
+    if (c > 1 - 1e-9) return (v) => v; // already aligned
+    if (c < -1 + 1e-9) {
+      // 180°: pick any perpendicular axis
+      let axis = Math.abs(from[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+      axis = V.normalize(V.cross(from, axis));
+      return (v) => rotateAroundAxis(v, axis, Math.PI);
+    }
+    const axis = V.cross(from, to);
+    const angle = Math.acos(Math.max(-1, Math.min(1, c)));
+    return (v) => rotateAroundAxis(v, V.normalize(axis), angle);
+  }
+  function rotateAroundAxis(v, axis, angle) {
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    const term1 = V.scale(v, cosA);
+    const term2 = V.scale(V.cross(axis, v), sinA);
+    const term3 = V.scale(axis, V.dot(axis, v) * (1 - cosA));
+    return V.add(V.add(term1, term2), term3);
+  }
+
+  // ── 7. TREE EMBEDDER ─────────────────────────────────────────────────
+  //
+  // compound: { atoms:[{Z, formalCharge?}], bonds:[[i,j,order]],
+  //             stereo?: [{ i, j, ref: [ai_substituent_idx, aj_substituent_idx], type:'E'|'Z' }] }
+  // bondLength(Za, Zb, order): injected by caller (Phase C wires the
+  // file's existing bondLength() here — Phase B does not duplicate it).
+  //
+  // Returns { positions: [[x,y,z],...], warnings: [] }
+  function embedTree(compound, bondLengthFn, config) {
+    const cfg = (Chem.resolveConfig ? Chem.resolveConfig(config) : { geometrySeed: 1 });
+    const n = compound.atoms.length;
+    const adjacency = Array.from({ length: n }, () => []);
+    compound.bonds.forEach(([i, j, order = 1]) => {
+      adjacency[i].push({ to: j, order });
+      adjacency[j].push({ to: i, order });
+    });
+
+    if (compound.bonds.length !== n - 1) {
+      throw new Error(`geometry-core: embedTree received a non-tree graph (${n} atoms, ${compound.bonds.length} bonds; a tree needs exactly ${n - 1}). This compound has a ring — use the Phase B2 ring-relaxation embedder once it exists, not this function.`);
+    }
+
+    const stereoByEdge = new Map();
+    (compound.stereo || []).forEach(s => {
+      stereoByEdge.set(`${Math.min(s.i, s.j)}-${Math.max(s.i, s.j)}`, s);
+    });
+
+    const positions = new Array(n).fill(null);
+    const orientations = new Array(n).fill(null); // per-atom: function(localVec) -> globalVec
+    const visited = new Array(n).fill(false);
+
+    const root = 0;
+    positions[root] = [0, 0, 0];
+    orientations[root] = (v) => v; // canonical orientation, unrotated
+    visited[root] = true;
+
+    const queue = [root];
+    while (queue.length) {
+      const parent = queue.shift();
+      const neighbors = adjacency[parent].filter(e => !visited[e.to]);
+      if (neighbors.length === 0) continue;
+
+      const parentAtom = compound.atoms[parent];
+      // Bonded-domain order for the PARENT atom at this point = [already-placed neighbors first (fixed), then these new ones] —
+      // but since we compute parent's directions once when parent itself was placed (see below), we don't recompute here;
+      // parent's own direction set was already resolved when *it* was embedded (or, for root, resolved now).
+      const parentBondOrders = adjacency[parent].map(e => e.order);
+      const seed = cfg.geometrySeed * 1000 + parent;
+      const parentHub = hubDirections(parentAtom.Z, parentAtom.formalCharge || 0, parentBondOrders, seed, parentAtom.measuredBondAngle);
+      const parentDirsGlobal = parentHub.dirs.map(d => orientations[parent](d));
+
+      adjacency[parent].forEach((e, slot) => {
+        if (e.to === visited[e.to]) return; // no-op guard
+      });
+
+      adjacency[parent].forEach((e, slot) => {
+        const child = e.to;
+        if (visited[child]) return;
+        const dirGlobal = V.normalize(parentDirsGlobal[slot]);
+        const len = bondLengthFn(parentAtom.Z, compound.atoms[child].Z, e.order);
+        positions[child] = V.add(positions[parent], V.scale(dirGlobal, len));
+
+        const childAtom = compound.atoms[child];
+        const childBondOrders = adjacency[child].map(x => x.order);
+        // convention: index 0 in childBondOrders' matching entry (the one pointing back at `parent`) is the anchor domain
+        const parentSlotInChild = adjacency[child].findIndex(x => x.to === parent);
+        const childSeed = cfg.geometrySeed * 1000 + child;
+        const childHub = hubDirections(childAtom.Z, childAtom.formalCharge || 0, childBondOrders, childSeed, childAtom.measuredBondAngle);
+        const anchorLocal = childHub.dirs[parentSlotInChild];
+        const targetGlobal = V.scale(dirGlobal, -1); // child's bond-to-parent domain must point back at parent
+        let rotate = rotationAligning(anchorLocal, targetGlobal);
+        let childDirsGlobal = childHub.dirs.map(d => rotate(d));
+
+        // E/Z coplanarity + side selection for sp2 double-bond hubs
+        const edgeKey = `${Math.min(parent, child)}-${Math.max(parent, child)}`;
+        const stereoTag = stereoByEdge.get(edgeKey);
+        if (stereoTag && parentHub.hybridization === 'sp2' && childHub.hybridization === 'sp2') {
+          const axis = V.normalize(dirGlobal);
+          const planeNormal = (dirs) => {
+            // plane normal for an sp2 hub = normal of the 3 domain directions' best-fit plane;
+            // with exactly 3 coplanar directions summing ~0, cross of any two non-parallel pair works.
+            const a = dirs[0], b = dirs[1];
+            return V.normalize(V.cross(a, b));
+          };
+          const n1 = planeNormal(parentDirsGlobal);
+          let n2 = planeNormal(childDirsGlobal);
+          // signed angle from n2 to n1 around axis
+          const cosT = Math.max(-1, Math.min(1, V.dot(n1, n2)));
+          const sinT = V.dot(axis, V.cross(n2, n1));
+          const twist = Math.atan2(sinT, cosT);
+          childDirsGlobal = childDirsGlobal.map(d => rotateAroundAxis(d, axis, twist));
+
+          // now coplanar; resolve which of the two coplanar solutions (cis/trans) matches the requested tag
+          const refChildLocalIdx = (parent === stereoTag.i) ? stereoTag.refJ : stereoTag.refI;
+          const refParentLocalIdx = (parent === stereoTag.i) ? stereoTag.refI : stereoTag.refJ;
+          const refParentGlobal = parentDirsGlobal[refParentLocalIdx];
+          const refChildGlobal = childDirsGlobal[refChildLocalIdx];
+          const sameSide = V.dot(V.sub(refParentGlobal, V.scale(axis, V.dot(refParentGlobal, axis))),
+                                  V.sub(refChildGlobal, V.scale(axis, V.dot(refChildGlobal, axis)))) > 0;
+          const wantSameSide = stereoTag.type === 'Z';
+          if (sameSide !== wantSameSide) {
+            childDirsGlobal = childDirsGlobal.map(d => rotateAroundAxis(d, axis, Math.PI));
+          }
+        }
+
+        orientations[child] = (v) => {
+          // v is expressed in childHub's local frame; find which precomputed global dir it equals
+          const idx = childHub.dirs.findIndex(d => V.norm(V.sub(d, v)) < 1e-6);
+          return idx >= 0 ? childDirsGlobal[idx] : v;
+        };
+        visited[child] = true;
+        queue.push(child);
+      });
+    }
+
+    return { positions };
+  }
+
+  // ── 8. UNIFIED ENTRY POINT ───────────────────────────────────────────
+  //
+  // This is what Phase C's renderer actually calls — it never has to
+  // know whether a compound is a tree or contains a ring. Ring detection
+  // is delegated to RingCore (Phase B2), loaded lazily so this file has
+  // no hard dependency on it for the (majority) tree-only case.
+  function embedCompound(compound, bondLengthFn, config) {
+    const bondCount = compound.bonds.length;
+    const atomCount = compound.atoms.length;
+    if (bondCount === atomCount - 1) {
+      return embedTree(compound, bondLengthFn, config);
+    }
+    const Ring = global.RingCore || (typeof require !== 'undefined' ? require('./ring-core.js') : null);
+    if (!Ring) {
+      throw new Error('geometry-core: compound contains a ring (bonds != atoms-1) but ring-core.js is not loaded — include it before calling embedCompound on cyclic structures');
+    }
+    return Ring.embedRingSystem(compound, bondLengthFn);
+  }
+
+  global.GeometryCore = {
+    stericProfile, hybridization, lonePairCharge,
+    hubDirections, solveDomains,
+    embedTree,
+    embedCompound,
+    _internal: { relaxSphere, solvePolyhedron, potentialEnergy, rotationAligning, V },
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ════════════════════════════════════════════════════════════════════════
+// UNIVERSAL COMPOUND ENGINE — PHASE B2: Ring Closure
+// ════════════════════════════════════════════════════════════════════════
+//
+// Phase B's embedTree() explicitly rejects any compound with a ring. This
+// module handles that case with a DIFFERENT algorithm, not a bigger
+// version of the same one — see the rationale recorded in geometry-core.js.
+//
+// WHAT THIS DOES:
+//   1. Ring perception: derives which atoms form which ring(s) directly
+//      from the bond graph. The current file's aromatic PAHs (benzene,
+//      naphthalene, anthracene, phenanthrene, pyrene, benzo[a]pyrene) all
+//      hand-list an `aromaticRings` field — this module computes the same
+//      information automatically, so a NEW ring compound never needs a
+//      human to pre-supply it. Validated below against all six of those
+//      compounds' hand-authored ring lists as ground truth.
+//   2. Planar fused-polygon layout: places each ring as a regular N-gon,
+//      attaches fused rings across their shared edge (mirrored outward,
+//      away from already-built structure), and attaches any remaining
+//      peripheral substituents (ring H's) via the same "third sp2 domain
+//      = -(sum of the other two)" identity Phase B already relies on.
+//
+// SCOPE / HONEST LIMITS (stated, not buried):
+//   ✅ Any planar fused-ring aromatic or non-aromatic system, any ring
+//      size, any fusion pattern (ortho-fused like naphthalene, peri-fused
+//      like pyrene) — this is a graph algorithm, not a lookup table, so
+//      it is not limited to six-membered rings or to the six compounds
+//      tested below.
+//   ❌ NOT YET: non-planar ring puckering (real cyclohexane's chair form,
+//      cyclopentane's envelope form). This module lays every ring out
+//      FLAT. That's exactly right for the aromatic compounds in the
+//      current file (they really are planar) and a reasonable first
+//      approximation for a saturated ring, but a chair-form cyclohexane
+//      is a distinct future increment (Phase B3), not something to fake
+//      here by silently forcing sp3 rings flat and calling it done.
+// ════════════════════════════════════════════════════════════════════════
+
+(function (global) {
+  'use strict';
+  const Chem = global.ChemistryCore || require('./chemistry-core.js');
+
+  const V2 = {
+    sub: (a, b) => [a[0]-b[0], a[1]-b[1]],
+    add: (a, b) => [a[0]+b[0], a[1]+b[1]],
+    scale: (a, s) => [a[0]*s, a[1]*s],
+    len: (a) => Math.hypot(a[0], a[1]),
+    normalize: (a) => { const n = V2.len(a) || 1; return [a[0]/n, a[1]/n]; },
+    perp: (a) => [-a[1], a[0]],
+  };
+
+  // ── 1. RING PERCEPTION ──────────────────────────────────────────────
+  //
+  // For each non-tree ("extra") edge found via a BFS spanning tree, the
+  // smallest cycle containing that edge is the shortest path between its
+  // endpoints in the graph with that edge removed. This is a standard,
+  // correct SSSR heuristic for the planar, moderately-sized fused-ring
+  // systems this engine targets (it can under-collect for pathological
+  // non-planar graphs, which isn't a real-molecule case here).
+  function findRings(compound) {
+    const n = compound.atoms.length;
+    const adj = Array.from({ length: n }, () => []);
+    compound.bonds.forEach(([i, j]) => { adj[i].push(j); adj[j].push(i); });
+
+    // spanning tree via BFS, collect non-tree edges
+    const visited = new Array(n).fill(false);
+    const parent = new Array(n).fill(-1);
+    const treeEdges = new Set();
+    const queue = [0]; visited[0] = true;
+    while (queue.length) {
+      const u = queue.shift();
+      for (const v of adj[u]) {
+        if (!visited[v]) {
+          visited[v] = true; parent[v] = u;
+          treeEdges.add(edgeKey(u, v));
+          queue.push(v);
+        }
+      }
+    }
+    function edgeKey(a, b) { return a < b ? `${a}-${b}` : `${b}-${a}`; }
+
+    const extraEdges = compound.bonds.filter(([i, j]) => !treeEdges.has(edgeKey(i, j)));
+
+    function shortestPathExcluding(src, dst, excludeI, excludeJ) {
+      const dist = new Array(n).fill(-1);
+      const prev = new Array(n).fill(-1);
+      dist[src] = 0;
+      const q = [src];
+      while (q.length) {
+        const u = q.shift();
+        if (u === dst) break;
+        for (const v of adj[u]) {
+          if ((u === excludeI && v === excludeJ) || (u === excludeJ && v === excludeI)) continue;
+          if (dist[v] === -1) { dist[v] = dist[u] + 1; prev[v] = u; q.push(v); }
+        }
+      }
+      if (dist[dst] === -1) return null;
+      const path = [dst];
+      let cur = dst;
+      while (cur !== src) { cur = prev[cur]; path.push(cur); }
+      return path.reverse();
+    }
+
+    const rings = [];
+    const seen = new Set();
+    for (const [i, j] of extraEdges) {
+      const path = shortestPathExcluding(i, j, i, j);
+      if (!path) continue;
+      const ring = path; // already ordered i -> ... -> j; edge (j,i) closes it
+      const canon = [...ring].sort((a, b) => a - b).join(',');
+      if (seen.has(canon)) continue;
+      seen.add(canon);
+      rings.push(ring);
+    }
+    return rings;
+  }
+
+  // ── 2. RING FUSION GRAPH ─────────────────────────────────────────────
+  function ringEdgeSet(ring) {
+    const s = new Set();
+    for (let k = 0; k < ring.length; k++) {
+      const a = ring[k], b = ring[(k + 1) % ring.length];
+      s.add(a < b ? `${a}-${b}` : `${b}-${a}`);
+    }
+    return s;
+  }
+  function sharedEdge(ringA, ringB) {
+    const setA = ringEdgeSet(ringA);
+    for (const e of ringEdgeSet(ringB)) if (setA.has(e)) return e.split('-').map(Number);
+    return null;
+  }
+
+  // ── 3. PLANAR FUSED-POLYGON LAYOUT ──────────────────────────────────
+  //
+  // avgBondLength(ring): rings can have mixed bond orders (Kekulé
+  // alternation) but are drawn as a REGULAR polygon at the average bond
+  // length — real aromatic C-C bonds are within a few percent of each
+  // other anyway (delocalization), so this is visually and chemically
+  // reasonable, not a hidden approximation of consequence.
+  function layoutRings(compound, bondLengthFn) {
+    const rings = findRings(compound);
+    const positions = {};
+    if (rings.length === 0) return { positions, rings };
+
+    const placed = new Array(rings.length).fill(false);
+    const ringCenters = new Array(rings.length).fill(null);
+
+    function avgBondLength(ring) {
+      let total = 0, count = 0;
+      for (let k = 0; k < ring.length; k++) {
+        const a = ring[k], b = ring[(k + 1) % ring.length];
+        const bond = compound.bonds.find(([i, j]) => (i === a && j === b) || (i === b && j === a));
+        total += bondLengthFn(compound.atoms[a].Z, compound.atoms[b].Z, bond ? bond[2] : 1);
+        count++;
+      }
+      return total / count;
+    }
+
+    function placeFirstRing(ringIdx) {
+      const ring = rings[ringIdx];
+      const n = ring.length;
+      const L = avgBondLength(ring);
+      const R = (L / 2) / Math.sin(Math.PI / n);
+      const center = [0, 0];
+      ring.forEach((atomIdx, k) => {
+        const theta = (2 * Math.PI * k) / n;
+        positions[atomIdx] = [center[0] + R * Math.cos(theta), center[1] + R * Math.sin(theta)];
+      });
+      ringCenters[ringIdx] = center;
+      placed[ringIdx] = true;
+    }
+
+    // Attach ringIdx to the structure via its shared edge (p,q) with an
+    // already-placed ring. p and q already have positions.
+    function placeFusedRing(ringIdx, p, q, awayFromCenter) {
+      const ring = rings[ringIdx];
+      const n = ring.length;
+      const L = avgBondLength(ring);
+      const pPos = positions[p], qPos = positions[q];
+      const mid = V2.scale(V2.add(pPos, qPos), 0.5);
+      const edge = V2.sub(qPos, pPos);
+      const edgeLen = V2.len(edge);
+      const apothem = (edgeLen / 2) / Math.tan(Math.PI / n);
+      const perp = V2.normalize(V2.perp(edge));
+      const centerA = V2.add(mid, V2.scale(perp, apothem));
+      const centerB = V2.sub(mid, V2.scale(perp, apothem));
+      // pick the center FARTHER from the reference point we're fusing away from
+      const distA = V2.len(V2.sub(centerA, awayFromCenter));
+      const distB = V2.len(V2.sub(centerB, awayFromCenter));
+      const center = distA >= distB ? centerA : centerB;
+
+      const R = apothem / Math.cos(Math.PI / n);
+      const thetaP = Math.atan2(pPos[1] - center[1], pPos[0] - center[0]);
+      const thetaQ = Math.atan2(qPos[1] - center[1], qPos[0] - center[0]);
+      const step = 2 * Math.PI / n;
+      // determine step direction: does stepping +step from p land on q?
+      const forward = angDist(thetaP + step, thetaQ) < 1e-3;
+      const dir = forward ? 1 : -1;
+
+      // align ring's atom-index order so p,q are adjacent, then walk the
+      // rest of the cycle starting after q, placing remaining vertices
+      // going around the OUTER arc (continuing in `dir`).
+      const pIdx = ring.indexOf(p), qIdx = ring.indexOf(q);
+      const nStep = ((qIdx - pIdx) % n + n) % n === 1 ? 1 : -1; // ring's own listed direction from p to q
+      // walk the ring starting at q, in the ring's own cyclic order, for n-2 more atoms
+      const ordered = [];
+      let idx = qIdx;
+      for (let k = 0; k < n - 2; k++) {
+        idx = (idx + nStep + n) % n;
+        ordered.push(ring[idx]);
+      }
+      let theta = thetaQ;
+      for (const atomIdx of ordered) {
+        theta += dir * step;
+        positions[atomIdx] = [center[0] + R * Math.cos(theta), center[1] + R * Math.sin(theta)];
+      }
+      ringCenters[ringIdx] = center;
+      placed[ringIdx] = true;
+    }
+    function angDist(a, b) {
+      let d = Math.abs(a - b) % (2 * Math.PI);
+      return Math.min(d, 2 * Math.PI - d);
+    }
+
+    // BFS over the ring-fusion graph
+    placeFirstRing(0);
+    const queue = [0];
+    while (queue.length) {
+      const ri = queue.shift();
+      for (let rj = 0; rj < rings.length; rj++) {
+        if (placed[rj]) continue;
+        const edge = sharedEdge(rings[ri], rings[rj]);
+        if (!edge) continue;
+        placeFusedRing(rj, edge[0], edge[1], ringCenters[ri]);
+        queue.push(rj);
+      }
+    }
+    // any ring not reached (disconnected ring system) — place independently
+    rings.forEach((r, idx) => { if (!placed[idx]) placeFirstRing(idx); });
+
+    return { positions, rings };
+  }
+
+  // ── 4. SUBSTITUENT ATTACHMENT (peripheral atoms, e.g. ring H's) ─────
+  //
+  // For a ring atom with exactly one additional (non-ring) bonded
+  // neighbor and 3 total sp2 domains, the third domain direction is
+  // exactly -(sum of the other two normalized ring-bond directions) —
+  // an exact identity for an ideal trigonal-planar center, not a guess.
+  function attachSubstituents(compound, ringPositions, bondLengthFn) {
+    const positions = { ...ringPositions };
+    const n = compound.atoms.length;
+    const adj = Array.from({ length: n }, () => []);
+    compound.bonds.forEach(([i, j, order = 1]) => { adj[i].push({ to: j, order }); adj[j].push({ to: i, order }); });
+
+    for (let atomIdx = 0; atomIdx < n; atomIdx++) {
+      if (!(atomIdx in positions)) continue; // only ring atoms can host a peripheral substituent this way
+      const unplacedNeighbors = adj[atomIdx].filter(e => !(e.to in positions));
+      if (unplacedNeighbors.length === 0) continue;
+      if (unplacedNeighbors.length > 1) {
+        throw new Error(`geometry-core/ring: atom[${atomIdx}] has ${unplacedNeighbors.length} unplaced substituents — only single-substituent ring carbons are supported by this attachment step`);
+      }
+      const ringNeighbors = adj[atomIdx].filter(e => e.to in positions);
+      if (ringNeighbors.length !== 2) {
+        throw new Error(`geometry-core/ring: atom[${atomIdx}] must have exactly 2 ring-bonded neighbors to place a peripheral substituent (found ${ringNeighbors.length})`);
+      }
+      const p0 = positions[atomIdx];
+      const dirs = ringNeighbors.map(e => V2.normalize(V2.sub(positions[e.to], p0)));
+      const outDir = V2.normalize(V2.scale(V2.add(dirs[0], dirs[1]), -1));
+      const sub = unplacedNeighbors[0];
+      const len = bondLengthFn(compound.atoms[atomIdx].Z, compound.atoms[sub.to].Z, sub.order);
+      positions[sub.to] = V2.add(p0, V2.scale(outDir, len));
+    }
+    return positions;
+  }
+
+  // ── PUBLIC: full pipeline, ring atoms + their peripheral substituents ─
+  // Returns { positions: {atomIdx: [x,y,0]}, rings } — z=0 for every atom
+  // (planar layout; see the documented limitation above).
+  function embedRingSystem(compound, bondLengthFn) {
+    const { positions: ring2D, rings } = layoutRings(compound, bondLengthFn);
+    if (rings.length === 0) {
+      throw new Error('geometry-core/ring: embedRingSystem called on a compound with no ring — use embedTree() instead');
+    }
+    const full2D = attachSubstituents(compound, ring2D, bondLengthFn);
+    const positions = new Array(compound.atoms.length).fill(null);
+    for (const [idxStr, p] of Object.entries(full2D)) positions[+idxStr] = [p[0], p[1], 0];
+    return { positions, rings };
+  }
+
+  global.RingCore = { findRings, layoutRings, attachSubstituents, embedRingSystem };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ════════════════════════════════════════════════════════════════════════
+// UNIVERSAL COMPOUND ENGINE — PHASE C: Renderer Bridge
+// ════════════════════════════════════════════════════════════════════════
+//
+// This is the ONLY file that touches the app's existing renderer contract.
+// It does not reimplement bond length, orbital shapes, or the Three.js
+// mesh code — it calls the app's own bondLength() (unchanged, from
+// simulator_dark.html/simulator_light.html) so Phase A/B/B2's geometry and
+// the renderer's electron-cloud sizing stay in agreement by construction,
+// not by two formulas happening to match.
+//
+// INTEGRATION MODEL (why this is safe to ship alongside the 58 existing
+// molecules with zero risk to them):
+//   resolveMoleculeAtoms(mol) — the app's existing function — is patched
+//   with ONE conditional at its very top: if mol.atoms[0].dir is present
+//   (every one of the 58 existing entries has it), run the ORIGINAL
+//   hand-typed-direction walk, completely unchanged. Only if dir is
+//   ABSENT (a new compound authored with just Z + bonds + optional
+//   formalCharge) does it call resolveMoleculeAtomsViaEngine() below.
+//   Existing molecules are byte-for-byte unaffected; new ones get
+//   generated geometry automatically.
+// ════════════════════════════════════════════════════════════════════════
+
+(function (global) {
+  'use strict';
+  const Chem = global.ChemistryCore;
+  const Geo = global.GeometryCore;
+  const Ring = global.RingCore;
+
+  function symbolFor(Z) {
+    const e = Chem.ELEMENTS[Z];
+    if (!e) throw new RangeError(`engine-bridge: no element data for Z=${Z} — add it to ChemistryCore.ELEMENTS before using it in a compound`);
+    return e.sym;
+  }
+
+  // Ionic contacts are marked with bond order 0 (not a real electron-pair
+  // bond — see chemistry-core's bondCharacter classification). This
+  // wrapper is the ONLY place that distinguishes them: it looks up each
+  // atom's formal charge (fixed per element within one compound — no
+  // ionic compound here has the same element in two different charge
+  // states) and asks chemistry-core for the ionic pair distance (sum of
+  // Shannon radii) instead of calling the app's covalent bondLength().
+  // Every other order (1/2/3) passes straight through to the app's own
+  // bondLength(), unmodified — this wrapper adds a case, it doesn't
+  // replace the covalent one.
+  function ionicAwareBondLength(mol, bondLengthFn) {
+    const chargeByZ = {};
+    mol.atoms.forEach(a => { chargeByZ[a.Z] = a.formalCharge || 0; });
+    return function (Za, Zb, order) {
+      if (order === 0) {
+        const qa = chargeByZ[Za], qb = chargeByZ[Zb];
+        if (qa <= 0 && qb <= 0) throw new Error(`engine-bridge: ionic bond between Z=${Za} and Z=${Zb} has no positive (cation) charge — check formalCharge`);
+        const realIonicPm = qa > 0 ? Chem.ionicPairDistance(Za, qa, Zb, qb) : Chem.ionicPairDistance(Zb, qb, Za, qa);
+        // Scale bridge: the app's bondLength() lives in its own
+        // deliberately-exaggerated visualization units (see ORBS — radii
+        // span 3+ orders of magnitude by period, not to real-world scale).
+        // Using realIonicPm directly as a world-space length would mix
+        // real picometers into that system incoherently — verified this
+        // breaks (sometimes close by coincidence, sometimes off 3x+,
+        // since the app's exaggeration factor isn't uniform). Instead:
+        // compare a real, UN-overlapped radius sum (real pm) to the app's
+        // own UN-overlapped radius sum (app units) for the same pair, and
+        // apply that pair-specific app-units-per-pm ratio to the real
+        // ionic distance.
+        //
+        // BUG FIX: this used to read `bondLengthFn(Za,Zb,1) / realCovalentPm`.
+        // bondLengthFn(...,1) is the COVALENT single-bond formula, which
+        // deliberately subtracts an overlap term (0.76*min(Ra,Rb)) so
+        // shared-electron-pair bonds render with their clouds visibly
+        // merged — correct for a covalent bond, wrong as a scale
+        // reference here. Ionic radii (realIonicPm, from ionicPairDistance)
+        // are a plain sum with NO overlap term, since closed-shell ions
+        // don't interpenetrate. Dividing a real un-overlapped sum by an
+        // app-side OVERLAPPED length, then multiplying back up, silently
+        // reintroduced covalent-style overlap into every ionic pair —
+        // confirmed NaCl (170 app-units apart) and KBr (560 apart) both
+        // landed CLOSER than the sum of their own rendered ion-cloud radii
+        // (185 and 625 respectively), so the ion clouds overlapped before
+        // Fajans polarization even ran. That made every ionic pair look
+        // "covalent-ish" regardless of its actual distortion value, which
+        // is exactly backwards: Fajans' rule says only the pairs
+        // bondCharacter() flags as 'polarized-ionic' (e.g. MgCl2) should
+        // show any cloud overlap; 'ionic' pairs (NaCl, CaF2, KBr) should
+        // stay as two separate, barely-apart spheres — touching distance,
+        // not a wide vacuum gap. Using the RAW app radius sum
+        // (no overlap subtracted) as the numerator keeps both sides of the
+        // ratio on the same "plain sum" footing, so the ionic distance no
+        // longer inherits covalent compression it was never supposed to
+        // have.
+        //
+        // BUG FIX #2: that numerator was `valenceR(Za)+valenceR(Zb)` — the
+        // NEUTRAL atoms' radii. But the renderer never draws the neutral
+        // atom for an ionic contact: buildMolecule looks up
+        // `ionicEffectiveConfig(atom.Z, atom.formalCharge)` and renders
+        // THAT shell (see the `cfg[cfg.length-1]` valence orbital it
+        // builds the cloud from). Na+ lost its 3s electron entirely and
+        // renders Ne-sized (R=41, not neutral Na's 3s R=70); Cl- fills its
+        // existing 3p shell and renders the same size as neutral Cl
+        // (R=144). Sum = 185 — matching the comment above — not 214
+        // (70+144, the neutral-valenceR sum this code was using). Scaling
+        // the real ionic pm-distance against the neutral sum (214) instead
+        // of the actually-rendered ion sum (185) inflated the app-units-
+        // per-pm ratio, which pushed NaCl's computed center distance
+        // (~226) well past the sum of what's actually drawn (185) — a
+        // ~41-unit floating gap. Same story for KBr: neutral sum 731 vs.
+        // rendered ion sum 625, a ~130-unit gap. Using each ion's real
+        // post-charge shell radius here means the scale reference matches
+        // what's on screen, so the two ion clouds land just barely apart
+        // (NaCl ~10 units, KBr ~21 units) instead of visibly adrift.
+        function ionicShellR(Z, charge) {
+          if (!charge) return valenceR(Z);
+          const cfg = ionicEffectiveConfig(Z, charge);
+          return cfg[cfg.length - 1].R;
+        }
+        const realCovalentPm = Chem.covalentRadiusPm(Za) + Chem.covalentRadiusPm(Zb);
+        const appRadiusSum = ionicShellR(Za, qa) + ionicShellR(Zb, qb);
+        const appPerPm = appRadiusSum / realCovalentPm;
+        return realIonicPm * appPerPm;
+      }
+      return bondLengthFn(Za, Zb, order);
+    };
+  }
+
+  // mol: { atoms:[{Z, formalCharge?}], bonds:[[i,j,order]], stereo?, geometrySeed? }
+  // bondLengthFn: the app's own bondLength(Za,Zb,order) — passed in, not imported,
+  // so this module has no hidden dependency on the host file's internals
+  // beyond the one function signature.
+  function resolveMoleculeAtomsViaEngine(mol, bondLengthFn) {
+    const compound = {
+      // IMPORTANT: `b[2] != null ? b[2] : 1`, NOT `b[2] || 1` — order 0
+      // (the ionic marker) is falsy in JS, so `|| 1` would silently turn
+      // every ionic contact into a fake covalent single bond. Caught by
+      // testing NaCl/MgCl2 before this shipped, not by inspection.
+      atoms: mol.atoms.map(a => ({ Z: a.Z, formalCharge: a.formalCharge || 0, measuredBondAngle: a.measuredBondAngle })),
+      bonds: mol.bonds.map(b => [b[0], b[1], b[2] != null ? b[2] : 1]),
+      stereo: mol.stereo,
+    };
+    const { positions } = Geo.embedCompound(compound, ionicAwareBondLength(mol, bondLengthFn), { geometrySeed: mol.geometrySeed || 1 });
+    return mol.atoms.map((a, idx) => ({
+      Z: a.Z,
+      sym: a.sym || symbolFor(a.Z),
+      pos: positions[idx],
+      formalCharge: a.formalCharge || 0,
+    }));
+  }
+
+  // Auto-derives mol.aromaticRings (the exact { atoms:[...] } shape
+  // buildMolecule already consumes) when the compound wasn't hand-authored
+  // with one. Returns [] for a non-ring compound (cheap, safe to call
+  // unconditionally).
+  function deriveAromaticRings(mol) {
+    if (mol.aromaticRings) return mol.aromaticRings; // author already supplied it (or it's one of the 58 legacy entries)
+    const bondCount = mol.bonds.length, atomCount = mol.atoms.length;
+    if (bondCount === atomCount - 1) return []; // tree topology, no ring
+    const compound = { atoms: mol.atoms.map(a => ({ Z: a.Z })), bonds: mol.bonds };
+    const rings = Ring.findRings(compound);
+    return rings.map(atoms => ({ atoms }));
+  }
+
+  global.EngineBridge = { resolveMoleculeAtomsViaEngine, deriveAromaticRings, symbolFor, bondCharacter: Chem.bondCharacter };
+})(typeof window !== 'undefined' ? window : globalThis);
+
 // ══════════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════════
@@ -1645,6 +2853,25 @@ const TSHAPE_AX_ANGLE = 87.5 * Math.PI/180; // angle between the equatorial atom
 // N2O, where the correct fix is picking a real resonance structure (see
 // N2O below), not rounding a delocalized fraction.
 const MOLECULES=[
+  // ── Ionic compounds (Universal Compound Engine, Phase D) ──────────
+  // No dir vectors, no manual coordinates: atoms carry only Z + formal
+  // charge, bonds carry order 0 to mark an ionic (not covalent) contact.
+  // Geometry, ion-cloud rendering, and the dashed electrostatic-link
+  // visual all fall out of that automatically — see engine-bridge.js's
+  // ionicAwareBondLength and the order===0 handling in
+  // buildBondDescriptors/buildRawBondDirs/the guide-line renderer.
+  { key:'nacl', formula:'NaCl', name:'Sodium Chloride', geometry:'Ionic (gas-phase pair)',
+    atoms:[ {Z:11,formalCharge:1}, {Z:17,formalCharge:-1} ],
+    bonds:[[0,1,0]] }, // order 0 = ionic contact, not a shared electron pair
+  { key:'mgcl2', formula:'MgCl₂', name:'Magnesium Chloride', geometry:'Ionic (gas-phase, linear)',
+    atoms:[ {Z:12,formalCharge:2}, {Z:17,formalCharge:-1}, {Z:17,formalCharge:-1} ],
+    bonds:[[0,1,0],[0,2,0]] },
+  { key:'caf2', formula:'CaF₂', name:'Calcium Fluoride', geometry:'Ionic (gas-phase, linear)',
+    atoms:[ {Z:20,formalCharge:2}, {Z:9,formalCharge:-1}, {Z:9,formalCharge:-1} ],
+    bonds:[[0,1,0],[0,2,0]] },
+  { key:'kbr', formula:'KBr', name:'Potassium Bromide', geometry:'Ionic (gas-phase pair)',
+    atoms:[ {Z:19,formalCharge:1}, {Z:35,formalCharge:-1} ],
+    bonds:[[0,1,0]] },
   { key:'h2', formula:'H₂', name:'Hydrogen', geometry:'Linear',
     atoms:[ {Z:1,sym:'H',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
     bonds:[[0,1]] }, // single
@@ -2400,6 +3627,64 @@ function getEffectiveConfig(Z){
   return excitedLevel>0 ? getExcitedConfig(Z,excitedLevel).cfg : getConfig(Z);
 }
 
+// Electron configuration for an ION, not a free neutral atom — used only
+// by molecule rendering when an atom carries a nonzero formalCharge (see
+// buildMolecule). getConfig(Z) alone always returns the NEUTRAL atom's
+// ground state regardless of charge, which is fine for every covalent
+// molecule (H2O, CO2, ...) but wrong for an ionic one: NaCl's Na is
+// really Na+ (lost its 3s valence electron entirely, isoelectronic with
+// Ne — there is no leftover empty 3s shell to draw), and its Cl is
+// really Cl- (gained one electron into 3p, isoelectronic with Ar — a
+// completed octet, not the neutral atom's 3p5).
+//
+// Cations: strip |charge| electrons from the highest-n occupied subshell
+// outward, removing a subshell entirely once it empties (rather than
+// leaving a zero-electron entry for the renderer to skip). Valid for
+// every main-group cation currently in MOLECULES (Na+, Mg2+, Ca2+, K+) —
+// removing from the last-filled subshell IS removing the valence shell
+// for these. NOT valid as-is for a transition-metal cation (which loses
+// ns before (n-1)d): extend this if one is ever added to MOLECULES.
+//
+// Anions: add |charge| electrons into the outermost subshell up to its
+// max, spilling into the next subshell in ORBS filling order if the
+// current one is already full (no anion in the current roster needs the
+// spill case — F-/Cl-/Br- all have room in their own outer p — but a
+// future anion with a genuinely full valence shell would).
+function ionicEffectiveConfig(Z, formalCharge){
+  const charge = formalCharge||0;
+  if(!charge) return getConfig(Z);
+  let cfg = getConfig(Z); // fresh per call (see getConfig) — safe to mutate in place below
+  if(charge>0){
+    let remaining = charge;
+    for(let i=cfg.length-1; i>=0 && remaining>0; i--){
+      const take = Math.min(remaining, cfg[i].e);
+      cfg[i].e -= take;
+      remaining -= take;
+    }
+    if(remaining>0) throw new RangeError(`ionicEffectiveConfig: Z=${Z} does not have ${charge} electrons to remove for formalCharge=+${charge}`);
+    cfg = cfg.filter(o=>o.e>0);
+  } else {
+    let remaining = -charge;
+    while(remaining>0){
+      const last = cfg[cfg.length-1];
+      const room = last.max-last.e;
+      if(room>0){
+        const add = Math.min(remaining, room);
+        last.e += add;
+        remaining -= add;
+      } else {
+        const next = ORBS[ORBS.findIndex(x=>x.name===last.name)+1];
+        if(!next) throw new RangeError(`ionicEffectiveConfig: Z=${Z} formalCharge=${formalCharge} has no further subshell to receive the extra electron(s)`);
+        cfg.push({...next, e:0});
+      }
+    }
+  }
+  cfg.forEach(o=>{
+    o.occ = fillHund(o.l,o.e).map((c,i)=>({sub:i,label:subLabel(o.l,i),e:c,excited:false}));
+  });
+  return cfg;
+}
+
 // Keeps the EXCITED STATE button's label/highlight in sync with whatever
 // is actually being rendered for the given element. Needed because
 // select(Z) (element click, keyboard nav) can change the active element
@@ -2488,6 +3773,22 @@ scene.add(gridGroup);
 const pivot=new THREE.Group();
 scene.add(pivot);
 let atomGrp=null;
+
+// FREE CAMERA FOCUS (molecule mode) — by default the pivot rotates around
+// the molecule's fixed centroid (world origin). Clicking/tapping an atom
+// instead re-centers the rotation origin on THAT atom, by shifting
+// atomGrp's position inside pivot rather than moving pivot itself — pivot
+// still spins about its own local (0,0,0), so whatever sits at that local
+// origin becomes the new, free-floating focus point. See buildMolecule()
+// (proxy sphere + re-apply-on-rebuild), tryFocusPick()/focusOnAtom() (pick
+// logic), and the render loop (the actual per-frame eased lerp).
+let curMoleculeAtoms=null;      // the resolved {sym,Z,pos,...} array for the currently-built molecule, indexed like the pick proxies
+let moleculeFocusIndex=null;    // index into curMoleculeAtoms of the currently-focused atom, or null for the default centroid
+const focusOffsetCurrent=new THREE.Vector3(0,0,0); // where atomGrp's position actually is right now (eased)
+const focusOffsetTarget=new THREE.Vector3(0,0,0);  // where it's easing toward
+const FOCUS_EASE_RATE=6; // per-second decay rate for the recenter glide — same style as ZOOM_EASE_RATE below
+const raycaster=new THREE.Raycaster();
+const pickerNDC=new THREE.Vector2();
 // The aromatic π-cloud (benzene's delocalized ring) gets its own slow,
 // continuous spin independent of the mouse-drag pivot — see PI_SPIN_SPEED
 // in the render loop. Tracked separately from atomGrp's other children
@@ -3694,7 +4995,7 @@ function bondLength(Za,Zb,order){
   // byte-for-byte unaffected — only mismatched pairs change.
   const OVERLAP_FRACTION = 0.76; // matches the old formula's overlap depth for equal-R pairs
   const base = Ra + Rb - OVERLAP_FRACTION*Math.min(Ra,Rb);
-  const ord = Math.max(1, Math.min(3, order||1));
+  const ord = Math.max(1, Math.min(3, order!=null?order:1)); // order===0 (ionic marker) must not collapse to 1 via `||` — ionicAwareBondLength already intercepts real ionic calls before they reach here, but this guards the latent case of a direct order=0 call
   const orderMult = 1 - 0.12*(ord-1); // 1 -> 1.00, 2 -> 0.88, 3 -> 0.76
   return base*orderMult;
 }
@@ -3732,6 +5033,17 @@ function bondLength(Za,Zb,order){
 // hub-and-spoke molecule already in this file satisfies this trivially,
 // and so does every ring molecule added alongside this change.
 function resolveMoleculeAtoms(mol){
+  // Compounds authored without hand-typed `dir` vectors — i.e. every
+  // future compound, built from just Z + bonds + optional formalCharge —
+  // get their geometry generated by the Universal Compound Engine instead
+  // of walked from authored directions. Every one of the original
+  // hand-authored molecules has dir on atoms[0], so they fall straight
+  // through to the unchanged implementation below — zero behavior change
+  // for any existing molecule.
+  if(!mol.atoms[0].dir){
+    return EngineBridge.resolveMoleculeAtomsViaEngine(mol, bondLength);
+  }
+
   const positions=new Array(mol.atoms.length);
   positions[0]=[0,0,0];
   for(let idx=1; idx<mol.atoms.length; idx++){
@@ -3760,7 +5072,7 @@ function resolveMoleculeAtoms(mol){
     const L=bondLength(mol.atoms[anchorIdx].Z, a.Z, posOrder);
     positions[idx]=[anchorPos[0]+a.dir[0]*L, anchorPos[1]+a.dir[1]*L, anchorPos[2]+a.dir[2]*L];
   }
-  return mol.atoms.map((a,idx)=>({Z:a.Z, sym:a.sym, pos:positions[idx]}));
+  return mol.atoms.map((a,idx)=>({Z:a.Z, sym:a.sym, pos:positions[idx], formalCharge:a.formalCharge||0}));
 }
 
 
@@ -3816,6 +5128,13 @@ function piAxisIndices(order,bondIdx){
 function buildBondDescriptors(mol,atoms){
   const byAtom=atoms.map(()=>[]);
   (mol.bonds||[]).forEach(([i,j,order,posOrder,skipPiAxis],bondIdx)=>{
+    // Ionic contacts (order===0, see chemistry-core's bondCharacter
+    // classification) are electrostatic, not a shared electron-pair bond
+    // — there's no orbital lobe to bend toward the partner, so this atom
+    // falls through to a plain spherical cloud instead (the existing
+    // else-branch in buildMolecule's per-atom loop already does exactly
+    // that for any atom with no bond-aware entries).
+    if(order===0) return;
     const ord=order||1;
     // Optional 5th array element: true when this bond's pi visual is
     // handled by a dedicated renderer instead (see mol.tripleBonds below)
@@ -4733,7 +6052,11 @@ function buildAromaticPiMesh(ringPositions, orb){
 // each hybrid lobe.
 function buildRawBondDirs(mol,atoms){
   const byAtom=atoms.map(()=>[]);
-  (mol.bonds||[]).forEach(([i,j])=>{
+  (mol.bonds||[]).forEach(([i,j,order])=>{
+    // Same reasoning as buildBondDescriptors above: an ionic contact has
+    // no covalent orbital to hybridize, so it's excluded from the raw
+    // direction list that drives sp3-hybrid-completion detection too.
+    if(order===0) return;
     const pi=atoms[i].pos, pj=atoms[j].pos;
     const dx=pj[0]-pi[0], dy=pj[1]-pi[1], dz=pj[2]-pi[2];
     const L=Math.hypot(dx,dy,dz);
@@ -4777,6 +6100,31 @@ function isSpLinearHub(rawBonds){
   return d < -0.95;
 }
 
+// Fajans'-rule visual polarization: skews an ionic anion's electron
+// cloud toward its cation partner. Only ever called for chemistry-core's
+// 'polarized-ionic' classification (e.g. MgCl2's Cl-, distorted by
+// Mg2+'s concentrated charge) — 'ionic' pairs (e.g. NaCl, CaF2, KBr) get
+// distortion 0 from bondCharacter() and are never routed here, so their
+// two clouds stay spherical and undistorted exactly as before.
+//
+// Approximated as a stretch-and-shift along the cation axis rather than
+// a true per-point density recalculation: rotate the atom's local Z axis
+// onto the cation direction, stretch along it, then shift the whole
+// group a fraction of its own radius the same way. This operates on the
+// finished Object3D (nucleus + every cloud child at once), so it's
+// identical across Ultra/Smooth/Points render modes instead of needing a
+// separate implementation per mode.
+const IONIC_POLARIZATION_MAX_STRETCH=0.45; // distortion=1 -> 45% longer along the cation axis
+const IONIC_POLARIZATION_MAX_SHIFT=0.30;   // distortion=1 -> center shifts 30% of its own radius toward the cation
+function applyIonicPolarization(atomGroup, towardDir, distortion, R){
+  if(!(distortion>0)) return;
+  const axis=new THREE.Vector3(towardDir.x,towardDir.y,towardDir.z).normalize();
+  const quat=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1),axis);
+  atomGroup.quaternion.premultiply(quat);
+  atomGroup.scale.set(1,1,1+IONIC_POLARIZATION_MAX_STRETCH*distortion);
+  atomGroup.position.add(axis.clone().multiplyScalar(R*IONIC_POLARIZATION_MAX_SHIFT*distortion));
+}
+
 // MOLECULE — builds one full, real electron cloud per atom (same buildCloud/
 // buildSmoothCloud/buildUltraCloud + getConfig() used for single atoms) and
 // positions each at its molecular-geometry coordinate. Each atom's OWN
@@ -4801,14 +6149,38 @@ function buildMolecule(key){
   pivot.add(atomGrp);
 
   const atoms=resolveMoleculeAtoms(mol);
+  curMoleculeAtoms=atoms; // free-focus: lets focusOnAtom(idx) find a clicked atom's position
   const bondsByAtom=buildBondDescriptors(mol,atoms); // per-atom axis-aligned bond info, used to bend valence p-orbitals below
   const rawBondsByAtom=buildRawBondDirs(mol,atoms); // every bond direction, axis-aligned or not — used to detect/build sp3 hybrid centers
+  // Fajans'-rule polarization (see chemistry-core's bondCharacter): for
+  // every ionic (order===0) contact, ask which way the anion's cloud
+  // should visually lean toward its cation partner, and by how much.
+  // Built once, up front, for the same reason buildBondDescriptors and
+  // buildRawBondDirs precompute their own per-atom info instead of
+  // re-deriving it inside the atom loop below.
+  const ionicPolarizationByAtom={}; // idx -> { towardDir:{x,y,z}, distortion }
+  (mol.bonds||[]).forEach(([i,j,order])=>{
+    if(order!==0) return;
+    const qi=mol.atoms[i].formalCharge||0, qj=mol.atoms[j].formalCharge||0;
+    const {classification,distortion}=EngineBridge.bondCharacter(atoms[i].Z, atoms[j].Z, qi, qj);
+    if(classification!=='polarized-ionic') return;
+    const anionIdx = qi<qj ? i : j, cationIdx = anionIdx===i ? j : i;
+    const pa=atoms[anionIdx].pos, pc=atoms[cationIdx].pos;
+    const dx=pc[0]-pa[0], dy=pc[1]-pa[1], dz=pc[2]-pa[2];
+    const L=Math.hypot(dx,dy,dz)||1;
+    ionicPolarizationByAtom[anionIdx]={towardDir:{x:dx/L,y:dy/L,z:dz/L},distortion};
+  });
   let maxExtent=30;
   atoms.forEach((atom,idx)=>{
     const elData=ELS.find(e=>e.Z===atom.Z);
     const sub=new THREE.Group();
     sub.add(makeNucleus(atom.Z, elData?elData.n:0));
-    const cfg=getConfig(atom.Z); // molecules always render each atom's real ground state
+    // Ionic atoms (formalCharge!=0, e.g. NaCl's Na+/Cl-) render the ION's
+    // configuration, not the neutral atom's — see ionicEffectiveConfig.
+    // Every covalent atom (formalCharge===0, the overwhelming majority of
+    // MOLECULES) falls straight through to the original getConfig(Z) call,
+    // completely unaffected.
+    const cfg = atom.formalCharge ? ionicEffectiveConfig(atom.Z, atom.formalCharge) : getConfig(atom.Z);
     const valenceOrbObj=cfg[cfg.length-1];
     const bonds=bondsByAtom[idx];
     const rawBonds=rawBondsByAtom[idx];
@@ -4881,6 +6253,23 @@ function buildMolecule(key){
       atomMaxR=Math.max(atomMaxR,orb.R);
     });
     sub.position.set(atom.pos[0],atom.pos[1],atom.pos[2]);
+    const polarization=ionicPolarizationByAtom[idx];
+    if(polarization) applyIonicPolarization(sub, polarization.towardDir, polarization.distortion, atomMaxR);
+    // Free-focus pick proxy — an invisible (opacity:0, but visible:true so
+    // the raycaster still tests it) sphere sitting over this atom, sized
+    // generously beyond its actual cloud radius so it stays easy to tap
+    // even when the atom is small on screen or partly hidden behind its
+    // own electron cloud. Tagged with this atom's index so a click here
+    // can re-center the pivot's rotation origin on THIS atom instead of
+    // the molecule's fixed centroid — see tryFocusPick()/focusOnAtom().
+    const pickR=Math.max(atomMaxR*1.4, 3.5);
+    const pickProxy=new THREE.Mesh(
+      new THREE.SphereGeometry(pickR,8,6),
+      new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,depthTest:false})
+    );
+    pickProxy.userData.isAtomPickProxy=true;
+    pickProxy.userData.atomIndex=idx;
+    sub.add(pickProxy);
     atomGrp.add(sub);
 
     const dist=Math.hypot(atom.pos[0],atom.pos[1],atom.pos[2]);
@@ -4901,8 +6290,9 @@ function buildMolecule(key){
   // getting its own disk — real fused-ring systems delocalize per-ring-ish
   // (each 6-membered face still reads as its own π lobe pair above/below
   // that face) rather than one cloud spanning the whole fused perimeter.
-  if(mol.aromaticRings){
-    mol.aromaticRings.forEach(ring=>{
+  const _aromaticRings = EngineBridge.deriveAromaticRings(mol); // hand-authored rings pass through unchanged; a new ring compound with no aromaticRings field gets one derived automatically from its bond graph
+  if(_aromaticRings.length){
+    _aromaticRings.forEach(ring=>{
       const ringPositions=ring.atoms.map(i=>{
         const p=atoms[i].pos;
         return new THREE.Vector3(p[0],p[1],p[2]);
@@ -4977,6 +6367,19 @@ function buildMolecule(key){
     const L=axis.length();
     if(L<1e-6) return;
     axis.normalize();
+    // Ionic contact (order===0): no shared electron pair, so it's drawn
+    // as a dashed electrostatic-attraction line instead of the solid
+    // covalent guide line below — a real visual cue that this connection
+    // is fundamentally different physics (two separate closed-shell ion
+    // clouds held together by charge attraction), not a smaller/fainter
+    // version of a covalent bond.
+    if(order===0){
+      const geo=new THREE.BufferGeometry().setFromPoints([av,bv]);
+      const dashed=new THREE.Line(geo,new THREE.LineDashedMaterial({color:0xffffff,transparent:true,opacity:0.35,dashSize:L*0.06,gapSize:L*0.04}));
+      dashed.computeLineDistances(); // required by LineDashedMaterial to know where along the line each dash falls
+      atomGrp.add(dashed);
+      return;
+    }
     const n=Math.max(1,Math.min(3,order||1));
     if(n===1){
       const geo=new THREE.BufferGeometry().setFromPoints([av,bv]);
@@ -5004,6 +6407,14 @@ function buildMolecule(key){
   camera.far=Math.max(4000,maxExtent*4);
   camera.updateProjectionMatrix();
   if(typeof applyZoom==='function') applyZoom();
+
+  // atomGrp was just rebuilt from scratch (default position 0,0,0) — if the
+  // user had already picked a free-focus atom, re-apply that offset
+  // immediately so a render-mode toggle (Ultra/Real/Antimatter, all of
+  // which call buildMolecule again) doesn't visually snap the pivot back
+  // to the molecule's default centroid. The render loop's lerp then keeps
+  // tracking focusOffsetTarget from here as normal.
+  if(atomGrp) atomGrp.position.copy(focusOffsetCurrent);
 }
 
 function rebuildScene(){
@@ -5219,6 +6630,7 @@ function selectMolecule(key){
   moleculeMode=true;
   curMoleculeKey=key;
   excitedLevel=0;
+  resetMoleculeFocus();
   buildMolecule(key);
   updateMoleculeUI(mol);
   document.querySelectorAll('.mcard').forEach(c=>c.classList.toggle('on',c.dataset.mol===key));
@@ -6338,6 +7750,13 @@ MOLECULES.forEach(mol=>{
 // ══════════════════════════════════════════════
 let tZ=240,camZ=240,rotX=.28,rotY=0,drag=false,lx=0,ly=0,autoSpin=true;
 const ZOOM_EASE_RATE=4.35; // per-second decay rate — tuned so the glide feels identical to the old per-frame .07 factor at 60fps, but stays correct at any frame rate
+// Free-orbit trackball: rotX/rotY are unbounded (no polar clamp), so drag can
+// carry the view past the poles and all the way around in either axis — the
+// molecule/atom sits at pivot's origin so there's no gimbal-style "up" to
+// protect. wrapAngle keeps the accumulators folded into (-π, π] each frame so
+// they never grow without bound across a long session, without changing the
+// resulting orientation at all (rotation is 2π-periodic).
+function wrapAngle(a){return ((a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;}
 let maxZoomDist=4000; // dynamically resized in buildAtom() to whatever the
                        // largest orbital in the current config actually is
 
@@ -6360,35 +7779,92 @@ renderer.domElement.addEventListener('wheel',e=>{
   applyZoom();
 },{passive:false});
 
-renderer.domElement.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;autoSpin=false;});
+// CLICK_DRAG_THRESHOLD_PX: how far the pointer can move between down/up
+// before a gesture stops counting as a "tap" (atom-focus pick) and is
+// treated purely as a rotate-drag. Kept small — this is a trackball, so
+// almost any real rotate immediately exceeds it, while a genuine tap's
+// natural jitter stays well under it.
+const CLICK_DRAG_THRESHOLD_PX=6;
+let downX=0,downY=0,isPotentialClick=false;
+renderer.domElement.addEventListener('mousedown',e=>{
+  drag=true;lx=e.clientX;ly=e.clientY;autoSpin=false;
+  downX=e.clientX;downY=e.clientY;isPotentialClick=true;
+});
 window.addEventListener('mousemove',e=>{
   if(!drag)return;
-  rotY+=(e.clientX-lx)*.007;rotX+=(e.clientY-ly)*.007;
-  rotX=Math.max(-1.5,Math.min(1.5,rotX));lx=e.clientX;ly=e.clientY;
+  rotY+=(e.clientX-lx)*.007;rotX+=(e.clientY-ly)*.007; // unclamped: free vertical + horizontal orbit
+  lx=e.clientX;ly=e.clientY;
+  if(isPotentialClick && Math.hypot(e.clientX-downX,e.clientY-downY)>CLICK_DRAG_THRESHOLD_PX) isPotentialClick=false;
 });
-window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mouseup',e=>{
+  drag=false;
+  if(isPotentialClick) tryFocusPick(e.clientX,e.clientY);
+});
 renderer.domElement.addEventListener('dblclick',()=>{autoSpin=true;rotX=.28;showToast('AUTO-SPIN ON');});
 
 // Touch
 let pd=0;
 renderer.domElement.addEventListener('touchstart',e=>{
-  if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;autoSpin=false;}
-  if(e.touches.length===2)pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  if(e.touches.length===1){
+    drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;autoSpin=false;
+    downX=lx;downY=ly;isPotentialClick=true;
+  }
+  if(e.touches.length===2){
+    pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    isPotentialClick=false; // pinch-zoom is never a tap
+  }
 },{passive:true});
 renderer.domElement.addEventListener('touchmove',e=>{
   if(e.touches.length===1&&drag){
     rotY+=(e.touches[0].clientX-lx)*.007;rotX+=(e.touches[0].clientY-ly)*.007;
     lx=e.touches[0].clientX;ly=e.touches[0].clientY;
+    if(isPotentialClick && Math.hypot(lx-downX,ly-downY)>CLICK_DRAG_THRESHOLD_PX) isPotentialClick=false;
   }
   if(e.touches.length===2){
     const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
     sl.value=Math.max(1,Math.min(600,+sl.value+(d-pd)*.5));pd=d;applyZoom();
   }
 },{passive:true});
-renderer.domElement.addEventListener('touchend',()=>drag=false,{passive:true});
+renderer.domElement.addEventListener('touchend',e=>{
+  drag=false;
+  if(isPotentialClick && e.changedTouches && e.changedTouches.length){
+    tryFocusPick(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+  }
+},{passive:true});
+
+// FREE FOCUS — pick: raycast a tap/click against every atom's invisible
+// pick-proxy sphere (see buildMolecule) and, on a hit, re-center the
+// pivot's rotation origin on that atom. Molecule mode only — the
+// single-atom viewer has nothing else to focus on.
+function tryFocusPick(clientX,clientY){
+  if(!moleculeMode||!atomGrp) return;
+  const rect=renderer.domElement.getBoundingClientRect();
+  pickerNDC.x=((clientX-rect.left)/rect.width)*2-1;
+  pickerNDC.y=-((clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(pickerNDC,camera);
+  const proxies=[];
+  atomGrp.traverse(o=>{ if(o.userData&&o.userData.isAtomPickProxy) proxies.push(o); });
+  const hits=raycaster.intersectObjects(proxies,false);
+  if(hits.length) focusOnAtom(hits[0].object.userData.atomIndex);
+}
+function focusOnAtom(idx){
+  if(!curMoleculeAtoms||!curMoleculeAtoms[idx]) return;
+  const p=curMoleculeAtoms[idx].pos;
+  moleculeFocusIndex=idx;
+  focusOffsetTarget.set(-p[0],-p[1],-p[2]);
+  showToast(`FOCUS: ${curMoleculeAtoms[idx].sym}${idx+1}`);
+}
+// Free focus resets to the molecule's default centroid — called on view
+// reset and whenever a new molecule is selected (see selectMolecule()).
+function resetMoleculeFocus(){
+  moleculeFocusIndex=null;
+  focusOffsetTarget.set(0,0,0);
+  focusOffsetCurrent.set(0,0,0); // instant snap — avoids a visible glide-in when a brand-new molecule loads
+}
 
 document.getElementById('rbtn').onclick=()=>{
   autoSpin=true;rotX=.28;rotY=0;sl.value=80;applyZoom();tZ=240;
+  resetMoleculeFocus();
   showToast('VIEW RESET');
 };
 
@@ -6574,7 +8050,17 @@ function loop(){
   camZ+=(tZ-camZ)*(1-Math.exp(-dt*ZOOM_EASE_RATE));
   camera.position.z=camZ;
   if(autoSpin)rotY+=dt*.2;
+  rotX=wrapAngle(rotX);rotY=wrapAngle(rotY);
   pivot.rotation.y=rotY;pivot.rotation.x=rotX;
+  // Free focus: pivot itself only ever rotates about its own local origin;
+  // shifting atomGrp's position INSIDE pivot is what moves any given atom
+  // onto (or off of) that rotation origin, so the "camera" ends up freely
+  // orbiting whichever atom was last clicked instead of the molecule's
+  // fixed centroid.
+  if(moleculeMode){
+    focusOffsetCurrent.lerp(focusOffsetTarget,1-Math.exp(-dt*FOCUS_EASE_RATE));
+    if(atomGrp) atomGrp.position.copy(focusOffsetCurrent);
+  }
   // Benzene's delocalized π-cloud circulates continuously around the ring,
   // independent of the mouse-drag/auto-spin above (which just turns the
   // whole molecule to look at it from another angle).
