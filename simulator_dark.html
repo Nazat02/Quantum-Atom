@@ -5516,6 +5516,24 @@ function completeTetrahedronDirs(knownDirs){
 
   if(knownDirs.length===2){
     const [v1,v2]=knownDirs;
+    // Same reasoning as the 3-known-dirs zero-sum check above, one rung
+    // down: two genuinely tetrahedral bonds (H2O's O-H/O-H, ~104.5°
+    // apart) really do leave a lone-pair pair behind, derivable from
+    // their bisector. But a true sp-hybridized LINEAR center with NO
+    // lone pairs — CO2's carbon, an alkyne or nitrile carbon, allene's
+    // central carbon — also presents as exactly 2 bonds, ~180° apart,
+    // with nothing left over to synthesize: real sp hybridization has
+    // zero non-bonding orbitals once both linear slots are real bonds.
+    // Without this check, EVERY sp-linear center whose two bonds aren't
+    // cartesian-axis-aligned (the normal case for ring/organic molecules
+    // from the universal engine, and effectively always the case for
+    // real 3D coordinates fetched from PubChem) fell through to the
+    // unconditional tetrahedral completion below and grew two phantom
+    // "lone pair" nubs at the standard 109.5° tetrahedral angle — nubs a
+    // real sp atom does not have. -0.95 mirrors isSpLinearHub's own
+    // threshold so the two stay consistent.
+    const dot=v1.x*v2.x+v1.y*v2.y+v1.z*v2.z;
+    if(dot<-0.95) return knownDirs; // linear, no lone pairs to synthesize
     const u=norm(neg(add(v1,v2))); // bisector opposite the two known bonds
     let w=cross(v1,v2);
     if(Math.hypot(w.x,w.y,w.z)<1e-6){
@@ -6131,9 +6149,40 @@ function applyIonicPolarization(atomGroup, towardDir, distortion, R){
 // valence p-orbital lobes bend toward their bonded partner (see above) for
 // every axis-aligned bond — the bond itself is built from real orbital
 // geometry, not a separate decorative cloud.
+// Public entry point — a thin safety wrapper around buildMoleculeImpl.
+// Complex/large molecules (deep fused-ring systems, Tier-3 PubChem
+// records with hundreds of real atoms, or anything the universal
+// compound engine had to approximate) exercise geometry paths the
+// curated hand-authored library never hit. If any of that throws partway
+// through — AFTER atomGrp has already been cleared and a fresh one
+// attached to the pivot — letting the exception escape would leave the
+// scene half-built, with a render loop that may now be touching disposed
+// geometry every frame, and no feedback to the person who typed the name
+// in. Catching here contains the failure, restores a clean empty scene
+// instead of a corrupted one, and says so plainly instead of silently
+// showing nothing.
 function buildMolecule(key){
+  try{
+    buildMoleculeImpl(key);
+  }catch(err){
+    console.error('[buildMolecule] Failed to render molecule:', key, err);
+    if(atomGrp){
+      pivot.remove(atomGrp);
+      atomGrp.traverse(o=>{
+        if(o.geometry)o.geometry.dispose();
+        if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}
+      });
+    }
+    atomGrp=new THREE.Group();
+    pivot.add(atomGrp);
+    aromaticRingGroup=[];
+    curMoleculeAtoms=null;
+    if(typeof showToast==='function') showToast('⚠️ Could not render this molecule — its geometry data looked malformed.');
+  }
+}
+function buildMoleculeImpl(key){
   const mol=MOLECULES.find(m=>m.key===key);
-  if(!mol) return;
+  if(!mol){ console.warn('[buildMolecule] Unknown molecule key:', key); return; }
   ultraMeshes=[];
   grainyMaterials=[];
   if(atomGrp){
@@ -7483,11 +7532,13 @@ function bConvertPubChemRecord(rec){
   const elements=compound.atoms?.element, aids=compound.atoms?.aid;
   const conf=compound.coords?.[0]?.conformers?.[0];
   if(!elements||!aids||!conf) return null;
+  const N=aids.length;
+  if(!N) return null;
   const xs=conf.x, ys=conf.y, zs=conf.z||aids.map(()=>0);
+  if(!xs||!ys||xs.length!==N||ys.length!==N) return null; // malformed/truncated conformer — refuse rather than guess
 
   const bondList=(compound.bonds?.aid1||[]).map((a1,i)=>({a1, a2:compound.bonds.aid2[i], order:compound.bonds.order?.[i]||1}));
   const aidToIdx={}; aids.forEach((aid,i)=>{ aidToIdx[aid]=i; });
-  const N=aids.length;
   const pos=aids.map((_,i)=>({x:xs[i],y:ys[i],z:zs[i]}));
   const symFor=z=>(ELS.find(e=>e.Z===z)||{sym:'?'}).sym;
 
@@ -7495,36 +7546,88 @@ function bConvertPubChemRecord(rec){
   bondList.forEach(b=>{
     const i=aidToIdx[b.a1], j=aidToIdx[b.a2];
     if(i===undefined||j===undefined) return;
-    adj[i].push({to:j}); adj[j].push({to:i});
+    const ord=Math.max(1,Math.min(3,Math.round(b.order||1)));
+    adj[i].push({to:j, order:ord}); adj[j].push({to:i, order:ord});
   });
 
+  // resolveMoleculeAtoms() — the one shared position-resolving pass every
+  // hand-authored AND Tier-2-generated molecule already goes through —
+  // requires atom 0 to be a single fixed origin and every OTHER atom to
+  // be listed AFTER the specific neighbor its `dir` was measured against,
+  // so it can walk the array once, front to back, and always find that
+  // exact neighbor already placed. The curated library and the universal
+  // engine both satisfy this by construction. PubChem's own `aid`
+  // ordering makes no such promise — it's whatever PubChem's internal
+  // canonicalization produced, so an atom can easily sit earlier in the
+  // array than every one of its bonded neighbors. The OLD version of this
+  // function kept PubChem's index order verbatim and only walked the
+  // graph to compute `dir`, which silently broke (wrong bond directions
+  // measured from the wrong anchor, or atoms placed relative to an atom
+  // they were never bonded to at all) for any real compound whose aid
+  // order isn't already a valid front-to-back walk — which is most
+  // non-trivial ones. This BFS instead RE-DERIVES the array order itself
+  // (visit order from one root), so the invariant holds for any fetched
+  // record, not just ones that happen to already be walk-ordered.
   const visited=new Array(N).fill(false);
-  const atoms=new Array(N);
-  const bfs=start=>{
-    visited[start]=true;
-    atoms[start]={Z:elements[start], sym:symFor(elements[start]), dir:[0,0,0]};
-    const queue=[start];
-    while(queue.length){
-      const cur=queue.shift();
-      adj[cur].forEach(edge=>{
-        if(visited[edge.to]) return;
-        visited[edge.to]=true;
-        const dx=pos[edge.to].x-pos[cur].x, dy=pos[edge.to].y-pos[cur].y, dz=pos[edge.to].z-pos[cur].z;
-        const L=Math.hypot(dx,dy,dz)||1;
-        atoms[edge.to]={Z:elements[edge.to], sym:symFor(elements[edge.to]), dir:[dx/L,dy/L,dz/L]};
-        queue.push(edge.to);
-      });
-    }
-  };
-  for(let i=0;i<N;i++) if(!visited[i]) bfs(i);
-  if(atoms.some(a=>!a)) return null; // disconnected structure — refuse rather than guess
+  const order=[]; // old (PubChem aid) index -> BFS visit order
+  const parentOldOf={}, parentBondOrderOf={};
+  visited[0]=true; order.push(0);
+  const queue=[0];
+  while(queue.length){
+    const cur=queue.shift();
+    adj[cur].forEach(edge=>{
+      if(visited[edge.to]) return;
+      visited[edge.to]=true;
+      order.push(edge.to);
+      parentOldOf[edge.to]=cur;
+      parentBondOrderOf[edge.to]=edge.order;
+      queue.push(edge.to);
+    });
+  }
+  // More than one connected component (a salt, a solvate, two separate
+  // ions or fragments bundled into one PubChem record) can't be
+  // positioned by this single-root walk — every atom in an extra
+  // fragment would have no bonded, already-placed neighbor to anchor to
+  // and would silently collapse onto atom 0's position instead. Refuse
+  // rather than render overlapping, physically meaningless geometry.
+  if(order.length!==N) return null;
 
+  const oldToNew={}; order.forEach((oldIdx,newIdx)=>{ oldToNew[oldIdx]=newIdx; });
+  const atoms=order.map((oldIdx,newIdx)=>{
+    if(newIdx===0) return {Z:elements[0], sym:symFor(elements[0]), dir:[0,0,0]};
+    const parentOld=parentOldOf[oldIdx];
+    const dx=pos[oldIdx].x-pos[parentOld].x, dy=pos[oldIdx].y-pos[parentOld].y, dz=pos[oldIdx].z-pos[parentOld].z;
+    const L=Math.hypot(dx,dy,dz)||1;
+    return {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[dx/L,dy/L,dz/L]};
+  });
+
+  // Anchor (tree) edges are emitted FIRST, one per non-root atom in
+  // increasing newIdx order, so resolveMoleculeAtoms's `.find()` — which
+  // just scans this array front-to-back for the first bond touching a
+  // given atom — always lands on the SAME edge `dir` above was measured
+  // against, even when a ring gives that atom a second, also-already-
+  // resolved neighbor. Every other bond (ring closures, cross-links) is
+  // appended after: still rendered everywhere else that reads mol.bonds
+  // (buildBondDescriptors, buildRawBondDirs, the order guide-lines,
+  // aromatic-ring detection), just never used to place an atom twice.
+  const treeEdgeKeys=new Set();
   const bonds=[];
+  for(let newIdx=1; newIdx<N; newIdx++){
+    const oldIdx=order[newIdx];
+    const parentOld=parentOldOf[oldIdx];
+    bonds.push([oldToNew[parentOld], newIdx, parentBondOrderOf[oldIdx]]);
+    treeEdgeKeys.add(parentOld<oldIdx ? `${parentOld}-${oldIdx}` : `${oldIdx}-${parentOld}`);
+  }
   bondList.forEach(b=>{
     const i=aidToIdx[b.a1], j=aidToIdx[b.a2];
     if(i===undefined||j===undefined) return;
-    bonds.push([i,j,Math.max(1,Math.min(3,Math.round(b.order||1)))]);
+    const key=i<j ? `${i}-${j}` : `${j}-${i}`;
+    if(treeEdgeKeys.has(key)) return; // already emitted above as this atom's anchor edge
+    const ni=oldToNew[i], nj=oldToNew[j];
+    if(ni===undefined||nj===undefined) return;
+    bonds.push([ni,nj,Math.max(1,Math.min(3,Math.round(b.order||1)))]);
   });
+
   return {atoms, bonds, geometry:'Complex'};
 }
 
