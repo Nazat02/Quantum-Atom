@@ -6316,7 +6316,20 @@ function buildMoleculeImpl(key){
       // sp2, leaving a stray 2s sphere floating at CH4's carbon (and
       // NH3/H2O's central atom, and every alkyne/alkane carbon) alongside
       // the correctly-hybridized lobes.
-      if((isSp2Hub||isSpHub||needsHybrid||isTetraHub) && orb.l===0 && orb.n===valenceOrbObj.n) return;
+      //
+      // FIX (hydrogen vanishes in H2O / CH4 / NH3): the hybrid lobe builders
+      // below only run for an atom whose valence orbital is a p subshell
+      // (`canReshape`). Hydrogen's ONLY orbital is its 1s — it is its own
+      // valence orbital and has no p subshell to mix with — so for an H in a
+      // non-axis-aligned bond (needsHybrid===true) this skip deleted its
+      // whole electron cloud and nothing was drawn in its place. In the
+      // normal render modes the leftover nucleus mesh + label masked that,
+      // but HYPER REALISTIC draws only point clouds, so the H disappeared
+      // completely. Same for every other s-only-valence atom in a linear /
+      // planar / tetrahedral bond geometry (e.g. Be in BeH2). The skip is
+      // therefore restricted to atoms that really hybridize (p valence).
+      const hybridizesValenceS = valenceOrbObj.l===1 && (isSp2Hub||isSpHub||needsHybrid||isTetraHub);
+      if(hybridizesValenceS && orb.l===0 && orb.n===valenceOrbObj.n) return;
       const isValenceP = orb===valenceOrbObj && orb.l===1;
       // Bending/hybridizing applies in every render mode now — Ultra and
       // Smooth each have their own mesh/point builder below (see
@@ -7933,8 +7946,14 @@ window.addEventListener('mousemove',e=>{
   if(isPotentialClick && Math.hypot(e.clientX-downX,e.clientY-downY)>CLICK_DRAG_THRESHOLD_PX) isPotentialClick=false;
 });
 window.addEventListener('mouseup',e=>{
+  // A tap only counts if the press STARTED on the canvas, and the flag is
+  // consumed here — otherwise it stayed true forever and any later click on
+  // a panel/button re-ran the pick underneath it and could steal the focus.
+  const wasPressing=drag;
   drag=false;
-  if(isPotentialClick) tryFocusPick(e.clientX,e.clientY);
+  const wasTap=wasPressing && isPotentialClick;
+  isPotentialClick=false;
+  if(wasTap) tryFocusPick(e.clientX,e.clientY);
 });
 renderer.domElement.addEventListener('dblclick',()=>{autoSpin=true;rotX=.28;showToast('AUTO-SPIN ON');});
 
@@ -7963,7 +7982,9 @@ renderer.domElement.addEventListener('touchmove',e=>{
 },{passive:true});
 renderer.domElement.addEventListener('touchend',e=>{
   drag=false;
-  if(isPotentialClick && e.changedTouches && e.changedTouches.length){
+  const wasTap=isPotentialClick;
+  isPotentialClick=false;
+  if(wasTap && e.changedTouches && e.changedTouches.length){
     tryFocusPick(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
   }
 },{passive:true});
@@ -7972,16 +7993,46 @@ renderer.domElement.addEventListener('touchend',e=>{
 // pick-proxy sphere (see buildMolecule) and, on a hit, re-center the
 // pivot's rotation origin on that atom. Molecule mode only — the
 // single-atom viewer has nothing else to focus on.
+//
+// FIX (H can't be focused in H2O / CH4 / NH3): the old pick took the FIRST
+// proxy the ray entered. Hydrogen is seated inside the outer lobe of its
+// heavy neighbour (see bondLength), so the neighbour's much larger proxy
+// sphere always contained H's and its near surface is hit first — a tap
+// dead-centre on a hydrogen focused the O/C/N instead. The pick now finds
+// every proxy under the tap, then chooses the atom whose CENTRE is closest
+// to the tap on screen (front-most on a tie). Each atom also gets a
+// finger-sized minimum hit radius, so a tiny 1s atom stays tappable at any zoom.
+const MIN_TAP_RADIUS_PX=22;
+const _pkWorld=new THREE.Vector3(), _pkCam=new THREE.Vector3(), _pkNdc=new THREE.Vector3();
+function pickAtomAtScreen(clientX,clientY){
+  if(!atomGrp) return null;
+  const rect=renderer.domElement.getBoundingClientRect();
+  if(!rect.width||!rect.height) return null;
+  const tanHalfFov=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+  let best=null;
+  atomGrp.updateMatrixWorld(true);
+  atomGrp.traverse(o=>{
+    if(!(o.userData&&o.userData.isAtomPickProxy)) return;
+    o.getWorldPosition(_pkWorld);
+    _pkCam.copy(_pkWorld).applyMatrix4(camera.matrixWorldInverse);
+    const depth=-_pkCam.z;
+    if(depth<=camera.near) return;                      // behind / inside the near plane
+    _pkNdc.copy(_pkWorld).project(camera);
+    const sx=rect.left+(_pkNdc.x+1)/2*rect.width;
+    const sy=rect.top +(1-_pkNdc.y)/2*rect.height;
+    const dPx=Math.hypot(clientX-sx,clientY-sy);
+    const pxPerUnit=(rect.height/2)/(tanHalfFov*depth); // screen px per world unit at this depth
+    const worldR=(o.geometry&&o.geometry.parameters&&o.geometry.parameters.radius)||3.5;
+    if(dPx>Math.max(worldR*pxPerUnit,MIN_TAP_RADIUS_PX)) return;
+    const closer=!best || dPx<best.dPx-0.5 || (Math.abs(dPx-best.dPx)<=0.5 && depth<best.depth);
+    if(closer) best={idx:o.userData.atomIndex,dPx,depth};
+  });
+  return best?best.idx:null;
+}
 function tryFocusPick(clientX,clientY){
   if(!moleculeMode||!atomGrp) return;
-  const rect=renderer.domElement.getBoundingClientRect();
-  pickerNDC.x=((clientX-rect.left)/rect.width)*2-1;
-  pickerNDC.y=-((clientY-rect.top)/rect.height)*2+1;
-  raycaster.setFromCamera(pickerNDC,camera);
-  const proxies=[];
-  atomGrp.traverse(o=>{ if(o.userData&&o.userData.isAtomPickProxy) proxies.push(o); });
-  const hits=raycaster.intersectObjects(proxies,false);
-  if(hits.length) focusOnAtom(hits[0].object.userData.atomIndex);
+  const idx=pickAtomAtScreen(clientX,clientY);
+  if(idx!==null) focusOnAtom(idx);
 }
 function focusOnAtom(idx){
   if(!curMoleculeAtoms||!curMoleculeAtoms[idx]) return;
