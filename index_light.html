@@ -61,6 +61,24 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
   border-radius:999px;color:#fff;background:linear-gradient(120deg,var(--v1),var(--c1));text-decoration:none;transition:all .2s;
   box-shadow:0 6px 18px rgba(124,108,246,.38);}
 .nav-cta:hover{box-shadow:0 8px 24px rgba(124,108,246,.5);transform:translateY(-1px);}
+.nav-hamburger{display:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--border-v);
+  background:var(--v-06);align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-left:4px;transition:all .18s;}
+.nav-hamburger svg{width:18px;height:18px;pointer-events:none;}
+.nav-hamburger:hover{background:var(--v-12);border-color:var(--v1);}
+.nav-hamburger .bar{transition:transform .25s ease,opacity .2s ease;transform-origin:center;}
+.nav-hamburger.open .bar-top{transform:translateY(5px) rotate(45deg);}
+.nav-hamburger.open .bar-mid{opacity:0;}
+.nav-hamburger.open .bar-bot{transform:translateY(-5px) rotate(-45deg);}
+#mobile-menu{position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:199;width:min(1180px,94%);
+  background:var(--glass-hi);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);
+  border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-lg);
+  display:flex;flex-direction:column;padding:0 24px;gap:0;max-height:0;overflow:hidden;
+  transition:max-height .32s ease,padding .32s ease;}
+#mobile-menu.open{max-height:520px;padding:10px 24px 20px;}
+#mobile-menu a{font-size:.82rem;font-weight:500;padding:14px 2px;color:var(--lo);text-decoration:none;
+  border-bottom:1px solid var(--border);transition:color .15s;}
+#mobile-menu a:last-child{border-bottom:none;}
+#mobile-menu a:hover{color:var(--v1);}
 
 /* SHARED LAYOUT */
 .section-inner{max-width:1100px;margin:0 auto;padding:96px 40px;}
@@ -405,6 +423,7 @@ footer{position:relative;z-index:1;}
   .tl-item:nth-child(odd) .tl-dot-wrap,.tl-item:nth-child(even) .tl-dot-wrap{grid-column:1;padding-top:16px;}
   .tl-item:nth-child(odd) .tl-empty,.tl-item:nth-child(even) .tl-empty{display:none;}
   .nav-links{display:none;}
+  .nav-hamburger{display:flex;}
   .orb-deep-grid{grid-template-columns:1fr;}
   .section-inner{padding:72px 28px;}
 }
@@ -510,18 +529,38 @@ footer{position:relative;z-index:1;}
     <a href="#quantum" class="nav-link">QUANTUM</a>
     <a href="#comparison" class="nav-link">COMPARISON</a>
     <a href="#features" class="nav-link">SIMULATOR</a>
+    <a href="#molecules" class="nav-link">MOLECULES</a>
+    <a href="#build" class="nav-link">BUILD</a>
+    <a href="#nucleus-explorer" class="nav-link">NUCLEUS</a>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
   <a href="javascript:goDark()" class="theme-toggle-btn" title="Switch to dark mode" aria-label="Switch to dark mode"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" fill="white"/>
 </svg></a>
   <a href="https://nazat02.github.io/Quantum-Atom/simulator_light.html" class="nav-cta">LAUNCH →</a>
+  <button type="button" class="nav-hamburger" id="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-menu">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line class="bar bar-top" x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--v1)"/>
+      <line class="bar bar-mid" x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--v1)"/>
+      <line class="bar bar-bot" x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--v1)"/>
+    </svg>
+  </button>
   </div>
 </nav>
+<div id="mobile-menu">
+  <a href="#what-atom">THE ATOM</a>
+  <a href="#bohr">BOHR MODEL</a>
+  <a href="#quantum">QUANTUM</a>
+  <a href="#comparison">COMPARISON</a>
+  <a href="#features">SIMULATOR</a>
+  <a href="#molecules">MOLECULES</a>
+  <a href="#build">BUILD</a>
+  <a href="#nucleus-explorer">NUCLEUS</a>
+</div>
 
 <!-- HERO -->
 <section id="hero">
-  <div class="hero-eyebrow"><span class="eyebrow-dot"></span>Interactive 3D Quantum Simulation · H through Og</div>
+  <div class="hero-eyebrow"><span class="eyebrow-dot"></span>Atoms · Molecules · Nuclei — Real-Time 3D Quantum Simulation</div>
   <h1 class="hero-title">
     <span class="line1">QUANTUM</span>
     <span class="line2">ATOM</span>
@@ -542,9 +581,10 @@ footer{position:relative;z-index:1;}
 <div id="stats">
   <div class="stats-inner">
     <div class="stat-item"><div class="stat-num">118</div><div class="stat-label">Elements Simulated</div></div>
+    <div class="stat-item"><div class="stat-num">52</div><div class="stat-label">Molecules Modeled</div></div>
     <div class="stat-item"><div class="stat-num">10</div><div class="stat-label">Orbital Sub-Shells</div></div>
-    <div class="stat-item"><div class="stat-num">10⁻¹⁰</div><div class="stat-label">Meters — Atom Diameter</div></div>
     <div class="stat-item"><div class="stat-num">28K</div><div class="stat-label">Points Per Orbital</div></div>
+    <div class="stat-item"><div class="stat-num">3</div><div class="stat-label">Companion Tools</div></div>
     <div class="stat-item"><div class="stat-num">1926</div><div class="stat-label">Year QM Was Born</div></div>
   </div>
 </div>
@@ -1049,6 +1089,36 @@ footer{position:relative;z-index:1;}
         <div class="feat-body">Chromium [Ar] 3d⁵4s¹ and Copper [Ar] 3d¹⁰4s¹ are special-cased with their correct electron configurations. Half-filled and fully-filled d subshells are extra stable — a quantum mechanical phenomenon that the simulator models accurately.</div>
         <span class="feat-tag">AUFBAU EXCEPTIONS</span>
       </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4.5" fill="white"/><circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.4" stroke-opacity=".4" fill="none"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="white" stroke-width="1.4" stroke-opacity=".6" stroke-linecap="round"/></svg></div>
+        <div class="feat-title">Antimatter Mode</div>
+        <div class="feat-body">Charge-conjugate any element or molecule on the fly. Electrons render as positrons, protons and neutrons as antiprotons and antineutrons, with identical orbital geometry to the matter version. The entire UI retints into its own pink/violet and electric-blue palette, and the data panel relabels live with an ANTI- prefix and overline notation.</div>
+        <span class="feat-tag">CHARGE CONJUGATION</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8" stroke="white" stroke-width="1.6" stroke-opacity=".85" fill="rgba(255,255,255,.08)"/><circle cx="12" cy="12" r="8" stroke="white" stroke-width="1" stroke-opacity=".3" fill="none"/><circle cx="9" cy="9" r="2" fill="white" opacity=".5"/></svg></div>
+        <div class="feat-title">Ultra Mode</div>
+        <div class="feat-body">Switches orbital rendering from point clouds to mesh-based surfaces with a Fresnel shader — a transparent center and a glowing rim — for a smooth "glass bubble" look with zero point grain. A different way to build intuition than the grainy Monte Carlo default.</div>
+        <span class="feat-tag">FRESNEL SHADER</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="2" fill="white"/><circle cx="12" cy="12" r="6" stroke="white" stroke-width="1.4" stroke-opacity=".7" fill="none"/><circle cx="12" cy="12" r="10" stroke="white" stroke-width="1" stroke-opacity=".3" fill="none"/><path d="M17 8l3-3M20 5v3h-3" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="feat-title">Excited State Mode</div>
+        <div class="feat-body">Promotes an electron to a higher orbital and shows the transition path live in the data panel — the actual quantum jump behind atomic emission spectra. Available for atoms; not applicable in Molecule Mode.</div>
+        <span class="feat-tag">ATOMS ONLY</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l7 4v8l-7 4-7-4V7z" stroke="white" stroke-width="1.6" stroke-linejoin="round" fill="rgba(255,255,255,.1)"/><circle cx="12" cy="12" r="2.6" fill="white" opacity=".9"/></svg></div>
+        <div class="feat-title">Spherical Mode</div>
+        <div class="feat-body">A simplified, teaching-friendly stand-in for p, d, and f lobes — rounded, dumbbell-like blobs instead of the mathematically precise lobe geometry. Toggles independently of Real Image, Smooth, and Ultra modes, so it combines with any of them.</div>
+        <span class="feat-tag">SCHEMATIC LOBES</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l7.2 4.2v8.4L12 18.8l-7.2-4.2V6.2z" stroke="white" stroke-width="1.5" stroke-linejoin="round" fill="none"/><circle cx="12" cy="10.5" r="2.6" fill="white" opacity=".85"/></svg></div>
+        <div class="feat-title">Hyper Realistic Mode</div>
+        <div class="feat-body">Every electron cloud renders as a grey-to-black density gradient, like an atomic-force-microscope scan rather than a colorful diagram — the closest this simulator gets to what an atom would actually look like under real imaging. Requires WebGL2 float render targets; mutually exclusive with Ultra Mode.</div>
+        <span class="feat-tag">LIGHT THEME EXCLUSIVE</span>
+      </div>
     </div>
   </div>
 </section>
@@ -1154,6 +1224,141 @@ footer{position:relative;z-index:1;}
             <div class="orb-prop"><span class="op-key">SYMMETRY</span><span class="op-val">Cylindrical (C∞v)</span></div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MOLECULE MODE -->
+<section id="molecules">
+  <div class="section-inner">
+    <p class="section-eyebrow">Molecule Mode</p>
+    <h2 class="section-title">Watch atoms<br>become molecules</h2>
+    <p class="section-body">Flip from Atoms to Molecules and individual electron clouds fuse into real chemical structures. Bond angles and geometry come from genuine VSEPR theory, not hard-coded guesses — the shapes you see are the shapes molecules actually take.</p>
+    <div class="features-grid reveal">
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="16" r="3" fill="white"/><circle cx="6" cy="7" r="2.4" fill="rgba(255,255,255,.8)"/><circle cx="18" cy="7" r="2.4" fill="rgba(255,255,255,.8)"/><line x1="12" y1="16" x2="6" y2="7" stroke="white" stroke-width="1.4" stroke-opacity=".6"/><line x1="12" y1="16" x2="18" y2="7" stroke="white" stroke-width="1.4" stroke-opacity=".6"/></svg></div>
+        <div class="feat-title">52 Curated Molecules</div>
+        <div class="feat-body">From simple diatomics like H₂ and O₂ to shapes every chemistry student has drawn by hand: bent H₂O, trigonal pyramidal NH₃, tetrahedral CH₄, trigonal bipyramidal PF₅, octahedral SF₆, and more.</div>
+        <span class="feat-tag">VSEPR-ACCURATE</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3c0 6 12 6 12 12M18 21c0-6-12-6-12-12" stroke="white" stroke-width="1.6" fill="none"/><circle cx="6" cy="3" r="1.6" fill="white"/><circle cx="18" cy="21" r="1.6" fill="white"/><circle cx="18" cy="3" r="1.2" fill="rgba(255,255,255,.6)"/><circle cx="6" cy="21" r="1.2" fill="rgba(255,255,255,.6)"/></svg></div>
+        <div class="feat-title">DNA Double Helix</div>
+        <div class="feat-body">A full B-form double helix, one complete turn — 10 base pairs, all-atom detail including explicit hydrogens, 588 atoms rendered with per-atom orbital clouds rather than a schematic ribbon.</div>
+        <span class="feat-tag">588 ATOMS · ALL-ATOM</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="4" stroke="white" stroke-width="1.6" fill="rgba(255,255,255,.12)"/><circle cx="15" cy="15" r="4" stroke="white" stroke-width="1.6" fill="rgba(255,255,255,.12)"/></svg></div>
+        <div class="feat-title">Sigma &amp; Pi Bonds</div>
+        <div class="feat-body">Single, double, and triple bonds render distinctly — including crossed pi-lobe geometry for alkynes and a narrowed sigma core — built directly from bond-aware orbital sampling, not a generic cylinder between atoms.</div>
+        <span class="feat-tag">BOND-AWARE RENDERING</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4.5" fill="white"/><circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.4" stroke-opacity=".4" fill="none"/></svg></div>
+        <div class="feat-title">Antimatter Molecules</div>
+        <div class="feat-body">Antimatter Mode works in Molecule Mode too — charge-conjugating every atom in the structure at once, so you can compare an entire antimatter molecule against its matter counterpart, geometry unchanged.</div>
+        <span class="feat-tag">WHOLE-MOLECULE CONJUGATION</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="2" fill="white"/><circle cx="6" cy="8" r="1.6" fill="rgba(255,255,255,.85)"/><circle cx="18" cy="8" r="1.6" fill="rgba(255,255,255,.85)"/><circle cx="6" cy="16" r="1.6" fill="rgba(255,255,255,.85)"/><circle cx="18" cy="16" r="1.6" fill="rgba(255,255,255,.85)"/></svg></div>
+        <div class="feat-title">Instanced Nuclei at Scale</div>
+        <div class="feat-body">Large molecules share two GPU-instanced meshes for every proton and neutron across the whole structure, giving full per-nucleon color detail — even at nearly 6,000 nucleons — in just two draw calls.</div>
+        <span class="feat-tag">GPU-INSTANCED</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 12a8 8 0 1116 0 8 8 0 01-16 0z" stroke="white" stroke-width="1.4" stroke-opacity=".4" fill="none"/><path d="M4 12h16M12 4v16" stroke="white" stroke-width="1" stroke-opacity=".3"/><circle cx="12" cy="12" r="1.8" fill="white"/></svg></div>
+        <div class="feat-title">Real Bond Geometry, Not Guesses</div>
+        <div class="feat-body">Bond angles are computed from real VSEPR theory — electron pair repulsion, lone pairs, and hybridization — so a bent water molecule and a linear CO₂ emerge from the same underlying physics, not separate hard-coded shapes.</div>
+        <span class="feat-tag">PHYSICS-DERIVED</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BUILD MODE -->
+<section id="build">
+  <div class="section-inner">
+    <p class="section-eyebrow">Build Mode</p>
+    <h2 class="section-title">Type it.<br>Watch it exist.</h2>
+    <p class="section-body">A third mode alongside Atoms and Molecules: type the name of any element or compound — organic, inorganic, simple, or complex — and the simulator resolves it into real 3D geometry. Not limited to the 52 curated molecules; this is open-ended.</p>
+    <div class="features-grid reveal">
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="6.5" stroke="white" stroke-width="1.6" fill="none"/><line x1="14.8" y1="14.8" x2="20" y2="20" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <div class="feat-title">Type Anything</div>
+        <div class="feat-body">A search box that accepts any of the 118 elements or any compound name — "caffeine," "sodium chloride," "aniline" — and resolves it on the spot, with quick-example chips for common organic molecules to try first.</div>
+        <span class="feat-tag">FREEFORM SEARCH</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6" cy="12" r="2.2" fill="white"/><circle cx="12" cy="8" r="2.2" fill="rgba(255,255,255,.85)"/><circle cx="18" cy="12" r="2.2" fill="rgba(255,255,255,.7)"/><circle cx="12" cy="16" r="2.2" fill="rgba(255,255,255,.85)"/><line x1="6" y1="12" x2="12" y2="8" stroke="white" stroke-width="1.2" stroke-opacity=".5"/><line x1="12" y1="8" x2="18" y2="12" stroke="white" stroke-width="1.2" stroke-opacity=".5"/><line x1="12" y1="16" x2="6" y2="12" stroke="white" stroke-width="1.2" stroke-opacity=".5"/></svg></div>
+        <div class="feat-title">Instant Offline Chemistry</div>
+        <div class="feat-body">Straight and singly-branched alkanes, monocyclic cycloalkanes, and simple alcohol, amine, or ether substitutions resolve instantly with real tetrahedral bond geometry — no internet required, computed live in the browser.</div>
+        <span class="feat-tag">TIER 2 · OFFLINE ENGINE</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v6M12 16v6M2 12h6M16 12h6" stroke="white" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="3.5" stroke="white" stroke-width="1.4" fill="none"/></svg></div>
+        <div class="feat-title">Real Compounds via PubChem</div>
+        <div class="feat-body">Anything past the offline engine's scope — alkenes, alkynes, aromatics, carboxylic acids, inorganic salts, and deep fused-ring systems — is fetched live from PubChem's public database as real, published 3D coordinates.</div>
+        <span class="feat-tag">TIER 3 · LIVE LOOKUP</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.4" stroke-opacity=".5" fill="none"/><path d="M9 9c0-1.5 1.2-2.5 3-2.5s3 1 3 2.3c0 1.5-1.3 1.8-2.3 2.6-.6.5-.9 1-.9 1.8" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/><circle cx="12" cy="16.2" r=".9" fill="white"/></svg></div>
+        <div class="feat-title">"Did You Mean...?"</div>
+        <div class="feat-body">Misspell a compound name and Build suggests the closest match — checked first against the local library, then against PubChem's own autocomplete — instead of just failing silently.</div>
+        <span class="feat-tag">TYPO-TOLERANT</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/></svg></div>
+        <div class="feat-title">Every Mode Still Works</div>
+        <div class="feat-body">A Build result is pushed straight into the same live registry the 52 curated molecules live in — so Ultra Mode, Antimatter Mode, Smooth Orbitals, and Spherical Mode all apply to anything you build automatically, for free.</div>
+        <span class="feat-tag">NO SPECIAL-CASING</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="3" stroke="white" stroke-width="1.5" fill="none"/><path d="M14 5h6M14 9h4M13 15l7 7M17 15l-4 7" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+        <div class="feat-title">Organic and Inorganic, Simple and Complex</div>
+        <div class="feat-body">From a lone element to a small organic solvent to a genuinely complex, deeply fused-ring molecule — Build doesn't distinguish; it just resolves whatever you type against the tier that can handle it.</div>
+        <span class="feat-tag">NO CURATION REQUIRED</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NUCLEUS EXPLORER -->
+<section id="nucleus-explorer">
+  <div class="section-inner">
+    <p class="section-eyebrow">Companion Tool</p>
+    <h2 class="section-title">Keep zooming.<br>It doesn't stop at protons.</h2>
+    <p class="section-body">The Nucleus Explorer does one thing no textbook diagram can: lets you zoom in forever. Start at the whole nucleus and keep scrolling in — reached from the nucleus icon inside the Simulator's toolbar.</p>
+    <div class="why-grid reveal">
+      <div class="why-card">
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" fill="white"/><circle cx="12" cy="12" r="7" stroke="white" stroke-width="1.2" stroke-opacity=".5" fill="none"/><circle cx="12" cy="12" r="10.5" stroke="white" stroke-width=".8" stroke-opacity=".25" fill="none"/></svg></div>
+        <div class="why-title">Zoom Without Limit</div>
+        <div class="why-body">Start at the whole nucleus and keep scrolling in. First individual protons and neutrons resolve into view, then nucleons themselves dissolve into <em>quarks bound by gluons</em> — the actual bottom of the visible matter stack.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="12" r="3" fill="rgba(255,255,255,.85)"/><circle cx="16" cy="12" r="3" fill="rgba(255,255,255,.6)"/><path d="M11 12h2" stroke="white" stroke-width="1.4" stroke-dasharray="1 2"/></svg></div>
+        <div class="why-title">Pion Exchange Overlay</div>
+        <div class="why-body">Toggle a visualization of <em>pion exchange</em> — the mechanism physicists use to describe how the strong nuclear force binds protons and neutrons together inside the nucleus.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8" stroke="white" stroke-width="1.2" stroke-opacity=".35" fill="rgba(255,255,255,.05)"/><circle cx="12" cy="12" r="3" fill="white"/></svg></div>
+        <div class="why-title">Gluon Field Overlay</div>
+        <div class="why-body">Zoom past the nucleons and toggle the <em>gluon field</em> — the force carriers that bind quarks together, an endless exchange with no classical analogue at all.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="12,4 19,9 16,18 8,18 5,9" stroke="white" stroke-width="1.4" fill="rgba(255,255,255,.1)"/></svg></div>
+        <div class="why-title">Down to Quarks</div>
+        <div class="why-body">Keep going past the nucleons entirely and reach quarks — the actual bottom of the visible matter stack, rendered as distinct particles rather than an abstract diagram.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 6l-5 6 5 6M15 6l5 6-5 6" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
+        <div class="why-title">Step Through Elements</div>
+        <div class="why-body">Previous/next controls step through the periodic table one element at a time, or jump straight to any element from the built-in picker — the nucleus rebuilds instantly with the correct proton and neutron count.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.4" stroke-opacity=".5" fill="none"/><text x="12" y="16" text-anchor="middle" font-size="11" fill="white" font-family="sans-serif">?</text></svg></div>
+        <div class="why-title">Legend &amp; Help Panel</div>
+        <div class="why-body">A built-in color legend and help panel explain exactly what you're looking at at every scale, so the jump from "ball of protons" to "quarks and gluons" never leaves you guessing.</div>
       </div>
     </div>
   </div>
@@ -1284,13 +1489,13 @@ footer{position:relative;z-index:1;}
 </svg></div>
       <div>
         <div style="font-size:.68rem;letter-spacing:.12em;color:var(--hi);font-family:var(--display);font-weight:700;">QUANTUM ATOM SIMULATOR</div>
-        <div class="footer-name">Interactive 3D Orbital Visualization · H–Og</div>
+        <div class="footer-name">Atoms · Molecules · Nuclei — Interactive 3D Quantum Visualization</div>
       </div>
     </div>
     <div class="footer-right">
-      <a href="#" class="footer-link">SIMULATOR</a>
+      <a href="https://nazat02.github.io/Quantum-Atom/simulator_light.html" class="footer-link">SIMULATOR</a>
       <a href="https://github.com/nazat02/Quantum-Atom" target="_blank" class="footer-link">GITHUB</a>
-      <a href="#" class="footer-link">DOCS</a>
+      <a href="https://github.com/nazat02/Quantum-Atom#readme" target="_blank" class="footer-link">DOCS</a>
       <div class="footer-copy">© 2026</div>
     </div>
   </div>
@@ -1559,6 +1764,22 @@ window.addEventListener('error',function(e){
 })();
 
 // Nav badge uses brand SVG logo
+
+// ── MOBILE NAV MENU ──
+function toggleMobileMenu(){
+  const menu=document.getElementById('mobile-menu');
+  const btn=document.getElementById('nav-hamburger');
+  const isOpen=menu.classList.toggle('open');
+  btn.classList.toggle('open',isOpen);
+  btn.setAttribute('aria-expanded',isOpen?'true':'false');
+}
+document.querySelectorAll('#mobile-menu a').forEach(function(a){
+  a.addEventListener('click',function(){
+    document.getElementById('mobile-menu').classList.remove('open');
+    document.getElementById('nav-hamburger').classList.remove('open');
+    document.getElementById('nav-hamburger').setAttribute('aria-expanded','false');
+  });
+});
 </script>
 
 <script>

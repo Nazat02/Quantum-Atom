@@ -2,9 +2,24 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=https://nazat02.github.io/Quantum-Atom/index_dark.html">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quantum Atom Simulator</title>
-<script>window.location.replace('https://nazat02.github.io/Quantum-Atom/index_dark.html');</script>
+<!-- No-JS / slow-JS fallback: defaults to dark. JS below overrides this with the visitor's saved theme, if any. -->
+<noscript><meta http-equiv="refresh" content="0; url=https://nazat02.github.io/Quantum-Atom/index_dark.html"></noscript>
+<script>
+// Respect a theme the visitor previously chose (set by the toggle on either
+// landing page or either simulator page via localStorage['qas-theme']).
+// Falls back to dark if nothing is saved or storage is unavailable
+// (e.g. private browsing), so this never throws and always redirects.
+var theme = 'dark';
+try {
+  var saved = localStorage.getItem('qas-theme');
+  if (saved === 'light' || saved === 'dark') theme = saved;
+} catch (e) {
+  // localStorage inaccessible — keep default
+}
+window.location.replace('https://nazat02.github.io/Quantum-Atom/index_' + theme + '.html');
+</script>
 </head>
 <body></body>
 </html>
