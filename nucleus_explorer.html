@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nucleus Explorer — Quantum Atom Simulator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='%23ff5500'/><circle cx='45' cy='45' r='14' fill='white'/><circle cx='25' cy='25' r='7' fill='%232255ff'/><circle cx='65' cy='30' r='7' fill='%23ff2200'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --cx:#ff5500;--cx2:#ff9944;--cx3:#ffb347;
+  --cx-40:rgba(255,85,0,.40);--cx-20:rgba(255,85,0,.20);
+  --cx-10:rgba(255,85,0,.10);--cx-06:rgba(255,85,0,.06);
+  --bg:#000000;--hi:#ffffff;
+  --mid:rgba(255,255,255,.72);--lo:rgba(255,255,255,.42);--vlo:rgba(255,255,255,.24);
+  --border:rgba(255,85,0,.16);--border-hi:rgba(255,85,0,.35);
+  --mono:'Share Tech Mono',monospace;--display:'Rajdhani',sans-serif;
+  --proton:#ff3322;--neutron:#3366ff;--up:#ffd23f;--down:#ff3fb0;--pion:#39ff8f;
+  --radius:8px;--topbar-h:58px;--botbar-h:132px;--panel-w:280px;
+
+  /* Glassmorphism surface tokens */
+  --glass-bg:rgba(14,8,4,.5);--glass-bg-hi:rgba(20,12,5,.6);
+  --glass-border:rgba(255,255,255,.09);--glass-blur:blur(20px) saturate(160%);
+  --glass-shadow:0 8px 32px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--hi);
+  font-family:var(--mono);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--cx-40);border-radius:2px;}
+canvas{position:fixed;inset:0;z-index:0;touch-action:none;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;}
+
+#shell{position:fixed;inset:0;z-index:10;display:grid;pointer-events:none;
+  grid-template-rows:var(--topbar-h) 1fr auto;
+  grid-template-columns:1fr;}
+#shell > *{pointer-events:auto;}
+
+/* ── TOPBAR ── */
+#topbar{grid-row:1;display:flex;align-items:center;gap:8px;padding:0 10px;
+  background:var(--glass-bg);
+  border-bottom:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);min-width:0;
+  box-shadow:var(--glass-shadow);}
+#back-link{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--cx2);font-size:.66rem;letter-spacing:.06em;white-space:nowrap;
+  transition:.15s;flex-shrink:0;}
+#back-link:hover{border-color:var(--border-hi);background:var(--cx-06);}
+#back-link .full{display:inline;}
+#tb-title{font-family:var(--display);font-weight:700;font-size:.98rem;letter-spacing:.03em;
+  color:var(--hi);white-space:nowrap;display:flex;align-items:baseline;gap:6px;flex-shrink:1;overflow:hidden;text-overflow:ellipsis;}
+#tb-title small{font-family:var(--mono);font-weight:400;font-size:.6rem;color:var(--cx2);letter-spacing:.08em;}
+#tb-nav{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;}
+.navbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);
+  border-radius:6px;background:var(--cx-06);color:var(--cx2);font-size:.8rem;flex-shrink:0;transition:.15s;}
+.navbtn:hover{border-color:var(--border-hi);}
+.navbtn:active{background:var(--cx-20);}
+.navbtn:disabled{opacity:.3;}
+.navbtn.on{color:var(--hi);border-color:var(--border-hi);background:var(--cx-10);}
+#tb-badge{width:30px;height:30px;border-radius:7px;background:var(--cx-10);border:1px solid var(--border-hi);
+  display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;
+  font-size:.92rem;color:var(--hi);flex-shrink:0;}
+#elbtn{display:flex;align-items:center;gap:5px;padding:6px 10px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--cx-06);font-size:.64rem;letter-spacing:.05em;color:var(--cx2);flex-shrink:0;}
+#elbtn:hover{border-color:var(--border-hi);}
+#theme-link{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--cx2);flex-shrink:0;transition:.15s;}
+#theme-link:hover{border-color:var(--border-hi);background:var(--cx-06);}
+
+/* ── ELEMENT STAT LINE ── */
+#elstat{display:flex;align-items:baseline;gap:0;font-size:.68rem;color:var(--mid);letter-spacing:.02em;
+  min-width:0;overflow:hidden;flex-shrink:1;}
+#elstat b{color:var(--hi);font-family:var(--display);font-weight:700;font-size:.8rem;letter-spacing:.03em;
+  white-space:nowrap;flex-shrink:0;}
+#elstat span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--lo);}
+#elstat span::before{content:'— ';color:var(--vlo);}
+
+/* ── BOTTOM BAR ── */
+#botbar{grid-row:3;display:flex;flex-direction:column;gap:9px;padding:11px 12px 13px;
+  background:var(--glass-bg);border-top:1px solid var(--glass-border);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);box-shadow:var(--glass-shadow);}
+#statusrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#modelabel{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.07em;color:var(--cx2);
+  padding:3px 10px;border:1px solid var(--border-hi);border-radius:12px;background:var(--cx-10);flex-shrink:0;}
+#actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;}
+.tgbtn{display:flex;align-items:center;gap:4px;font-size:.62rem;letter-spacing:.05em;padding:6px 10px;
+  border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--lo);transition:.15s;}
+.tgbtn:hover{border-color:var(--border-hi);}
+.tgbtn:active{background:var(--cx-10);}
+.tgbtn.on{color:var(--cx2);border-color:var(--border-hi);background:var(--cx-10);}
+.tgbtn.action{color:var(--cx3);}
+#infoline{font-size:.67rem;color:var(--mid);line-height:1.5;}
+#infoline b{color:var(--hi);}
+#zoomrow{display:flex;align-items:center;gap:10px;}
+#zoomrow label{font-size:.58rem;color:var(--lo);letter-spacing:.08em;flex-shrink:0;}
+#zsl{flex:1;accent-color:var(--cx);height:5px;border-radius:3px;cursor:pointer;
+  background:linear-gradient(to right, var(--cx-20) 0%, var(--cx-20) 55%, rgba(57,255,143,.28) 55%, rgba(57,255,143,.28) 82%, rgba(255,210,63,.32) 82%, rgba(255,210,63,.32) 100%);}
+#zval{font-size:.6rem;color:var(--cx2);padding:4px 10px;border:1px solid var(--border);border-radius:20px;
+  background:var(--cx-06);white-space:nowrap;flex-shrink:0;min-width:92px;text-align:center;}
+
+/* ── LEGEND POPOVER ── */
+#legend-pop{position:fixed;right:12px;bottom:calc(var(--botbar-h) + 10px);z-index:25;
+  display:flex;flex-direction:column;gap:8px;padding:11px 13px;border-radius:10px;
+  background:var(--glass-bg-hi);border:1px solid var(--border-hi);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-shadow),0 12px 32px rgba(0,0,0,.4);opacity:0;transform:translateY(6px) scale(.98);
+  pointer-events:none;transition:opacity .16s,transform .16s;}
+#legend-pop.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
+#legend-pop .lgitem{display:flex;align-items:center;gap:8px;font-size:.66rem;letter-spacing:.03em;
+  color:var(--mid);white-space:nowrap;}
+#legend-pop .lgdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-shadow:0 0 7px currentColor;}
+
+/* ── ACCESSIBILITY / MOTION ── */
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--cx2);outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){
+  #elpanel,#legend-pop,#onboard,.navbtn,.tgbtn,#toast{transition:none!important;}
+}
+
+/* ── ELEMENT PANEL ── */
+#elpanel{position:fixed;top:var(--topbar-h);right:0;bottom:var(--botbar-h);width:var(--panel-w);
+  z-index:20;background:var(--glass-bg);border-left:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:-8px 0 32px rgba(0,0,0,.4),inset 1px 0 0 rgba(255,255,255,.05);
+  display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;pointer-events:auto;}
+#elpanel.open{transform:translateX(0);}
+#elpanel-scrim{position:fixed;inset:0;z-index:19;background:rgba(0,0,0,.3);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .25s;}
+#elpanel-scrim.open{opacity:1;pointer-events:auto;}
+#elpanel-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+#elsearch{width:100%;padding:8px 10px;background:rgba(255,85,0,.05);border:1px solid var(--border);
+  border-radius:6px;color:var(--hi);font-family:var(--mono);font-size:.72rem;outline:none;}
+#elsearch:focus{border-color:var(--border-hi);}
+#elclose{flex-shrink:0;width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);border-radius:6px;color:var(--lo);font-size:.9rem;background:transparent;}
+#elclose:active{background:var(--cx-10);}
+#ellist{flex:1;overflow-y:auto;padding:6px;}
+.elrow{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:6px;font-size:.68rem;
+  color:var(--mid);border:1px solid transparent;}
+.elrow:hover{background:var(--cx-06);}
+.elrow.active{background:var(--cx-10);border-color:var(--border-hi);color:var(--hi);}
+.elrow .z{width:26px;color:var(--vlo);font-size:.6rem;flex-shrink:0;}
+.elrow .sym{width:28px;font-family:var(--display);font-weight:700;color:var(--cx2);flex-shrink:0;}
+.elrow .nm{flex:1;}
+.elrow .cnt{font-size:.58rem;color:var(--vlo);flex-shrink:0;}
+#elempty{padding:20px 12px;text-align:center;font-size:.66rem;color:var(--vlo);}
+
+/* ── LABEL OVERLAY (billboarded quark/pion labels) ── */
+#labels{position:fixed;inset:0;z-index:5;pointer-events:none;}
+.plabel{position:absolute;transform:translate(-50%,-50%);font-family:var(--mono);font-size:.62rem;
+  font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;letter-spacing:.03em;
+  background:rgba(0,0,0,.55);border:1px solid currentColor;opacity:0;transition:opacity .2s;}
+
+/* ── TOAST ── */
+#toast{position:fixed;top:calc(var(--topbar-h) + 14px);left:50%;transform:translateX(-50%);z-index:30;
+  background:var(--glass-bg-hi);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--border-hi);border-radius:6px;padding:7px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  font-size:.66rem;letter-spacing:.05em;color:var(--cx2);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+  max-width:min(86vw,360px);text-align:center;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(4px);}
+
+/* ── ONBOARDING OVERLAY ── */
+#onboard{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;transition:opacity .3s;}
+#onboard.hide{opacity:0;pointer-events:none;}
+#onboard-card{max-width:340px;border:1px solid var(--border-hi);border-radius:10px;background:var(--glass-bg-hi);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06);padding:20px 20px 16px;text-align:left;}
+#onboard-card h3{font-family:var(--display);font-size:1rem;letter-spacing:.03em;color:var(--cx2);margin-bottom:12px;}
+#onboard-card ul{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:16px;}
+#onboard-card li{font-size:.72rem;color:var(--mid);display:flex;gap:9px;align-items:flex-start;line-height:1.4;}
+#onboard-card li .ic{color:var(--cx2);flex-shrink:0;width:1.1em;}
+#onboard-btn{width:100%;padding:10px;border:1px solid var(--border-hi);border-radius:7px;background:var(--cx-10);
+  color:var(--hi);font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;}
+#onboard-btn:active{background:var(--cx-20);}
+#onboard-foot{margin-top:10px;font-size:.6rem;letter-spacing:.03em;color:var(--vlo);text-align:center;}
+#onboard-foot b{color:var(--cx2);}
+
+@media (max-width:640px){
+  :root{--topbar-h:50px;--botbar-h:150px;--panel-w:90vw;}
+  #tb-title small{display:none;}
+  #tb-title{font-size:.86rem;}
+  #back-link .full{display:none;}
+  #elbtn .full{display:none;}
+  .tgbtn .full{display:none;}
+  .tgbtn{padding:6px 8px;}
+  #elstat{font-size:.64rem;}
+  #elstat b{font-size:.72rem;}
+  #zval{min-width:74px;font-size:.56rem;padding:4px 8px;}
+  #legend-pop{right:8px;}
+}
+@media (max-width:380px){
+  #tb-badge{display:none;}
+}
+
+/* ════════════════════════════════
+   GLASSMORPHISM — frosted micro-surfaces
+   Additive blur pass for small chrome controls;
+   existing translucent backgrounds/borders are
+   left untouched, this only adds the frost.
+════════════════════════════════ */
+#back-link,#elbtn,#theme-link,.navbtn,#tb-badge,
+#modelabel,.tgbtn,#zval,#elsearch,#elclose{
+  backdrop-filter:blur(12px) saturate(160%);
+  -webkit-backdrop-filter:blur(12px) saturate(160%);
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<div id="toast"></div>
+
+<div id="onboard">
+  <div id="onboard-card">
+    <h3>NUCLEUS EXPLORER</h3>
+    <ul>
+      <li><span class="ic">↻</span> Drag to orbit around the nucleus</li>
+      <li><span class="ic">⇕</span> Pinch or scroll to zoom continuously — from the whole nucleus down to every proton &amp; neutron's quarks, with gluon flux-tubes rippling between them</li>
+      <li><span class="ic">☰</span> Tap ELEMENTS to jump to any element, H → Og</li>
+      <li><span class="ic">⌨</span> Arrow keys ←→ cycle elements</li>
+    </ul>
+    <button id="onboard-btn">GOT IT</button>
+    <div id="onboard-foot">Tap <b>?</b> anytime to see this again</div>
+  </div>
+</div>
+
+<div id="elpanel-scrim"></div>
+<div id="shell">
+  <div id="topbar">
+    <a id="back-link" href="simulator_dark.html">← <span class="full">ATOM VIEW</span></a>
+    <div id="tb-title">NUCLEUS <small>DEEP ZOOM</small></div>
+    <div id="tb-nav">
+      <button class="navbtn" id="prevbtn" aria-label="Previous element">‹</button>
+      <div id="tb-badge">H</div>
+      <button class="navbtn" id="nextbtn" aria-label="Next element">›</button>
+    </div>
+    <a id="theme-link" href="nucleus_explorer_light.html" title="Switch to light mode" aria-label="Switch to light mode">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="8" y1="1" x2="8" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="8" y1="13" x2="8" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="1" y1="8" x2="3" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="13" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="2.93" y1="2.93" x2="4.34" y2="4.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="11.66" y1="11.66" x2="13.07" y2="13.07" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="13.07" y1="2.93" x2="11.66" y2="4.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="4.34" y1="11.66" x2="2.93" y2="13.07" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </a>
+    <button id="elbtn">☰ <span class="full">ELEMENTS</span></button>
+  </div>
+
+  <div id="botbar">
+    <div id="statusrow">
+      <span id="modelabel">MACRO</span>
+      <div id="elstat"><b id="tb-name">HYDROGEN</b><span id="tb-count">1 proton · 0 neutrons · mass number 1</span></div>
+      <div id="actions">
+        <button class="navbtn" id="legend-btn" aria-label="Show color legend" aria-expanded="false" title="Legend">◍</button>
+        <button class="tgbtn on" id="tg-pion" title="Toggle pion exchange">π <span class="full">PIONS</span></button>
+        <button class="tgbtn on" id="tg-gluon" title="Toggle gluon field">◈ <span class="full">GLUONS</span></button>
+        <button class="tgbtn action" id="tg-jiggle" title="Reset camera view">⟲ <span class="full">RESET</span></button>
+        <button class="navbtn" id="help-btn" aria-label="Controls help" title="Controls &amp; help">?</button>
+      </div>
+    </div>
+    <div id="infoline">Loading…</div>
+    <div id="zoomrow">
+      <label for="zsl">ZOOM</label>
+      <input type="range" id="zsl" min="0" max="1000" value="0" aria-label="Zoom level, nucleus to quark scale">
+      <div id="zval">NUCLEUS</div>
+    </div>
+  </div>
+</div>
+
+<div id="legend-pop" role="dialog" aria-label="Color legend">
+  <div class="lgitem"><span class="lgdot" style="background:#ff3322"></span>Proton</div>
+  <div class="lgitem"><span class="lgdot" style="background:#3366ff"></span>Neutron</div>
+  <div class="lgitem"><span class="lgdot" style="background:#ffd23f"></span>Up quark</div>
+  <div class="lgitem"><span class="lgdot" style="background:#ff3fb0"></span>Down quark</div>
+  <div class="lgitem"><span class="lgdot" style="background:#39ff8f"></span>Pion (π)</div>
+</div>
+
+<div id="elpanel">
+  <div id="elpanel-head">
+    <input id="elsearch" type="text" placeholder="Search element (H – Og)…" autocomplete="off">
+    <button id="elclose" aria-label="Close">✕</button>
+  </div>
+  <div id="ellist"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════
+// ELEMENT DATA  (Z, symbol, name, neutron count of most stable isotope)
+// ══════════════════════════════════════════════════════════════
+const ELEMENTS=[
+{Z:1,sym:"H",name:"Hydrogen",n:0},{Z:2,sym:"He",name:"Helium",n:2},{Z:3,sym:"Li",name:"Lithium",n:4},
+{Z:4,sym:"Be",name:"Beryllium",n:5},{Z:5,sym:"B",name:"Boron",n:6},{Z:6,sym:"C",name:"Carbon",n:6},
+{Z:7,sym:"N",name:"Nitrogen",n:7},{Z:8,sym:"O",name:"Oxygen",n:8},{Z:9,sym:"F",name:"Fluorine",n:10},
+{Z:10,sym:"Ne",name:"Neon",n:10},{Z:11,sym:"Na",name:"Sodium",n:12},{Z:12,sym:"Mg",name:"Magnesium",n:12},
+{Z:13,sym:"Al",name:"Aluminium",n:14},{Z:14,sym:"Si",name:"Silicon",n:14},{Z:15,sym:"P",name:"Phosphorus",n:16},
+{Z:16,sym:"S",name:"Sulfur",n:16},{Z:17,sym:"Cl",name:"Chlorine",n:18},{Z:18,sym:"Ar",name:"Argon",n:22},
+{Z:19,sym:"K",name:"Potassium",n:20},{Z:20,sym:"Ca",name:"Calcium",n:20},{Z:21,sym:"Sc",name:"Scandium",n:24},
+{Z:22,sym:"Ti",name:"Titanium",n:26},{Z:23,sym:"V",name:"Vanadium",n:28},{Z:24,sym:"Cr",name:"Chromium",n:28},
+{Z:25,sym:"Mn",name:"Manganese",n:30},{Z:26,sym:"Fe",name:"Iron",n:30},{Z:27,sym:"Co",name:"Cobalt",n:32},
+{Z:28,sym:"Ni",name:"Nickel",n:30},{Z:29,sym:"Cu",name:"Copper",n:34},{Z:30,sym:"Zn",name:"Zinc",n:34},
+{Z:31,sym:"Ga",name:"Gallium",n:38},{Z:32,sym:"Ge",name:"Germanium",n:42},{Z:33,sym:"As",name:"Arsenic",n:42},
+{Z:34,sym:"Se",name:"Selenium",n:46},{Z:35,sym:"Br",name:"Bromine",n:44},{Z:36,sym:"Kr",name:"Krypton",n:48},
+{Z:37,sym:"Rb",name:"Rubidium",n:48},{Z:38,sym:"Sr",name:"Strontium",n:50},{Z:39,sym:"Y",name:"Yttrium",n:50},
+{Z:40,sym:"Zr",name:"Zirconium",n:50},{Z:41,sym:"Nb",name:"Niobium",n:52},{Z:42,sym:"Mo",name:"Molybdenum",n:56},
+{Z:43,sym:"Tc",name:"Technetium",n:55},{Z:44,sym:"Ru",name:"Ruthenium",n:58},{Z:45,sym:"Rh",name:"Rhodium",n:58},
+{Z:46,sym:"Pd",name:"Palladium",n:60},{Z:47,sym:"Ag",name:"Silver",n:60},{Z:48,sym:"Cd",name:"Cadmium",n:66},
+{Z:49,sym:"In",name:"Indium",n:66},{Z:50,sym:"Sn",name:"Tin",n:68},{Z:51,sym:"Sb",name:"Antimony",n:70},
+{Z:52,sym:"Te",name:"Tellurium",n:76},{Z:53,sym:"I",name:"Iodine",n:74},{Z:54,sym:"Xe",name:"Xenon",n:78},
+{Z:55,sym:"Cs",name:"Caesium",n:78},{Z:56,sym:"Ba",name:"Barium",n:82},{Z:57,sym:"La",name:"Lanthanum",n:82},
+{Z:58,sym:"Ce",name:"Cerium",n:82},{Z:59,sym:"Pr",name:"Praseodymium",n:82},{Z:60,sym:"Nd",name:"Neodymium",n:82},
+{Z:61,sym:"Pm",name:"Promethium",n:84},{Z:62,sym:"Sm",name:"Samarium",n:90},{Z:63,sym:"Eu",name:"Europium",n:90},
+{Z:64,sym:"Gd",name:"Gadolinium",n:94},{Z:65,sym:"Tb",name:"Terbium",n:94},{Z:66,sym:"Dy",name:"Dysprosium",n:98},
+{Z:67,sym:"Ho",name:"Holmium",n:98},{Z:68,sym:"Er",name:"Erbium",n:98},{Z:69,sym:"Tm",name:"Thulium",n:100},
+{Z:70,sym:"Yb",name:"Ytterbium",n:104},{Z:71,sym:"Lu",name:"Lutetium",n:104},{Z:72,sym:"Hf",name:"Hafnium",n:108},
+{Z:73,sym:"Ta",name:"Tantalum",n:108},{Z:74,sym:"W",name:"Tungsten",n:110},{Z:75,sym:"Re",name:"Rhenium",n:112},
+{Z:76,sym:"Os",name:"Osmium",n:116},{Z:77,sym:"Ir",name:"Iridium",n:116},{Z:78,sym:"Pt",name:"Platinum",n:117},
+{Z:79,sym:"Au",name:"Gold",n:118},{Z:80,sym:"Hg",name:"Mercury",n:122},{Z:81,sym:"Tl",name:"Thallium",n:124},
+{Z:82,sym:"Pb",name:"Lead",n:126},{Z:83,sym:"Bi",name:"Bismuth",n:126},{Z:84,sym:"Po",name:"Polonium",n:125},
+{Z:85,sym:"At",name:"Astatine",n:125},{Z:86,sym:"Rn",name:"Radon",n:136},{Z:87,sym:"Fr",name:"Francium",n:136},
+{Z:88,sym:"Ra",name:"Radium",n:138},{Z:89,sym:"Ac",name:"Actinium",n:138},{Z:90,sym:"Th",name:"Thorium",n:142},
+{Z:91,sym:"Pa",name:"Protactinium",n:140},{Z:92,sym:"U",name:"Uranium",n:146},{Z:93,sym:"Np",name:"Neptunium",n:144},
+{Z:94,sym:"Pu",name:"Plutonium",n:150},{Z:95,sym:"Am",name:"Americium",n:148},{Z:96,sym:"Cm",name:"Curium",n:151},
+{Z:97,sym:"Bk",name:"Berkelium",n:150},{Z:98,sym:"Cf",name:"Californium",n:153},{Z:99,sym:"Es",name:"Einsteinium",n:153},
+{Z:100,sym:"Fm",name:"Fermium",n:157},{Z:101,sym:"Md",name:"Mendelevium",n:157},{Z:102,sym:"No",name:"Nobelium",n:157},
+{Z:103,sym:"Lr",name:"Lawrencium",n:159},{Z:104,sym:"Rf",name:"Rutherfordium",n:163},{Z:105,sym:"Db",name:"Dubnium",n:163},
+{Z:106,sym:"Sg",name:"Seaborgium",n:163},{Z:107,sym:"Bh",name:"Bohrium",n:163},{Z:108,sym:"Hs",name:"Hassium",n:169},
+{Z:109,sym:"Mt",name:"Meitnerium",n:169},{Z:110,sym:"Ds",name:"Darmstadtium",n:171},{Z:111,sym:"Rg",name:"Roentgenium",n:171},
+{Z:112,sym:"Cn",name:"Copernicium",n:173},{Z:113,sym:"Nh",name:"Nihonium",n:173},{Z:114,sym:"Fl",name:"Flerovium",n:175},
+{Z:115,sym:"Mc",name:"Moscovium",n:175},{Z:116,sym:"Lv",name:"Livermorium",n:177},{Z:117,sym:"Ts",name:"Tennessine",n:177},
+{Z:118,sym:"Og",name:"Oganesson",n:176}
+];
+const byZ = z => ELEMENTS[z-1];
+
+// ══════════════════════════════════════════════════════════════
+// SCENE SETUP
+// ══════════════════════════════════════════════════════════════
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x000000);
+scene.fog=new THREE.FogExp2(0x000000,0.012);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.01,4000);
+
+scene.add(new THREE.AmbientLight(0x554433,1.1));
+const key=new THREE.PointLight(0xffdd99,2.2,0,0);key.position.set(20,30,20);scene.add(key);
+const rim=new THREE.PointLight(0x3366ff,1.2,0,0);rim.position.set(-25,-15,-20);scene.add(rim);
+
+function resize(){
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize',resize);resize();
+
+// ══════════════════════════════════════════════════════════════
+// NUCLEUS BUILD
+// ══════════════════════════════════════════════════════════════
+let nucGroup=null;
+let positions=[], types=[], jitter=[], nr=0.5, Rnuc=1;
+let Z=1,N=0;
+
+// Grain-cloud state: protonCloud/neutronCloud are THREE.Points whose
+// position buffers are rewritten every frame from
+// (nucleon center) + (static local Gaussian offset). Owner/local arrays
+// map each grain back to its parent nucleon so the whole cloud rides
+// along with that nucleon's existing macro jitter.
+let protonCloud=null, neutronCloud=null;
+let protonOwner=null, protonLocal=null, protonPosAttr=null;
+let neutronOwner=null, neutronLocal=null, neutronPosAttr=null;
+
+function disposeNucleonGrains(){
+  [protonCloud,neutronCloud].forEach(c=>{
+    if(!c) return;
+    if(c.parent) c.parent.remove(c);
+    c.geometry.dispose();
+  });
+  protonCloud=neutronCloud=null;
+}
+
+// Builds one merged grain cloud each for protons and neutrons. Grain
+// count per nucleon is budget-scaled so light nuclei (few nucleons)
+// render richly fuzzy individual clouds while heavy nuclei (up to 294
+// nucleons at Oganesson) stay within a sane total point budget.
+function buildNucleonGrains(rnd){
+  disposeNucleonGrains();
+  const total=Z+N;
+  // Density budget raised ~4x (was 45000/40..200) for a noticeably denser,
+  // fuzzier grain cloud on every nucleon, from light isotopes up through
+  // heavy nuclei like Oganesson.
+  const perNucleon=THREE.MathUtils.clamp(Math.floor(180000/Math.max(total,1)),150,700);
+  const sigma=nr*0.42; // Gaussian spread ≈ nucleon's former "radius" nr
+
+  function build(ownerIndices,color){
+    const count=ownerIndices.length;
+    const grainCount=count*perNucleon; // legitimately 0 when this type is absent (e.g. Hydrogen has 0 neutrons)
+    const pos=new Float32Array(grainCount*3);
+    const col=new Float32Array(grainCount*3);
+    const alp=new Float32Array(grainCount);
+    const phase=new Float32Array(grainCount);
+    const freq=new Float32Array(grainCount);
+    const owner=new Array(grainCount);
+    const local=new Array(grainCount);
+    let k=0;
+    ownerIndices.forEach(i=>{
+      for(let g=0;g<perNucleon;g++,k++){
+        const off=sampleGaussianCloud(sigma,rnd);
+        owner[k]=i; local[k]=off;
+        pos[k*3]=positions[i].x+off.x; pos[k*3+1]=positions[i].y+off.y; pos[k*3+2]=positions[i].z+off.z;
+        col[k*3]=color[0]; col[k*3+1]=color[1]; col[k*3+2]=color[2];
+        alp[k]=0.78+rnd()*0.22;
+        phase[k]=rnd()*Math.PI*2;
+        freq[k]=1.2+rnd()*2.4;
+      }
+    });
+    const geo=new THREE.BufferGeometry();
+    const posAttr=new THREE.BufferAttribute(pos,3);
+    posAttr.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position',posAttr);
+    geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+    geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+    geo.setAttribute('aPhase',new THREE.BufferAttribute(phase,1));
+    geo.setAttribute('aFreq',new THREE.BufferAttribute(freq,1));
+    const points=new THREE.Points(geo,nucleonGrainMat);
+    points.frustumCulled=false;
+    return {points,posAttr,owner,local};
+  }
+
+  const protonIdx=[], neutronIdx=[];
+  types.forEach((t,i)=>{ (t==='p'?protonIdx:neutronIdx).push(i); });
+
+  const pr=build(protonIdx,[1.0,0.20,0.13]);
+  protonCloud=pr.points; protonPosAttr=pr.posAttr; protonOwner=pr.owner; protonLocal=pr.local;
+  const nb=build(neutronIdx,[0.20,0.40,1.0]);
+  neutronCloud=nb.points; neutronPosAttr=nb.posAttr; neutronOwner=nb.owner; neutronLocal=nb.local;
+}
+
+// Called every frame with the latest jittered world position of every
+// nucleon — translates each grain's static local offset by its
+// parent's current position, so the whole fuzzy cloud rides along with
+// the nucleon-level jiggle already driving the physics.
+function updateNucleonGrains(nucleonWorldPos){
+  const pp=protonPosAttr.array;
+  for(let k=0;k<protonOwner.length;k++){
+    const w=nucleonWorldPos[protonOwner[k]], off=protonLocal[k];
+    pp[k*3]=w.x+off.x; pp[k*3+1]=w.y+off.y; pp[k*3+2]=w.z+off.z;
+  }
+  protonPosAttr.needsUpdate=true;
+  const np=neutronPosAttr.array;
+  for(let k=0;k<neutronOwner.length;k++){
+    const w=nucleonWorldPos[neutronOwner[k]], off=neutronLocal[k];
+    np[k*3]=w.x+off.x; np[k*3+1]=w.y+off.y; np[k*3+2]=w.z+off.z;
+  }
+  neutronPosAttr.needsUpdate=true;
+  nucleonGrainMat.uniforms.uTime.value=clock;
+}
+
+function seededRand(seed){ // deterministic per-element shuffle
+  let s = seed*9301+49297;
+  return function(){ s=(s*9301+49297)%233280; return s/233280; };
+}
+
+// ══════════════════════════════════════════════════════════════
+// WAVE-PARTICLE GRAIN SHADER — shared by every nucleon (proton/
+// neutron) and every pion in the residual-force network.
+//
+// A nucleon isn't a hard little ball with a surface — it's a bound
+// quantum state with a genuine position-space probability density.
+// Instead of one opaque sphere, each nucleon/pion is drawn as a swarm
+// of individually-sampled "maybe-here" grains whose positions are
+// drawn FROM that density (so the cloud is dense where |ψ|² is large
+// and thins out exactly the way the real probability distribution
+// does — see sampleGaussianCloud / sampleYukawaCloud below). Each
+// grain also flickers independently in brightness over time, standing
+// in for the position/amplitude uncertainty of a quantum wavepacket —
+// nothing here is ever fully "there," it's a shimmering field of
+// probability, same visual language as the electron-orbital clouds in
+// the atom simulator.
+// ══════════════════════════════════════════════════════════════
+const GRAIN_VERT=`
+attribute float aA;
+attribute vec3 aC;
+attribute float aPhase;
+attribute float aFreq;
+uniform float uTime;
+uniform float uSize;
+varying float vA;
+varying vec3 vC;
+void main(){
+  vC=aC;
+  // Independent per-grain flicker = quantum fluctuation: brightness
+  // wobbles around a mean rather than holding a fixed hard value.
+  float flicker=0.5+0.5*sin(uTime*aFreq+aPhase);
+  vA=aA*(0.72+0.28*flicker);
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  gl_Position=projectionMatrix*mv;
+  float dist=length(mv.xyz);
+  gl_PointSize=clamp(uSize/dist, 1.4, 15.0);
+}`;
+const GRAIN_FRAG=`
+varying float vA;
+varying vec3 vC;
+void main(){
+  vec2 uv=gl_PointCoord-vec2(0.5);
+  float r=length(uv)*2.0;
+  if(r>1.0) discard;
+  float core=exp(-r*r*6.0);
+  float halo=exp(-r*r*1.8)*(1.0-r*0.5);
+  float a=vA*(core*0.9+halo*0.55);
+  gl_FragColor=vec4(vC*(0.7+core*0.6), a);
+}`;
+function makeGrainMaterial(uSize){
+  return new THREE.ShaderMaterial({
+    vertexShader:GRAIN_VERT, fragmentShader:GRAIN_FRAG,
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    uniforms:{ uTime:{value:0}, uSize:{value:uSize} }
+  });
+}
+
+// Standard-normal deviate via Box-Muller, driven by our seeded RNG so
+// element layouts stay fully deterministic/reproducible.
+function randNormal(rnd){
+  let u=0,v=0;
+  while(u<=1e-9) u=rnd();
+  while(v<=1e-9) v=rnd();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(Math.PI*2*v);
+}
+// A nucleon's ground-state wavepacket is modeled as an isotropic 3D
+// Gaussian in position space, |ψ(r)|² ∝ exp(-r²/2σ²) — the minimum-
+// uncertainty solution for a particle localized in a well, and the
+// same functional form used for the 1s electron cloud elsewhere in
+// this app. Sampling directly from this density means point FREQUENCY
+// already encodes probability — no separate density calculation
+// needed, exactly like importance sampling.
+function sampleGaussianCloud(sigma,rnd){
+  return new THREE.Vector3(randNormal(rnd),randNormal(rnd),randNormal(rnd)).multiplyScalar(sigma);
+}
+// A pion's exchange amplitude between nucleons follows the Yukawa form
+// |ψ_π(r)| ∝ exp(-r/λ)/r — the actual field shape responsible for the
+// short-range residual strong force. We sample radius from that
+// exponential falloff (rejecting the 1/r singularity at the origin by
+// sampling from an offset shell) and place it isotropically.
+function sampleYukawaCloud(lambda,rnd){
+  const r=lambda*(-Math.log(Math.max(rnd(),1e-6)))*0.55 + lambda*0.12;
+  const u=rnd()*2-1, th=rnd()*Math.PI*2, s=Math.sqrt(Math.max(1-u*u,0));
+  return new THREE.Vector3(s*Math.cos(th)*r, s*Math.sin(th)*r, u*r);
+}
+
+// Shared materials — created once, geometry swapped per element/frame.
+const nucleonGrainMat=makeGrainMaterial(120);
+const pionGrainMat=makeGrainMaterial(70);
+
+function buildNucleus(z,n){
+  Z=z;N=n;
+  if(nucGroup) scene.remove(nucGroup);
+  nucGroup=new THREE.Group();
+  const total=Z+N;
+  nr = THREE.MathUtils.clamp(0.62 - total*0.0006, 0.3, 0.62);
+  Rnuc = total<=1 ? 0 : nr*1.02*Math.pow(total,0.46);
+
+  const rnd=seededRand(total*7+Z);
+  types=[];
+  for(let i=0;i<Z;i++) types.push('p');
+  for(let i=0;i<N;i++) types.push('n');
+  for(let i=types.length-1;i>0;i--){
+    const j=Math.floor(rnd()*(i+1));
+    [types[i],types[j]]=[types[j],types[i]];
+  }
+
+  positions=[];
+  if(total===1){ positions.push(new THREE.Vector3(0,0,0)); }
+  else{
+    const golden=Math.PI*(3-Math.sqrt(5));
+    for(let i=0;i<total;i++){
+      const t=(i+0.5)/total;
+      const r=Rnuc*Math.pow(t,1/3);
+      const theta=golden*i;
+      const phi=Math.acos(1-2*t);
+      positions.push(new THREE.Vector3(
+        r*Math.sin(phi)*Math.cos(theta),
+        r*Math.sin(phi)*Math.sin(theta),
+        r*Math.cos(phi)
+      ));
+    }
+  }
+
+  jitter=positions.map((_,i)=>({
+    freq: 1.4+rnd()*1.8,
+    phase: rnd()*Math.PI*2,
+    axis: new THREE.Vector3(rnd()-.5,rnd()-.5,rnd()-.5).normalize(),
+    amp: nr*0.11
+  }));
+
+  buildNucleonGrains(rnd);
+  nucGroup.add(protonCloud,neutronCloud);
+
+  // quark / gluon layer — built once per element for EVERY nucleon
+  // simultaneously (see buildQuarkLayer), just hidden until quark-scale zoom
+  buildQuarkLayer(rnd);
+
+  // glow halo shells
+  const haloR=Rnuc+nr;
+  [[haloR*1.25,.26],[haloR*1.9,.11],[haloR*2.8,.045]].forEach(([r,o])=>{
+    nucGroup.add(new THREE.Mesh(
+      new THREE.SphereGeometry(r,20,16),
+      new THREE.MeshBasicMaterial({color:0xff6633,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false})
+    ));
+  });
+
+  // binding web: shows the residual strong force across every
+  // neighboring nucleon pair at once (see buildBondWeb)
+  buildBondWeb(rnd);
+
+  scene.add(nucGroup);
+
+  // reset spotlight/pion tracking (quark layer itself needs no per-hero rebuild)
+  heroIndex=-1; partnerIndex=-1;
+  disposePion();
+  updateHUD();
+}
+
+// ══════════════════════════════════════════════════════════════
+// ZOOM / CAMERA (continuous, band-based)
+// ══════════════════════════════════════════════════════════════
+let zoom=0;               // 0..1
+let camTheta=0.7, camPhi=1.15;
+let camTarget=new THREE.Vector3(0,0,0);
+let heroIndex=-1, partnerIndex=-1;
+const BAND1=0.55, BAND2=0.82; // macro->pair->quark thresholds
+
+function camDistForZoom(z){
+  const macroFar = Rnuc*3.4+2;
+  const pairDist = Math.max(Rnuc*0.55, nr*4.5);
+  const quarkStart = nr*2.6;
+  const quarkDeep = nr*0.12;
+  if(z<BAND1){
+    const t=z/BAND1;
+    return Math.exp(THREE.MathUtils.lerp(Math.log(macroFar),Math.log(pairDist),t));
+  } else if(z<BAND2){
+    const t=(z-BAND1)/(BAND2-BAND1);
+    return Math.exp(THREE.MathUtils.lerp(Math.log(pairDist),Math.log(quarkStart),t));
+  } else {
+    const t=(z-BAND2)/(1-BAND2);
+    return Math.exp(THREE.MathUtils.lerp(Math.log(quarkStart),Math.log(quarkDeep),t));
+  }
+}
+
+function currentMode(){
+  if(zoom<BAND1) return 'MACRO';
+  if(zoom<BAND2) return 'PAIR';
+  return 'QUARK';
+}
+
+// Hero selection uses REST positions (no jitter) so the jiggle animation
+// can't tip a near-tie from frame to frame. It also requires the new
+// candidate to be meaningfully closer (margin) and respects a short
+// cooldown after any switch — without this, two nucleons of similar
+// distance to the camera cause heroIndex to flip every few frames,
+// which yanks camTarget back and forth and reads as the view zooming
+// in/out on its own mid-gesture.
+let lastHeroSwitchT=-Infinity;
+const HERO_SWITCH_MARGIN=1.15;   // candidate must be >=15% closer (squared: 1.15^2) to steal the slot
+const HERO_SWITCH_COOLDOWN=0.25; // seconds
+function findHero(camPos){
+  let best=-1,bd=Infinity;
+  positions.forEach((p,i)=>{
+    const d=p.distanceToSquared(camPos); // rest position, not jittered
+    if(d<bd){bd=d;best=i;}
+  });
+  if(heroIndex!==-1 && best!==heroIndex){
+    const curD=positions[heroIndex].distanceToSquared(camPos);
+    const withinCooldown=(clock-lastHeroSwitchT)<HERO_SWITCH_COOLDOWN;
+    const meaningfullyCloser=bd*(HERO_SWITCH_MARGIN*HERO_SWITCH_MARGIN)<curD;
+    if(withinCooldown||!meaningfullyCloser) return heroIndex; // keep current hero — avoid flip-flop
+  }
+  if(best!==heroIndex) lastHeroSwitchT=clock;
+  return best;
+}
+function findPartner(idx){
+  const base=positions[idx];
+  let best=-1,bd=Infinity;
+  positions.forEach((p,i)=>{
+    if(i===idx) return;
+    const d=p.distanceToSquared(base);
+    if(d<bd){bd=d;best=i;}
+  });
+  return best;
+}
+
+// ══════════════════════════════════════════════════════════════
+// QUARK / GLUON LAYER — every nucleon's internal structure, shown
+// simultaneously (not just one "hero"). Two InstancedMeshes carry all
+// up/down quarks across the whole nucleus; one InstancedMesh carries
+// every gluon "flux tube". All three are built ONCE per element and
+// simply toggled visible/hidden by zoom band — no per-frame allocation
+// of geometry, which is what keeps this smooth on mobile even for
+// heavy nuclei (Z=118 → 294 nucleons → 882 quarks/tubes).
+//
+// The flux tubes use a vertex-shader displacement (via onBeforeCompile)
+// that ripples radially along the tube's length — a real propagating
+// wave standing in for the gluon field, rather than a static cylinder.
+// ══════════════════════════════════════════════════════════════
+const quarkUpGeo=new THREE.SphereGeometry(1,32,24);
+const quarkDownGeo=new THREE.SphereGeometry(1,32,24);
+const upQMat=new THREE.MeshStandardMaterial({color:0xffd23f,emissive:0xffaa00,emissiveIntensity:1.6,roughness:.25,metalness:.1});
+const downQMat=new THREE.MeshStandardMaterial({color:0xff3fb0,emissive:0xcc0066,emissiveIntensity:1.6,roughness:.25,metalness:.1});
+
+const gluonGeo=new THREE.CylinderGeometry(1,1,1,10,22,true);
+gluonGeo.translate(0,0.5,0); // pivot at base; local Y runs 0→1 along the tube
+const gluonMat=new THREE.MeshBasicMaterial({
+  color:0x22ccff,transparent:true,opacity:0.95,wireframe:true,
+  blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide
+});
+gluonMat.onBeforeCompile=(shader)=>{
+  shader.uniforms.uTime={value:0};
+  gluonMat.userData.shader=shader;
+  shader.vertexShader='uniform float uTime;\nvarying float vWave;\n'+shader.vertexShader;
+  shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`
+    #include <begin_vertex>
+    float along = position.y;
+    float wave = sin(along*14.0 - uTime*6.0)*0.5+0.5;
+    float radial = 0.6 + wave*0.9;
+    transformed.x *= radial;
+    transformed.z *= radial;
+    vWave = wave;
+  `);
+  shader.fragmentShader='varying float vWave;\n'+shader.fragmentShader;
+  shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>',`
+    #include <dithering_fragment>
+    gl_FragColor.rgb *= (0.7 + vWave*1.1);
+    gl_FragColor.a *= (0.3 + vWave*0.7);
+  `);
+};
+
+let quarkUpMesh=null, quarkDownMesh=null, gluonMesh=null;
+let quarkEntries=[], quarkWorldCache=[];
+const gluonPairs=[[0,1],[1,2],[2,0]];
+const heroLabel=document.createElement('div');
+heroLabel.className='plabel'; heroLabel.style.display='none';
+document.getElementById('labels').appendChild(heroLabel);
+
+function disposeQuarkLayer(){
+  [quarkUpMesh,quarkDownMesh,gluonMesh].forEach(mesh=>{
+    if(!mesh) return;
+    if(mesh.parent) mesh.parent.remove(mesh);
+    mesh.dispose();
+  });
+  quarkUpMesh=quarkDownMesh=gluonMesh=null;
+}
+
+function buildQuarkLayer(rnd){
+  disposeQuarkLayer();
+  const total=Z+N;
+  let upCount=0, downCount=0;
+  types.forEach(t=>{ if(t==='p'){upCount+=2;downCount+=1;} else {upCount+=1;downCount+=2;} });
+  const tubeCount=total*3;
+
+  quarkUpMesh=new THREE.InstancedMesh(quarkUpGeo,upQMat,Math.max(upCount,1));
+  quarkDownMesh=new THREE.InstancedMesh(quarkDownGeo,downQMat,Math.max(downCount,1));
+  quarkUpMesh.count=upCount; quarkDownMesh.count=downCount;
+  quarkUpMesh.visible=false; quarkDownMesh.visible=false;
+
+  gluonMesh=new THREE.InstancedMesh(gluonGeo,gluonMat,Math.max(tubeCount,1));
+  gluonMesh.count=tubeCount; gluonMesh.visible=false;
+
+  const qR=nr*0.16;
+  quarkEntries=new Array(total*3);
+  quarkWorldCache=new Array(total*3);
+  for(let i=0;i<total*3;i++) quarkWorldCache[i]=new THREE.Vector3();
+
+  const triAngles=[0,1,2].map(k=>(k/3)*Math.PI*2);
+  let upI=0, downI=0;
+  for(let i=0;i<total;i++){
+    const flavors = types[i]==='p' ? ['u','u','d'] : ['u','d','d'];
+    // random per-nucleon orientation so triads aren't all aligned — reads
+    // as a lively cloud of nucleons rather than a repeated stamp
+    const axis=new THREE.Vector3(rnd()-.5,rnd()-.5,rnd()-.5).normalize();
+    const q=new THREE.Quaternion().setFromAxisAngle(axis,rnd()*Math.PI*2);
+    for(let sIdx=0;sIdx<3;sIdx++){
+      const local=new THREE.Vector3(Math.cos(triAngles[sIdx]),Math.sin(triAngles[sIdx])*0.6,0)
+        .multiplyScalar(nr*0.42).applyQuaternion(q);
+      const isUp=flavors[sIdx]==='u';
+      quarkEntries[i*3+sIdx]={
+        nucleonIndex:i, isUp, localBase:local,
+        freq:2.0+rnd()*1.6, phase:rnd()*Math.PI*2,
+        wobAxis:new THREE.Vector3(rnd()-.5,rnd()-.5,rnd()-.5).normalize(),
+        meshRef: isUp?quarkUpMesh:quarkDownMesh,
+        instIdx: isUp?upI++:downI++,
+        radius:qR
+      };
+    }
+  }
+  nucGroup.add(quarkUpMesh,quarkDownMesh,gluonMesh);
+}
+
+const _qM=new THREE.Matrix4(), _qQ=new THREE.Quaternion(), _qS=new THREE.Vector3(), _qV=new THREE.Vector3();
+const _identityQ=new THREE.Quaternion(), _yAxis=new THREE.Vector3(0,1,0);
+
+function updateQuarkLayer(nucleonWorldPos){
+  const total=Z+N;
+  for(let i=0;i<total;i++){
+    const base=nucleonWorldPos[i];
+    for(let sIdx=0;sIdx<3;sIdx++){
+      const e=quarkEntries[i*3+sIdx];
+      const wobAmt=nr*0.13*Math.sin(clock*e.freq+e.phase);
+      _qV.set(
+        base.x+e.localBase.x+e.wobAxis.x*wobAmt,
+        base.y+e.localBase.y+e.wobAxis.y*wobAmt,
+        base.z+e.localBase.z+e.wobAxis.z*wobAmt
+      );
+      quarkWorldCache[i*3+sIdx].copy(_qV);
+      _qS.set(e.radius,e.radius,e.radius);
+      _qM.compose(_qV,_identityQ,_qS);
+      e.meshRef.setMatrixAt(e.instIdx,_qM);
+    }
+  }
+  quarkUpMesh.instanceMatrix.needsUpdate=true;
+  quarkDownMesh.instanceMatrix.needsUpdate=true;
+
+  // gluon flux tubes: 3 edges per nucleon's quark triangle
+  for(let i=0;i<total;i++){
+    const base3=i*3;
+    for(let edge=0;edge<3;edge++){
+      const [ai,bi]=gluonPairs[edge];
+      const a=quarkWorldCache[base3+ai], b=quarkWorldCache[base3+bi];
+      _qV.subVectors(b,a);
+      const len=Math.max(_qV.length(),0.0001);
+      _qQ.setFromUnitVectors(_yAxis,_qV.normalize());
+      _qS.set(nr*0.055,len,nr*0.055);
+      _qM.compose(a,_qQ,_qS);
+      gluonMesh.setMatrixAt(base3+edge,_qM);
+    }
+  }
+  gluonMesh.instanceMatrix.needsUpdate=true;
+  if(gluonMat.userData.shader) gluonMat.userData.shader.uniforms.uTime.value=clock;
+}
+
+// ══════════════════════════════════════════════════════════════
+// BINDING WEB — the residual strong force, shown across the WHOLE
+// nucleus at once. Every pair of nucleons close enough to be genuine
+// neighbors gets a connecting line, and a fuzzy pion grain-cloud
+// shuttles back and forth along it — this is literally "why the
+// nucleus doesn't fly apart": every proton/neutron is constantly
+// exchanging virtual pions with its neighbors.
+//
+// Each pion is sampled from the Yukawa radial profile (see
+// sampleYukawaCloud above) instead of drawn as a solid sphere — same
+// wave-particle-duality treatment as the nucleons. Grain COUNT per
+// pion, and grain brightness, both scale with a density factor derived
+// from how packed the nucleus is (bond count per nucleon): heavier,
+// denser nuclei have more neighbor pairs exchanging simultaneously, so
+// their residual-force network reads as visibly thicker and more
+// energetic, not just "more dots in more places."
+// ══════════════════════════════════════════════════════════════
+const bondLineMat=new THREE.LineBasicMaterial({color:0x39ff8f,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false});
+
+let bondPairs=[], bondPhases=[], bondLinePositions=null, bondBasePos=[];
+let bondLineGeo=null, bondLineMesh=null;
+let pionCloud=null, pionPosAttr=null, pionGrainBond=null, pionGrainUnit=null;
+let pionDensityFactor=1;
+
+function disposeBondWeb(){
+  if(bondLineMesh){ if(bondLineMesh.parent) bondLineMesh.parent.remove(bondLineMesh); bondLineMesh.geometry.dispose(); bondLineMesh=null; }
+  if(pionCloud){ if(pionCloud.parent) pionCloud.parent.remove(pionCloud); pionCloud.geometry.dispose(); pionCloud=null; }
+}
+
+function buildBondWeb(rnd){
+  disposeBondWeb();
+  bondPairs=[];
+  const thr=nr*2.7; // ≈ touching-neighbor distance across all element sizes
+  for(let i=0;i<positions.length;i++){
+    for(let j=i+1;j<positions.length;j++){
+      if(positions[i].distanceTo(positions[j])<thr) bondPairs.push([i,j]);
+    }
+  }
+  const bondCount=bondPairs.length;
+  const total=Z+N;
+
+  bondLinePositions=new Float32Array(Math.max(bondCount,1)*6);
+  bondLineGeo=new THREE.BufferGeometry();
+  bondLineGeo.setAttribute('position',new THREE.BufferAttribute(bondLinePositions,3));
+  bondLineGeo.setDrawRange(0,bondCount*2);
+  bondLineMesh=new THREE.LineSegments(bondLineGeo,bondLineMat);
+  bondLineMesh.frustumCulled=false;
+  nucGroup.add(bondLineMesh);
+
+  bondPhases=bondPairs.map(()=>({freq:1.5+rnd()*1.5,phase:rnd()*Math.PI*2}));
+  bondBasePos=bondPairs.map(()=>new THREE.Vector3());
+
+  // Denser nucleus (more nucleons ⇒ more simultaneous neighbor pairs
+  // per unit volume) ⇒ visibly denser pion field. Bonds-per-nucleon is
+  // the actual local "how much exchange activity is happening here"
+  // signal; we fold total nucleon count in too so heavy elements read
+  // as unmistakably more active than light ones even at a glance.
+  const bondsPerNucleon = bondCount/Math.max(total,1);
+  pionDensityFactor=THREE.MathUtils.clamp(0.6+bondsPerNucleon*0.18+total*0.0035,0.7,2.8);
+
+  const perBondGrain=THREE.MathUtils.clamp(Math.floor((5200*pionDensityFactor)/Math.max(bondCount,1)),5,26);
+  const grainTotal=bondCount*perBondGrain; // legitimately 0 when there are no neighbor bonds (e.g. lone-nucleon Hydrogen)
+  const pos=new Float32Array(grainTotal*3);
+  const col=new Float32Array(grainTotal*3);
+  const alp=new Float32Array(grainTotal);
+  const phase=new Float32Array(grainTotal);
+  const freq=new Float32Array(grainTotal);
+  pionGrainBond=new Array(grainTotal);
+  pionGrainUnit=new Array(grainTotal);
+  const baseAlpha=THREE.MathUtils.clamp(0.5*pionDensityFactor,0.4,0.95);
+  let k=0;
+  for(let b=0;b<bondCount;b++){
+    for(let g=0;g<perBondGrain;g++,k++){
+      pionGrainBond[k]=b;
+      pionGrainUnit[k]=sampleYukawaCloud(1,rnd); // unit-λ shape, scaled live each frame
+      col[k*3]=0.22; col[k*3+1]=1.0; col[k*3+2]=0.56;
+      alp[k]=baseAlpha*(0.6+rnd()*0.5);
+      phase[k]=rnd()*Math.PI*2;
+      freq[k]=1.6+rnd()*3.0;
+    }
+  }
+  const geo=new THREE.BufferGeometry();
+  pionPosAttr=new THREE.BufferAttribute(pos,3);
+  pionPosAttr.setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position',pionPosAttr);
+  geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+  geo.setAttribute('aPhase',new THREE.BufferAttribute(phase,1));
+  geo.setAttribute('aFreq',new THREE.BufferAttribute(freq,1));
+  pionCloud=new THREE.Points(geo,pionGrainMat);
+  pionCloud.frustumCulled=false;
+  nucGroup.add(pionCloud);
+}
+
+function updateBondWeb(nucleonWorldPos,camDist){
+  const bondCount=bondPairs.length;
+  // fixed world-space size shrinks to invisibility once the camera pulls
+  // back for the whole nucleus — so size relative to current camera
+  // distance instead, clamped so it never gets silly at close range
+  const pR=THREE.MathUtils.clamp(camDist*0.014, nr*0.1, nr*0.85)*(0.7+0.3*pionDensityFactor);
+  for(let k=0;k<bondCount;k++){
+    const [i,j]=bondPairs[k];
+    const a=nucleonWorldPos[i], b=nucleonWorldPos[j];
+    const o=k*6;
+    bondLinePositions[o]=a.x; bondLinePositions[o+1]=a.y; bondLinePositions[o+2]=a.z;
+    bondLinePositions[o+3]=b.x; bondLinePositions[o+4]=b.y; bondLinePositions[o+5]=b.z;
+
+    const ph=bondPhases[k];
+    const t=(Math.sin(clock*ph.freq+ph.phase)+1)/2;
+    bondBasePos[k].copy(a).lerp(b,t);
+  }
+  if(bondCount>0) bondLineGeo.attributes.position.needsUpdate=true;
+
+  const pp=pionPosAttr.array;
+  for(let g=0;g<pionGrainBond.length;g++){
+    const base=bondBasePos[pionGrainBond[g]], u=pionGrainUnit[g];
+    pp[g*3]=base.x+u.x*pR; pp[g*3+1]=base.y+u.y*pR; pp[g*3+2]=base.z+u.z*pR;
+  }
+  pionPosAttr.needsUpdate=true;
+  pionGrainMat.uniforms.uTime.value=clock;
+}
+
+// ══════════════════════════════════════════════════════════════
+// PION EXCHANGE — single spotlighted pion (residual strong force,
+// PAIR band), shuttling between the camera's nearest nucleon and its
+// closest neighbor. Rendered as the same Yukawa grain cloud as the
+// binding web's pions, at a size boosted by the same density factor.
+// ══════════════════════════════════════════════════════════════
+let pionMesh=null, pionLabel=null;
+function disposePion(){
+  if(pionMesh){ scene.remove(pionMesh); pionMesh.geometry.dispose(); pionMesh=null; }
+  if(pionLabel){ pionLabel.remove(); pionLabel=null; }
+}
+function ensurePion(){
+  if(pionMesh) return;
+  const grainCount=Math.round(THREE.MathUtils.clamp(16*pionDensityFactor,10,34));
+  const radius=nr*0.24*(0.75+0.25*pionDensityFactor);
+  const rnd=seededRand(Math.round((heroIndex+1)*137+partnerIndex*13+1));
+  const pos=new Float32Array(grainCount*3);
+  const col=new Float32Array(grainCount*3);
+  const alp=new Float32Array(grainCount);
+  const phase=new Float32Array(grainCount);
+  const freq=new Float32Array(grainCount);
+  for(let g=0;g<grainCount;g++){
+    const off=sampleYukawaCloud(radius,rnd);
+    pos[g*3]=off.x; pos[g*3+1]=off.y; pos[g*3+2]=off.z;
+    col[g*3]=0.22; col[g*3+1]=1.0; col[g*3+2]=0.56;
+    alp[g]=0.6+rnd()*0.4;
+    phase[g]=rnd()*Math.PI*2;
+    freq[g]=1.8+rnd()*3.0;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aC',new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aA',new THREE.BufferAttribute(alp,1));
+  geo.setAttribute('aPhase',new THREE.BufferAttribute(phase,1));
+  geo.setAttribute('aFreq',new THREE.BufferAttribute(freq,1));
+  pionMesh=new THREE.Points(geo,pionGrainMat);
+  pionMesh.frustumCulled=false;
+  scene.add(pionMesh);
+  pionLabel=document.createElement('div');
+  pionLabel.className='plabel';
+  pionLabel.style.color='#39ff8f';
+  pionLabel.textContent='π (pion exchange)';
+  document.getElementById('labels').appendChild(pionLabel);
+}
+
+// ══════════════════════════════════════════════════════════════
+// CONTROLS: drag orbit + wheel/pinch zoom
+// ══════════════════════════════════════════════════════════════
+let dragging=false, lastX=0,lastY=0;
+// Touch fires BOTH raw touch events (used below for pinch) and pointer
+// events (used here for orbit-drag) for the same fingers. Without this
+// guard, a two-finger pinch also drives orbit-drag off whichever finger's
+// pointermove happens to land last each frame, fighting the pinch and
+// making the view jump around while you're zooming.
+let activeTouches=0;
+canvas.addEventListener('pointerdown',e=>{
+  if(activeTouches>=2) return;
+  dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointerup',()=>dragging=false);
+canvas.addEventListener('pointercancel',()=>dragging=false);
+canvas.addEventListener('pointermove',e=>{
+  if(!dragging || activeTouches>=2) return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY;
+  lastX=e.clientX; lastY=e.clientY;
+  camTheta -= dx*0.006;
+  camPhi = THREE.MathUtils.clamp(camPhi - dy*0.006, 0.15, Math.PI-0.15);
+});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  zoom = THREE.MathUtils.clamp(zoom + e.deltaY*0.00035, 0, 1);
+  syncZoomUI();
+},{passive:false});
+
+// pinch
+let pinchStart=null;
+canvas.addEventListener('touchstart',e=>{
+  activeTouches=e.touches.length;
+  if(activeTouches>=2){
+    dragging=false; // hand off fully to pinch; stop orbit-drag fighting it
+    pinchStart=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  }
+},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  if(e.touches.length===2 && pinchStart){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    const delta=pinchStart-d;
+    zoom=THREE.MathUtils.clamp(zoom+delta*0.0022,0,1);
+    pinchStart=d;
+    syncZoomUI();
+  }
+},{passive:true});
+canvas.addEventListener('touchend',e=>{
+  activeTouches=e.touches.length;
+  if(activeTouches<2) pinchStart=null;
+},{passive:true});
+
+const zsl=document.getElementById('zsl');
+zsl.addEventListener('input',()=>{ zoom=zsl.value/1000; syncZoomUI(false); });
+function syncZoomUI(fromDrag){
+  if(fromDrag!==false) zsl.value=Math.round(zoom*1000);
+  const zval=document.getElementById('zval');
+  const mode=currentMode();
+  if(mode==='MACRO') zval.textContent='NUCLEUS VIEW';
+  else if(mode==='PAIR') zval.textContent='RESIDUAL FORCE';
+  else zval.textContent='QUARK SCALE';
+}
+
+document.getElementById('tg-jiggle').addEventListener('click',()=>{
+  zoom=0; camTheta=0.7; camPhi=1.15; syncZoomUI(); showToast('VIEW RESET');
+});
+let showPions=true, showGluons=true;
+document.getElementById('tg-pion').addEventListener('click',function(){
+  showPions=!showPions; this.classList.toggle('on',showPions);
+});
+document.getElementById('tg-gluon').addEventListener('click',function(){
+  showGluons=!showGluons; this.classList.toggle('on',showGluons);
+});
+
+// ── LEGEND POPOVER ──
+const legendPop=document.getElementById('legend-pop');
+const legendBtn=document.getElementById('legend-btn');
+function toggleLegend(force){
+  const open = force!==undefined ? force : !legendPop.classList.contains('open');
+  legendPop.classList.toggle('open',open);
+  legendBtn.classList.toggle('on',open);
+  legendBtn.setAttribute('aria-expanded',String(open));
+}
+legendBtn.addEventListener('click',e=>{ e.stopPropagation(); toggleLegend(); });
+document.addEventListener('click',e=>{
+  if(legendPop.classList.contains('open') && !legendPop.contains(e.target) && e.target!==legendBtn){
+    toggleLegend(false);
+  }
+});
+
+// ── HELP BUTTON (reopen onboarding) ──
+document.getElementById('help-btn').addEventListener('click',()=>{
+  document.getElementById('onboard').classList.remove('hide');
+});
+
+// ── KEEP BOTTOM BAR HEIGHT IN SYNC (prevents clipping as content reflows) ──
+const botbarEl=document.getElementById('botbar');
+function applyBotbarHeight(h){
+  document.documentElement.style.setProperty('--botbar-h',Math.ceil(h)+'px');
+}
+if('ResizeObserver' in window){
+  new ResizeObserver(entries=>applyBotbarHeight(entries[0].target.offsetHeight)).observe(botbarEl);
+} else {
+  addEventListener('resize',()=>applyBotbarHeight(botbarEl.offsetHeight));
+  applyBotbarHeight(botbarEl.offsetHeight);
+}
+
+// keyboard: arrow keys cycle elements, +/- zoom
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){ selectElement(Math.min(118,Z+1)); }
+  else if(e.key==='ArrowLeft'){ selectElement(Math.max(1,Z-1)); }
+  else if(e.key==='+'||e.key==='='){ zoom=Math.min(1,zoom+0.03); syncZoomUI(); }
+  else if(e.key==='-'||e.key==='_'){ zoom=Math.max(0,zoom-0.03); syncZoomUI(); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// ELEMENT PANEL / SELECTION
+// ══════════════════════════════════════════════════════════════
+const elpanel=document.getElementById('elpanel');
+const elscrim=document.getElementById('elpanel-scrim');
+function openPanel(){
+  elpanel.classList.add('open'); elscrim.classList.add('open');
+  document.getElementById('elsearch').focus({preventScroll:true});
+  const active=ellist.querySelector('.elrow.active');
+  if(active) active.scrollIntoView({block:'center'});
+}
+function closePanel(){ elpanel.classList.remove('open'); elscrim.classList.remove('open'); }
+document.getElementById('elbtn').addEventListener('click',()=>{
+  elpanel.classList.contains('open') ? closePanel() : openPanel();
+});
+document.getElementById('elclose').addEventListener('click',closePanel);
+elscrim.addEventListener('click',closePanel);
+addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePanel(); toggleLegend(false); } });
+
+const ellist=document.getElementById('ellist');
+function renderList(filter){
+  ellist.innerHTML='';
+  const f=(filter||'').trim().toLowerCase();
+  const matches=ELEMENTS.filter(el=>!f || el.name.toLowerCase().includes(f) || el.sym.toLowerCase().includes(f) || String(el.Z)===f);
+  if(matches.length===0){
+    const empty=document.createElement('div');
+    empty.id='elempty';
+    empty.textContent='No element matches "'+filter+'"';
+    ellist.appendChild(empty);
+    return;
+  }
+  matches.forEach(el=>{
+    const row=document.createElement('div');
+    row.className='elrow'+(el.Z===Z?' active':'');
+    row.innerHTML=`<span class="z">${el.Z}</span><span class="sym">${el.sym}</span><span class="nm">${el.name}</span><span class="cnt">${el.Z}p·${el.n}n</span>`;
+    row.addEventListener('click',()=>{ selectElement(el.Z); closePanel(); });
+    ellist.appendChild(row);
+  });
+}
+document.getElementById('elsearch').addEventListener('input',e=>renderList(e.target.value));
+
+document.getElementById('prevbtn').addEventListener('click',()=>selectElement(Math.max(1,Z-1)));
+document.getElementById('nextbtn').addEventListener('click',()=>selectElement(Math.min(118,Z+1)));
+
+function plural(n,noun){ return `${n} ${noun}${n===1?'':'s'}`; }
+
+function selectElement(z){
+  const el=byZ(z);
+  buildNucleus(el.Z, el.n);
+  document.getElementById('tb-badge').textContent=el.sym;
+  document.getElementById('tb-badge').title=el.name+' (Z='+el.Z+')';
+  document.getElementById('tb-name').textContent=el.name.toUpperCase();
+  document.getElementById('tb-count').textContent=`${plural(el.Z,'proton')} · ${plural(el.n,'neutron')} · mass number ${el.Z+el.n}`;
+  document.getElementById('prevbtn').disabled = el.Z<=1;
+  document.getElementById('nextbtn').disabled = el.Z>=118;
+  renderList(document.getElementById('elsearch').value);
+  showToast(el.name.toUpperCase()+' — '+plural(el.Z,'proton')+', '+plural(el.n,'neutron'));
+}
+
+let toastT=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('show'),1600);
+}
+
+function updateHUD(){
+  const el=byZ(Z);
+  document.getElementById('infoline').innerHTML = macroInfo(el);
+}
+function macroInfo(el){
+  return `<b>${el.name} (${el.sym})</b> nucleus — ${plural(el.Z,'proton')} (red) + ${plural(el.n,'neutron')} (blue), held together by the web of exchanged <b>pions</b> you can see linking every neighboring pair. Zoom in to see quarks &amp; gluons.`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SCREEN PROJECTION for HTML labels
+// ══════════════════════════════════════════════════════════════
+const v3=new THREE.Vector3();
+function project(pos){
+  v3.copy(pos).project(camera);
+  return { x:(v3.x*0.5+0.5)*innerWidth, y:(-v3.y*0.5+0.5)*innerHeight, visible: v3.z<1 };
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAIN LOOP
+// ══════════════════════════════════════════════════════════════
+let clock=0, lastT=performance.now();
+let lastMode='MACRO';
+let nucleonWorldPos=[];
+
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  const dt=Math.min((now-lastT)/1000,0.05);
+  lastT=now; clock+=dt;
+
+  const mode=currentMode();
+  const dist=camDistForZoom(zoom);
+
+  // View-direction unit vector — computed from orbit angles only, independent
+  // of camTarget, so it can be used to keep the camera's actual distance
+  // from the ORIGIN monotonic (see camRadius calc below).
+  const dirVec=new THREE.Vector3(
+    Math.sin(camPhi)*Math.cos(camTheta),
+    Math.cos(camPhi),
+    Math.sin(camPhi)*Math.sin(camTheta)
+  );
+
+  const provisionalCamPos=dirVec.clone().multiplyScalar(dist).add(camTarget);
+
+  // jiggle macro nucleons; their fuzzy grain clouds hide once we're at
+  // quark scale, since the quark/gluon layer (built for every nucleon)
+  // takes over
+  positions.forEach((p,i)=>{
+    const j=jitter[i];
+    const off=j.axis.clone().multiplyScalar(j.amp*Math.sin(clock*j.freq+j.phase));
+    nucleonWorldPos[i]=p.clone().add(off);
+  });
+  const showNucleonGrains = mode!=='QUARK';
+  protonCloud.visible=showNucleonGrains;
+  neutronCloud.visible=showNucleonGrains;
+  if(showNucleonGrains) updateNucleonGrains(nucleonWorldPos);
+
+  // spotlight nucleon: nearest to camera — drives camera-follow + HUD/label only,
+  // rendering itself now covers every nucleon regardless of this
+  if(mode!=='MACRO'){
+    const h=findHero(provisionalCamPos);
+    heroIndex=h; partnerIndex=findPartner(h);
+  } else if(heroIndex!==-1){
+    heroIndex=-1; partnerIndex=-1; disposePion();
+  }
+
+  // quark / gluon layer: every nucleon's internal structure, together
+  const showQuarks = mode==='QUARK';
+  quarkUpMesh.visible=showQuarks;
+  quarkDownMesh.visible=showQuarks;
+  gluonMesh.visible=showQuarks && showGluons;
+  if(showQuarks) updateQuarkLayer(nucleonWorldPos);
+
+  // binding web: residual strong force across every nucleon pair —
+  // this is what visibly holds the nucleus together, shown until we
+  // zoom past nucleon scale into the quarks themselves
+  const showBonds = !showQuarks && showPions;
+  bondLineMesh.visible=showBonds;
+  pionCloud.visible=showBonds;
+  if(showBonds) updateBondWeb(nucleonWorldPos,dist);
+
+  // camera target: origin -> spotlight nucleon as we zoom past BAND1
+  let targetPos=new THREE.Vector3(0,0,0);
+  if(heroIndex!==-1) targetPos=nucleonWorldPos[heroIndex].clone();
+  const tblend=THREE.MathUtils.smoothstep(zoom,BAND1-0.08,BAND1+0.15);
+  camTarget.lerp(targetPos, Math.min(1,tblend*0.25+ (mode==='QUARK'?0.4:0)));
+  if(mode==='MACRO') camTarget.lerp(new THREE.Vector3(0,0,0), 0.15);
+
+  // camRadius is the distance from camTarget out to the camera. Using
+  // camDistForZoom(zoom) directly here was the bug: as zoom increases past
+  // BAND1, camTarget itself drifts outward from the origin toward the hero
+  // nucleon (which sits near the nucleus surface — a large displacement).
+  // dist only shrinks a little over that same range, so the camera's actual
+  // position (camTarget + dirVec*dist) moved FARTHER from the nucleus before
+  // coming back in — a real, visible zoom-out baked into a "zoom in" drag.
+  // Fix: subtract camTarget's own displacement along the view direction from
+  // the radius, so the camera's distance from the world origin — not just
+  // from the ever-shifting pivot — tracks camDistForZoom(zoom) monotonically.
+  const camProj=camTarget.dot(dirVec);
+  const camRadius=THREE.MathUtils.clamp(dist-camProj, nr*0.05, dist);
+
+  camera.position.copy(camTarget).addScaledVector(dirVec, camRadius);
+  camera.lookAt(camTarget);
+  camera.near = Math.max(0.001, dist*0.01);
+  camera.far = Rnuc*20+50;
+  camera.updateProjectionMatrix();
+
+  // halo opacity fade with zoom (macro shells)
+  nucGroup.children.forEach(c=>{
+    if(c.material && c.material.side===THREE.BackSide){
+      c.visible = mode==='MACRO';
+    }
+  });
+
+  // PION exchange (PAIR band)
+  if(mode==='PAIR' && showPions && heroIndex!==-1 && partnerIndex!==-1){
+    ensurePion();
+    const a=nucleonWorldPos[heroIndex], b=nucleonWorldPos[partnerIndex];
+    const t=(Math.sin(clock*2.4)+1)/2;
+    const mid=a.clone().lerp(b,0.5).addScaledVector(new THREE.Vector3(0,1,0),nr*0.9);
+    // quadratic bezier a->mid->b
+    const p1=a.clone().lerp(mid,t), p2=mid.clone().lerp(b,t);
+    const pos=p1.lerp(p2,t);
+    pionMesh.position.copy(pos);
+    // per-object pulse (safe: scale is Object3D state, not shared-material
+    // state — pionGrainMat itself is reused by the whole binding web too)
+    const pulse=0.85+0.25*Math.sin(clock*6);
+    pionMesh.scale.setScalar(pulse);
+    const sc=project(pos);
+    pionLabel.style.left=sc.x+'px'; pionLabel.style.top=(sc.y-18)+'px';
+    pionLabel.style.opacity = sc.visible?1:0;
+  } else {
+    disposePion();
+  }
+
+  // spotlight label at quark scale — names whichever nucleon is centered
+  if(showQuarks && heroIndex!==-1){
+    const sc=project(nucleonWorldPos[heroIndex]);
+    heroLabel.style.display='block';
+    heroLabel.style.left=sc.x+'px'; heroLabel.style.top=(sc.y-26)+'px';
+    heroLabel.style.opacity = sc.visible?1:0;
+    heroLabel.textContent = types[heroIndex]==='p' ? 'proton · uud' : 'neutron · udd';
+    heroLabel.style.color = types[heroIndex]==='p' ? '#ff5533' : '#4477ff';
+  } else {
+    heroLabel.style.display='none';
+  }
+
+  // mode label / info line
+  if(mode!==lastMode){
+    lastMode=mode;
+    document.getElementById('modelabel').textContent =
+      mode==='MACRO'?'MACRO':mode==='PAIR'?'RESIDUAL FORCE':'QUARK · GLUON';
+    const el=byZ(Z);
+    const info=document.getElementById('infoline');
+    if(mode==='MACRO') info.innerHTML=macroInfo(el);
+    else if(mode==='PAIR') info.innerHTML=`<b>Residual strong force:</b> neighboring nucleons constantly exchange virtual <b>pions (π)</b> — this leftover of the strong interaction is what glues the ${el.name} nucleus together.`;
+    else info.innerHTML=`<b>Inside every nucleon:</b> all ${plural(el.Z,'proton')} and ${plural(el.n,'neutron')} are shown at once, each a triad of <b>quarks</b> (u/d) bound by <b>gluon</b> flux-tubes whose rippling surface stands in for the propagating strong-force field.`;
+  }
+  syncZoomUI(true);
+
+  renderer.render(scene,camera);
+}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+renderList('');
+selectElement(1);
+animate();
+
+// ── ONBOARDING ──
+const onboard=document.getElementById('onboard');
+function dismissOnboard(){
+  onboard.classList.add('hide');
+  try{ sessionStorage.setItem('nucleus-onboarded','1'); }catch(e){}
+}
+document.getElementById('onboard-btn').addEventListener('click',dismissOnboard);
+canvas.addEventListener('pointerdown',dismissOnboard,{once:true});
+try{
+  if(sessionStorage.getItem('nucleus-onboarded')==='1') onboard.classList.add('hide');
+}catch(e){}
+</script>
+</body>
+</html>
