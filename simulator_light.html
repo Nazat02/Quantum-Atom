@@ -12562,91 +12562,105 @@ function applySharedBuildLink(){
 
 
 
+// Highest number of electrons the EXCITED STATE button will promote at once.
+// (Defined here — it was previously referenced but never declared, which made
+// the button throw a ReferenceError on click.)
+const MAX_EXCITED_PHASES = 8;
+
+// EXCITED-STATE MODEL
+// -------------------
+// Level k promotes k electrons, one at a time, from the outermost occupied
+// orbitals (highest energy first) into the lowest EMPTY sub-orbital slots
+// above the valence shell, ONE electron per slot. No dipole l±1 restriction:
+// we show the energetically-lowest unoccupied orbitals, so
+//   H  (1s1)        -> 2s
+//   He (1s2)        -> 2s, then 2px
+//   Mg (3s2)        -> 3px, then 3py        (different orbitals, own axes)
+// Slots are enumerated per sub-orbital (px/py/pz, dz²/dxy/...), so a promoted
+// electron keeps its true axis and the other sub-orbitals of that subshell
+// stay empty -> invisible (the renderers skip any sub with e===0, and any
+// orbital whose total electron count is 0 is dropped from the config).
+// An orbital that loses ALL its electrons (e.g. H's 1s) disappears entirely;
+// only orbitals that still hold an electron are drawn.
+const _excitedCache={Z:null,level:null,result:null};
+
 function getExcitedConfig(Z,level){
   if(_excitedCache.Z===Z&&_excitedCache.level===level) return _excitedCache.result;
 
   const ground=getConfig(Z);
-  const groundMap={};
-  ground.forEach(o=>{groundMap[o.name]=o.e;});
-
-  const occMap={};
-  ground.forEach(o=>{ occMap[o.name]=o.occ.map(s=>({...s})); });
-  const totalE={};
-  ground.forEach(o=>{ totalE[o.name]=o.e; });
-
-  let valenceIdx=-1,valenceName=null,valenceRemaining=0;
+  const orbIdx=name=>ORBS.findIndex(x=>x.name===name);
+  const groundMap={}, totalE={}, occMap={};
   ground.forEach(o=>{
-    const idx=ORBS.findIndex(x=>x.name===o.name);
-    if(idx>valenceIdx){valenceIdx=idx;valenceName=o.name;valenceRemaining=o.e;}
+    groundMap[o.name]=o.e;
+    totalE[o.name]=o.e;
+    occMap[o.name]=o.occ.map(s=>({...s}));
   });
 
+  // Valence = highest-energy occupied subshell (ORBS is in filling order).
+  let valenceIdx=-1;
+  ground.forEach(o=>{ valenceIdx=Math.max(valenceIdx,orbIdx(o.name)); });
+  const valenceN=ORBS[valenceIdx].n;
+
+  // Empty target slots above the valence shell, lowest energy first.
+  // Skip lower-n orbitals that sit later in the list (e.g. 3d after 4s).
+  const slots=[];
+  for(let t=valenceIdx+1;t<ORBS.length;t++){
+    const o=ORBS[t];
+    if(o.n<valenceN) continue;
+    if((totalE[o.name]||0)>0) continue;
+    for(let s=0;s<numSubs(o.l);s++) slots.push({idx:t,sub:s});
+  }
+
+  // Source orbitals: outermost first.
+  // Only outer-shell electrons are excitable (valence shell + the valence
+  // subshell itself, e.g. 3d in Fe) — core electrons like Li's 1s stay put.
+  const maxN=Math.max(...ground.map(o=>o.n));
+  const srcOrder=ground
+    .filter(o=>o.n===maxN||orbIdx(o.name)===valenceIdx)
+    .map(o=>orbIdx(o.name)).sort((a,b)=>b-a);
+
   let reached=0;
-  let cascadeName=null,cascadeIdx=valenceIdx;
   const promotions=[];
+  for(let k=0;k<level;k++){
+    if(k>=slots.length) break;
+    let srcIdx=-1;
+    for(const i of srcOrder){ if(totalE[ORBS[i].name]>0){ srcIdx=i; break; } }
+    if(srcIdx===-1) break;
 
-  for(let i=0;i<level;i++){
-    let sourceName,sourceIdx;
-    if(valenceRemaining>0){ sourceName=valenceName; sourceIdx=valenceIdx; }
-    else if(cascadeName){ sourceName=cascadeName; sourceIdx=cascadeIdx; }
-    else break;
-
-    const sourceL=ORBS[sourceIdx].l;
-    const validLs=[sourceL-1,sourceL+1].filter(l=>l>=0&&l<=3);
-    if(validLs.length===0) break;
-
-    let targetIdx=-1;
-    for(let t=sourceIdx+1;t<ORBS.length;t++){
-      if(!validLs.includes(ORBS[t].l)) continue;
-      if(!(totalE[ORBS[t].name]>0)){targetIdx=t;break;}
-    }
-    if(targetIdx===-1){
-      for(let t=sourceIdx+1;t<ORBS.length;t++){
-        if(!validLs.includes(ORBS[t].l)) continue;
-        const cur=totalE[ORBS[t].name]||0;
-        if(cur>0&&cur<ORBS[t].max){targetIdx=t;break;}
-      }
-    }
-    if(targetIdx===-1) break;
-
-    const srcOcc=occMap[sourceName];
-    if(!srcOcc){break;}
+    const srcName=ORBS[srcIdx].name, srcL=ORBS[srcIdx].l;
+    const srcOcc=occMap[srcName];
     let srcSub=-1;
     for(let s=srcOcc.length-1;s>=0;s--){ if(srcOcc[s].e===2){srcSub=s;break;} }
     if(srcSub===-1){ for(let s=srcOcc.length-1;s>=0;s--){ if(srcOcc[s].e===1){srcSub=s;break;} } }
     if(srcSub===-1) break;
     srcOcc[srcSub].e--;
-    totalE[sourceName]--;
+    totalE[srcName]--;
 
-    const tgtName=ORBS[targetIdx].name, tgtL=ORBS[targetIdx].l;
+    const {idx:tIdx,sub:tgtSub}=slots[k];
+    const tgtName=ORBS[tIdx].name, tgtL=ORBS[tIdx].l;
     if(!occMap[tgtName]) occMap[tgtName]=fillHund(tgtL,0).map((c,i)=>({sub:i,label:subLabel(tgtL,i),e:0,excited:false}));
-    const tgtOcc=occMap[tgtName];
-    let tgtSub=tgtOcc.findIndex(s=>s.e===0);
-    if(tgtSub===-1) tgtSub=tgtOcc.findIndex(s=>s.e<2);
-    if(tgtSub===-1) break;
-    tgtOcc[tgtSub].e++;
-    tgtOcc[tgtSub].excited=true;
+    occMap[tgtName][tgtSub].e++;
+    occMap[tgtName][tgtSub].excited=true;
     totalE[tgtName]=(totalE[tgtName]||0)+1;
 
     promotions.push({
-      fromOrbital:sourceName, fromSub:subLabel(ORBS[sourceIdx].l,srcSub),
-      toOrbital:tgtName, toSub:subLabel(tgtL,tgtSub),
+      fromOrbital:srcName, fromSub:subLabel(srcL,srcSub),
+      toOrbital:tgtName,   toSub:subLabel(tgtL,tgtSub),
     });
-
-    if(sourceName===valenceName) valenceRemaining--;
-    cascadeName=tgtName; cascadeIdx=targetIdx;
     reached++;
   }
 
-  let cfg=Object.keys(totalE).filter(name=>totalE[name]>0).map(name=>{
+  const cfg=Object.keys(totalE).filter(name=>totalE[name]>0).map(name=>{
     const o=ORBS.find(x=>x.name===name);
     return {...o, e:totalE[name], excited: totalE[name]>(groundMap[name]||0), occ:occMap[name]};
   });
-  cfg.sort((a,b)=>ORBS.findIndex(x=>x.name===a.name)-ORBS.findIndex(x=>x.name===b.name));
+  cfg.sort((a,b)=>orbIdx(a.name)-orbIdx(b.name));
 
   const result={cfg,reached,promotions};
   _excitedCache.Z=Z;_excitedCache.level=level;_excitedCache.result=result;
   return result;
 }
+
 let excitedLevel=0; // 0 = ground state, 1..MAX_EXCITED_PHASES = number of electrons excited
 
 function getEffectiveConfig(Z){
@@ -17865,21 +17879,19 @@ sphericalbtn.onclick=()=>{
 const excitedbtn=document.getElementById('excitedbtn');
 excitedbtn.onclick=()=>{
   if(moleculeMode) return; // excited states aren't offered in molecule mode
-  excitedLevel=(excitedLevel+1)%(MAX_EXCITED_PHASES+1);
-  let reached=0;
-  if(excitedLevel>0) reached=getExcitedConfig(curZ,excitedLevel).reached;
+  // Advance one phase; wrap to ground state past the cap or once the
+  // requested number of electrons can no longer be promoted.
+  let next=excitedLevel+1;
+  if(next>MAX_EXCITED_PHASES||getExcitedConfig(curZ,next).reached<next) next=0;
+  const reached=next>0?getExcitedConfig(curZ,next).reached:0;
 
-  if(excitedLevel===0){
-    showToast('GROUND STATE');
-  }else if(reached===0){
-    // No valence electrons left to draw from (or no modeled orbital with
-    // room) — nothing higher to show, so drop back to ground rather than
-    // fake a phase.
-    excitedLevel=0;
-    showToast('NO VALENCE ELECTRONS AVAILABLE TO EXCITE FOR THIS ELEMENT');
+  if(next===0){
+    if(excitedLevel===0) showToast('NO FURTHER ORBITALS AVAILABLE TO EXCITE INTO');
+    else showToast('GROUND STATE');
   }else{
     showToast(`EXCITED STATE — ${reached} ELECTRON${reached!==1?'S':''} PROMOTED`);
   }
+  excitedLevel=next;
   syncExcitedButton(curZ);
   buildAtom(curZ);
   updateUI(curZ);
