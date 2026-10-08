@@ -10,16 +10,16 @@
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 :root{
-  --v1:#7c6cf6;--v2:#9b8afb;--c1:#38bdf8;--c2:#5fd4ec;--p1:#f472b6;--p2:#fba9d2;
-  --v-40:rgba(124,108,246,.40);--v-22:rgba(124,108,246,.22);
-  --v-12:rgba(124,108,246,.12);--v-06:rgba(124,108,246,.06);
+  --v1:#6952e0;--v2:#9b8afb;--c1:#38bdf8;--c2:#5fd4ec;--p1:#f472b6;--p2:#fba9d2;
+  --v-40:rgba(105,82,224,.40);--v-22:rgba(105,82,224,.22);
+  --v-12:rgba(105,82,224,.12);--v-06:rgba(105,82,224,.06);
   --c-30:rgba(56,189,248,.30);--c-14:rgba(56,189,248,.14);
   --p-30:rgba(244,114,182,.30);
   --bg-a:#eef1ff;--bg-b:#e3f6fb;--bg-c:#fdf1f8;
   --ink:#211c42;--hi:#1c1740;
-  --mid:rgba(33,28,66,.70);--lo:rgba(33,28,66,.52);--vlo:rgba(33,28,66,.36);
+  --mid:rgba(33,28,66,.70);--lo:rgba(33,28,66,.68);--vlo:rgba(33,28,66,.58);
   --glass:rgba(255,255,255,.46);--glass-hi:rgba(255,255,255,.68);--glass-lo:rgba(255,255,255,.30);
-  --border:rgba(255,255,255,.55);--border-v:rgba(124,108,246,.35);
+  --border:rgba(255,255,255,.55);--border-v:rgba(105,82,224,.35);
   --shadow:0 8px 32px rgba(76,60,160,.12);--shadow-lg:0 20px 60px rgba(76,60,160,.18);
   --mono:'JetBrains Mono',monospace;--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;
   --radius:18px;--radius-sm:12px;--blur:22px;
@@ -27,10 +27,10 @@
 html{scroll-behavior:smooth;}
 body{
   background:
-    radial-gradient(900px 600px at 8% -5%,rgba(124,108,246,.30),transparent 60%),
+    radial-gradient(900px 600px at 8% -5%,rgba(105,82,224,.30),transparent 60%),
     radial-gradient(800px 700px at 100% 10%,rgba(56,189,248,.26),transparent 55%),
     radial-gradient(900px 800px at 30% 95%,rgba(244,114,182,.22),transparent 55%),
-    radial-gradient(700px 700px at 90% 85%,rgba(124,108,246,.18),transparent 55%),
+    radial-gradient(700px 700px at 90% 85%,rgba(105,82,224,.18),transparent 55%),
     linear-gradient(160deg,var(--bg-a) 0%,var(--bg-b) 55%,var(--bg-c) 100%);
   background-attachment:fixed;
   color:var(--ink);font-family:var(--body);overflow-x:hidden;
@@ -59,8 +59,9 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .nav-link:hover{color:var(--v1);background:var(--v-06);}
 .nav-cta{font-family:var(--body);font-size:.76rem;font-weight:600;padding:9px 20px;border:none;
   border-radius:999px;color:#fff;background:linear-gradient(120deg,var(--v1),var(--c1));text-decoration:none;transition:all .2s;
-  box-shadow:0 6px 18px rgba(124,108,246,.38);}
-.nav-cta:hover{box-shadow:0 8px 24px rgba(124,108,246,.5);transform:translateY(-1px);}
+  white-space:nowrap;flex-shrink:0;
+  box-shadow:0 6px 18px rgba(105,82,224,.38);}
+.nav-cta:hover{box-shadow:0 8px 24px rgba(105,82,224,.5);transform:translateY(-1px);}
 .nav-hamburger{display:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--border-v);
   background:var(--v-06);align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-left:4px;transition:all .18s;}
 .nav-hamburger svg{width:18px;height:18px;pointer-events:none;}
@@ -117,14 +118,8 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .btn-primary{display:inline-flex;align-items:center;gap:9px;font-family:var(--body);font-size:.88rem;font-weight:600;
   letter-spacing:0;padding:15px 32px;border-radius:999px;border:none;
   background:linear-gradient(120deg,var(--v1),var(--c1));color:#fff;text-decoration:none;transition:all .25s;position:relative;
-  box-shadow:0 10px 30px rgba(124,108,246,.4);}
-.btn-primary:hover{box-shadow:0 14px 38px rgba(124,108,246,.55);transform:translateY(-2px);}
-.btn-v2{display:inline-flex;align-items:center;gap:9px;font-family:var(--body);font-size:.88rem;font-weight:600;
-  letter-spacing:0;padding:14px 28px;border-radius:999px;border:1.5px solid var(--border-v);
-  background:var(--glass);color:var(--v1);text-decoration:none;transition:all .25s;backdrop-filter:blur(var(--blur));box-shadow:var(--shadow);}
-.btn-v2:hover{background:linear-gradient(120deg,var(--v1),var(--c1));border-color:transparent;color:#fff;
-  box-shadow:0 14px 38px rgba(124,108,246,.5);transform:translateY(-2px);}
-.btn-v2:focus-visible{outline:2px solid var(--v1);outline-offset:3px;}
+  box-shadow:0 10px 30px rgba(105,82,224,.4);}
+.btn-primary:hover{box-shadow:0 14px 38px rgba(105,82,224,.55);transform:translateY(-2px);}
 .btn-secondary{display:inline-flex;align-items:center;gap:9px;font-family:var(--body);font-size:.88rem;font-weight:600;
   padding:15px 28px;border-radius:999px;border:1px solid var(--border);
   background:var(--glass);color:var(--ink);text-decoration:none;transition:all .25s;backdrop-filter:blur(var(--blur));box-shadow:var(--shadow);}
@@ -132,7 +127,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .hero-scroll{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);
   display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.55;animation:fadeIn 1.5s 1.2s ease both;}
 .scroll-line{width:2px;height:36px;border-radius:2px;background:linear-gradient(to bottom,var(--v1),transparent);animation:scrollPulse 2.2s ease-in-out infinite;}
-.scroll-label{font-size:.66rem;font-weight:600;letter-spacing:.12em;color:var(--lo);}
+.scroll-label{font-size:.7rem;font-weight:600;letter-spacing:.12em;color:var(--lo);}
 
 /* ═══ STATS BAR ═══ */
 #stats{position:relative;z-index:1;padding:0 40px;margin:0 auto;max-width:1100px;}
@@ -157,7 +152,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
   background:var(--glass);
   backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);
   display:flex;align-items:center;justify-content:center;max-width:340px;margin:0 auto;box-shadow:var(--shadow-lg);}
-.atom-diagram canvas{border-radius:50%;}
+.atom-diagram canvas{border-radius:50%;max-width:100%;height:auto;min-width:0;} /* canvas is 320px wide; was forcing sideways scroll at 320px */
 
 .fact-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;}
 .fact-cell{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-sm);
@@ -191,7 +186,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .tl-who{font-size:.72rem;font-weight:600;color:var(--p1);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
 .tl-title-t{font-family:var(--display);font-weight:600;font-size:1.05rem;color:var(--hi);margin-bottom:8px;}
 .tl-body{font-size:.84rem;color:var(--lo);line-height:1.75;}
-.tl-tag{display:inline-block;margin-top:12px;font-size:.68rem;font-weight:600;color:var(--v1);
+.tl-tag{display:inline-block;margin-top:12px;font-size:.7rem;font-weight:600;color:var(--v1);
   border:1px solid var(--border-v);border-radius:999px;padding:4px 12px;background:var(--v-06);}
 
 /* ═══ BOHR MODEL ═══ */
@@ -200,7 +195,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .bohr-canvas-wrap{position:relative;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
   background:var(--glass);backdrop-filter:blur(var(--blur));aspect-ratio:1;box-shadow:var(--shadow-lg);}
 .bohr-canvas-wrap canvas{width:100%;height:100%;display:block;}
-.bohr-label{position:absolute;top:14px;left:14px;font-size:.68rem;font-weight:600;color:var(--v1);
+.bohr-label{position:absolute;top:14px;left:14px;font-size:.7rem;font-weight:600;color:var(--v1);
   background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:999px;padding:5px 12px;backdrop-filter:blur(8px);}
 .bohr-info{display:flex;flex-direction:column;gap:16px;}
 .bohr-card{border:1px solid var(--border);border-radius:var(--radius-sm);padding:22px;background:var(--glass);
@@ -214,7 +209,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 
 .bohr-eqn{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-sm);padding:18px 22px;
   text-align:center;font-family:var(--display);font-weight:600;font-size:1.15rem;color:var(--hi);margin-top:4px;backdrop-filter:blur(var(--blur));box-shadow:var(--shadow);}
-.bohr-eqn .eqn-label{font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.06em;color:var(--lo);margin-bottom:8px;}
+.bohr-eqn .eqn-label{font-family:var(--mono);font-size:.7rem;font-weight:500;letter-spacing:.06em;color:var(--lo);margin-bottom:8px;}
 
 /* ═══ QUANTUM MODEL ═══ */
 #quantum{position:relative;z-index:1;}
@@ -254,10 +249,10 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .compare-head .model-year{font-size:.76rem;color:var(--lo);}
 .compare-head .model-author{font-size:.78rem;font-weight:500;color:var(--v1);margin-top:4px;}
 .compare-rows{display:flex;flex-direction:column;}
-.compare-row{padding:16px 28px;border-bottom:1px solid rgba(124,108,246,.08);font-size:.82rem;color:var(--lo);line-height:1.6;transition:background .15s;}
+.compare-row{padding:16px 28px;border-bottom:1px solid rgba(105,82,224,.08);font-size:.82rem;color:var(--lo);line-height:1.6;transition:background .15s;}
 .compare-row:hover{background:rgba(255,255,255,.25);}
 .compare-row:last-child{border-bottom:none;}
-.compare-row .cr-label{font-size:.68rem;font-weight:600;color:var(--v1);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;}
+.compare-row .cr-label{font-size:.7rem;font-weight:600;color:var(--v1);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;}
 .compare-row .cr-val{color:var(--mid);}
 .compare-row .cr-val.good{color:#0d9f6e;font-weight:500;}
 .compare-row .cr-val.bad{color:var(--vlo);}
@@ -269,7 +264,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .prob-card{border:1px solid var(--border);border-radius:var(--radius-sm);padding:28px;background:var(--glass);
   backdrop-filter:blur(var(--blur));position:relative;overflow:hidden;transition:all .22s;box-shadow:var(--shadow);}
 .prob-card:hover{background:var(--glass-hi);transform:translateY(-3px);box-shadow:var(--shadow-lg);}
-.prob-number{font-family:var(--display);font-weight:600;font-size:3rem;color:rgba(124,108,246,.12);
+.prob-number{font-family:var(--display);font-weight:600;font-size:3rem;color:rgba(105,82,224,.12);
   position:absolute;top:14px;right:20px;line-height:1;pointer-events:none;}
 .prob-icon{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;
   background:linear-gradient(135deg,var(--v-22),var(--c-14));margin-bottom:16px;color:var(--v1);}
@@ -315,7 +310,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .feat-icon svg{display:block;}
 .feat-title{font-family:var(--display);font-weight:600;font-size:1.08rem;color:var(--hi);margin-bottom:10px;}
 .feat-body{font-size:.85rem;color:var(--lo);line-height:1.75;}
-.feat-tag{display:inline-block;margin-top:14px;font-size:.68rem;font-weight:600;color:var(--v1);
+.feat-tag{display:inline-block;margin-top:14px;font-size:.7rem;font-weight:600;color:var(--v1);
   border:1px solid var(--border-v);border-radius:999px;padding:4px 12px;background:var(--v-06);}
 
 /* ═══ ORBITAL DEEP DIVE ═══ */
@@ -334,7 +329,7 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .orb-props{display:flex;flex-direction:column;gap:10px;}
 .orb-prop{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;background:rgba(255,255,255,.3);
   border-radius:10px;font-size:.76rem;}
-.op-key{font-weight:600;color:var(--v1);letter-spacing:.03em;text-transform:uppercase;font-size:.68rem;}
+.op-key{font-weight:600;color:var(--v1);letter-spacing:.03em;text-transform:uppercase;font-size:.7rem;}
 .op-val{color:var(--ink);font-weight:500;text-align:right;}
 
 /* ═══ ELEMENTS GRID ═══ */
@@ -348,9 +343,9 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
   backdrop-filter:blur(12px);padding:10px 6px 8px;text-align:center;cursor:default;transition:all .18s;
   border-left:3px solid var(--v1);box-shadow:var(--shadow);}
 .el-mini:hover{background:var(--glass-hi);transform:translateY(-2px);box-shadow:var(--shadow-lg);}
-.el-mini .num{font-size:.6rem;color:var(--vlo);font-weight:600;}
+.el-mini .num{font-size:.7rem;color:var(--vlo);font-weight:600;}
 .el-mini .sym{font-family:var(--display);font-weight:600;font-size:1.05rem;color:var(--hi);line-height:1.2;}
-.el-mini .nm{font-size:.5rem;color:var(--lo);letter-spacing:.04em;margin-top:2px;font-weight:600;}
+.el-mini .nm{font-size:.7rem;color:var(--lo);letter-spacing:.04em;margin-top:2px;font-weight:600;}
 .el-mini[data-p="1"]{border-left-color:var(--v1);}
 .el-mini[data-p="2"]{border-left-color:var(--c1);}
 .el-mini[data-p="3"]{border-left-color:var(--p1);}
@@ -365,9 +360,9 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 .step{padding:36px 30px;position:relative;overflow:hidden;transition:all .22s;background:var(--glass);
   border:1px solid var(--border);border-radius:var(--radius-sm);backdrop-filter:blur(var(--blur));box-shadow:var(--shadow);}
 .step:hover{background:var(--glass-hi);transform:translateY(-3px);box-shadow:var(--shadow-lg);}
-.step-num{font-family:var(--display);font-weight:600;font-size:3.2rem;color:rgba(124,108,246,.1);
+.step-num{font-family:var(--display);font-weight:600;font-size:3.2rem;color:rgba(105,82,224,.1);
   line-height:1;position:absolute;top:18px;right:20px;pointer-events:none;transition:color .2s;}
-.step:hover .step-num{color:rgba(124,108,246,.18);}
+.step:hover .step-num{color:rgba(105,82,224,.18);}
 .step-icon{width:42px;height:42px;border-radius:12px;
   background:linear-gradient(135deg,var(--v1),var(--p1));display:flex;align-items:center;justify-content:center;margin-bottom:18px;color:#fff;}
 .step-title{font-family:var(--display);font-weight:600;font-size:1.02rem;color:var(--hi);margin-bottom:10px;}
@@ -464,13 +459,20 @@ footer{position:relative;z-index:1;}
   .uncertainty-box{padding:24px 18px;}
   .compare-head{padding:18px 16px;}
   .compare-row{padding:11px 16px;}
-  .section-eyebrow{font-size:.66rem;}
+  .section-eyebrow{font-size:.7rem;}
   .section-title{font-size:clamp(1.65rem,7vw,2.4rem);}
   .period-legend{gap:10px;margin:18px 0 14px;}
   .el-mini-grid{grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px;}
   .orb-deep-card{padding:22px 18px;}
   .hero-eyebrow{font-size:.72rem;padding:7px 14px;}
   .hero-scroll{bottom:24px;}
+}
+@media(max-width:380px){
+  nav{padding:0 6px 0 10px;}
+  .nav-logo{gap:8px;}
+  .nav-name{font-size:.8rem;}
+  .nav-cta{padding:8px 12px;font-size:.7rem;}
+  .nav-hamburger{width:32px;height:32px;margin-left:0;}
 }
 
 /* ── ATOM LOGO ANIMATIONS ── */
@@ -479,8 +481,8 @@ footer{position:relative;z-index:1;}
 @keyframes pspin-c{from{transform:rotate(30deg)}to{transform:rotate(390deg)}}
 @keyframes pspin-d{from{transform:rotate(180deg)}to{transform:rotate(-180deg)}}
 @keyframes plasma-outer-glow{
-  0%,100%{filter:drop-shadow(0 0 6px rgba(124,108,246,.5)) drop-shadow(0 0 16px rgba(56,189,248,.35));}
-  50%{filter:drop-shadow(0 0 10px rgba(124,108,246,.65)) drop-shadow(0 0 26px rgba(244,114,182,.4));}
+  0%,100%{filter:drop-shadow(0 0 6px rgba(105,82,224,.5)) drop-shadow(0 0 16px rgba(56,189,248,.35));}
+  50%{filter:drop-shadow(0 0 10px rgba(105,82,224,.65)) drop-shadow(0 0 26px rgba(244,114,182,.4));}
 }
 @keyframes spark1{0%{opacity:0;transform:translate(0,0) scale(1);}20%{opacity:1;}100%{opacity:0;transform:translate(8px,-9px) scale(0);}}
 @keyframes spark2{0%{opacity:0;transform:translate(0,0) scale(1);}25%{opacity:.9;}100%{opacity:0;transform:translate(-10px,-6px) scale(0);}}
@@ -495,7 +497,30 @@ footer{position:relative;z-index:1;}
   cursor:pointer;transition:all .2s;flex-shrink:0;
   font-size:1.05rem;line-height:1;text-decoration:none;
 }
-.theme-toggle-btn:hover{box-shadow:0 0 12px rgba(124,108,246,.5);transform:translateY(-1px);}
+.theme-toggle-btn:hover{box-shadow:0 0 12px rgba(105,82,224,.5);transform:translateY(-1px);}
+</style>
+
+<style id="ux-patch">
+/* ── UX patch: keyboard focus, touch targets, motion, slider hit-area ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible,[role="button"]:focus-visible,summary:focus-visible{outline:2px solid var(--v1) !important;outline-offset:2px !important;}
+input[type=range]:focus-visible{outline-offset:4px !important;}
+button,[role="button"]{touch-action:manipulation;}
+.panel-close,.prevbtn,.nextbtn,#prevbtn,#nextbtn,.legend-btn,.theme-link,.elbtn,.tgbtn,.back-link,.mode-btn,.nav-link,.nav-cta{min-height:32px;min-width:32px;display:inline-flex;align-items:center;justify-content:center;}
+.footer-link{display:inline-block;padding:8px 6px;}
+@media (pointer:coarse){.panel-close,.prevbtn,.nextbtn,#prevbtn,#nextbtn,.legend-btn,.theme-link,.elbtn,.tgbtn,.back-link,.mode-btn,.nav-link,.nav-cta{min-height:40px;min-width:40px;}}
+input[type=range]{height:24px !important;background:transparent !important;}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(128,128,128,.35);}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:rgba(128,128,128,.35);}
+input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto !important;}*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}}
+:root{--p1:#c42c7e;--p2:#c42c7e;--c1:#0a7ea4;--c2:#0a7ea4;}
+.cr-val.good,.cr-val.ok,.prob-solved{color:#0a7a52 !important;}
+.qn-sym,.orb-sym-big{filter:saturate(1.2) brightness(.8);}
+.btn-v2{border:1px solid transparent !important;color:var(--hi) !important;background:linear-gradient(rgba(255,255,255,.75),rgba(255,255,255,.75)) padding-box,linear-gradient(120deg,var(--v1),var(--c1)) border-box !important;box-shadow:0 6px 18px rgba(105,82,224,.25);}
+.btn-v2:hover{background:linear-gradient(120deg,var(--v1),var(--c1)) border-box !important;color:#fff !important;box-shadow:0 10px 28px rgba(105,82,224,.5);transform:translateY(-2px);}
+.v2-new{font-size:.62rem;letter-spacing:.1em;padding:3px 8px;border-radius:999px;background:linear-gradient(120deg,var(--v1),var(--c1));color:#fff;font-weight:700;}
+.btn-v2:hover .v2-new{background:#fff;color:var(--v1);}
+@media(max-width:960px){#hero{padding-bottom:150px !important;}.hero-scroll{bottom:28px !important;}}
 </style>
 </head>
 <body>
@@ -515,7 +540,7 @@ footer{position:relative;z-index:1;}
     <filter id="nav-glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="nav-soft"><feGaussianBlur stdDeviation="1"/></filter>
   </defs>
-  <rect width="90" height="90" rx="18" fill="#7c6cf6"/>
+  <rect width="90" height="90" rx="18" fill="#6952e0"/>
   <rect width="90" height="45" rx="18" fill="rgba(255,255,255,.06)"/>
   <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".85" fill="none"/>
   <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".75" fill="none" transform="rotate(60 45 45)"/>
@@ -578,8 +603,8 @@ footer{position:relative;z-index:1;}
   </p>
   <div class="hero-actions">
     <a href="https://nazat02.github.io/Quantum-Atom/simulator_light.html" class="btn-primary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".9"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".78" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".7" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="2.5" fill="white"/><circle cx="21.5" cy="12" r="1.6" fill="white"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="2s" repeatCount="indefinite"/></circle></svg>LAUNCH SIMULATOR</a>
-    <a href="https://nazat02.github.io/Quantum-Atom-2.0/" target="_blank" rel="noopener noreferrer" class="btn-v2">Try Quantum Atom 2.0<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M5 11L11 5M6 5h5v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     <a href="#what-atom" class="btn-secondary">LEARN MORE ↓</a>
+    <a href="https://nazat02.github.io/Quantum-Atom-2.0/" target="_blank" rel="noopener" class="btn-secondary btn-v2"><span class="v2-new">NEW</span>TRY QUANTUM ATOM 2.0 ↗</a>
   </div>
   <div class="hero-scroll"><div class="scroll-line"></div><div class="scroll-label">SCROLL</div></div>
 </section>
@@ -612,7 +637,7 @@ footer{position:relative;z-index:1;}
         <div class="atom-diagram" id="atom-static-wrap">
           <canvas id="atom-static" width="320" height="320"></canvas>
         </div>
-        <div style="text-align:center;margin-top:12px;font-size:.58rem;letter-spacing:.14em;color:var(--lo);">HYDROGEN ATOM · QUANTUM PROBABILITY DENSITY</div>
+        <div style="text-align:center;margin-top:12px;font-size:.7rem;letter-spacing:.14em;color:var(--lo);">HYDROGEN ATOM · QUANTUM PROBABILITY DENSITY</div>
       </div>
     </div>
     <div class="fact-strip reveal">
@@ -804,7 +829,7 @@ footer{position:relative;z-index:1;}
         <p class="prose-p">This weirdness is not a flaw — it is the source of everything: chemical bonds, solid matter, semiconductors, DNA, life itself. <em>The quantum atom is why chemistry works.</em></p>
       </div>
       <div class="qm-numbers reveal reveal-delay-1">
-        <div style="font-size:.6rem;letter-spacing:.18em;color:var(--cx);text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">Quantum Numbers</div>
+        <div style="font-size:.7rem;letter-spacing:.18em;color:var(--cx);text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">Quantum Numbers</div>
         <div class="qn-row">
           <div class="qn-sym" style="color:var(--cx);">n</div>
           <div>
@@ -1021,32 +1046,32 @@ footer{position:relative;z-index:1;}
     <p class="section-body">Textbook diagrams of orbitals are flat. Verbal descriptions are abstract. Neither prepares you for the strangeness and beauty of quantum reality. Seeing changes everything.</p>
     <div class="why-grid reveal">
       <div class="why-card">
-        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#7c6cf6" stroke-width="1.7" stroke-linejoin="round" fill="none"/><circle cx="12" cy="12" r="3" stroke="#7c6cf6" stroke-width="1.7" fill="#7c6cf6" fill-opacity=".2"/><circle cx="12" cy="12" r="1.2" fill="#7c6cf6"/></svg></div>
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#6952e0" stroke-width="1.7" stroke-linejoin="round" fill="none"/><circle cx="12" cy="12" r="3" stroke="#6952e0" stroke-width="1.7" fill="#6952e0" fill-opacity=".2"/><circle cx="12" cy="12" r="1.2" fill="#6952e0"/></svg></div>
         <div class="why-title">Intuition Building</div>
         <div class="why-body">Reading that a 2p orbital is "dumbbell-shaped" is one thing. Watching it rotate in 3D, seeing its lobes, understanding its orientation relative to other orbitals — that's <em>real comprehension</em>. The simulator builds spatial intuition that no textbook can.</div>
       </div>
       <div class="why-card">
-        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="10" r="5.5" stroke="#7c6cf6" stroke-width="1.7" fill="none"/><circle cx="11" cy="10" r="2.5" stroke="#38bdf8" stroke-width="1" fill="#7c6cf6" fill-opacity=".15"/><line x1="15" y1="14.5" x2="20" y2="19.5" stroke="#7c6cf6" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="10" r="5.5" stroke="#6952e0" stroke-width="1.7" fill="none"/><circle cx="11" cy="10" r="2.5" stroke="#38bdf8" stroke-width="1" fill="#6952e0" fill-opacity=".15"/><line x1="15" y1="14.5" x2="20" y2="19.5" stroke="#6952e0" stroke-width="2" stroke-linecap="round"/></svg></div>
         <div class="why-title">The Invisible, Visible</div>
         <div class="why-body">Atoms are 10,000 times smaller than the wavelength of visible light. <em>You cannot see an atom with a microscope</em>. Yet we know the exact shape of every orbital from mathematics. This simulator renders that math into something your visual cortex can grasp.</div>
       </div>
       <div class="why-card">
-        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="5" cy="12" r="2.5" fill="#7c6cf6" opacity=".8"/><circle cx="19" cy="12" r="2.5" fill="#7c6cf6" opacity=".8"/><circle cx="12" cy="5" r="2.5" fill="#38bdf8" opacity=".9"/><circle cx="12" cy="19" r="2.5" fill="#38bdf8" opacity=".9"/><circle cx="12" cy="12" r="3" fill="#7c6cf6"/><line x1="7.5" y1="12" x2="9" y2="12" stroke="#7c6cf6" stroke-width="1.8"/><line x1="15" y1="12" x2="16.5" y2="12" stroke="#7c6cf6" stroke-width="1.8"/><line x1="12" y1="7.5" x2="12" y2="9" stroke="#38bdf8" stroke-width="1.8"/><line x1="12" y1="15" x2="12" y2="16.5" stroke="#38bdf8" stroke-width="1.8"/></svg></div>
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="5" cy="12" r="2.5" fill="#6952e0" opacity=".8"/><circle cx="19" cy="12" r="2.5" fill="#6952e0" opacity=".8"/><circle cx="12" cy="5" r="2.5" fill="#38bdf8" opacity=".9"/><circle cx="12" cy="19" r="2.5" fill="#38bdf8" opacity=".9"/><circle cx="12" cy="12" r="3" fill="#6952e0"/><line x1="7.5" y1="12" x2="9" y2="12" stroke="#6952e0" stroke-width="1.8"/><line x1="15" y1="12" x2="16.5" y2="12" stroke="#6952e0" stroke-width="1.8"/><line x1="12" y1="7.5" x2="12" y2="9" stroke="#38bdf8" stroke-width="1.8"/><line x1="12" y1="15" x2="12" y2="16.5" stroke="#38bdf8" stroke-width="1.8"/></svg></div>
         <div class="why-title">Chemistry Comes Alive</div>
         <div class="why-body">When you see that <em>two p-orbitals on adjacent atoms</em> can overlap sideways to form a π-bond, bonding theory stops being memorization and becomes geometry. The shapes of molecules, their reactivity, their properties — all encoded in orbital shapes you can now see.</div>
       </div>
       <div class="why-card">
-        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12 Q5 6 8 12 Q11 18 14 12 Q17 6 20 12" stroke="#7c6cf6" stroke-width="1.8" stroke-linecap="round" fill="none"/><line x1="2" y1="19" x2="22" y2="19" stroke="#38bdf8" stroke-width="1" stroke-opacity=".4"/><line x1="2" y1="5" x2="22" y2="5" stroke="#38bdf8" stroke-width="1" stroke-opacity=".4"/></svg></div>
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12 Q5 6 8 12 Q11 18 14 12 Q17 6 20 12" stroke="#6952e0" stroke-width="1.8" stroke-linecap="round" fill="none"/><line x1="2" y1="19" x2="22" y2="19" stroke="#38bdf8" stroke-width="1" stroke-opacity=".4"/><line x1="2" y1="5" x2="22" y2="5" stroke="#38bdf8" stroke-width="1" stroke-opacity=".4"/></svg></div>
         <div class="why-title">Math Made Concrete</div>
         <div class="why-body">The Schrödinger equation's solutions are abstract functions of (r, θ, φ). This simulator samples those functions using <em>Monte Carlo methods</em> — turning pure mathematics into point clouds. The probability density |ψ|² becomes visible as the density of glowing dots.</div>
       </div>
       <div class="why-card">
-        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9.5" stroke="#7c6cf6" stroke-width="1.7" fill="none"/><ellipse cx="12" cy="12" rx="4.5" ry="9.5" stroke="#38bdf8" stroke-width="1" fill="none" stroke-opacity=".7"/><line x1="2.5" y1="9" x2="21.5" y2="9" stroke="#38bdf8" stroke-width="1" stroke-opacity=".5"/><line x1="2.5" y1="15" x2="21.5" y2="15" stroke="#38bdf8" stroke-width="1" stroke-opacity=".5"/></svg></div>
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9.5" stroke="#6952e0" stroke-width="1.7" fill="none"/><ellipse cx="12" cy="12" rx="4.5" ry="9.5" stroke="#38bdf8" stroke-width="1" fill="none" stroke-opacity=".7"/><line x1="2.5" y1="9" x2="21.5" y2="9" stroke="#38bdf8" stroke-width="1" stroke-opacity=".5"/><line x1="2.5" y1="15" x2="21.5" y2="15" stroke="#38bdf8" stroke-width="1" stroke-opacity=".5"/></svg></div>
         <div class="why-title">Education Democratized</div>
         <div class="why-body">High-end molecular visualization software costs thousands of dollars and requires specialist training. This simulator runs in any browser, on any device, for free. <em>Anyone curious about quantum mechanics</em> — anywhere in the world — can explore the atom immediately.</div>
       </div>
       <div class="why-card">
-        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="6.5" rx="4" ry="5" stroke="#7c6cf6" stroke-width="1.7" fill="#7c6cf6" fill-opacity=".15"/><ellipse cx="12" cy="17.5" rx="4" ry="5" stroke="#7c6cf6" stroke-width="1.7" fill="#7c6cf6" fill-opacity=".15"/><line x1="12" y1="11.5" x2="12" y2="12.5" stroke="#7c6cf6" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <div class="why-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="6.5" rx="4" ry="5" stroke="#6952e0" stroke-width="1.7" fill="#6952e0" fill-opacity=".15"/><ellipse cx="12" cy="17.5" rx="4" ry="5" stroke="#6952e0" stroke-width="1.7" fill="#6952e0" fill-opacity=".15"/><line x1="12" y1="11.5" x2="12" y2="12.5" stroke="#6952e0" stroke-width="2" stroke-linecap="round"/></svg></div>
         <div class="why-title">d-Orbital Geometry</div>
         <div class="why-body">The five d-orbital shapes — dz², dxy, dxz, dyz, dx²-y² — are notoriously difficult to visualize from flat diagrams. The simulator renders all five in 3D with <em>distinct color coding per sub-lobe</em>, including the dz² torus ring that appears nowhere else in atomic structure.</div>
       </div>
@@ -1245,7 +1270,7 @@ footer{position:relative;z-index:1;}
     <div class="features-grid reveal">
       <div class="feat-card">
         <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="16" r="3" fill="white"/><circle cx="6" cy="7" r="2.4" fill="rgba(255,255,255,.8)"/><circle cx="18" cy="7" r="2.4" fill="rgba(255,255,255,.8)"/><line x1="12" y1="16" x2="6" y2="7" stroke="white" stroke-width="1.4" stroke-opacity=".6"/><line x1="12" y1="16" x2="18" y2="7" stroke="white" stroke-width="1.4" stroke-opacity=".6"/></svg></div>
-        <div class="feat-title">52 Curated Molecules</div>
+        <div class="feat-title">140+ Curated Molecules</div>
         <div class="feat-body">From simple diatomics like H₂ and O₂ to shapes every chemistry student has drawn by hand: bent H₂O, trigonal pyramidal NH₃, tetrahedral CH₄, trigonal bipyramidal PF₅, octahedral SF₆, and more.</div>
         <span class="feat-tag">VSEPR-ACCURATE</span>
       </div>
@@ -1288,7 +1313,7 @@ footer{position:relative;z-index:1;}
   <div class="section-inner">
     <p class="section-eyebrow">Build Mode</p>
     <h2 class="section-title">Type it.<br>Watch it exist.</h2>
-    <p class="section-body">A third mode alongside Atoms and Molecules: type the name of any element or compound — organic, inorganic, simple, or complex — and the simulator resolves it into real 3D geometry. Not limited to the 52 curated molecules; this is open-ended.</p>
+    <p class="section-body">A third mode alongside Atoms and Molecules: type the name of any element or compound — organic, inorganic, simple, or complex — and the simulator resolves it into real 3D geometry. Not limited to the 140+ curated molecules; this is open-ended.</p>
     <div class="features-grid reveal">
       <div class="feat-card">
         <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="6.5" stroke="white" stroke-width="1.6" fill="none"/><line x1="14.8" y1="14.8" x2="20" y2="20" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg></div>
@@ -1317,7 +1342,7 @@ footer{position:relative;z-index:1;}
       <div class="feat-card">
         <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,.1)"/></svg></div>
         <div class="feat-title">Every Mode Still Works</div>
-        <div class="feat-body">A Build result is pushed straight into the same live registry the 52 curated molecules live in — so Ultra Mode, Antimatter Mode, Smooth Orbitals, and Spherical Mode all apply to anything you build automatically, for free.</div>
+        <div class="feat-body">A Build result is pushed straight into the same live registry the 140+ curated molecules live in — so Ultra Mode, Antimatter Mode, Smooth Orbitals, and Spherical Mode all apply to anything you build automatically, for free.</div>
         <span class="feat-tag">NO SPECIAL-CASING</span>
       </div>
       <div class="feat-card">
@@ -1446,7 +1471,7 @@ footer{position:relative;z-index:1;}
     <filter id="cta-glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="cta-soft"><feGaussianBlur stdDeviation="1"/></filter>
   </defs>
-  <rect width="90" height="90" rx="18" fill="#7c6cf6"/>
+  <rect width="90" height="90" rx="18" fill="#6952e0"/>
   <rect width="90" height="45" rx="18" fill="rgba(255,255,255,.06)"/>
   <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".85" fill="none"/>
   <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".75" fill="none" transform="rotate(60 45 45)"/>
@@ -1482,7 +1507,7 @@ footer{position:relative;z-index:1;}
     <filter id="foot-glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="foot-soft"><feGaussianBlur stdDeviation="1"/></filter>
   </defs>
-  <rect width="90" height="90" rx="18" fill="#7c6cf6"/>
+  <rect width="90" height="90" rx="18" fill="#6952e0"/>
   <rect width="90" height="45" rx="18" fill="rgba(255,255,255,.06)"/>
   <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".85" fill="none"/>
   <ellipse cx="45" cy="45" rx="34" ry="12" stroke="white" stroke-width="2.2" stroke-opacity=".75" fill="none" transform="rotate(60 45 45)"/>
@@ -1495,7 +1520,7 @@ footer{position:relative;z-index:1;}
   <circle cx="79" cy="45" r="3.8" fill="rgba(186,230,253,.9)" filter="url(#foot-glow)" transform="rotate(-60 45 45)"><animateTransform attributeName="transform" type="rotate" from="-60 45 45" to="300 45 45" dur="3.8s" repeatCount="indefinite"/></circle>
 </svg></div>
       <div>
-        <div style="font-size:.68rem;letter-spacing:.12em;color:var(--hi);font-family:var(--display);font-weight:700;">QUANTUM ATOM SIMULATOR</div>
+        <div style="font-size:.7rem;letter-spacing:.12em;color:var(--hi);font-family:var(--display);font-weight:700;">QUANTUM ATOM SIMULATOR</div>
         <div class="footer-name">Atoms · Molecules · Nuclei — Interactive 3D Quantum Visualization</div>
       </div>
     </div>
@@ -1541,7 +1566,7 @@ window.addEventListener('error',function(e){
       ring.phase+=ring.speed;
       ctx.save();ctx.translate(cx,cy);ctx.rotate(ring.phase);
       ctx.setLineDash(ring.dash);
-      ctx.strokeStyle=`rgba(124,108,246,${ring.alpha})`;ctx.lineWidth=1;
+      ctx.strokeStyle=`rgba(105,82,224,${ring.alpha})`;ctx.lineWidth=1;
       ctx.beginPath();ctx.ellipse(0,0,ring.r,ring.r*.4,0,0,Math.PI*2);ctx.stroke();
       ctx.restore();
     });
@@ -1552,7 +1577,7 @@ window.addEventListener('error',function(e){
       p.a+=p.speed;
       const x=p.cx+Math.cos(p.a)*p.r,y=p.cy+Math.sin(p.a)*p.r*.38;
       ctx.beginPath();ctx.arc(x,y,p.size,0,Math.PI*2);
-      ctx.fillStyle=`rgba(124,108,246,${p.alpha})`;ctx.fill();
+      ctx.fillStyle=`rgba(105,82,224,${p.alpha})`;ctx.fill();
     });
     requestAnimationFrame(draw);
   }
@@ -1594,8 +1619,8 @@ window.addEventListener('error',function(e){
     const ng=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,16);
     ng.addColorStop(0,'rgba(255,255,255,.95)');
     ng.addColorStop(.25,'rgba(196,181,253,.95)');
-    ng.addColorStop(.6,'rgba(124,108,246,.55)');
-    ng.addColorStop(1,'rgba(124,108,246,0)');
+    ng.addColorStop(.6,'rgba(105,82,224,.55)');
+    ng.addColorStop(1,'rgba(105,82,224,0)');
     ctx.beginPath();ctx.arc(W/2,H/2,16,0,Math.PI*2);ctx.fillStyle=ng;ctx.fill();
     requestAnimationFrame(draw);
   }
@@ -1619,7 +1644,7 @@ window.addEventListener('error',function(e){
   window.addEventListener('resize',resize);
   // Hydrogen: 1 electron, 1 orbit
   const shells=[
-    {n:1,r:.18,electrons:1,color:'#7c6cf6',speed:1.8},
+    {n:1,r:.18,electrons:1,color:'#6952e0',speed:1.8},
     {n:2,r:.32,electrons:0,color:'#38bdf8',speed:1.0},
     {n:3,r:.44,electrons:0,color:'#f472b6',speed:.65},
   ];
@@ -1641,10 +1666,10 @@ window.addEventListener('error',function(e){
       const rad=sh.r*scale;
       // Orbit ring
       ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);
-      ctx.strokeStyle=`rgba(124,108,246,.28)`;ctx.setLineDash([6,8]);ctx.lineWidth=1;ctx.stroke();
+      ctx.strokeStyle=`rgba(105,82,224,.28)`;ctx.setLineDash([6,8]);ctx.lineWidth=1;ctx.stroke();
       ctx.setLineDash([]);
       // Shell label
-      ctx.fillStyle='rgba(124,108,246,.65)';ctx.font=`${scale*.038}px 'JetBrains Mono',monospace`;
+      ctx.fillStyle='rgba(105,82,224,.65)';ctx.font=`${scale*.038}px 'JetBrains Mono',monospace`;
       ctx.textAlign='left';ctx.textBaseline='middle';
       ctx.fillText(`n=${sh.n}`,cx+rad+6,cy-8);
       // Electrons
@@ -1664,7 +1689,7 @@ window.addEventListener('error',function(e){
           const tx=cx+Math.cos(ta)*rad,ty=cy+Math.sin(ta)*rad;
           if(j===1)ctx.moveTo(tx,ty);else ctx.lineTo(tx,ty);
         }
-        ctx.strokeStyle=`rgba(124,108,246,.4)`;ctx.lineWidth=2;ctx.stroke();
+        ctx.strokeStyle=`rgba(105,82,224,.4)`;ctx.lineWidth=2;ctx.stroke();
       }
       // Emission arrow indicator (between n=2 and n=1)
       if(i===1){
@@ -1787,6 +1812,65 @@ document.querySelectorAll('#mobile-menu a').forEach(function(a){
     document.getElementById('nav-hamburger').setAttribute('aria-expanded','false');
   });
 });
+</script>
+
+<script>
+// ── DEV-ONLY: DARK/LIGHT PARITY SELF-CHECK ──
+// This page and index_dark.html ship as two independent files by design
+// (no build step, no shared bundle) — which means a feature can be added
+// to one and silently forgotten in the other. That already happened once
+// (Hyper Realistic Mode shipped light-only with zero landing-page mention
+// anywhere). This replaces a separate Node/CI script with something that
+// lives in the page itself: open devtools on the live site and run
+// checkThemeParity() in the console.
+//
+// Needs http(s) (e.g. the GitHub Pages URL) — a file:// page can't fetch()
+// its sibling due to browser security, and this says so rather than
+// failing silently.
+window.checkThemeParity = async function () {
+  const SIBLING = 'index_dark.html';
+  // Known, reviewed, intentional asymmetries — name the reason, don't just
+  // silence the check. See simulator_light.html's own checkThemeParity for
+  // the matching toolbar-level entry.
+  const ALLOWED = {
+    featTitles: ['Hyper Realistic Mode'], // light-only: needs WebGL2 float render targets
+  };
+  const extract = (doc) => ({
+    sectionIds: [...doc.querySelectorAll('section[id]')].map((e) => e.id),
+    navHrefs: [...doc.querySelectorAll('a[href^="#"]')].map((e) => e.getAttribute('href').slice(1)),
+    featTitles: [...doc.querySelectorAll('.feat-title')].map((e) => e.textContent.trim()),
+    whyTitles: [...doc.querySelectorAll('.why-title')].map((e) => e.textContent.trim()),
+    statLabels: [...doc.querySelectorAll('.stat-label')].map((e) => e.textContent.trim()),
+  });
+  let res;
+  try {
+    res = await fetch(SIBLING);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    console.warn(
+      '[parity] Could not fetch ' + SIBLING + ' — this check needs http(s), ' +
+      'not file://. Open the live GitHub Pages URL instead. (' + e.message + ')'
+    );
+    return null;
+  }
+  const siblingDoc = new DOMParser().parseFromString(await res.text(), 'text/html');
+  const mine = extract(document);
+  const theirs = extract(siblingDoc);
+  let clean = true;
+  const report = {};
+  for (const field of Object.keys(mine)) {
+    const a = new Set(mine[field]), b = new Set(theirs[field]);
+    const allow = ALLOWED[field] || [];
+    const onlyHere = [...a].filter((x) => !b.has(x) && !allow.includes(x));
+    const onlyInSibling = [...b].filter((x) => !a.has(x) && !allow.includes(x));
+    if (onlyHere.length || onlyInSibling.length) {
+      clean = false;
+      report[field] = { onlyHere, onlyInSibling };
+    }
+  }
+  console.log(clean ? '✓ Theme parity OK vs ' + SIBLING : '✗ Theme parity MISMATCH vs ' + SIBLING, report);
+  return { clean, report };
+};
 </script>
 
 <script>

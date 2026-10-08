@@ -2,10 +2,58 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quantum Atom Simulator</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='%23ff5500'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.85' fill='none'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.75' fill='none' transform='rotate(60 45 45)'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.7' fill='none' transform='rotate(-60 45 45)'/><circle cx='45' cy='45' r='10' fill='white' opacity='.95'/></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* >>> embedded: orbs-data.js (source of truth; regenerate with embed-data.py) */
+// orbs-data.js
+// ──────────────────────────────────────────────────────────────────────
+// Extracted from simulator_dark.html / simulator_light.html during Phase 2
+// (Core Extraction), step 3. Shared physics data for all 23 orbital types:
+// principal quantum number (n), angular momentum (l), max electron capacity
+// (max), and mean radius (R, used for spatial layout). Verified identical
+// between both theme files before extraction (ignoring color fields and
+// whitespace) — this data doesn't vary by theme, only the colors do, so
+// only the colors stay theme-specific (see ORBS_THEME_COLORS in each
+// simulator file). Comments explaining specific R values are preserved
+// from the original dark-theme file where they lived.
+const ORBS_PHYSICS=[
+  {name:"1s",n:1,l:0,max:2,R:3.0},
+  {name:"2s",n:2,l:0,max:2,R:8.0},
+  {name:"2p",n:2,l:1,max:6,R:41.0},
+  {name:"3s",n:3,l:0,max:2,R:70.0},
+  {name:"3p",n:3,l:1,max:6,R:144.0},
+  {name:"4s",n:4,l:0,max:2,R:250.0},
+  {name:"3d",n:3,l:2,max:10,R:143.0},
+  {name:"4p",n:4,l:1,max:6,R:481.0},
+  {name:"5s",n:5,l:0,max:2,R:820.0},
+  {name:"4d",n:4,l:2,max:10,R:478.0},
+  {name:"5p",n:5,l:1,max:6,R:1600.0},
+  {name:"6s",n:6,l:0,max:2,R:3040.0},
+  // 4f/5d fill AFTER 6s in aufbau order but sit spatially INSIDE it — the
+  // well-known "lanthanide contraction" — hence smaller R despite filling
+  // later, matching how 3d (R:143) already sits inside 4s (R:180) above.
+  {name:"4f",n:4,l:3,max:14,R:750.0},
+  {name:"5d",n:5,l:2,max:10,R:1800.0},
+  {name:"6p",n:6,l:1,max:6,R:5800.0},
+  {name:"7s",n:7,l:0,max:2,R:10120.0},
+  // 5f/6d: actinide analog of the 4f/5d contraction above.
+  {name:"5f",n:5,l:3,max:14,R:2800.0},
+  {name:"6d",n:6,l:2,max:10,R:6000.0},
+  {name:"7p",n:7,l:1,max:6,R:20000.0},
+  // 8s/8p never occur in any ground-state configuration this app models
+  // (max Z=118, Oganesson, whose valence — 7p — is now the top of the
+  // real orbital list) — pure excited-state headroom, same role 6s/6p/7s
+  // played before the table was extended past Xenon.
+  {name:"8s",n:8,l:0,max:2,R:52000.0},
+  {name:"8p",n:8,l:1,max:6,R:130000.0},
+  {name:"9s",n:9,l:0,max:2,R:340000.0},
+  {name:"9p",n:9,l:1,max:6,R:820000.0},
+];
+/* <<< embedded: orbs-data.js */
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
@@ -30,7 +78,7 @@
   --border-hi:  rgba(var(--cyan-rgb),.35);
   --hi:         #ffffff;
   --mid:        rgba(255,255,255,.75);
-  --lo:         rgba(255,255,255,.45);
+  --lo:         rgba(255,255,255,.64);
   --panel-w:    260px;
   --topbar-h:   60px;
   --botbar-h:   64px;
@@ -128,7 +176,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 }
 #esym-badge .badge-z {
   flex: 0 0 auto;
-  font-size: .5rem;
+  font-size: .7rem;
   color: var(--cyan);
   line-height: 1;
   letter-spacing: .02em;
@@ -165,8 +213,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   flex-direction: column;
   justify-content: center;
   gap: 10px;
-  min-width: 0;
-  flex: 1;
+  min-width: 128px;  /* fits the longest element name (OGANESSON) without ellipsis */
+  flex: 1 1 128px;
 }
 #ename {
   font-family: 'Rajdhani', sans-serif;
@@ -181,7 +229,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   line-height: 1;
 }
 #emeta {
-  font-size: .65rem;
+  font-size: .7rem;
   color: var(--lo);
   letter-spacing: .03em;
   white-space: nowrap;
@@ -212,12 +260,25 @@ canvas { position:fixed; inset:0; z-index:0; }
   text-shadow: 0 0 6px rgba(255,204,51,.7);
 }
 
-#tabs { display:flex; gap:6px; flex-shrink:0; }
+/* Toolbar strip: shrinks and scrolls instead of overflowing the (overflow:hidden) top bar,
+   which used to push buttons off-screen and collapse the element name to 0px wide. */
+#tabs {
+  display:flex; gap:6px; flex:0 1 auto; min-width:0;
+  overflow-x:auto; overflow-y:hidden; padding:2px 0;
+  scrollbar-width:none; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+  --fade-l:0px; --fade-r:0px;
+  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+          mask-image:linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+}
+#tabs::-webkit-scrollbar { display:none; }
+#tabs > * { flex-shrink:0; }
+#tabs.fade-l { --fade-l:20px; }
+#tabs.fade-r { --fade-r:20px; }
 .tab {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: .68rem;
+  font-size: .7rem;
   letter-spacing: .08em;
   padding: 7px 14px;
   border-radius: var(--radius);
@@ -283,7 +344,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   flex-shrink: 0;
 }
 .panel-title {
-  font-size: .68rem;
+  font-size: .7rem;
   letter-spacing: .18em;
   color: var(--cyan);
   text-transform: uppercase;
@@ -359,9 +420,9 @@ canvas { position:fixed; inset:0; z-index:0; }
 
 /* Section label */
 .ptitle {
-  font-size: .62rem;
+  font-size: .7rem;
   letter-spacing: .16em;
-  color: var(--cyan-40);
+  color: rgba(var(--cyan-rgb),.9);
   text-transform: uppercase;
   padding-bottom: 7px;
   border-bottom: 1px solid rgba(var(--cyan-rgb),.08);
@@ -373,7 +434,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   flex:1; padding:8px 6px; border-radius:6px;
   border:1px solid rgba(var(--cyan-rgb),.1); background:rgba(var(--cyan-rgb),.04);
   color:var(--lo); font-family:'Rajdhani',sans-serif; font-weight:700;
-  font-size:.68rem; letter-spacing:.06em; cursor:pointer;
+  font-size:.7rem; letter-spacing:.06em; cursor:pointer;
   transition: background .13s, border-color .13s, color .13s;
 }
 .mode-btn:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
@@ -391,7 +452,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 .mcard:hover { background:var(--cyan-10); border-color:var(--cyan-40); }
 .mcard.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(var(--cyan-rgb),.25); }
 .mcard .mf { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.95rem; color:var(--hi); min-width:0; overflow-wrap:anywhere; }
-.mcard .mn { font-size:.62rem; color:var(--lo); letter-spacing:.05em; text-transform:uppercase; }
+.mcard .mn { font-size:.7rem; color:var(--lo); letter-spacing:.05em; text-transform:uppercase; }
 
 /* Build mode — universal element/molecule resolver (see
    universal-build-blueprint-v3.md for the design behind this) */
@@ -412,7 +473,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 #build-suggest-chip {
   display:inline-block; margin-top:8px; padding:6px 10px; border-radius:14px;
   border:1px solid var(--cyan-40); background:var(--cyan-10); color:var(--hi);
-  font-size:.68rem; cursor:pointer; user-select:none;
+  font-size:.7rem; cursor:pointer; user-select:none;
 }
 #build-suggest-chip:hover { background:var(--cyan-20); }
 .build-examples-section { margin-top:16px; }
@@ -423,13 +484,13 @@ canvas { position:fixed; inset:0; z-index:0; }
 .ex-chip {
   appearance:none; padding:6px 11px; border-radius:12px;
   border:1px solid rgba(var(--cyan-rgb),.15); background:rgba(var(--cyan-rgb),.04);
-  color:var(--mid); font-family:'Share Tech Mono', monospace; font-size:.64rem;
+  color:var(--mid); font-family:'Share Tech Mono', monospace; font-size:.7rem;
   letter-spacing:.02em; cursor:pointer; white-space:nowrap; user-select:none;
   transition: background .13s, border-color .13s, color .13s, box-shadow .13s;
 }
 .ex-chip:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
 .ex-chip:active { background:var(--cyan-20); box-shadow:0 0 10px rgba(var(--cyan-rgb),.2); }
-.build-examples-note { margin-top:11px; font-size:.62rem; color:var(--lo); line-height:1.6; }
+.build-examples-note { margin-top:11px; font-size:.7rem; color:var(--lo); line-height:1.6; }
 
 /* Element grid */
 .egrid {
@@ -464,7 +525,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   -webkit-user-select: none;
 }
 .ebtn .s { font-size: .92rem; color: var(--hi); transition: color .13s; }
-.ebtn .z { font-size: .58rem; color: var(--lo); line-height:1; }
+.ebtn .z { font-size: .7rem; color: var(--lo); line-height:1; }
 .ebtn:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
 .ebtn:hover .s { color:var(--cyan); }
 .ebtn.on { background:var(--cyan-10); border-color:var(--cyan); box-shadow:0 0 12px rgba(var(--cyan-rgb),.25); color:var(--hi); }
@@ -481,7 +542,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   background: rgba(4,10,24,.96);
   border: 1px solid var(--cyan-40);
   color: var(--hi);
-  font-size: .62rem;
+  font-size: .7rem;
   padding: 4px 8px;
   border-radius: 4px;
   white-space: nowrap;
@@ -516,7 +577,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   transition: background .15s;
 }
 .srow:hover { background:rgba(var(--cyan-rgb),.07); }
-.sk { font-size: .65rem; color: var(--lo); letter-spacing: .08em; white-space: nowrap; }
+.sk { font-size: .7rem; color: var(--lo); letter-spacing: .08em; white-space: nowrap; }
 .sv { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1rem; color: var(--hi); }
 .sdiv { height: 1px; background: rgba(var(--cyan-rgb),.08); margin: 2px 0; }
 
@@ -524,7 +585,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   width: 100%;
   text-align: center;
   padding: 10px 12px;
-  font-size: .68rem;
+  font-size: .7rem;
   margin-top: 4px;
   background: rgba(var(--cyan-rgb),.07);
   border: 1px solid rgba(var(--cyan-rgb),.22);
@@ -544,7 +605,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   width: 100%;
   text-align: center;
   padding: 10px 12px;
-  font-size: .68rem;
+  font-size: .7rem;
   margin-top: 4px;
   background: rgba(var(--cyan-rgb),.07);
   border: 1px solid rgba(var(--cyan-rgb),.22);
@@ -571,7 +632,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   width: 100%;
   text-align: center;
   padding: 10px 12px;
-  font-size: .68rem;
+  font-size: .7rem;
   margin-top: 4px;
   background: rgba(var(--cyan-rgb),.07);
   border: 1px solid rgba(var(--cyan-rgb),.22);
@@ -598,7 +659,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   width: 100%;
   text-align: center;
   padding: 10px 12px;
-  font-size: .68rem;
+  font-size: .7rem;
   margin-top: 4px;
   background: rgba(255,60,0,.09);
   border: 1px solid rgba(255,100,20,.28);
@@ -625,7 +686,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   width: 100%;
   text-align: center;
   padding: 10px 12px;
-  font-size: .68rem;
+  font-size: .7rem;
   margin-top: 4px;
   background: rgba(255,204,51,.07);
   border: 1px solid rgba(255,204,51,.25);
@@ -659,7 +720,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   width: 100%;
   text-align: center;
   padding: 10px 12px;
-  font-size: .68rem;
+  font-size: .7rem;
   margin-top: 4px;
   background: rgba(255,46,196,.07);
   border: 1px solid rgba(255,46,196,.22);
@@ -686,7 +747,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   width: 100%;
   text-align: center;
   padding: 10px 12px;
-  font-size: .68rem;
+  font-size: .7rem;
   margin-top: 4px;
   background: rgba(153,102,255,.07);
   border: 1px solid rgba(153,102,255,.22);
@@ -730,7 +791,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 }
 
 .hint {
-  font-size: .62rem;
+  font-size: .7rem;
   color: var(--lo);
   letter-spacing: .06em;
   white-space: nowrap;
@@ -743,7 +804,7 @@ canvas { position:fixed; inset:0; z-index:0; }
 }
 
 .zbar { display:flex; align-items:center; gap:10px; }
-.zbar label { font-size: .65rem; color: var(--lo); letter-spacing: .07em; flex-shrink:0; }
+.zbar label { font-size: .7rem; color: var(--lo); letter-spacing: .07em; flex-shrink:0; }
 
 input[type=range] {
   -webkit-appearance: none;
@@ -779,7 +840,7 @@ input[type=range]::-moz-range-thumb {
   border: 1px solid rgba(var(--cyan-rgb),.22);
   color: var(--mid);
   font-family: 'Share Tech Mono', monospace;
-  font-size: .65rem;
+  font-size: .7rem;
   padding: 8px 16px;
   border-radius: var(--radius);
   cursor: pointer;
@@ -821,11 +882,11 @@ input[type=range]::-moz-range-thumb {
   /* Topbar tweaks */
   #topbar { padding: 0 12px; gap: 10px; }
   #esym-badge { width: 38px; height: 38px; padding: 2px 0 0 4px; }
-  #esym-badge .badge-z { font-size: .45rem; }
+  #esym-badge .badge-z { font-size: .7rem; }
   #esym-badge .badge-sym { font-size: 1.1rem; }
   #econf-wrap { display: none; }
   #ename { font-size: 1rem; }
-  #emeta { font-size: .65rem; }
+  #emeta { font-size: .7rem; }
 
   /* Tab labels: icon only on very small */
   .tab .tab-label { display: none; }
@@ -915,7 +976,7 @@ input[type=range]::-moz-range-thumb {
   .hint-sep { display: none; }
   .zbar { flex: 1; gap: 8px; }
   input[type=range] { flex: 1; min-width: 80px; }
-  .rbtn { padding: 8px 14px; font-size: .63rem; }
+  .rbtn { padding: 8px 14px; font-size: .7rem; }
 }
 
 /* Android fix: panels are fixed-position but inside pointer-events:none shell.
@@ -952,7 +1013,12 @@ input[type=range]::-moz-range-thumb {
   transition: all .3s;
   pointer-events: none;
   z-index: 100;
-  white-space: nowrap;
+  /* wrap long messages instead of running off a narrow screen */
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  text-align: center;
+  line-height: 1.35;
+  white-space: normal;
 }
 #toast.show {
   opacity: 1;
@@ -966,7 +1032,7 @@ input[type=range]::-moz-range-thumb {
   display: none;
   text-align: center;
   padding: 20px 0;
-  font-size: .68rem;
+  font-size: .7rem;
   color: var(--lo);
   letter-spacing: .08em;
 }
@@ -1037,6 +1103,123 @@ input[type=range]::-moz-range-thumb {
   font-size:.95rem;line-height:1;text-decoration:none;
 }
 .theme-toggle-btn:hover{background:rgba(var(--cyan-rgb),.22);}
+.theme-toggle-btn.active{background:rgba(var(--cyan-rgb),.32);border-color:var(--cyan);box-shadow:0 0 0 1px rgba(var(--cyan-rgb),.4) inset;}
+
+/* ── ELEMENT COMPARISON TOOL (Blueprint Tier 1, #20) ── */
+.compare-modal{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.compare-modal.open{display:flex;}
+.compare-card{width:min(560px,92vw);max-height:82vh;overflow-y:auto;background:var(--bg-solid);
+  border:1px solid var(--border-hi);border-radius:var(--radius);padding:22px 22px 26px;
+  box-shadow:0 24px 64px rgba(0,0,0,.6);font-family:inherit;}
+.cmp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.cmp-header h3{margin:0;font-size:.85rem;letter-spacing:.1em;color:var(--hi);text-transform:uppercase;}
+.cmp-close{background:transparent;border:1px solid var(--border);color:var(--lo);border-radius:6px;
+  width:28px;height:28px;cursor:pointer;font-size:1rem;line-height:1;}
+.cmp-close:hover{color:var(--hi);border-color:var(--border-hi);}
+.cmp-pickers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.cmp-pickers select{width:100%;background:var(--cyan-06);border:1px solid var(--border);color:var(--hi);
+  border-radius:6px;padding:8px 10px;font-size:.72rem;font-family:inherit;}
+.cmp-row{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;padding:9px 0;
+  border-bottom:1px solid var(--border);font-size:.72rem;align-items:start;}
+.cmp-row:last-child{border-bottom:none;}
+.cmp-label{color:var(--lo);letter-spacing:.04em;}
+.cmp-val{color:var(--mid);word-break:break-word;}
+
+/* ── GUIDED LESSON PATHS (Blueprint Tier 2, #27) ── */
+.lesson-item{display:flex;align-items:center;justify-content:space-between;width:100%;
+  background:var(--cyan-06);border:1px solid var(--border);border-radius:8px;color:var(--hi);
+  padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:all .15s;text-align:left;font-family:inherit;}
+.lesson-item:hover{border-color:var(--border-hi);background:rgba(var(--cyan-rgb),.14);}
+.lesson-item-title{font-size:.74rem;letter-spacing:.02em;}
+.lesson-item-count{font-size:.7rem;color:var(--lo);letter-spacing:.06em;white-space:nowrap;margin-left:10px;}
+.lesson-player-head{margin-bottom:14px;}
+#lesson-player-title{font-size:.8rem;letter-spacing:.06em;color:var(--hi);text-transform:uppercase;margin:0 0 4px;}
+#lesson-player-count{font-size:.7rem;color:var(--lo);letter-spacing:.08em;}
+#lesson-player-note{font-size:.78rem;line-height:1.55;color:var(--mid);margin:16px 0 20px;min-height:64px;}
+.lesson-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.lesson-nav-btn{font-family:inherit;font-size:.7rem;letter-spacing:.08em;padding:9px 16px;
+  border-radius:6px;border:1px solid var(--border-hi);background:rgba(var(--cyan-rgb),.14);
+  color:var(--hi);cursor:pointer;transition:all .15s;}
+.lesson-nav-btn:hover{background:rgba(var(--cyan-rgb),.26);}
+.lesson-nav-btn:disabled{opacity:.35;cursor:default;}
+.lesson-nav-btn:disabled:hover{background:rgba(var(--cyan-rgb),.14);}
+.lesson-back{background:transparent;border:1px solid var(--border);color:var(--lo);
+  font-family:inherit;font-size:.7rem;letter-spacing:.06em;padding:6px 10px;border-radius:6px;
+  cursor:pointer;margin-bottom:14px;}
+.lesson-back:hover{color:var(--hi);border-color:var(--border-hi);}
+.recents-empty{font-size:.72rem;color:var(--lo);line-height:1.5;padding:8px 2px;}
+
+/* ── MOLECULE ANALYSIS (Blueprint Tier 0, #1 / #2 / #9) ── */
+.an-section-title{font-size:.7rem;letter-spacing:.08em;color:var(--lo);text-transform:uppercase;
+  margin:16px 0 8px;}
+.an-section-title:first-child{margin-top:0;}
+.an-mass{font-size:1.1rem;color:var(--hi);letter-spacing:.02em;}
+.an-dipole{font-size:.78rem;color:var(--mid);}
+.an-table{display:flex;flex-direction:column;}
+.an-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:7px 0;border-bottom:1px solid var(--border);font-size:.72rem;}
+.an-row:last-child{border-bottom:none;}
+.an-key{color:var(--lo);letter-spacing:.02em;}
+.an-val{color:var(--mid);}
+.an-unit-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px;}
+.an-unit-group{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+.an-unit-btn{font-family:inherit;font-size:.7rem;padding:5px 10px;background:transparent;
+  color:var(--lo);border:none;border-right:1px solid var(--border);cursor:pointer;transition:all .15s;}
+.an-unit-btn:last-child{border-right:none;}
+.an-unit-btn:hover{color:var(--hi);}
+.an-unit-btn.active{background:rgba(var(--cyan-rgb),.22);color:var(--hi);}
+
+/* ════════════════════════════════
+   RESPONSIVE LAYOUT HARDENING
+   Fixes top-bar / bottom-bar overlap and overflow between 320px and ~1200px.
+   Priority of what yields first as space shrinks:
+   config readout → tab labels → logo wordmark → bottom hints → (scroll)
+════════════════════════════════ */
+@media (max-width: 1180px) {
+  #econf-wrap { display: none; }               /* full config is in the Atomic Data panel */
+}
+@media (max-width: 1000px) {
+  .tab .tab-label { display: none; }           /* icons only; aria-labels remain */
+  .tab { padding: 8px 10px; gap: 0; }
+}
+@media (max-width: 960px) {
+  .hint, .hint-sep { display: none; }          /* bottom hints: zoom + reset must fit */
+}
+@media (max-width: 900px) {
+  #topbar-logo-name { display: none; }
+  #topbar-logo { padding-right: 10px; margin-right: 0; }
+}
+/* Portrait phones: two-row top bar — identity on top, full tool strip below. */
+@media (max-width: 640px) and (min-height: 521px) {
+  :root { --topbar-h: 96px; }
+  #topbar { flex-wrap: wrap; align-content: center; row-gap: 6px; padding: 6px 12px; }
+  #tabs { order: 10; flex: 1 1 100%; justify-content: space-between; }
+}
+</style>
+
+<style id="ux-patch">
+/* ── UX patch: keyboard focus, touch targets, motion, slider hit-area ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible,[role="button"]:focus-visible,summary:focus-visible{outline:2px solid var(--cyan) !important;outline-offset:2px !important;}
+input[type=range]:focus-visible{outline-offset:4px !important;}
+button,[role="button"]{touch-action:manipulation;}
+.panel-close,.prevbtn,.nextbtn,#prevbtn,#nextbtn,.legend-btn,.theme-link,.elbtn,.tgbtn,.back-link,.mode-btn,.nav-link,.nav-cta{min-height:32px;min-width:32px;display:inline-flex;align-items:center;justify-content:center;}
+.footer-link{display:inline-block;padding:8px 6px;}
+@media (pointer:coarse){.panel-close,.prevbtn,.nextbtn,#prevbtn,#nextbtn,.legend-btn,.theme-link,.elbtn,.tgbtn,.back-link,.mode-btn,.nav-link,.nav-cta{min-height:40px;min-width:40px;}}
+input[type=range]{height:24px !important;background:transparent !important;}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(var(--cyan-rgb),.28);}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:rgba(var(--cyan-rgb),.28);}
+input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto !important;}*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}}
+.mode-btn{flex:1 1 0;padding-left:4px !important;padding-right:4px !important;letter-spacing:.01em !important;font-size:.7rem !important;white-space:nowrap;overflow:hidden;}
+@media (max-width:640px){
+#left-inner,#right-inner{padding-top:0 !important;}
+#mode-switch{padding-top:10px;}
+.search-wrap{top:0 !important;margin:0 !important;padding:8px 0 8px !important;z-index:6;}
+#elements-view .egrid,#molecules-view .mgrid{padding-top:6px;}
+}
+#left-inner .ptitle{margin:20px 0 10px !important;padding-top:2px;}
+#left-inner .oleg{padding-bottom:12px;}
 </style>
 </head>
 <body>
@@ -1123,6 +1306,33 @@ input[type=range]::-moz-range-thumb {
   <ellipse cx="8" cy="8" rx="6.6" ry="2.6" stroke="currentColor" stroke-width="1.1" fill="none" transform="rotate(60 8 8)"/>
   <ellipse cx="8" cy="8" rx="6.6" ry="2.6" stroke="currentColor" stroke-width="1.1" fill="none" transform="rotate(-60 8 8)"/>
 </svg></a>
+          <button type="button" id="comparebtn" class="theme-toggle-btn" onclick="openCompareModal()" title="Compare two elements side by side" aria-label="Compare two elements side by side"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="5.2" cy="8" r="3.6" stroke="currentColor" stroke-width="1.3"/>
+  <circle cx="10.8" cy="8" r="3.6" stroke="currentColor" stroke-width="1.3"/>
+</svg></button>
+          <button type="button" id="lessonbtn" class="theme-toggle-btn" onclick="openLessonModal()" title="Guided lesson paths" aria-label="Guided lesson paths"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M2.5 3.2h6.2c1 0 1.8.8 1.8 1.8v7.8c0-.9-.7-1.6-1.6-1.6H2.5V3.2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M13.5 3.2H7.3c-1 0-1.8.8-1.8 1.8v7.8c0-.9.7-1.6 1.6-1.6h6.4V3.2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+</svg></button>
+          <button type="button" id="recentsbtn" class="theme-toggle-btn" onclick="openRecentsModal()" title="Recently viewed" aria-label="Recently viewed"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.3"/>
+  <path d="M8 4.6V8l2.6 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></button>
+          <button type="button" id="surprisebtn" class="theme-toggle-btn" onclick="surpriseMe()" title="Surprise me" aria-label="Surprise me"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2.5" y="2.5" width="11" height="11" rx="2.2" stroke="currentColor" stroke-width="1.3"/>
+  <circle cx="5.6" cy="5.6" r="1" fill="currentColor"/>
+  <circle cx="10.4" cy="5.6" r="1" fill="currentColor"/>
+  <circle cx="5.6" cy="10.4" r="1" fill="currentColor"/>
+  <circle cx="10.4" cy="10.4" r="1" fill="currentColor"/>
+  <circle cx="8" cy="8" r="1" fill="currentColor"/>
+</svg></button>
+          <button type="button" id="analysisbtn" class="theme-toggle-btn" onclick="openAnalysisModal()" title="Molecule analysis: bond lengths, angles, formal charges" aria-label="Molecule analysis"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3 13V7M8 13V3M13 13V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+</svg></button>
+          <button type="button" id="colorblindbtn" class="theme-toggle-btn" onclick="toggleColorblindMode()" title="Colorblind-safe orbital palette" aria-label="Toggle colorblind-safe palette"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>
+  <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1" stroke-opacity=".5"/>
+</svg></button>
     </div>
   </div>
 
@@ -1257,7 +1467,7 @@ input[type=range]::-moz-range-thumb {
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="currentColor" stroke="none"><path d="M9 1.2C6.8 4.3 4.5 7.1 4.5 10.3a4.5 4.5 0 0 0 9 0c0-1.9-.8-3.4-1.8-4.7.2 1.7-.6 3.1-2.1 3.1-1.7 0-2.4-1.7-1.4-3.3.5-.8 1-1.7.8-4.2z"/></svg></span>
         <span>ULTRA MODE</span>
       </button>
-      <button id="sphericalbtn" title="Show p/d/f orbitals as simplified sphere-halves instead of true lobe shapes">
+      <button id="sphericalbtn" title="Show p/d/f orbitals and molecular bond lobes as simplified sphere-halves instead of true lobe shapes">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5.6" r="4.2"/><circle cx="9" cy="12.4" r="4.2"/></svg></span>
         <span>SPHERICAL MODE</span>
       </button>
@@ -1355,6 +1565,30 @@ input[type=range]::-moz-range-thumb {
     53: { sym: 'I',  EN: 2.66, OX: [-1, 1, 3, 5, 7], IONIC_R: { '-1': 220 } },
     54: { sym: 'Xe', EN: 2.60, OX: [0, 2, 4, 6],     IONIC_R: {} },
     55: { sym: 'Cs', EN: 0.79, OX: [1],              IONIC_R: { 1: 167 } },
+    // ── Added in the data-validation pass (Pauling EN: CRC Handbook; Shannon 1976 ionic radii, CN 6) ──
+    22: { sym: 'Ti', EN: 1.54, OX: [4, 3],           IONIC_R: { 4: 60.5 } },
+    23: { sym: 'V',  EN: 1.63, OX: [5, 4, 3, 2],     IONIC_R: { 3: 64, 2: 79 } },
+    26: { sym: 'Fe', EN: 1.83, OX: [3, 2],           IONIC_R: { 2: 78, 3: 64.5 } },     // high-spin radii
+    29: { sym: 'Cu', EN: 1.90, OX: [2, 1],           IONIC_R: { 1: 77, 2: 73 } },
+    30: { sym: 'Zn', EN: 1.65, OX: [2],              IONIC_R: { 2: 74 } },
+    31: { sym: 'Ga', EN: 1.81, OX: [3],              IONIC_R: { 3: 62 } },
+    36: { sym: 'Kr', EN: 3.00, OX: [0, 2],           IONIC_R: {} },
+    37: { sym: 'Rb', EN: 0.82, OX: [1],              IONIC_R: { 1: 152 } },
+    38: { sym: 'Sr', EN: 0.95, OX: [2],              IONIC_R: { 2: 118 } },
+    40: { sym: 'Zr', EN: 1.33, OX: [4],              IONIC_R: { 4: 72 } },
+    42: { sym: 'Mo', EN: 2.16, OX: [6, 4],           IONIC_R: { 6: 59 } },
+    47: { sym: 'Ag', EN: 1.93, OX: [1],              IONIC_R: { 1: 115 } },
+    49: { sym: 'In', EN: 1.78, OX: [3],              IONIC_R: { 3: 80 } },
+    50: { sym: 'Sn', EN: 1.96, OX: [4, 2],           IONIC_R: { 4: 69 } },
+    52: { sym: 'Te', EN: 2.10, OX: [-2, 4, 6],       IONIC_R: { '-2': 221, 4: 97, 6: 56 } },
+    56: { sym: 'Ba', EN: 0.89, OX: [2],              IONIC_R: { 2: 135 } },
+    72: { sym: 'Hf', EN: 1.30, OX: [4],              IONIC_R: { 4: 71 } },
+    74: { sym: 'W',  EN: 2.36, OX: [6, 4],           IONIC_R: { 6: 60 } },
+    76: { sym: 'Os', EN: 2.20, OX: [4, 8, 6],        IONIC_R: { 4: 63 } },
+    79: { sym: 'Au', EN: 2.54, OX: [3, 1],           IONIC_R: { 1: 137, 3: 85 } },
+    80: { sym: 'Hg', EN: 2.00, OX: [2, 1],           IONIC_R: { 1: 119, 2: 102 } },
+    82: { sym: 'Pb', EN: 2.33, OX: [2, 4],           IONIC_R: { 2: 119, 4: 77.5 } },
+    92: { sym: 'U',  EN: 1.38, OX: [6, 4, 3],        IONIC_R: { 4: 89, 6: 73 } },
   };
 
   function elementData(Z) {
@@ -1381,6 +1615,8 @@ input[type=range]::-moz-range-thumb {
     11:166, 12:141, 13:121, 14:111, 15:107, 16:105, 17:102,
     19:203, 20:176, 32:120, 33:119, 34:120, 35:120,
     51:139, 53:139, 54:140, 55:244,
+    // Added in the data-validation pass (Cordero et al. 2008; Fe is the low-spin value)
+    22:160, 23:153, 26:132, 29:132, 30:122, 31:122, 36:116, 37:220, 38:195, 40:175, 42:154, 47:145, 49:142, 50:139, 52:138, 56:215, 72:175, 74:162, 76:144, 79:136, 80:132, 82:146, 92:196,
   };
   function covalentRadiusPm(Z) {
     const r = COVALENT_RADIUS_PM[Z];
@@ -1488,14 +1724,23 @@ input[type=range]::-moz-range-thumb {
   // in MOLECULES[] today).
   function valenceElectronCount(Z) {
     const groupByZ = {
-      1: 1, 3: 1, 11: 1, 19: 1, 55: 1,             // group 1
-      4: 2, 12: 2, 20: 2,                           // group 2
-      5: 3, 13: 3,                                  // group 13
-      6: 4, 14: 4, 32: 4,                           // group 14
+      1: 1, 3: 1, 11: 1, 19: 1, 37: 1, 55: 1,      // group 1
+      4: 2, 12: 2, 20: 2, 38: 2, 56: 2,             // group 2
+      5: 3, 13: 3, 31: 3, 49: 3,                    // group 13
+      6: 4, 14: 4, 32: 4, 50: 4, 82: 4,             // group 14
       7: 5, 15: 5, 33: 5, 51: 5,                    // group 15
-      8: 6, 16: 6, 34: 6,                           // group 16
+      8: 6, 16: 6, 34: 6, 52: 6,                    // group 16
       9: 7, 17: 7, 35: 7, 53: 7,                    // group 17
-      54: 8,                                        // group 18
+      36: 8, 54: 8,                                 // group 18
+      // d-block / f-block: group number (d+s electrons). Present so every element in
+      // ELEMENTS has a rule (no RangeError from the engine); a VSEPR lone-pair count
+      // is NOT meaningful for these, which is why Analysis reports them as N/A.
+      22: 4, 40: 4, 72: 4,                          // group 4
+      23: 5,                                        // group 5
+      42: 6, 74: 6, 92: 6,                          // group 6 (U: 5f³6d¹7s² = 6)
+      26: 8, 76: 8,                                 // group 8
+      29: 11, 47: 11, 79: 11,                       // group 11
+      30: 12, 80: 12,                               // group 12
     };
     if (!(Z in groupByZ)) throw new RangeError(`chemistry-core: no valence-electron rule for Z=${Z}`);
     return groupByZ[Z];
@@ -1510,6 +1755,10 @@ input[type=range]::-moz-range-thumb {
     const bondOrderSum = new Array(compound.atoms.length).fill(0);
     const bondCount = new Array(compound.atoms.length).fill(0);
     for (const [i, j, order = 1] of compound.bonds) {
+      // order 0 = ionic (electrostatic) contact: it shares no electron pair, so it is
+      // neither a bonding domain nor part of the bond-order sum. Counting it made every
+      // fluoride/oxide ion (F⁻, O²⁻) look like a period-2 atom with steric number 5+.
+      if (order === 0) continue;
       bondOrderSum[i] += order; bondOrderSum[j] += order;
       bondCount[i] += 1; bondCount[j] += 1;
     }
@@ -2084,59 +2333,97 @@ input[type=range]::-moz-range-thumb {
   // systems this engine targets (it can under-collect for pathological
   // non-planar graphs, which isn't a real-molecule case here).
   function findRings(compound) {
+    // Smallest-set-of-smallest-rings (SSSR). The previous version took one
+    // shortest cycle per non-spanning-tree edge, which can return the SAME
+    // ring twice and silently miss a neighbouring fused ring depending on
+    // atom order (measured: ~12% of random atom orderings of naphthalene
+    // came back with 1 ring instead of 2). This version collects the
+    // shortest cycle through EVERY edge, then keeps a GF(2)-independent
+    // set, smallest first, until the cycle rank (E - V + components) is
+    // reached — order-independent by construction.
     const n = compound.atoms.length;
+    const edges = [];
+    const seenE = new Set();
+    compound.bonds.forEach(b => {
+      const i = b[0], j = b[1];
+      if (i === j || i < 0 || j < 0 || i >= n || j >= n) return;
+      const k = i < j ? i + '-' + j : j + '-' + i;
+      if (seenE.has(k)) return;
+      seenE.add(k);
+      edges.push([i, j]);
+    });
+    const E = edges.length;
     const adj = Array.from({ length: n }, () => []);
-    compound.bonds.forEach(([i, j]) => { adj[i].push(j); adj[j].push(i); });
+    edges.forEach(([i, j], ei) => { adj[i].push([j, ei]); adj[j].push([i, ei]); });
 
-    // spanning tree via BFS, collect non-tree edges
-    const visited = new Array(n).fill(false);
-    const parent = new Array(n).fill(-1);
-    const treeEdges = new Set();
-    const queue = [0]; visited[0] = true;
-    while (queue.length) {
-      const u = queue.shift();
-      for (const v of adj[u]) {
-        if (!visited[v]) {
-          visited[v] = true; parent[v] = u;
-          treeEdges.add(edgeKey(u, v));
-          queue.push(v);
-        }
+    // connected components -> cycle rank
+    const comp = new Array(n).fill(-1);
+    let nComp = 0;
+    for (let s = 0; s < n; s++) {
+      if (comp[s] !== -1) continue;
+      comp[s] = nComp;
+      const st = [s];
+      while (st.length) {
+        const u = st.pop();
+        for (const [v] of adj[u]) if (comp[v] === -1) { comp[v] = nComp; st.push(v); }
       }
+      nComp++;
     }
-    function edgeKey(a, b) { return a < b ? `${a}-${b}` : `${b}-${a}`; }
+    const rank = E - n + nComp;
+    if (rank <= 0) return [];
 
-    const extraEdges = compound.bonds.filter(([i, j]) => !treeEdges.has(edgeKey(i, j)));
-
-    function shortestPathExcluding(src, dst, excludeI, excludeJ) {
+    // shortest cycle through edge ei = shortest path i->j avoiding edge ei
+    function cycleThrough(ei) {
+      const [src, dst] = edges[ei];
       const dist = new Array(n).fill(-1);
       const prev = new Array(n).fill(-1);
+      const prevEdge = new Array(n).fill(-1);
       dist[src] = 0;
       const q = [src];
-      while (q.length) {
-        const u = q.shift();
+      for (let h = 0; h < q.length; h++) {
+        const u = q[h];
         if (u === dst) break;
-        for (const v of adj[u]) {
-          if ((u === excludeI && v === excludeJ) || (u === excludeJ && v === excludeI)) continue;
-          if (dist[v] === -1) { dist[v] = dist[u] + 1; prev[v] = u; q.push(v); }
+        for (const [v, e2] of adj[u]) {
+          if (e2 === ei || dist[v] !== -1) continue;
+          dist[v] = dist[u] + 1; prev[v] = u; prevEdge[v] = e2; q.push(v);
         }
       }
-      if (dist[dst] === -1) return null;
-      const path = [dst];
+      if (dist[dst] === -1) return null; // bridge — in no ring
+      const atoms = [dst], eIdx = [ei];
       let cur = dst;
-      while (cur !== src) { cur = prev[cur]; path.push(cur); }
-      return path.reverse();
+      while (cur !== src) { eIdx.push(prevEdge[cur]); cur = prev[cur]; atoms.push(cur); }
+      return { atoms: atoms.reverse(), eIdx };
     }
 
-    const rings = [];
+    const cands = [];
     const seen = new Set();
-    for (const [i, j] of extraEdges) {
-      const path = shortestPathExcluding(i, j, i, j);
-      if (!path) continue;
-      const ring = path; // already ordered i -> ... -> j; edge (j,i) closes it
-      const canon = [...ring].sort((a, b) => a - b).join(',');
-      if (seen.has(canon)) continue;
-      seen.add(canon);
-      rings.push(ring);
+    for (let ei = 0; ei < E; ei++) {
+      const c = cycleThrough(ei);
+      if (!c) continue;
+      const key = c.eIdx.slice().sort((a, b) => a - b).join(',');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cands.push(c);
+    }
+    cands.sort((a, b) => a.atoms.length - b.atoms.length);
+
+    const W = Math.ceil(E / 32);
+    const basis = []; // { pivot, vec }
+    const rings = [];
+    for (const c of cands) {
+      if (rings.length >= rank) break;
+      const v = new Uint32Array(W);
+      c.eIdx.forEach(e => { v[e >> 5] ^= (1 << (e & 31)); });
+      for (const b of basis) {
+        if (v[b.pivot >> 5] & (1 << (b.pivot & 31))) for (let w = 0; w < W; w++) v[w] ^= b.vec[w];
+      }
+      let pivot = -1;
+      for (let w = 0; w < W && pivot < 0; w++) {
+        if (v[w]) { for (let bit = 0; bit < 32; bit++) if (v[w] & (1 << bit)) { pivot = w * 32 + bit; break; } }
+      }
+      if (pivot < 0) continue; // dependent on smaller rings already chosen
+      basis.push({ pivot, vec: v });
+      rings.push(c.atoms);
     }
     return rings;
   }
@@ -2462,20 +2749,117 @@ input[type=range]::-moz-range-thumb {
     }));
   }
 
-  // Auto-derives mol.aromaticRings (the exact { atoms:[...] } shape
-  // buildMolecule already consumes) when the compound wasn't hand-authored
-  // with one. Returns [] for a non-ring compound (cheap, safe to call
-  // unconditionally).
+  // ── Aromaticity perception ───────────────────────────────────────────
+  // BUG FIX: this used to return EVERY ring in the bond graph as
+  // "aromatic", so any ring — cyclopropane, cyclohexane, cyclohexene,
+  // a PubChem-fetched cyclic alkene — was drawn with the delocalized
+  // benzene π-donut. A ring is now aromatic only if it passes a Hückel
+  // test: every ring atom must offer exactly one p-orbital to the π system
+  // (an sp2 atom with a double bond, a lone-pair donor such as pyrrole-N /
+  // furan-O / thiophene-S, a carbanion, or an empty p on C+/B) and the
+  // total π-electron count must be 4n+2. An sp3 atom anywhere in the ring
+  // (cyclohexane, cyclohexene, cyclopentadiene's CH2 ...) disqualifies it.
+  // Hand-authored `aromaticRings` still pass through untouched.
+  const _aromaticCache = new WeakMap();
+  function perceiveAromaticRings(mol) {
+    const n = mol.atoms.length;
+    const orderOf = b => (b.length > 2 && b[2] != null) ? b[2] : 1;
+    const cov = [];
+    mol.bonds.forEach(b => { const o = orderOf(b); if (o > 0) cov.push([b[0], b[1], o]); }); // order 0 = ionic contact, not a ring bond
+    if (cov.length < 3) return [];
+    const rings = Ring.findRings({ atoms: mol.atoms, bonds: cov });
+    if (!rings.length) return [];
+
+    const nb = Array.from({ length: n }, () => []);
+    cov.forEach(([i, j, o]) => { nb[i].push({ to: j, o }); nb[j].push({ to: i, o }); });
+
+    // π electrons atom `a` donates, given the set of atoms treated as "in
+    // the ring system"; null = this atom cannot take part in a π ring.
+    function piElectrons(a, sys, ext) {
+      const Z = mol.atoms[a].Z, q = mol.atoms[a].formalCharge || mol.atoms[a].perceptionCharge || 0;
+      const bonds = nb[a];
+      const dbl = bonds.filter(x => x.o === 2);
+      if (dbl.length > 1 || bonds.some(x => x.o === 3)) return null; // sp / cumulated
+      if (dbl.length === 1) {
+        if (sys.has(dbl[0].to)) return 1;       // endocyclic C=C / C=N / N=C
+        // A Kekulé structure can put a fusion atom's double bond in the NEIGHBOURING
+        // fused ring (pyrene, phenanthrene ...) — still this ring's π system.
+        if (ext && ext.has(dbl[0].to) && Z === 6) return 1;
+        return Z === 6 ? 0 : null;              // exocyclic C=O / C=C: p-orbital polarized out of the ring (pyridone, tropone, quinone)
+      }
+      if (Z === 6) return q === -1 ? 2 : q === 1 ? 0 : null; // neutral sp3 carbon breaks conjugation
+      if (Z === 5) return bonds.length === 3 ? 0 : null;     // sp2 boron: empty p
+      if (Z === 7) return (bonds.length <= 3 && q <= 0) ? 2 : null;           // pyrrole-type N / amide N / N-
+      if (Z === 8 || Z === 16 || Z === 34) return (bonds.length === 2 && q === 0) ? 2 : null; // furan O, thiophene S, selenophene
+      return null;
+    }
+    // atoms of rings fused to (sharing a bond with) the given ring(s)
+    function fusedNeighbours(own) {
+      const ext = new Set();
+      rings.forEach(r => {
+        if (r.length > 7) return;
+        const sh = r.filter(x => own.has(x)).length;
+        if (sh >= 2 && sh < r.length) r.forEach(x => { if (!own.has(x)) ext.add(x); });
+      });
+      return ext;
+    }
+    function huckel(atomSet) {
+      let e = 0;
+      const ext = fusedNeighbours(atomSet);
+      for (const a of atomSet) { const p = piElectrons(a, atomSet, ext); if (p === null) return false; e += p; }
+      return e >= 2 && (e - 2) % 4 === 0;
+    }
+
+    const flags = rings.map(r => r.length >= 3 && r.length <= 7 && huckel(new Set(r)));
+    // Fused pairs that are aromatic only as a system (azulene: 5+7 ring, 10 π e-)
+    for (let a = 0; a < rings.length; a++) {
+      for (let b = a + 1; b < rings.length; b++) {
+        if (flags[a] && flags[b]) continue;
+        if (rings[a].length > 7 || rings[b].length > 7) continue;
+        const sa = new Set(rings[a]);
+        const shared = rings[b].filter(x => sa.has(x));
+        if (shared.length !== 2) continue; // must share exactly one bond
+        const union = new Set([...rings[a], ...rings[b]]);
+        if (huckel(union)) { flags[a] = true; flags[b] = true; }
+      }
+    }
+    return rings.filter((_, i) => flags[i]).map(atoms => ({ atoms }));
+  }
   function deriveAromaticRings(mol) {
-    if (mol.aromaticRings) return mol.aromaticRings; // author already supplied it (or it's one of the 58 legacy entries)
-    const bondCount = mol.bonds.length, atomCount = mol.atoms.length;
-    if (bondCount === atomCount - 1) return []; // tree topology, no ring
-    const compound = { atoms: mol.atoms.map(a => ({ Z: a.Z })), bonds: mol.bonds };
-    const rings = Ring.findRings(compound);
-    return rings.map(atoms => ({ atoms }));
+    if (mol.aromaticRings) return mol.aromaticRings; // author already supplied it (the curated PAHs, DNA, Tier-2 arenes)
+    let hit = _aromaticCache.get(mol);
+    if (!hit) { hit = perceiveAromaticRings(mol); _aromaticCache.set(mol, hit); }
+    return hit;
   }
 
-  global.EngineBridge = { resolveMoleculeAtomsViaEngine, deriveAromaticRings, symbolFor, bondCharacter: Chem.bondCharacter };
+  // Localized (non-aromatic) C=C / C=O π bonds for molecules that did not
+  // come with an explicit `piBonds` list. Only PubChem-fetched (Tier 3)
+  // molecules need this — curated and Tier-2 entries author their own.
+  function deriveLocalizedPiBonds(mol, aromaticRings) {
+    if (mol.piBonds) return mol.piBonds;
+    if (mol.builtBy !== 'tier3') return [];
+    return mol.bonds.filter(b => (b.length > 2 ? b[2] : 1) === 2).map(b => ({ atoms: [b[0], b[1]] }));
+  }
+  // A ring bond of a delocalized aromatic ring is part of the donut already —
+  // never draw a second, localized lens on top of it.
+  function filterLocalizedPiBonds(list, aromaticRings) {
+    if (!list || !list.length) return [];
+    if (!aromaticRings || !aromaticRings.length) return list;
+    const edges = new Set();
+    aromaticRings.forEach(r => {
+      const a = r.atoms;
+      for (let k = 0; k < a.length; k++) {
+        const i = a[k], j = a[(k + 1) % a.length];
+        edges.add(i < j ? i + '-' + j : j + '-' + i);
+      }
+    });
+    return list.filter(pb => {
+      const [i, j] = pb.atoms;
+      return !edges.has(i < j ? i + '-' + j : j + '-' + i);
+    });
+  }
+
+  global.EngineBridge = { resolveMoleculeAtomsViaEngine, deriveAromaticRings, deriveLocalizedPiBonds, filterLocalizedPiBonds, symbolFor, bondCharacter: Chem.bondCharacter };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 // ══════════════════════════════════════════════
@@ -2531,9 +2915,9 @@ const ELS=[
   {Z:47,name:"Silver",     sym:"Ag", p:5,g:11, n:60},
   {Z:48,name:"Cadmium",    sym:"Cd", p:5,g:12, n:66},  // Cd-114 most abundant
   {Z:49,name:"Indium",     sym:"In", p:5,g:13, n:66},
-  {Z:50,name:"Tin",        sym:"Sn", p:5,g:14, n:68},
+  {Z:50,name:"Tin",        sym:"Sn", p:5,g:14, n:70},  // Sn-120 most abundant
   {Z:51,name:"Antimony",   sym:"Sb", p:5,g:15, n:70},
-  {Z:52,name:"Tellurium",  sym:"Te", p:5,g:16, n:76},
+  {Z:52,name:"Tellurium",  sym:"Te", p:5,g:16, n:78},  // Te-130 most abundant
   {Z:53,name:"Iodine",     sym:"I",  p:5,g:17, n:74},
   {Z:54,name:"Xenon",      sym:"Xe", p:5,g:18, n:78},  // Xe-132 most abundant
   {Z:55,name:"Caesium",       sym:"Cs", p:6,g:1,  n:78},   // Cs-133
@@ -2584,7 +2968,7 @@ const ELS=[
   {Z:100,name:"Fermium",      sym:"Fm", p:7,g:3,  n:157},  // Fm-257 (most stable)
   {Z:101,name:"Mendelevium",  sym:"Md", p:7,g:3,  n:157},  // Md-258 (most stable)
   {Z:102,name:"Nobelium",     sym:"No", p:7,g:3,  n:157},  // No-259 (most stable)
-  {Z:103,name:"Lawrencium",   sym:"Lr", p:7,g:3,  n:159},  // Lr-262 (most stable)
+  {Z:103,name:"Lawrencium",   sym:"Lr", p:7,g:3,  n:163},  // Lr-266 (longest-lived known isotope)
   {Z:104,name:"Rutherfordium",sym:"Rf", p:7,g:4,  n:163},  // Rf-267 (most stable)
   {Z:105,name:"Dubnium",      sym:"Db", p:7,g:5,  n:163},  // Db-268 (most stable)
   {Z:106,name:"Seaborgium",   sym:"Sg", p:7,g:6,  n:163},  // Sg-269 (most stable)
@@ -2602,39 +2986,102 @@ const ELS=[
   {Z:118,name:"Oganesson",    sym:"Og", p:7,g:18, n:176},  // Og-294 (only known)
 ];
 
-const ORBS=[
-  {name:"1s",n:1,l:0,max:2,  R:3.0,  hex:"#ff4444",rgb:[1.0,.27,.27]},
-  {name:"2s",n:2,l:0,max:2,  R:8.0,  hex:"#ff9922",rgb:[1.0,.60,.13]},
-  {name:"2p",n:2,l:1,max:6,  R:41.0, hex:"#22ee55",rgb:[.13,.93,.33]},
-  {name:"3s",n:3,l:0,max:2,  R:70.0, hex:"#22aaff",rgb:[.13,.67,1.0]},
-  {name:"3p",n:3,l:1,max:6,  R:144.0,hex:"#cc33ff",rgb:[.80,.20,1.0]},
-  {name:"4s",n:4,l:0,max:2,  R:250.0,hex:"#aaff33",rgb:[.67,1.0,.20]},
-  {name:"3d",n:3,l:2,max:10, R:143.0,hex:"#ff2288",rgb:[1.0,.13,.53]},
-  {name:"4p",n:4,l:1,max:6,  R:481.0,hex:"#00eeff",rgb:[.00,.93,1.0]},
-  {name:"5s",n:5,l:0,max:2,  R:820.0,hex:"#ffee00",rgb:[1.0,.93,.00]},
-  {name:"4d",n:4,l:2,max:10, R:478.0,hex:"#ff6600",rgb:[1.0,.40,.00]},
-  {name:"5p",n:5,l:1,max:6,  R:1600.0,hex:"#3366ff",rgb:[.20,.40,1.0]},
-  {name:"6s",n:6,l:0,max:2,  R:3040.0,hex:"#ddeeff",rgb:[.867,.933,1.0]},
-  // 4f/5d fill AFTER 6s in aufbau order but sit spatially INSIDE it — the
-  // well-known "lanthanide contraction" — hence smaller R despite filling
-  // later, matching how 3d (R:143) already sits inside 4s (R:180) above.
-  {name:"4f",n:4,l:3,max:14, R:750.0, hex:"#cc44ff",rgb:[.80,.27,1.0]},
-  {name:"5d",n:5,l:2,max:10, R:1800.0,hex:"#22ffcc",rgb:[.13,1.0,.80]},
-  {name:"6p",n:6,l:1,max:6,  R:5800.0,hex:"#8899ff",rgb:[.533,.60,1.0]},
-  {name:"7s",n:7,l:0,max:2,  R:10120.0,hex:"#ccddff",rgb:[.80,.867,1.0]},
-  // 5f/6d: actinide analog of the 4f/5d contraction above.
-  {name:"5f",n:5,l:3,max:14, R:2800.0,hex:"#ff44cc",rgb:[1.0,.27,.80]},
-  {name:"6d",n:6,l:2,max:10, R:6000.0,hex:"#66ffdd",rgb:[.40,1.0,.867]},
-  {name:"7p",n:7,l:1,max:6,  R:20000.0,hex:"#ccaaff",rgb:[.80,.667,1.0]},
-  // 8s/8p never occur in any ground-state configuration this app models
-  // (max Z=118, Oganesson, whose valence — 7p — is now the top of the
-  // real orbital list) — pure excited-state headroom, same role 6s/6p/7s
-  // played before the table was extended past Xenon.
-  {name:"8s",n:8,l:0,max:2,  R:52000.0,hex:"#e8e0ff",rgb:[.91,.878,1.0]},
-  {name:"8p",n:8,l:1,max:6,  R:130000.0,hex:"#b8a0ff",rgb:[.722,.627,1.0]},
-  {name:"9s",n:9,l:0,max:2,  R:340000.0,hex:"#ded4ff",rgb:[.867,.831,1.0]},
-  {name:"9p",n:9,l:1,max:6,  R:820000.0,hex:"#c4b0ff",rgb:[.769,.690,1.0]},
+const ORBS_THEME_COLORS=[
+  {hex:"#ff4444",rgb:[1.0,.27,.27]},
+  {hex:"#ff9922",rgb:[1.0,.60,.13]},
+  {hex:"#22ee55",rgb:[.13,.93,.33]},
+  {hex:"#22aaff",rgb:[.13,.67,1.0]},
+  {hex:"#cc33ff",rgb:[.80,.20,1.0]},
+  {hex:"#aaff33",rgb:[.67,1.0,.20]},
+  {hex:"#ff2288",rgb:[1.0,.13,.53]},
+  {hex:"#00eeff",rgb:[.00,.93,1.0]},
+  {hex:"#ffee00",rgb:[1.0,.93,.00]},
+  {hex:"#ff6600",rgb:[1.0,.40,.00]},
+  {hex:"#3366ff",rgb:[.20,.40,1.0]},
+  {hex:"#ddeeff",rgb:[.867,.933,1.0]},
+  {hex:"#cc44ff",rgb:[.80,.27,1.0]},
+  {hex:"#22ffcc",rgb:[.13,1.0,.80]},
+  {hex:"#8899ff",rgb:[.533,.60,1.0]},
+  {hex:"#ccddff",rgb:[.80,.867,1.0]},
+  {hex:"#ff44cc",rgb:[1.0,.27,.80]},
+  {hex:"#66ffdd",rgb:[.40,1.0,.867]},
+  {hex:"#ccaaff",rgb:[.80,.667,1.0]},
+  {hex:"#e8e0ff",rgb:[.91,.878,1.0]},
+  {hex:"#b8a0ff",rgb:[.722,.627,1.0]},
+  {hex:"#ded4ff",rgb:[.867,.831,1.0]},
+  {hex:"#c4b0ff",rgb:[.769,.690,1.0]},
 ];
+const ORBS = ORBS_PHYSICS.map((o,i)=>({...o, ...ORBS_THEME_COLORS[i]}));
+
+// ── COLORBLIND-SAFE ORBITAL PALETTE (Blueprint Tier 0, #8) ──────────────
+// The default rainbow palette above was never checked against simulated
+// color-blindness. It should have been: running each orbital's hex value
+// through a standard deuteranopia (red-green colorblindness, the most
+// common type) simulation matrix shows the minimum distinguishable
+// distance between any two colors drops from 0.24 (normal vision) to 0.127
+// once simulated — a real, measured problem, not a hypothetical one.
+//
+// This replacement palette was chosen by simulating deuteranopia on a
+// large hue/lightness pool and greedily picking the 23 colors (one per
+// orbital type, matching ORBS above 1:1 by index) that maximize the
+// worst-case pairwise distance under BOTH normal vision and the
+// simulation — verified min distance 0.198 normal / 0.183 deuteranopia,
+// versus the original's 0.24 / 0.127. It is a genuine, measured
+// improvement, not a claim of perfect universal accessibility — no 23-color
+// palette can guarantee every pair is distinguishable to every form of
+// color vision, and this doesn't pretend otherwise.
+const COLORBLIND_ORBS_COLORS = [
+  {hex:"#900909", rgb:[0.565,0.035,0.035]},
+  {hex:"#9ff9f9", rgb:[0.624,0.976,0.976]},
+  {hex:"#2727f1", rgb:[0.153,0.153,0.945]},
+  {hex:"#f1d027", rgb:[0.945,0.816,0.153]},
+  {hex:"#099090", rgb:[0.035,0.565,0.565]},
+  {hex:"#f566f5", rgb:[0.961,0.400,0.961]},
+  {hex:"#f14927", rgb:[0.945,0.286,0.153]},
+  {hex:"#f99f9f", rgb:[0.976,0.624,0.624]},
+  {hex:"#090990", rgb:[0.035,0.035,0.565]},
+  {hex:"#f9f99f", rgb:[0.976,0.976,0.624]},
+  {hex:"#278cf1", rgb:[0.153,0.549,0.945]},
+  {hex:"#900963", rgb:[0.565,0.035,0.388]},
+  {hex:"#f56666", rgb:[0.961,0.400,0.400]},
+  {hex:"#c90d4c", rgb:[0.788,0.051,0.298]},
+  {hex:"#f99fdb", rgb:[0.976,0.624,0.859]},
+  {hex:"#7ef566", rgb:[0.494,0.961,0.400]},
+  {hex:"#c90dc9", rgb:[0.788,0.051,0.788]},
+  {hex:"#c92c0d", rgb:[0.788,0.173,0.051]},
+  {hex:"#7e66f5", rgb:[0.494,0.400,0.961]},
+  {hex:"#8bc90d", rgb:[0.545,0.788,0.051]},
+  {hex:"#f566ad", rgb:[0.961,0.400,0.678]},
+  {hex:"#0d6bc9", rgb:[0.051,0.420,0.788]},
+  {hex:"#790990", rgb:[0.475,0.035,0.565]},
+];
+const DEFAULT_ORBS_COLORS = ORBS.map(o=>({hex:o.hex, rgb:o.rgb.slice()}));
+let colorblindMode = false;
+function applyOrbsPalette(useColorblind){
+  const src = useColorblind ? COLORBLIND_ORBS_COLORS : DEFAULT_ORBS_COLORS;
+  ORBS.forEach((o,i)=>{
+    if(!src[i]) return;
+    o.hex = src[i].hex;
+    o.rgb = src[i].rgb.slice();
+  });
+}
+function toggleColorblindMode(){
+  colorblindMode = !colorblindMode;
+  applyOrbsPalette(colorblindMode);
+  try { localStorage.setItem('qas-colorblind', colorblindMode ? '1' : '0'); } catch(e){}
+  document.getElementById('colorblindbtn')?.classList.toggle('active', colorblindMode);
+  showToast(colorblindMode ? 'COLORBLIND-SAFE PALETTE ON' : 'COLORBLIND-SAFE PALETTE OFF');
+  if(moleculeMode) buildMolecule(curMoleculeKey); else buildAtom(curZ);
+}
+function initColorblindMode(){
+  let saved=false;
+  try { saved = localStorage.getItem('qas-colorblind')==='1'; } catch(e){}
+  if(saved){
+    colorblindMode = true;
+    applyOrbsPalette(true);
+    document.getElementById('colorblindbtn')?.classList.add('active');
+  }
+}
 
 // ══════════════════════════════════════════════
 // ANTIMATTER — charge-conjugation color model
@@ -2852,6 +3299,103 @@ const TSHAPE_AX_ANGLE = 87.5 * Math.PI/180; // angle between the equatorial atom
 // judgment call. It does NOT apply to genuine multi-order structures like
 // N2O, where the correct fix is picking a real resonance structure (see
 // N2O below), not rounding a delocalized fraction.
+</script>
+<script>
+/* >>> embedded: molecules-data.js (source of truth; regenerate with embed-data.py) */
+// molecules-data.js
+// ──────────────────────────────────────────────────────────────────────
+// Extracted from simulator_dark.html / simulator_light.html during Phase 2
+// (Core Extraction) of the architectural modernization. This file was
+// byte-for-byte identical in both theme files before extraction (verified
+// programmatically, not assumed) — colors and geometry come from ORBS and
+// the render pipeline, not from this data — so both themes now load this
+// single shared copy instead of maintaining two copies that happened to
+// always match. ~8,279 lines, of which the two DNA entries (dna_helix,
+// dna_helix_100) account for over 92% — see AUDIT.md §3 for the full
+// breakdown. No content was changed in this extraction, only moved.
+// ── Geometry helpers (self-contained) ─────────────────────────────────
+// Added with the data-validation pass: every angle below is an experimental
+// gas-phase value (rounded to 0.1°), not an idealised VSEPR number, and every
+// helper returns unit direction vectors in the same convention the
+// hand-authored entries use (central atom at the origin, ligands as unit dirs).
+const _MDL_T = 1/Math.sqrt(3);
+const _MDL_RAD = Math.PI/180;
+// Pyramidal AX3E: keeps the SAME orientation as the original tetrahedral
+// template ((T,T,T),(T,-T,-T),(-T,T,-T)) and only changes the polar angle
+// about its C3 axis, so 109.47° reproduces the old vectors exactly.
+function _mdlPyramid(angleDeg){
+  const tmpl=[[_MDL_T,_MDL_T,_MDL_T],[_MDL_T,-_MDL_T,-_MDL_T],[-_MDL_T,_MDL_T,-_MDL_T]];
+  const u=[_MDL_T,_MDL_T,-_MDL_T];
+  const c2=(2*Math.cos(angleDeg*_MDL_RAD)+1)/3;       // cos²(polar angle from axis)
+  const cp=Math.sqrt(c2), sp=Math.sqrt(1-c2);
+  return tmpl.map(v=>{
+    const d=v[0]*u[0]+v[1]*u[1]+v[2]*u[2];
+    const q=[v[0]-d*u[0],v[1]-d*u[1],v[2]-d*u[2]];
+    const m=Math.hypot(q[0],q[1],q[2]);
+    return [cp*u[0]+sp*q[0]/m, cp*u[1]+sp*q[1]/m, cp*u[2]+sp*q[2]/m];
+  });
+}
+function _mdlBent(angleDeg){
+  const h=angleDeg*_MDL_RAD/2;
+  return [[Math.sin(h),-Math.cos(h),0],[-Math.sin(h),-Math.cos(h),0]];
+}
+const _MDL_LINEAR2 = [[1,0,0],[-1,0,0]];
+const _MDL_TETRA = [[_MDL_T,_MDL_T,_MDL_T],[_MDL_T,-_MDL_T,-_MDL_T],[-_MDL_T,_MDL_T,-_MDL_T],[-_MDL_T,-_MDL_T,_MDL_T]];
+const _MDL_TRIGONAL = [[1,0,0],[-0.5,Math.sqrt(3)/2,0],[-0.5,-Math.sqrt(3)/2,0]];
+const _MDL_TBP = _MDL_TRIGONAL.concat([[0,0,1],[0,0,-1]]);
+const _MDL_OCTA = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+// Planar AXY2 (formaldehyde, phosgene, COF2): unique atom Y at +x, the two
+// identical ligands at ±angle from it, all in the xy-plane.
+function _mdlPlanarCs(angleDeg){
+  const a=angleDeg*_MDL_RAD;
+  return [[Math.cos(a),Math.sin(a),0],[Math.cos(a),-Math.sin(a),0]];
+}
+// Square pyramid (AX5E): apex +z, four basal ligands at the given apex–basal angle.
+function _mdlSquarePyramid(apexBasalDeg){
+  const a=apexBasalDeg*_MDL_RAD, s=Math.sin(a), c=Math.cos(a);
+  return [[0,0,1],[s,0,c],[-s,0,c],[0,s,c],[0,-s,c]];
+}
+// Pentagonal bipyramid (AX7): two axial + five equatorial at 72°.
+const _MDL_PBP = [[0,0,1],[0,0,-1]].concat([0,1,2,3,4].map(k=>[Math.cos(k*2*Math.PI/5),Math.sin(k*2*Math.PI/5),0]));
+// T-shape (AX3E2): one equatorial ligand at +x, two axial ligands bent
+// toward it by (90° − angle) — same construction as the existing ClF₃ entry.
+function _mdlTShape(axEqDeg){
+  const a=axEqDeg*_MDL_RAD;
+  return [[1,0,0],[Math.cos(a),0,Math.sin(a)],[Math.cos(a),0,-Math.sin(a)]];
+}
+// AXY2 with a non-planar Cs/C3v shape (thionyl chloride): unique atom Y at +z,
+// the two identical ligands at polar angle `yxDeg` from it with the given X–S–X angle.
+function _mdlCsPyramid(yxDeg, xxDeg){
+  const p=yxDeg*_MDL_RAD, cxx=Math.cos(xxDeg*_MDL_RAD);
+  const cpsi=(cxx-Math.cos(p)**2)/(Math.sin(p)**2), psi=Math.acos(Math.max(-1,Math.min(1,cpsi)));
+  return [[0,0,1],[Math.sin(p)*Math.cos(psi),Math.sin(p)*Math.sin(psi),Math.cos(p)],[Math.sin(p)*Math.cos(psi),-Math.sin(p)*Math.sin(psi),Math.cos(p)]];
+}
+// Hub-and-spoke builder: centre at origin, ligands as [Z, sym, dir, bondOrder?].
+function _mdlHub(cZ, cSym, ligands){
+  return {
+    atoms:[{Z:cZ,sym:cSym,dir:[0,0,0]}].concat(ligands.map(l=>({Z:l[0],sym:l[1],dir:l[2].slice()}))),  // slice(): never share one dir array between molecules
+    bonds:ligands.map((l,i)=> (l[3]&&l[3]!==1) ? [0,i+1,l[3]] : [0,i+1]),
+  };
+}
+// Same-ligand convenience: n identical ligands taking the dirs in order.
+function _mdlAX(cZ,cSym,lZ,lSym,dirs,order){
+  return _mdlHub(cZ,cSym,dirs.map(d=>[lZ,lSym,d,order||1]));
+}
+// Simple diatomic X–Y (X at origin).
+function _mdlDiatomic(aZ,aSym,bZ,bSym,order){
+  return { atoms:[{Z:aZ,sym:aSym,dir:[0,0,0]},{Z:bZ,sym:bSym,dir:[1,0,0]}], bonds:[order&&order!==1?[0,1,order]:[0,1]] };
+}
+// Ionic entry: ions carry only Z + formal charge; bonds carry order 0.
+function _mdlIonic(ions, contacts){
+  return { atoms:ions.map(([Z,q])=>({Z,formalCharge:q})), bonds:contacts.map(([i,j])=>[i,j,0]) };
+}
+
+const _PYR_NH3=_mdlPyramid(107.8);
+const _PYR_PH3=_mdlPyramid(93.3);
+const _PYR_ASH3=_mdlPyramid(92.1);
+const _PYR_SBH3=_mdlPyramid(91.6);
+const _PYR_NF3=_mdlPyramid(102.3);
+const _PYR_PCL3=_mdlPyramid(100.3);
 const MOLECULES=[
   // ── Ionic compounds (Universal Compound Engine, Phase D) ──────────
   // No dir vectors, no manual coordinates: atoms carry only Z + formal
@@ -2866,12 +3410,35 @@ const MOLECULES=[
   { key:'mgcl2', formula:'MgCl₂', name:'Magnesium Chloride', geometry:'Ionic (gas-phase, linear)',
     atoms:[ {Z:12,formalCharge:2}, {Z:17,formalCharge:-1}, {Z:17,formalCharge:-1} ],
     bonds:[[0,1,0],[0,2,0]] },
-  { key:'caf2', formula:'CaF₂', name:'Calcium Fluoride', geometry:'Ionic (gas-phase, linear)',
+  { key:'caf2', formula:'CaF₂', name:'Calcium Fluoride', geometry:'Ionic (gas-phase; drawn linear, truly quasi-linear/bent)',
     atoms:[ {Z:20,formalCharge:2}, {Z:9,formalCharge:-1}, {Z:9,formalCharge:-1} ],
     bonds:[[0,1,0],[0,2,0]] },
   { key:'kbr', formula:'KBr', name:'Potassium Bromide', geometry:'Ionic (gas-phase pair)',
     atoms:[ {Z:19,formalCharge:1}, {Z:35,formalCharge:-1} ],
     bonds:[[0,1,0]] },
+  // ── Added in the data-validation pass: ionic compounds (charge-balanced) ──
+  { key:'lif', formula:'LiF', name:'Lithium Fluoride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[3, 1], [9, -1]],[[0, 1]]) },
+  { key:'licl', formula:'LiCl', name:'Lithium Chloride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[3, 1], [17, -1]],[[0, 1]]) },
+  { key:'libr', formula:'LiBr', name:'Lithium Bromide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[3, 1], [35, -1]],[[0, 1]]) },
+  { key:'lii', formula:'LiI', name:'Lithium Iodide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[3, 1], [53, -1]],[[0, 1]]) },
+  { key:'naf', formula:'NaF', name:'Sodium Fluoride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[11, 1], [9, -1]],[[0, 1]]) },
+  { key:'nabr', formula:'NaBr', name:'Sodium Bromide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[11, 1], [35, -1]],[[0, 1]]) },
+  { key:'nai', formula:'NaI', name:'Sodium Iodide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[11, 1], [53, -1]],[[0, 1]]) },
+  { key:'kf', formula:'KF', name:'Potassium Fluoride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[19, 1], [9, -1]],[[0, 1]]) },
+  { key:'kcl', formula:'KCl', name:'Potassium Chloride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[19, 1], [17, -1]],[[0, 1]]) },
+  { key:'ki', formula:'KI', name:'Potassium Iodide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[19, 1], [53, -1]],[[0, 1]]) },
+  { key:'rbcl', formula:'RbCl', name:'Rubidium Chloride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[37, 1], [17, -1]],[[0, 1]]) },
+  { key:'csf', formula:'CsF', name:'Caesium Fluoride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[55, 1], [9, -1]],[[0, 1]]) },
+  { key:'cscl', formula:'CsCl', name:'Caesium Chloride', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[55, 1], [17, -1]],[[0, 1]]) },
+  { key:'csi', formula:'CsI', name:'Caesium Iodide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[55, 1], [53, -1]],[[0, 1]]) },
+  { key:'mgo', formula:'MgO', name:'Magnesium Oxide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[12, 2], [8, -2]],[[0, 1]]) },
+  { key:'cao', formula:'CaO', name:'Calcium Oxide', geometry:'Ionic (gas-phase pair)', ..._mdlIonic([[20, 2], [8, -2]],[[0, 1]]) },
+  { key:'mgf2', formula:'MgF₂', name:'Magnesium Fluoride', geometry:'Ionic (gas-phase, linear)', ..._mdlIonic([[12, 2], [9, -1], [9, -1]],[[0, 1], [0, 2]]) },
+  { key:'mgbr2', formula:'MgBr₂', name:'Magnesium Bromide', geometry:'Ionic (gas-phase, linear)', ..._mdlIonic([[12, 2], [35, -1], [35, -1]],[[0, 1], [0, 2]]) },
+  { key:'mgi2', formula:'MgI₂', name:'Magnesium Iodide', geometry:'Ionic (gas-phase, linear)', ..._mdlIonic([[12, 2], [53, -1], [53, -1]],[[0, 1], [0, 2]]) },
+  { key:'cacl2', formula:'CaCl₂', name:'Calcium Chloride', geometry:'Ionic (gas-phase, linear)', ..._mdlIonic([[20, 2], [17, -1], [17, -1]],[[0, 1], [0, 2]]) },
+  { key:'li2o', formula:'Li₂O', name:'Lithium Oxide', geometry:'Ionic (gas-phase, linear)', ..._mdlIonic([[8, -2], [3, 1], [3, 1]],[[0, 1], [0, 2]]) },
+  { key:'na2o', formula:'Na₂O', name:'Sodium Oxide', geometry:'Ionic (gas-phase, linear)', ..._mdlIonic([[8, -2], [11, 1], [11, 1]],[[0, 1], [0, 2]]) },
   { key:'h2', formula:'H₂', name:'Hydrogen', geometry:'Linear',
     atoms:[ {Z:1,sym:'H',dir:[0,0,0]}, {Z:1,sym:'H',dir:[1,0,0]} ],
     bonds:[[0,1]] }, // single
@@ -2904,14 +3471,14 @@ const MOLECULES=[
       {Z:8,sym:'O',dir:[-1,0,0]},
     ],
     bonds:[[0,1,2],[0,2,2]] }, // O=C=O, both double bonds
-  { key:'nh3', formula:'NH₃', name:'Ammonia', geometry:'Trigonal Pyramidal',
+  { key:'nh3', formula:'NH₃', name:'Ammonia', geometry:'Trigonal Pyramidal (107.8°)',
     atoms:[
       {Z:7,sym:'N',dir:[0,0,0]},
-      {Z:1,sym:'H',dir:[TET, TET, TET]},
-      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
-      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+      {Z:1,sym:'H',dir:_PYR_NH3[0]},
+      {Z:1,sym:'H',dir:_PYR_NH3[1]},
+      {Z:1,sym:'H',dir:_PYR_NH3[2]},
     ],
-    bonds:[[0,1],[0,2],[0,3]] }, // all single
+    bonds:[[0,1],[0,2],[0,3]] }, // all single // real H–X–H/X–X–X angle 107.8° (experimental), not the ideal 109.5°
   { key:'ch4', formula:'CH₄', name:'Methane', geometry:'Tetrahedral',
     atoms:[
       {Z:6,sym:'C',dir:[0,0,0]},
@@ -2998,30 +3565,30 @@ const MOLECULES=[
     bonds:[[0,1],[0,2]] }, // delocalized ~1.5 order resonance, rounded DOWN to single — central O is
     // period 2 and can't expand its octet, so double-double would leave central O with 0 lone pairs
     // and a +2 formal charge. See the same rule applied to NO2 above and PERIOD-2-CENTER RULE below.
-  { key:'ph3', formula:'PH₃', name:'Phosphine', geometry:'Trigonal Pyramidal',
+  { key:'ph3', formula:'PH₃', name:'Phosphine', geometry:'Trigonal Pyramidal (93.3°)',
     atoms:[
       {Z:15,sym:'P',dir:[0,0,0]},
-      {Z:1,sym:'H',dir:[TET, TET, TET]},
-      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
-      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+      {Z:1,sym:'H',dir:_PYR_PH3[0]},
+      {Z:1,sym:'H',dir:_PYR_PH3[1]},
+      {Z:1,sym:'H',dir:_PYR_PH3[2]},
     ],
-    bonds:[[0,1],[0,2],[0,3]] }, // all single
-  { key:'nf3', formula:'NF₃', name:'Nitrogen Trifluoride', geometry:'Trigonal Pyramidal',
+    bonds:[[0,1],[0,2],[0,3]] }, // all single // real H–X–H/X–X–X angle 93.3° (experimental), not the ideal 109.5°
+  { key:'nf3', formula:'NF₃', name:'Nitrogen Trifluoride', geometry:'Trigonal Pyramidal (102.3°)',
     atoms:[
       {Z:7,sym:'N',dir:[0,0,0]},
-      {Z:9,sym:'F',dir:[TET, TET, TET]},
-      {Z:9,sym:'F',dir:[TET, -TET, -TET]},
-      {Z:9,sym:'F',dir:[-TET, TET, -TET]},
+      {Z:9,sym:'F',dir:_PYR_NF3[0]},
+      {Z:9,sym:'F',dir:_PYR_NF3[1]},
+      {Z:9,sym:'F',dir:_PYR_NF3[2]},
     ],
-    bonds:[[0,1],[0,2],[0,3]] }, // all single
-  { key:'pcl3', formula:'PCl₃', name:'Phosphorus Trichloride', geometry:'Trigonal Pyramidal',
+    bonds:[[0,1],[0,2],[0,3]] }, // all single // real H–X–H/X–X–X angle 102.3° (experimental), not the ideal 109.5°
+  { key:'pcl3', formula:'PCl₃', name:'Phosphorus Trichloride', geometry:'Trigonal Pyramidal (100.3°)',
     atoms:[
       {Z:15,sym:'P',dir:[0,0,0]},
-      {Z:17,sym:'Cl',dir:[TET, TET, TET]},
-      {Z:17,sym:'Cl',dir:[TET, -TET, -TET]},
-      {Z:17,sym:'Cl',dir:[-TET, TET, -TET]},
+      {Z:17,sym:'Cl',dir:_PYR_PCL3[0]},
+      {Z:17,sym:'Cl',dir:_PYR_PCL3[1]},
+      {Z:17,sym:'Cl',dir:_PYR_PCL3[2]},
     ],
-    bonds:[[0,1],[0,2],[0,3]] }, // all single
+    bonds:[[0,1],[0,2],[0,3]] }, // all single // real H–X–H/X–X–X angle 100.3° (experimental), not the ideal 109.5°
   { key:'sih4', formula:'SiH₄', name:'Silane', geometry:'Tetrahedral',
     atoms:[
       {Z:14,sym:'Si',dir:[0,0,0]},
@@ -3094,22 +3661,22 @@ const MOLECULES=[
     bonds:[[0,1,2],[0,2,2],[0,3,2]] }, // all three S=O double (resonance-averaged)
 
   // ── Trigonal Pyramidal (AX3E) ──
-  { key:'ash3', formula:'AsH₃', name:'Arsine', geometry:'Trigonal Pyramidal',
+  { key:'ash3', formula:'AsH₃', name:'Arsine', geometry:'Trigonal Pyramidal (92.1°)',
     atoms:[
       {Z:33,sym:'As',dir:[0,0,0]},
-      {Z:1,sym:'H',dir:[TET, TET, TET]},
-      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
-      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+      {Z:1,sym:'H',dir:_PYR_ASH3[0]},
+      {Z:1,sym:'H',dir:_PYR_ASH3[1]},
+      {Z:1,sym:'H',dir:_PYR_ASH3[2]},
     ],
-    bonds:[[0,1],[0,2],[0,3]] }, // all single
-  { key:'sbh3', formula:'SbH₃', name:'Stibine', geometry:'Trigonal Pyramidal',
+    bonds:[[0,1],[0,2],[0,3]] }, // all single // real H–X–H/X–X–X angle 92.1° (experimental), not the ideal 109.5°
+  { key:'sbh3', formula:'SbH₃', name:'Stibine', geometry:'Trigonal Pyramidal (91.6°)',
     atoms:[
       {Z:51,sym:'Sb',dir:[0,0,0]},
-      {Z:1,sym:'H',dir:[TET, TET, TET]},
-      {Z:1,sym:'H',dir:[TET, -TET, -TET]},
-      {Z:1,sym:'H',dir:[-TET, TET, -TET]},
+      {Z:1,sym:'H',dir:_PYR_SBH3[0]},
+      {Z:1,sym:'H',dir:_PYR_SBH3[1]},
+      {Z:1,sym:'H',dir:_PYR_SBH3[2]},
     ],
-    bonds:[[0,1],[0,2],[0,3]] }, // all single
+    bonds:[[0,1],[0,2],[0,3]] }, // all single // real H–X–H/X–X–X angle 91.6° (experimental), not the ideal 109.5°
 
   // ── Bent (AX2E2 / odd-electron) ──
   { key:'h2se', formula:'H₂Se', name:'Hydrogen Selenide', geometry:'Bent (91.0°)',
@@ -3236,6 +3803,64 @@ const MOLECULES=[
       {Z:9,sym:'F',dir:[0,1,0]}, {Z:9,sym:'F',dir:[0,-1,0]},
     ],
     bonds:[[0,1],[0,2],[0,3],[0,4]] }, // all single — the two lone pairs sit axial, above/below the F4 plane
+
+  // ── Added in the data-validation pass: covalent hub-and-spoke molecules ──
+  { key:'icl', formula:'ICl', name:'Iodine Monochloride', geometry:'Linear', ..._mdlDiatomic(17,'Cl',53,'I') }, // single; interhalogen
+  { key:'ibr', formula:'IBr', name:'Iodine Monobromide', geometry:'Linear', ..._mdlDiatomic(35,'Br',53,'I') }, // single; interhalogen
+  { key:'brcl', formula:'BrCl', name:'Bromine Monochloride', geometry:'Linear', ..._mdlDiatomic(35,'Br',17,'Cl') }, // single; interhalogen
+  { key:'brf', formula:'BrF', name:'Bromine Monofluoride', geometry:'Linear', ..._mdlDiatomic(35,'Br',9,'F') }, // single; interhalogen
+  { key:'bef2', formula:'BeF₂', name:'Beryllium Fluoride (gas)', geometry:'Linear', ..._mdlAX(4,'Be',9,'F',_MDL_LINEAR2) }, // Be has no lone pair, incomplete octet
+  { key:'bebr2', formula:'BeBr₂', name:'Beryllium Bromide (gas)', geometry:'Linear', ..._mdlAX(4,'Be',35,'Br',_MDL_LINEAR2) }, // Be has no lone pair, incomplete octet
+  { key:'hgcl2', formula:'HgCl₂', name:'Mercury(II) Chloride (gas)', geometry:'Linear', ..._mdlAX(80,'Hg',17,'Cl',_MDL_LINEAR2) }, // covalent linear molecule in the gas phase
+  { key:'hgbr2', formula:'HgBr₂', name:'Mercury(II) Bromide (gas)', geometry:'Linear', ..._mdlAX(80,'Hg',35,'Br',_MDL_LINEAR2) }, // covalent linear molecule in the gas phase
+  { key:'zncl2', formula:'ZnCl₂', name:'Zinc Chloride (gas)', geometry:'Linear', ..._mdlAX(30,'Zn',17,'Cl',_MDL_LINEAR2) }, // monomeric gas-phase molecule
+  { key:'cos', formula:'COS', name:'Carbonyl Sulfide', geometry:'Linear', ..._mdlHub(6,'C',[[8,'O',[1,0,0],2],[16,'S',[-1,0,0],2]]) }, // O=C=S, both double bonds
+  { key:'krf2', formula:'KrF₂', name:'Krypton Difluoride', geometry:'Linear', ..._mdlAX(36,'Kr',9,'F',_MDL_LINEAR2) }, // AX2E3 — three equatorial lone pairs, linear like XeF2
+  { key:'cl2o', formula:'Cl₂O', name:'Dichlorine Monoxide', geometry:'Bent (110.9°)', ..._mdlAX(8,'O',17,'Cl',_mdlBent(110.9)) }, // both single
+  { key:'scl2', formula:'SCl₂', name:'Sulfur Dichloride', geometry:'Bent (102.7°)', ..._mdlAX(16,'S',17,'Cl',_mdlBent(102.7)) }, // both single
+  { key:'sf2', formula:'SF₂', name:'Sulfur Difluoride', geometry:'Bent (98.2°)', ..._mdlAX(16,'S',9,'F',_mdlBent(98.2)) }, // both single
+  { key:'h2te', formula:'H₂Te', name:'Hydrogen Telluride', geometry:'Bent (90.3°)', ..._mdlAX(52,'Te',1,'H',_mdlBent(90.3)) }, // both single — near-90° angle, almost pure p-bonding
+  { key:'hocl', formula:'HOCl', name:'Hypochlorous Acid', geometry:'Bent (103.0°)', ..._mdlHub(8,'O',[[1,'H',_mdlBent(103.0)[0]],[17,'Cl',_mdlBent(103.0)[1]]]) }, // H–O–Cl, both single
+  { key:'ncl3', formula:'NCl₃', name:'Nitrogen Trichloride', geometry:'Trigonal Pyramidal (107.1°)', ..._mdlAX(7,'N',17,'Cl',_mdlPyramid(107.1)) }, // all single
+  { key:'pf3', formula:'PF₃', name:'Phosphorus Trifluoride', geometry:'Trigonal Pyramidal (97.8°)', ..._mdlAX(15,'P',9,'F',_mdlPyramid(97.8)) }, // all single
+  { key:'pbr3', formula:'PBr₃', name:'Phosphorus Tribromide', geometry:'Trigonal Pyramidal (101.0°)', ..._mdlAX(15,'P',35,'Br',_mdlPyramid(101.0)) }, // all single
+  { key:'asf3', formula:'AsF₃', name:'Arsenic Trifluoride', geometry:'Trigonal Pyramidal (96.2°)', ..._mdlAX(33,'As',9,'F',_mdlPyramid(96.2)) }, // all single
+  { key:'ascl3', formula:'AsCl₃', name:'Arsenic Trichloride', geometry:'Trigonal Pyramidal (98.4°)', ..._mdlAX(33,'As',17,'Cl',_mdlPyramid(98.4)) }, // all single
+  { key:'sbcl3', formula:'SbCl₃', name:'Antimony Trichloride', geometry:'Trigonal Pyramidal (97.2°)', ..._mdlAX(51,'Sb',17,'Cl',_mdlPyramid(97.2)) }, // all single
+  { key:'ci4', formula:'CI₄', name:'Carbon Tetraiodide', geometry:'Tetrahedral', ..._mdlAX(6,'C',53,'I',_MDL_TETRA) }, // all single
+  { key:'sibr4', formula:'SiBr₄', name:'Silicon Tetrabromide', geometry:'Tetrahedral', ..._mdlAX(14,'Si',35,'Br',_MDL_TETRA) }, // all single
+  { key:'sii4', formula:'SiI₄', name:'Silicon Tetraiodide', geometry:'Tetrahedral', ..._mdlAX(14,'Si',53,'I',_MDL_TETRA) }, // all single
+  { key:'gef4', formula:'GeF₄', name:'Germanium Tetrafluoride', geometry:'Tetrahedral', ..._mdlAX(32,'Ge',9,'F',_MDL_TETRA) }, // all single
+  { key:'gecl4', formula:'GeCl₄', name:'Germanium Tetrachloride', geometry:'Tetrahedral', ..._mdlAX(32,'Ge',17,'Cl',_MDL_TETRA) }, // all single
+  { key:'gebr4', formula:'GeBr₄', name:'Germanium Tetrabromide', geometry:'Tetrahedral', ..._mdlAX(32,'Ge',35,'Br',_MDL_TETRA) }, // all single
+  { key:'sncl4', formula:'SnCl₄', name:'Tin(IV) Chloride', geometry:'Tetrahedral', ..._mdlAX(50,'Sn',17,'Cl',_MDL_TETRA) }, // all single
+  { key:'snbr4', formula:'SnBr₄', name:'Tin(IV) Bromide', geometry:'Tetrahedral', ..._mdlAX(50,'Sn',35,'Br',_MDL_TETRA) }, // all single
+  { key:'snh4', formula:'SnH₄', name:'Stannane', geometry:'Tetrahedral', ..._mdlAX(50,'Sn',1,'H',_MDL_TETRA) }, // all single
+  { key:'ticl4', formula:'TiCl₄', name:'Titanium(IV) Chloride', geometry:'Tetrahedral', ..._mdlAX(22,'Ti',17,'Cl',_MDL_TETRA) }, // all single
+  { key:'zrcl4', formula:'ZrCl₄', name:'Zirconium(IV) Chloride (gas)', geometry:'Tetrahedral', ..._mdlAX(40,'Zr',17,'Cl',_MDL_TETRA) }, // all single
+  { key:'vcl4', formula:'VCl₄', name:'Vanadium(IV) Chloride', geometry:'Tetrahedral', ..._mdlAX(23,'V',17,'Cl',_MDL_TETRA) }, // all single
+  { key:'xeo4', formula:'XeO₄', name:'Xenon Tetroxide', geometry:'Tetrahedral', ..._mdlAX(54,'Xe',8,'O',_MDL_TETRA,2) }, // four Xe=O double bonds (Xe in +8)
+  { key:'oso4', formula:'OsO₄', name:'Osmium Tetroxide', geometry:'Tetrahedral', ..._mdlAX(76,'Os',8,'O',_MDL_TETRA,2) }, // four Os=O double bonds (Os in +8)
+  { key:'bbr3', formula:'BBr₃', name:'Boron Tribromide', geometry:'Trigonal Planar', ..._mdlAX(5,'B',35,'Br',_MDL_TRIGONAL) }, // all single, empty p-orbital on the centre
+  { key:'bi3', formula:'BI₃', name:'Boron Triiodide', geometry:'Trigonal Planar', ..._mdlAX(5,'B',53,'I',_MDL_TRIGONAL) }, // all single, empty p-orbital on the centre
+  { key:'bh3', formula:'BH₃', name:'Borane (monomer)', geometry:'Trigonal Planar', ..._mdlAX(5,'B',1,'H',_MDL_TRIGONAL) }, // all single, empty p-orbital on the centre
+  { key:'albr3', formula:'AlBr₃', name:'Aluminium Bromide (gas monomer)', geometry:'Trigonal Planar', ..._mdlAX(13,'Al',35,'Br',_MDL_TRIGONAL) }, // all single, empty p-orbital on the centre
+  { key:'seo3', formula:'SeO₃', name:'Selenium Trioxide (gas)', geometry:'Trigonal Planar', ..._mdlAX(34,'Se',8,'O',_MDL_TRIGONAL,2) }, // three Se=O double bonds (same pattern as SO₃)
+  { key:'h2co', formula:'H₂CO', name:'Formaldehyde', geometry:'Trigonal Planar (H–C–H 116.2°)', ..._mdlHub(6,'C',[[8,'O',[1,0,0],2],[1,'H',_mdlPlanarCs(121.9)[0]],[1,'H',_mdlPlanarCs(121.9)[1]]]) }, // C=O double; O=C–H 121.9° (experimental)
+  { key:'cocl2', formula:'COCl₂', name:'Phosgene', geometry:'Trigonal Planar (Cl–C–Cl 111.8°)', ..._mdlHub(6,'C',[[8,'O',[1,0,0],2],[17,'Cl',_mdlPlanarCs(124.1)[0]],[17,'Cl',_mdlPlanarCs(124.1)[1]]]) }, // C=O double; O=C–Cl 124.1° (experimental)
+  { key:'cof2', formula:'COF₂', name:'Carbonyl Fluoride', geometry:'Trigonal Planar (F–C–F 107.6°)', ..._mdlHub(6,'C',[[8,'O',[1,0,0],2],[9,'F',_mdlPlanarCs(126.2)[0]],[9,'F',_mdlPlanarCs(126.2)[1]]]) }, // C=O double; O=C–F 126.2° (experimental)
+  { key:'socl2', formula:'SOCl₂', name:'Thionyl Chloride', geometry:'Trigonal Pyramidal (Cs)', ..._mdlHub(16,'S',[[8,'O',_mdlCsPyramid(106.2,96.1)[0],2],[17,'Cl',_mdlCsPyramid(106.2,96.1)[1]],[17,'Cl',_mdlCsPyramid(106.2,96.1)[2]]]) }, // S=O double; O–S–Cl 106.2°, Cl–S–Cl 96.1° (experimental)
+  { key:'asf5', formula:'AsF₅', name:'Arsenic Pentafluoride', geometry:'Trigonal Bipyramidal', ..._mdlAX(33,'As',9,'F',_MDL_TBP) }, // all single
+  { key:'sbcl5', formula:'SbCl₅', name:'Antimony Pentachloride (gas)', geometry:'Trigonal Bipyramidal', ..._mdlAX(51,'Sb',17,'Cl',_MDL_TBP) }, // all single
+  { key:'sef6', formula:'SeF₆', name:'Selenium Hexafluoride', geometry:'Octahedral', ..._mdlAX(34,'Se',9,'F',_MDL_OCTA) }, // all single
+  { key:'tef6', formula:'TeF₆', name:'Tellurium Hexafluoride', geometry:'Octahedral', ..._mdlAX(52,'Te',9,'F',_MDL_OCTA) }, // all single
+  { key:'wf6', formula:'WF₆', name:'Tungsten Hexafluoride', geometry:'Octahedral', ..._mdlAX(74,'W',9,'F',_MDL_OCTA) }, // all single
+  { key:'mof6', formula:'MoF₆', name:'Molybdenum Hexafluoride', geometry:'Octahedral', ..._mdlAX(42,'Mo',9,'F',_MDL_OCTA) }, // all single
+  { key:'uf6', formula:'UF₆', name:'Uranium Hexafluoride', geometry:'Octahedral', ..._mdlAX(92,'U',9,'F',_MDL_OCTA) }, // all single
+  { key:'brf3', formula:'BrF₃', name:'Bromine Trifluoride', geometry:'T-shaped', ..._mdlAX(35,'Br',9,'F',_mdlTShape(86.2)) }, // all single; F–Br–F(axial) 86.2° (experimental)
+  { key:'if5', formula:'IF₅', name:'Iodine Pentafluoride', geometry:'Square Pyramidal', ..._mdlAX(53,'I',9,'F',_mdlSquarePyramid(81.9)) }, // all single; F(ax)–I–F(eq) 81.9° (experimental)
+  { key:'brf5', formula:'BrF₅', name:'Bromine Pentafluoride', geometry:'Square Pyramidal', ..._mdlAX(35,'Br',9,'F',_mdlSquarePyramid(84.8)) }, // all single; F(ax)–Br–F(eq) 84.8° (experimental)
+  { key:'if7', formula:'IF₇', name:'Iodine Heptafluoride', geometry:'Pentagonal Bipyramidal', ..._mdlAX(53,'I',9,'F',_MDL_PBP) }, // all single — the only common AX7 interhalogen
 
   // ── Aromatic (6-membered delocalized ring) ──
   // A ring has no single hub atom, so it's authored as a CHAIN instead of a
@@ -11131,6 +11756,9 @@ const MOLECULES=[
       [2882,5852,0],[2879,5856,0],[5886,2908,0],[5883,2912,0],[2942,5912,0],[2939,5916,0],[5947,2969,0],[5944,2973,0],
     ] },
 ];
+/* <<< embedded: molecules-data.js */
+</script>
+<script>
 
 // Compact aufbau-exception table: [orbitalName, electronCount] pairs only.
 // R/hex/rgb metadata is looked up from ORBS at getConfig() time — keeps
@@ -11204,7 +11832,670 @@ function getConfig(Z){
   return cfg;
 }
 
-const MAX_EXCITED_PHASES=3;
+// ── ELEMENT COMPARISON TOOL — pure helpers ─────────────────────────────
+// Feature Blueprint Tier 1, #20. Deliberately built on data that already
+// exists (ELS[], getConfig()) rather than adding a new, unverified
+// reference-data table for all 118 elements — electronegativity/ionic
+// radius only exist today for the 25 elements the Build-mode chemistry
+// engine covers (see ELEMENTS above), and fabricating the rest for a
+// physics-education tool would be worse than not shipping this yet.
+// Category and electron configuration are both derivable facts, not
+// looked-up numbers, so they're safe to compute for all 118 today.
+function toSuperscript(n){
+  const map={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+  return String(n).split('').map(d=>map[d]||d).join('');
+}
+function configString(Z){
+  return getConfig(Z).map(o=>o.name+toSuperscript(o.e)).join(' ');
+}
+const METALLOID_Z = new Set([5,14,32,33,51,52,84]);        // B, Si, Ge, As, Sb, Te, Po
+const POST_TRANSITION_Z = new Set([13,31,49,50,81,82,83,113,114,115,116]); // Al, Ga, In, Sn, Tl, Pb, Bi, Nh, Fl, Mc, Lv
+function categoryForElement(Z,p,g){
+  if(Z===1) return 'Nonmetal';
+  if(Z>=57 && Z<=71) return 'Lanthanide';
+  if(Z>=89 && Z<=103) return 'Actinide';
+  if(g===18) return 'Noble Gas';
+  if(g===1) return 'Alkali Metal';
+  if(g===2) return 'Alkaline Earth Metal';
+  if(g===17) return 'Halogen';
+  if(METALLOID_Z.has(Z)) return 'Metalloid';
+  if(POST_TRANSITION_Z.has(Z)) return 'Post-Transition Metal';
+  if(g>=3 && g<=12) return 'Transition Metal';
+  return 'Nonmetal'; // remaining p-block (C, N, O, P, S, Se) + unclassified superheavy
+}
+function elementByZ(Z){ return ELS.find(e=>e.Z===Z); }
+function compareRow(Z){
+  const el=elementByZ(Z);
+  if(!el) return null;
+  return {
+    Z, name:el.name, sym:el.sym,
+    period:el.p, group:el.g,
+    massNumber: Z+el.n,
+    category: categoryForElement(Z,el.p,el.g),
+    config: configString(Z),
+  };
+}
+function renderCompareTable(){
+  const z1=parseInt(document.getElementById('compare-el-1').value,10);
+  const z2=parseInt(document.getElementById('compare-el-2').value,10);
+  const r1=compareRow(z1), r2=compareRow(z2);
+  const rows=[
+    ['Symbol', r1.sym, r2.sym],
+    ['Name', r1.name, r2.name],
+    ['Atomic Number (Z)', r1.Z, r2.Z],
+    ['Period', r1.period, r2.period],
+    ['Group', r1.group, r2.group],
+    ['Category', r1.category, r2.category],
+    ['Mass Number (Z+N)', r1.massNumber, r2.massNumber],
+    ['Electron Configuration', r1.config, r2.config],
+  ];
+  const html = rows.map(([label,a,b])=>
+    '<div class="cmp-row"><div class="cmp-label">'+label+'</div>'+
+    '<div class="cmp-val">'+a+'</div>'+
+    '<div class="cmp-val">'+b+'</div></div>'
+  ).join('');
+  document.getElementById('compare-table').innerHTML=html;
+}
+function openCompareModal(){
+  const modal=document.getElementById('compare-modal');
+  if(!modal) return;
+  const sel1=document.getElementById('compare-el-1');
+  const sel2=document.getElementById('compare-el-2');
+  if(sel1.options.length===0){
+    const opts = ELS.map(e=>'<option value="'+e.Z+'">'+e.Z+' — '+e.name+'</option>').join('');
+    sel1.innerHTML=opts; sel2.innerHTML=opts;
+    sel2.value = ELS[7] ? ELS[7].Z : ELS[0].Z; // default 2nd picker to Oxygen (Z=8) if present
+  }
+  renderCompareTable();
+  modal.classList.add('open');
+}
+function closeCompareModal(){
+  const modal=document.getElementById('compare-modal');
+  if(modal) modal.classList.remove('open');
+}
+
+// ── MOLECULE ANALYSIS (Blueprint Tier 0, #1 bond length/angle, #2 formula
+//    & molar mass, #9 formal charge) ────────────────────────────────────
+// Bond ANGLES are exact: they're computed directly from each molecule's own
+// `dir` unit vectors, which already encode the real VSEPR geometry (e.g.
+// H2O_HALF_ANGLE literally is half of water's real 104.5°) — nothing new
+// to source there. Bond LENGTHS are a separate honesty problem: the
+// existing bondLength()/covalentBondLength() functions compute a *visual
+// rendering* distance calibrated for how orbital lobes should overlap on
+// screen, not a real physical bond length — using that number here would
+// be showing a fabricated-looking real-world value. So this uses its own
+// small table of real single-bond covalent radii in picometers (Cordero
+// et al. 2008, same published source the rendering code already cites for
+// COVALENT_RADIUS_PM, extended here to the handful of extra elements that
+// appear in the curated molecule set) and is honest with "—" wherever an
+// element isn't in that table rather than guessing.
+// Covers every element in ChemistryCore.COVALENT_RADIUS_PM (same Cordero 2008 source) so Analysis no longer
+// shows "—" for bond lengths of Si, Ge, As, Se, Sb, Xe, ... that already ship in the curated set.
+const REAL_COVALENT_RADIUS_PM = {
+  1:31, 3:128, 4:96, 5:84, 6:76, 7:71, 8:66, 9:57, 11:166, 12:141,
+  13:121, 14:111, 15:107, 16:105, 17:102, 19:203, 20:176, 22:160, 23:153, 26:132,
+  29:132, 30:122, 31:122, 32:120, 33:119, 34:120, 35:120, 36:116, 37:220, 38:195,
+  40:175, 42:154, 47:145, 49:142, 50:139, 51:139, 52:138, 53:139, 54:140, 55:244,
+  56:215, 72:175, 74:162, 76:144, 79:136, 80:132, 82:146, 92:196,
+};
+function realBondLengthPm(Za, Zb, order){
+  const Ra=REAL_COVALENT_RADIUS_PM[Za], Rb=REAL_COVALENT_RADIUS_PM[Zb];
+  if(Ra==null || Rb==null) return null;
+  const ord=Math.max(1, Math.min(3, order!=null?order:1));
+  const orderMult=1-0.12*(ord-1); // standard multiple-bond shortening, same convention as covalentBondLength()
+  return Math.round((Ra+Rb)*orderMult);
+}
+// Per-atom direction vectors for the geometry math below (bond angles,
+// dipole). Hand-authored molecules carry unit `dir` vectors on every atom.
+// Compounds authored WITHOUT them (the ionic salts NaCl / MgCl2 / CaF2 / KBr,
+// and any engine-resolved structure) get their layout from the Universal
+// Compound Engine instead, so there is no `dir` to read — before this
+// helper, opening Analysis on those threw "Cannot read properties of
+// undefined (reading '0')" and the modal never opened. Fall back to the
+// engine-resolved positions, centered on their centroid so the "origin is
+// the molecule's center" assumption the callers make still holds. Angles and
+// unit-vector dipoles are scale-invariant, so positions work as directions.
+const _molDirsCache = new WeakMap();
+function moleculeDirs(mol){
+  if(mol.atoms.every(a=>Array.isArray(a.dir))) return mol.atoms.map(a=>a.dir);
+  let dirs=_molDirsCache.get(mol);
+  if(!dirs){
+    const pos=resolveMoleculeAtoms(mol).map(a=>a.pos);
+    const n=pos.length||1;
+    const c=[0,1,2].map(k=>pos.reduce((s,p)=>s+p[k],0)/n);
+    dirs=pos.map(p=>[p[0]-c[0],p[1]-c[1],p[2]-c[2]]);
+    _molDirsCache.set(mol,dirs);
+  }
+  return dirs;
+}
+function bondAngleDeg(mol, iA, iCenter, iB){
+  const D=moleculeDirs(mol);
+  const a=D[iA], c=D[iCenter], b=D[iB];
+  const va=[a[0]-c[0], a[1]-c[1], a[2]-c[2]];
+  const vb=[b[0]-c[0], b[1]-c[1], b[2]-c[2]];
+  // When the "center" atom sits at the origin (every AXn star-shaped
+  // molecule in this file), va/vb above degenerate to a/b themselves —
+  // this form also stays correct for the rare non-origin case.
+  const dot=va[0]*vb[0]+va[1]*vb[1]+va[2]*vb[2];
+  const magA=Math.hypot(...va), magB=Math.hypot(...vb);
+  if(magA<1e-9 || magB<1e-9) return null;
+  const cosT=Math.max(-1,Math.min(1, dot/(magA*magB)));
+  return Math.round(Math.acos(cosT)*180/Math.PI*10)/10;
+}
+function valenceElectronsFor(Z, g){
+  if(Z===1) return 1;
+  if(g<=2) return g;
+  if(g>=13 && g<=18) return g-10;
+  return null; // transition metal — this simple main-group model doesn't apply
+}
+// ── ELECTRON DOMAINS (shared by formal charge, hybridization) ───────────
+// lonePairs = (V − bondOrderSum) / 2 is the general Lewis-structure result
+// for ANY central atom whose bonding pattern is already known (from
+// mol.bonds) — it is NOT capped at a fixed octet, so it stays correct for
+// expanded-octet species (ClF3, SF4, XeF2, XeF4, PF5, SF6: verified by hand
+// against their real, textbook lone-pair counts before this was used for
+// anything). A non-integer result means the electron count genuinely
+// doesn't resolve to whole pairs around this atom with a single-structure
+// model — that's exactly what happens for NO2 and ClO2, both already
+// commented in molecules-data.js as odd-electron radicals with a
+// resonance-averaged bond order — so it doubles as an honest radical
+// detector rather than something that needs its own separate check.
+function electronDomainsFor(mol, atomIndex){
+  const atom=mol.atoms[atomIndex];
+  const el=elementByZ(atom.Z);
+  if(!el) return null;
+  const V=valenceElectronsFor(atom.Z, el.g);
+  if(V==null) return null;
+  const neighbors = new Set();
+  let bondOrderSum=0;
+  mol.bonds.forEach(bd=>{
+    const [i,j,ord]=bd;
+    const o = ord!=null ? ord : 1;
+    if(i===atomIndex){ bondOrderSum+=o; neighbors.add(j); }
+    else if(j===atomIndex){ bondOrderSum+=o; neighbors.add(i); }
+  });
+  const lonePairs = (V - bondOrderSum) / 2;
+  if(!Number.isInteger(lonePairs) || lonePairs<0) return null; // radical / doesn't resolve to whole pairs
+  return { V, bondOrderSum, lonePairs, bondingDomains: neighbors.size, totalDomains: neighbors.size + lonePairs };
+}
+function formalChargeFor(mol, atomIndex){
+  const d = electronDomainsFor(mol, atomIndex);
+  if(!d) return null;
+  return d.V - 2*d.lonePairs - d.bondOrderSum;
+}
+const HYBRIDIZATION_BY_DOMAINS = {1:'s (terminal)', 2:'sp', 3:'sp²', 4:'sp³', 5:'sp³d', 6:'sp³d²'};
+function hybridizationFor(mol, atomIndex){
+  const d = electronDomainsFor(mol, atomIndex);
+  if(!d || d.bondingDomains<2) return null; // a terminal atom (e.g. the F in H-F) has no meaningful hybridization to report
+  return HYBRIDIZATION_BY_DOMAINS[d.totalDomains] || null; // >6 domains: outside this model's scope, reported as unknown rather than guessed
+}
+
+// ── DIPOLE MOMENT (Blueprint Tier 1, #13) ───────────────────────────────
+// Gives an accurate DIRECTION (each bond's dipole points toward the more
+// electronegative atom, which is the real, correct physics) but only a
+// qualitative relative MAGNITUDE — an actual Debye value needs bond length
+// and real charge separation too, which this simplified EN-difference model
+// doesn't have. Uses the existing 25-element ChemistryCore.ELEMENTS table;
+// confirmed to cover all 23 elements that actually appear across every
+// curated molecule before this was written, so this only reports
+// "unavailable" for elements that can genuinely show up via Build mode
+// (transition metals, rare/superheavy elements) rather than ones already
+// shipped in the curated library.
+function moleculeDipole(mol){
+  const Chem = (typeof window!=='undefined' ? window.ChemistryCore : null);
+  if(!Chem) return null;
+  let vx=0, vy=0, vz=0;
+  const D=moleculeDirs(mol);
+  for (const bd of mol.bonds){
+    const [i,j] = bd;
+    const elA = Chem.ELEMENTS[mol.atoms[i].Z], elB = Chem.ELEMENTS[mol.atoms[j].Z];
+    if(!elA || !elB) return null; // EN data missing for one of this bond's elements
+    const dA = D[i], dB = D[j];
+    let dx=dB[0]-dA[0], dy=dB[1]-dA[1], dz=dB[2]-dA[2];
+    const mag = Math.hypot(dx,dy,dz) || 1;
+    dx/=mag; dy/=mag; dz/=mag; // unit vector pointing from A to B
+    const dEN = elB.EN - elA.EN; // positive => B pulls harder => dipole contribution points toward B
+    vx += dx*dEN; vy += dy*dEN; vz += dz*dEN;
+  }
+  const magnitude = Math.hypot(vx,vy,vz);
+  return { vx, vy, vz, magnitude };
+}
+function dipoleSummary(mol){
+  const d = moleculeDipole(mol);
+  if(!d) return 'Not available (an element in this molecule isn\u2019t in the electronegativity table)';
+  if(d.magnitude < 0.05) return 'Nonpolar — bond dipoles cancel by symmetry';
+  // Report which atom the net vector points closest toward, for a concrete,
+  // checkable answer rather than just raw vector components.
+  let bestIdx=-1, bestDot=-Infinity;
+  const D=moleculeDirs(mol);
+  mol.atoms.forEach((a,i)=>{
+    const v=D[i];
+    const m = Math.hypot(...v) || 1;
+    const dot = (v[0]/m)*d.vx + (v[1]/m)*d.vy + (v[2]/m)*d.vz;
+    if(dot>bestDot){ bestDot=dot; bestIdx=i; }
+  });
+  const el = bestIdx>=0 ? elementByZ(mol.atoms[bestIdx].Z) : null;
+  const towardLabel = el ? el.sym+(bestIdx+1) : '—';
+  const strength = d.magnitude>1.5 ? 'Strongly polar' : d.magnitude>0.5 ? 'Polar' : 'Weakly polar';
+  return strength+' — net dipole points toward '+towardLabel;
+}
+function moleculeMolarMass(mol){
+  // Approximate: sum of each atom's mass NUMBER (protons+neutrons of its
+  // most-stable isotope, from ELS), not a true isotopically-weighted molar
+  // mass — same approximation already disclosed for Compare Elements'
+  // "Mass Number" column, kept consistent rather than inventing a second,
+  // more precise-looking number this app doesn't actually have the data for.
+  return mol.atoms.reduce((sum,a)=>{
+    const el=elementByZ(a.Z);
+    return sum + (el ? a.Z+el.n : 0);
+  }, 0);
+}
+function renderMoleculeAnalysis(){
+  const body=document.getElementById('analysis-body');
+  if(!moleculeMode || !curMoleculeKey){
+    body.innerHTML='<div class="recents-empty">Switch to Molecule mode and pick a molecule to see its analysis.</div>';
+    return;
+  }
+  const mol=MOLECULES.find(m=>m.key===curMoleculeKey);
+  if(!mol){ body.innerHTML='<div class="recents-empty">No molecule loaded.</div>'; return; }
+
+  const unitBtn=(kind,val,label,active)=>'<button type="button" class="an-unit-btn'+(active?' active':'')+'" onclick="setAnalysisUnit(\''+kind+'\',\''+val+'\')">'+label+'</button>';
+  let html = '<div class="an-section-title">Units</div><div class="an-unit-row">' +
+    '<span class="an-unit-group">'+
+      unitBtn('length','pm','pm',analysisLengthUnit==='pm')+
+      unitBtn('length','ang','Å',analysisLengthUnit==='ang')+
+      unitBtn('length','bohr','a₀',analysisLengthUnit==='bohr')+
+    '</span>' +
+    '<span class="an-unit-group">'+
+      unitBtn('angle','deg','°',analysisAngleUnit==='deg')+
+      unitBtn('angle','rad','rad',analysisAngleUnit==='rad')+
+    '</span>' +
+  '</div>';
+
+  html += '<div class="an-section-title">Molar Mass (approx.)</div>' +
+    '<div class="an-mass">'+moleculeMolarMass(mol)+' amu</div>';
+
+  html += '<div class="an-section-title">Dipole Moment</div>' +
+    '<div class="an-dipole">'+dipoleSummary(mol)+'</div>';
+
+  const groups = detectFunctionalGroups(mol);
+  if(groups.length){
+    html += '<div class="an-section-title">Functional Groups</div><div class="an-table">';
+    groups.forEach(g=>{
+      html += '<div class="an-row"><span class="an-key">'+g.name+'</span>' +
+        '<span class="an-val">at '+g.atoms.map(i=>{const el=elementByZ(mol.atoms[i].Z); return (el?el.sym:mol.atoms[i].sym)+(i+1);}).join(', ')+'</span></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="an-section-title">Formal Charge &amp; Hybridization</div><div class="an-table">';
+  mol.atoms.forEach((a,i)=>{
+    const el=elementByZ(a.Z);
+    // Curated ionic atoms (NaCl's Na⁺/Cl⁻, CaF2's Ca²⁺/F⁻, ...) carry their
+    // true charge in the data. The covalent Lewis-structure solver can't model
+    // them (it reported "N/A (radical)" for every ion, and "0 · sp²" for
+    // Ca in CaF2), so report the stored ionic charge and no hybridization.
+    const ionicCharge = a.formalCharge ? a.formalCharge : null;
+    const fc = ionicCharge!=null ? ionicCharge : formalChargeFor(mol,i);
+    // A null result means one of two different things: a genuine odd-electron radical, or a d-/f-block
+    // element the main-group Lewis model doesn't cover. Say which, instead of calling every null a radical.
+    const isDBlock = el && valenceElectronsFor(a.Z, el.g)==null;
+    const fcStr = fc==null ? (isDBlock ? 'N/A (d/f-block element)' : 'N/A (radical)') : (fc>0?'+'+fc:String(fc));
+    const hyb = ionicCharge!=null ? null : hybridizationFor(mol,i);
+    const label = hyb ? fcStr+' · '+hyb : fcStr;
+    html += '<div class="an-row"><span class="an-key">'+(el?el.sym:a.sym)+(i+1)+'</span><span class="an-val">'+label+'</span></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="an-section-title">Bonds</div><div class="an-table">';
+  mol.bonds.forEach(bd=>{
+    const [i,j,ord]=bd;
+    const order = ord!=null ? ord : 1;
+    const a=mol.atoms[i], b=mol.atoms[j];
+    const elA=elementByZ(a.Z), elB=elementByZ(b.Z);
+    const symA=elA?elA.sym:a.sym, symB=elB?elB.sym:b.sym;
+    const lenPm = realBondLengthPm(a.Z,b.Z,order);
+    // order 0 = ionic (electrostatic) contact, not a shared-pair bond: a
+    // covalent-radius sum would be a meaningless "bond length" for it, and
+    // "0×" is not a bond order a reader can interpret.
+    const isIonic = ord===0;
+    const orderLabel = isIonic?'ionic':order===1?'single':order===2?'double':order===3?'triple':order+'×';
+    html += '<div class="an-row"><span class="an-key">'+symA+(i+1)+'–'+symB+(j+1)+' ('+orderLabel+')</span>' +
+      '<span class="an-val">'+(isIonic?'electrostatic contact':formatLength(lenPm))+'</span></div>';
+  });
+  html += '</div>';
+
+  // Angles: every OTHER pair of bonds sharing a common atom, reported once.
+  const byAtom = {};
+  mol.bonds.forEach(([i,j])=>{
+    (byAtom[i]=byAtom[i]||[]).push(j);
+    (byAtom[j]=byAtom[j]||[]).push(i);
+  });
+  const angleRows=[];
+  Object.keys(byAtom).forEach(centerStr=>{
+    const center=parseInt(centerStr,10);
+    const neighbors=byAtom[center];
+    for(let x=0;x<neighbors.length;x++){
+      for(let y=x+1;y<neighbors.length;y++){
+        const ang=bondAngleDeg(mol, neighbors[x], center, neighbors[y]);
+        if(ang==null) continue;
+        const elC=elementByZ(mol.atoms[center].Z);
+        const elX=elementByZ(mol.atoms[neighbors[x]].Z);
+        const elY=elementByZ(mol.atoms[neighbors[y]].Z);
+        angleRows.push('<div class="an-row"><span class="an-key">'+
+          (elX?elX.sym:'')+(neighbors[x]+1)+'–'+(elC?elC.sym:'')+(center+1)+'–'+(elY?elY.sym:'')+(neighbors[y]+1)+
+          '</span><span class="an-val">'+formatAngle(ang)+'</span></div>');
+      }
+    }
+  });
+  if(angleRows.length){
+    html += '<div class="an-section-title">Bond Angles</div><div class="an-table">'+angleRows.join('')+'</div>';
+  }
+
+  body.innerHTML = html;
+}
+function openAnalysisModal(){
+  const modal=document.getElementById('analysis-modal');
+  if(!modal) return;
+  renderMoleculeAnalysis();
+  modal.classList.add('open');
+}
+function closeAnalysisModal(){
+  const modal=document.getElementById('analysis-modal');
+  if(modal) modal.classList.remove('open');
+}
+
+// ── UNIT TOGGLE (Blueprint Tier 0, #3) ──────────────────────────────────
+// The only real physical quantities this app displays anywhere are bond
+// length (Analysis modal, picometers) and bond angle (degrees) — there's no
+// energy value shown anywhere to offer an eV toggle for, so this covers
+// length (SI picometers ↔ SI angstroms ↔ the atomic unit of length, the
+// Bohr radius) and angle (degrees ↔ radians) rather than inventing an eV
+// control with nothing behind it.
+const PM_PER_ANGSTROM = 100;
+const PM_PER_BOHR = 52.9177; // 1 a₀, CODATA
+let analysisLengthUnit = 'pm';
+let analysisAngleUnit = 'deg';
+try {
+  analysisLengthUnit = localStorage.getItem('qas-analysis-length-unit') || 'pm';
+  analysisAngleUnit = localStorage.getItem('qas-analysis-angle-unit') || 'deg';
+} catch(e){}
+function formatLength(pm){
+  if(pm==null) return '—';
+  if(analysisLengthUnit==='ang') return (pm/PM_PER_ANGSTROM).toFixed(3)+' Å';
+  if(analysisLengthUnit==='bohr') return (pm/PM_PER_BOHR).toFixed(3)+' a₀';
+  return pm+' pm';
+}
+function formatAngle(deg){
+  if(deg==null) return '—';
+  if(analysisAngleUnit==='rad') return (deg*Math.PI/180).toFixed(4)+' rad';
+  return deg+'°';
+}
+function setAnalysisUnit(kind, unit){
+  if(kind==='length'){ analysisLengthUnit=unit; try{localStorage.setItem('qas-analysis-length-unit',unit);}catch(e){} }
+  else { analysisAngleUnit=unit; try{localStorage.setItem('qas-analysis-angle-unit',unit);}catch(e){} }
+  renderMoleculeAnalysis();
+}
+
+// ── FUNCTIONAL GROUP HIGHLIGHTER (Blueprint Tier 0, #10) ────────────────
+// Deliberately a short, conservative list — four groups whose detection
+// rule is unambiguous from the bond graph alone (element + bond order +
+// degree), rather than a long list with edge cases quietly guessed at.
+// None of the curated molecules contain these (they're mostly small
+// inorganic/main-group species) — this is aimed at Build-mode results
+// (ethanol, propanoic acid, phenol, aniline, ...), which share the same
+// {atoms,bonds} shape once resolved (see runBuild's MOLECULES.push).
+function neighborsOf(mol, idx){
+  const out=[];
+  mol.bonds.forEach(([i,j,ord])=>{
+    if(i===idx) out.push({idx:j, order:ord!=null?ord:1});
+    if(j===idx) out.push({idx:i, order:ord!=null?ord:1});
+  });
+  return out;
+}
+function detectFunctionalGroups(mol){
+  const found=[];
+  const consumedO=new Set(); // an -OH already reported as part of a carboxyl shouldn't also be reported standalone
+  mol.atoms.forEach((atom,i)=>{
+    if(atom.Z!==6) return;
+    const nbrs = neighborsOf(mol,i);
+    const doubleO = nbrs.filter(n=>mol.atoms[n.idx].Z===8 && n.order===2);
+    const singleO = nbrs.filter(n=>mol.atoms[n.idx].Z===8 && n.order===1);
+    if(doubleO.length===1){
+      const oIdx = doubleO[0].idx;
+      const oh = singleO.find(n => neighborsOf(mol,n.idx).some(nn=>mol.atoms[nn.idx].Z===1 && nn.order===1));
+      if(oh){
+        found.push({name:'Carboxyl (–COOH)', atoms:[i, oIdx, oh.idx]});
+        consumedO.add(oh.idx);
+      } else {
+        found.push({name:'Carbonyl (C=O)', atoms:[i, oIdx]});
+      }
+    }
+  });
+  mol.atoms.forEach((atom,i)=>{
+    const nbrs = neighborsOf(mol,i);
+    if(atom.Z===8 && !consumedO.has(i)){
+      const hBonds = nbrs.filter(n=>mol.atoms[n.idx].Z===1 && n.order===1);
+      const heavyBonds = nbrs.filter(n=>mol.atoms[n.idx].Z!==1 && n.order===1);
+      if(hBonds.length===1 && heavyBonds.length===1 && nbrs.length===2){
+        found.push({name:'Hydroxyl (–OH)', atoms:[i, hBonds[0].idx]});
+      }
+    }
+    if(atom.Z===7){ // nitrogen-centered: amine, requires at least one carbon neighbor
+      const hBonds = nbrs.filter(n=>mol.atoms[n.idx].Z===1 && n.order===1);
+      const cBonds = nbrs.filter(n=>mol.atoms[n.idx].Z===6 && n.order===1);
+      if(cBonds.length>=1 && hBonds.length>=1 && hBonds.length<=2){
+        found.push({name:'Amine (–NH'+(hBonds.length===2?'₂':'')+')', atoms:[i, ...hBonds.map(h=>h.idx)]});
+      }
+    }
+  });
+  return found;
+}
+
+
+// ── GUIDED LESSON PATHS (Blueprint Tier 2, #27) ─────────────────────────
+// Deliberately content-only: every step just calls select(Z) / selectMolecule(key)
+// / setLeftMode(), the same functions a manual click already calls. No new
+// rendering code, no touch of buildAtom()/buildMolecule() internals — so this
+// carries none of the WebGL-regression risk the other Tier 2 items do.
+const LESSONS = [
+  {
+    id: 'covalent-bonds',
+    title: 'Understanding Covalent Bonds',
+    steps: [
+      { type:'atom', z:1, note:'Hydrogen has one electron and one open spot in its shell — it needs one more electron to be stable.' },
+      { type:'molecule', key:'h2', note:'Two hydrogen atoms share their electrons, one pair, a single covalent bond. Each atom now "sees" a full shell.' },
+      { type:'atom', z:8, note:'Oxygen has 6 valence electrons — two spots short of a full shell.' },
+      { type:'molecule', key:'o2', note:'Two oxygen atoms share two pairs of electrons: a double bond. Notice the shorter, stronger bond than H₂.' },
+      { type:'molecule', key:'n2', note:'Nitrogen goes further still: three shared pairs, a triple bond — the strongest of the three, and why N₂ is so unreactive.' },
+      { type:'molecule', key:'h2o', note:'Bonds between different elements are polar: oxygen pulls the shared electrons closer, giving water its bent shape and its charge separation.' },
+    ],
+  },
+  {
+    id: 'vsepr-shapes',
+    title: "VSEPR: Why Molecules Have Shapes",
+    steps: [
+      { type:'molecule', key:'ch4', note:'Methane: 4 bonding pairs, 0 lone pairs, spread out as far apart as possible — a perfect tetrahedron, 109.5° angles.' },
+      { type:'molecule', key:'nh3', note:'Ammonia: 3 bonding pairs + 1 lone pair. The lone pair still repels — it just doesn\u2019t show — pushing the bonds into a pyramid and shrinking the angle to 107°.' },
+      { type:'molecule', key:'h2o', note:'Water: 2 bonding pairs + 2 lone pairs. Two invisible lone pairs push even harder, bending the molecule down to 104.5°.' },
+      { type:'molecule', key:'bf3', note:'Boron trifluoride: only 3 bonding pairs, 0 lone pairs — flat and trigonal planar, 120° apart.' },
+      { type:'molecule', key:'pf5', note:'Phosphorus pentafluoride: 5 bonding pairs need a 3D shape flat geometry can\u2019t give — trigonal bipyramidal, two different bond angles at once (90° and 120°).' },
+      { type:'molecule', key:'sf6', note:'Sulfur hexafluoride: 6 bonding pairs, perfectly symmetric — octahedral, every angle exactly 90°.' },
+    ],
+  },
+  {
+    id: 'building-the-table',
+    title: 'Building Up the Periodic Table',
+    steps: [
+      { type:'atom', z:1, note:'Hydrogen: one electron in the 1s orbital, the smallest possible shell.' },
+      { type:'atom', z:2, note:'Helium: the 1s orbital is now full (2 electrons) — the first noble gas. Nothing wants to bond with it.' },
+      { type:'atom', z:3, note:'Lithium: the 1s shell is full, so its 3rd electron has to start a brand-new shell (2s) further out — this is why row 2 of the table begins here.' },
+      { type:'atom', z:10, note:'Neon: shells 1 and 2 are both full (2 + 8 electrons) — the second noble gas, and the end of row 2.' },
+      { type:'atom', z:11, note:'Sodium: same story again — one lone electron starts a third shell. Every new row of the periodic table starts exactly this way.' },
+      { type:'atom', z:18, note:'Argon: shell 3\u2019s s and p orbitals are full — the third noble gas. The pattern repeats all the way to element 118.' },
+    ],
+  },
+];
+
+let activeLesson = null;
+let activeLessonStep = 0;
+
+function renderLessonPicker(){
+  const list = document.getElementById('lesson-list');
+  list.innerHTML = LESSONS.map((l,i)=>
+    '<button type="button" class="lesson-item" onclick="startLesson('+i+')">' +
+      '<span class="lesson-item-title">'+l.title+'</span>' +
+      '<span class="lesson-item-count">'+l.steps.length+' steps</span>' +
+    '</button>'
+  ).join('');
+}
+function openLessonModal(){
+  const modal=document.getElementById('lesson-modal');
+  if(!modal) return;
+  showLessonPicker();
+  modal.classList.add('open');
+}
+function closeLessonModal(){
+  const modal=document.getElementById('lesson-modal');
+  if(modal) modal.classList.remove('open');
+}
+function showLessonPicker(){
+  activeLesson = null;
+  document.getElementById('lesson-picker-view').classList.remove('hidden-view');
+  document.getElementById('lesson-player-view').classList.add('hidden-view');
+  renderLessonPicker();
+}
+function startLesson(index){
+  activeLesson = LESSONS[index];
+  activeLessonStep = 0;
+  document.getElementById('lesson-picker-view').classList.add('hidden-view');
+  document.getElementById('lesson-player-view').classList.remove('hidden-view');
+  renderLessonStep();
+}
+function applyLessonStep(step){
+  if(step.type==='atom'){
+    setLeftMode('elements');
+    select(step.z);
+  } else if(step.type==='molecule'){
+    setLeftMode('molecules');
+    selectMolecule(step.key);
+  }
+}
+function renderLessonStep(){
+  if(!activeLesson) return;
+  const step = activeLesson.steps[activeLessonStep];
+  document.getElementById('lesson-player-title').textContent = activeLesson.title;
+  document.getElementById('lesson-player-count').textContent =
+    'Step '+(activeLessonStep+1)+' of '+activeLesson.steps.length;
+  document.getElementById('lesson-player-note').textContent = step.note;
+  document.getElementById('lesson-prev').disabled = activeLessonStep===0;
+  document.getElementById('lesson-next').textContent =
+    activeLessonStep===activeLesson.steps.length-1 ? 'FINISH' : 'NEXT →';
+  applyLessonStep(step);
+}
+function lessonNext(){
+  if(!activeLesson) return;
+  if(activeLessonStep < activeLesson.steps.length-1){
+    activeLessonStep++;
+    renderLessonStep();
+  } else {
+    closeLessonModal();
+  }
+}
+function lessonPrev(){
+  if(!activeLesson || activeLessonStep===0) return;
+  activeLessonStep--;
+  renderLessonStep();
+}
+
+// ── RECENTS (Blueprint Tier 0, #6) ──────────────────────────────────────
+// Last 8 atoms/molecules viewed, persisted in localStorage so a returning
+// visitor doesn't have to retype something they already looked at.
+const RECENTS_KEY = 'qas-recents';
+const RECENTS_MAX = 8;
+function getRecents(){
+  try { return JSON.parse(localStorage.getItem(RECENTS_KEY)) || []; }
+  catch(e){ return []; }
+}
+function recordRecent(type, value){
+  try {
+    let list = getRecents();
+    list = list.filter(r => !(r.type===type && r.value===value));
+    list.unshift({type, value});
+    list = list.slice(0, RECENTS_MAX);
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list));
+  } catch(e){ /* storage unavailable (e.g. private browsing) — skip silently */ }
+}
+function recentLabel(r){
+  if(r.type==='atom'){ const el=elementByZ(r.value); return el ? el.name : ('Z='+r.value); }
+  const mol=MOLECULES.find(m=>m.key===r.value);
+  return mol ? mol.name : r.value;
+}
+function renderRecents(){
+  const list = getRecents();
+  const el = document.getElementById('recents-list');
+  if(!el) return;
+  if(list.length===0){
+    el.innerHTML = '<div class="recents-empty">Nothing viewed yet this session — recents will show up here.</div>';
+    return;
+  }
+  el.innerHTML = list.map((r,i) =>
+    '<button type="button" class="lesson-item" onclick="openRecent('+i+')">' +
+      '<span class="lesson-item-title">'+recentLabel(r)+'</span>' +
+      '<span class="lesson-item-count">'+(r.type==='atom'?'Element':'Molecule')+'</span>' +
+    '</button>'
+  ).join('');
+}
+function openRecent(i){
+  const r = getRecents()[i];
+  if(!r) return;
+  if(r.type==='atom'){ setLeftMode('elements'); select(r.value); }
+  else { setLeftMode('molecules'); selectMolecule(r.value); }
+  closeRecentsModal();
+}
+function openRecentsModal(){
+  const modal=document.getElementById('recents-modal');
+  if(!modal) return;
+  renderRecents();
+  modal.classList.add('open');
+}
+function closeRecentsModal(){
+  const modal=document.getElementById('recents-modal');
+  if(modal) modal.classList.remove('open');
+}
+
+// ── SURPRISE ME (Blueprint Tier 0, #5) ──────────────────────────────────
+function surpriseMe(){
+  if(moleculeMode){
+    const pick = MOLECULES[Math.floor(Math.random()*MOLECULES.length)];
+    selectMolecule(pick.key);
+  } else {
+    const pick = ELS[Math.floor(Math.random()*ELS.length)];
+    select(pick.Z);
+  }
+}
+
+// ── BUILD-MODE SHAREABLE URL (Blueprint Tier 0, #7) ─────────────────────
+// A successful Build result updates the URL's ?build= query param (no
+// reload), so the address bar itself becomes a shareable link. On load,
+// the reverse: a ?build= param in the URL re-runs that search automatically.
+function updateBuildURL(query){
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('build', query);
+    window.history.replaceState({}, '', url);
+  } catch(e){ /* URL API unavailable — non-fatal, sharing just won't update */ }
+}
+function applySharedBuildLink(){
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('build');
+  if(!q) return;
+  setLeftMode('build');
+  const input = document.getElementById('build-input');
+  if(input){ input.value = q; runBuild(); }
+}
+
+
 const _excitedCache={Z:null,level:null,result:null};
 
 function getExcitedConfig(Z,level){
@@ -12251,6 +13542,18 @@ function makeHemisphereLobeMesh(R, axisVec, mat, innerR){
 
   mesh.position.set(0, 0, 0);
   return mesh;
+}
+
+// ── Spherical mode for MOLECULES ──
+// Bonded/hybrid lobes have a fixed, known length (root -> partner atom),
+// so the hemisphere silhouette is rescaled to land exactly on that length
+// (total hemisphere length = (1+NECK)*SCALE * span of the R it is given).
+function hemiFitR(R, innerR){
+  return innerR + (R - innerR) / ((1 + HEMI_NECK_ELONGATION) * HEMI_SPHERE_SCALE);
+}
+function lobeMeshAuto(R, axisVec, mat, innerR, peakT, fit){
+  if(sphericalMode) return makeHemisphereLobeMesh(fit ? hemiFitR(R, innerR) : R, axisVec, mat, innerR);
+  return makeLobeMesh(R, axisVec, mat, innerR, peakT);
 }
 
 let ultraMeshes = [];
@@ -13330,6 +14633,10 @@ function sampleBondAwareP(R,axis,innerR,bonds,sChar){
   if(sigmaBond){
     const gap=Math.max(0, sigmaBond.L - R);
     const BOND_ROOT_R=3.0;
+    if(sphericalMode){
+      const sa=[0,0,0]; sa[axis]=sign;
+      return sampleHemisphereDir(hemiFitR(Math.max(BOND_ROOT_R+1e-3,sigmaBond.L), BOND_ROOT_R), sa[0], sa[1], sa[2], BOND_ROOT_R);
+    }
     if(sigmaBond.externalPi){
       // The sigma bond between the two carbons is real and needs its own
       // visible shape — it was removed entirely last pass by mistake.
@@ -13555,7 +14862,7 @@ function buildBondAwarePMesh(orb,bonds,sChar){
         // shapes here too, matching the point-cloud/smooth renderers.
         const BOND_ROOT_R=3.0;
         const peakT=sigmaBond.externalPi?0.5:hybridLobePeakT(sChar);
-        grp.add(makeLobeMesh(Math.max(BOND_ROOT_R+1e-3,sigmaBond.L), dir, mat, BOND_ROOT_R, peakT));
+        grp.add(lobeMeshAuto(Math.max(BOND_ROOT_R+1e-3,sigmaBond.L), dir, mat, BOND_ROOT_R, peakT, true));
         return;
       }
       const piBond=bonds.find(b=>b.piAxisIndices && b.piAxisIndices.includes(ax));
@@ -13564,10 +14871,10 @@ function buildBondAwarePMesh(orb,bonds,sChar){
         const nd=[dir[0]*(1-tilt)+piBond.dirLocal.x*tilt,
                   dir[1]*(1-tilt)+piBond.dirLocal.y*tilt,
                   dir[2]*(1-tilt)+piBond.dirLocal.z*tilt];
-        grp.add(makeLobeMesh(orb.R, nd, mat, innerR));
+        grp.add(lobeMeshAuto(orb.R, nd, mat, innerR));
         return;
       }
-      grp.add(makeLobeMesh(orb.R, dir, mat, innerR));
+      grp.add(lobeMeshAuto(orb.R, dir, mat, innerR));
     });
   });
   return grp;
@@ -13681,6 +14988,7 @@ function completeTetrahedronDirs(knownDirs){
 // `outerR` in per-lobe is what lets a bonded lobe end exactly at its
 // partner atom while a lone-pair lobe uses a shorter, rounder extent.
 function sampleHybridLobe(dir, innerR, outerR){
+  if(sphericalMode) return sampleHemisphereDir(hemiFitR(Math.max(innerR+1e-6,outerR), innerR), dir.x, dir.y, dir.z, innerR);
   const lobeLen=Math.max(1e-6, outerR-innerR);
   const t=Math.random();
   const axial=innerR + t*lobeLen;
@@ -13773,7 +15081,7 @@ function buildHybridPMesh(orb, hybridInfo){
   hybridInfo.dirs.forEach((dir,i)=>{
     const tint=hybridInfo.bonded[i]?[cr,cg,cb]:[cr*0.72,cg*0.82,cb*1.0];
     const mat=bubbleMat(tint, alpha*(hybridInfo.bonded[i]?0.92:0.80), rimPow);
-    grp.add(makeLobeMesh(Math.max(innerR+1e-3,hybridInfo.outerR[i]), [dir.x,dir.y,dir.z], mat, innerR));
+    grp.add(lobeMeshAuto(Math.max(innerR+1e-3,hybridInfo.outerR[i]), [dir.x,dir.y,dir.z], mat, innerR, undefined, true));
   });
   return grp;
 }
@@ -14408,7 +15716,20 @@ function buildMoleculeImpl(key){
       // sp2, leaving a stray 2s sphere floating at CH4's carbon (and
       // NH3/H2O's central atom, and every alkyne/alkane carbon) alongside
       // the correctly-hybridized lobes.
-      if((isSp2Hub||isSpHub||needsHybrid||isTetraHub) && orb.l===0 && orb.n===valenceOrbObj.n) return;
+      //
+      // FIX (hydrogen vanishes in H2O / CH4 / NH3): the hybrid lobe builders
+      // below only run for an atom whose valence orbital is a p subshell
+      // (`canReshape`). Hydrogen's ONLY orbital is its 1s — it is its own
+      // valence orbital and has no p subshell to mix with — so for an H in a
+      // non-axis-aligned bond (needsHybrid===true) this skip deleted its
+      // whole electron cloud and nothing was drawn in its place. In the
+      // normal render modes the leftover nucleus mesh + label masked that,
+      // but HYPER REALISTIC draws only point clouds, so the H disappeared
+      // completely. Same for every other s-only-valence atom in a linear /
+      // planar / tetrahedral bond geometry (e.g. Be in BeH2). The skip is
+      // therefore restricted to atoms that really hybridize (p valence).
+      const hybridizesValenceS = valenceOrbObj.l===1 && (isSp2Hub||isSpHub||needsHybrid||isTetraHub);
+      if(hybridizesValenceS && orb.l===0 && orb.n===valenceOrbObj.n) return;
       const isValenceP = orb===valenceOrbObj && orb.l===1;
       // Bending/hybridizing applies in every render mode now — Ultra and
       // Smooth each have their own mesh/point builder below (see
@@ -14511,8 +15832,9 @@ function buildMoleculeImpl(key){
   // atoms actually has 2+ OTHER real bonds to define that plane with —
   // skipped (not guessed) if neither side has enough real geometry to
   // determine one.
-  if(mol.piBonds){
-    mol.piBonds.forEach(pb=>{
+  const _piBondList = EngineBridge.filterLocalizedPiBonds(EngineBridge.deriveLocalizedPiBonds(mol,_aromaticRings), _aromaticRings);
+  if(_piBondList.length){
+    _piBondList.forEach(pb=>{
       const [i,j]=pb.atoms;
       const rbI=rawBondsByAtom[i]||[], rbJ=rawBondsByAtom[j]||[];
       const others = rbI.length>=2 ? rbI : rbJ;
@@ -14786,6 +16108,7 @@ function select(Z){
   document.querySelectorAll('.mcard').forEach(c=>c.classList.remove('on'));
   const hint=document.getElementById('cycle-hint');
   if(hint) hint.textContent='←→: CYCLE ELEMENTS';
+  recordRecent('atom', Z);
   // Don't auto-close on mobile — user may want to keep browsing elements
   // They can close manually via X button or backdrop tap
 }
@@ -14876,6 +16199,7 @@ function selectMolecule(key){
   document.querySelectorAll('.mcard').forEach(c=>c.classList.toggle('on',c.dataset.mol===key));
   const hint=document.getElementById('cycle-hint');
   if(hint) hint.textContent='←→: CYCLE MOLECULES';
+  recordRecent('molecule', key);
   showToast(`${mol.formula} — ${mol.name.toUpperCase()}`);
 }
 
@@ -14980,12 +16304,13 @@ function categorize(mol){
   const maxOrder=orders.length?Math.max(...orders):1;
   const atomCount=mol.atoms.length;
   let family='other';
-  if(mol.aromaticRings && mol.aromaticRings.length) family='aromatic';
+  if(EngineBridge.deriveAromaticRings(mol).length) family='aromatic';
   else if(mol.functionalGroup==='alcohol') family='alcohol';
   else if(mol.functionalGroup==='amine') family='amine';
   else if(mol.functionalGroup==='ether') family='ether';
-  else if(hasC && maxOrder===3) family='alkyne';
-  else if(hasC && maxOrder===2) family='alkene';
+  else if(mol.functionalGroup==='carbonyl' || mol.bonds.some(b=>(b[2]||1)===2 && ((mol.atoms[b[0]].Z===6&&mol.atoms[b[1]].Z===8)||(mol.atoms[b[0]].Z===8&&mol.atoms[b[1]].Z===6)))) family='carbonyl';
+  else if(hasC && mol.bonds.some(b=>(b[2]||1)===3 && mol.atoms[b[0]].Z===6 && mol.atoms[b[1]].Z===6)) family='alkyne';
+  else if(hasC && mol.bonds.some(b=>(b[2]||1)===2 && mol.atoms[b[0]].Z===6 && mol.atoms[b[1]].Z===6)) family='alkene';
   else if(hasC && hasH) family='alkane';
   else if(atomCount===2) family='diatomic';
   else if(atomCount===3) family='triatomic';
@@ -15448,33 +16773,221 @@ function bBuildEtherObject(spec){
   return {atoms, bonds, geometry:'Bent (ether)', functionalGroup:'ether'};
 }
 
-// Monocyclic cycloalkanes, rendered as a flat regular-polygon ring — a
-// known, documented simplification (real rings above C3 pucker into
-// chair/envelope shapes); reuses the same ring-closing bond pattern
-// resolveMoleculeAtoms already supports for benzene.
-function bBuildCycloalkaneObject(ringSize){
+// ── Ring geometry ────────────────────────────────────────────────────
+// Real rings above C4 are NOT flat: cyclohexane is a chair, cyclopentane an
+// envelope, cyclohexene a half-chair. This relaxes a unit-edge ring toward
+// ideal valence angles (109.5° at sp3 carbons, 120° at sp2 carbons) with a
+// small deterministic energy minimization — bond lengths, angles, and a
+// short-range 1,4+ repulsion — starting from a puckered seed. Rings with
+// every atom sp2 (benzene-like) stay planar by symmetry; 3- and 4-rings
+// stay flat (a 3-ring is flat by necessity; cyclobutane's ~25° pucker is a
+// minor effect). Returns n [x,y,z] points with edge length ≈ 1.
+function bRingCoords(n, sp2){
+  const R0=0.5/Math.sin(Math.PI/n);
+  const allSp2 = sp2.size===n;
+  const P=[];
+  for(let k=0;k<n;k++){
+    const a=2*Math.PI*k/n;
+    let z=0;
+    if(n>=5 && !allSp2){
+      z = (n%2===0) ? (k%2?-0.3:0.3) : 0.3*Math.cos(Math.PI*k*(n-1)/n);
+    }
+    P.push([R0*Math.cos(a), R0*Math.sin(a), z]);
+  }
+  if(n<5 || allSp2) return P;
+  const COS_SP3=-1/3, COS_SP2=-0.5;
+  function energy(Q, wBond){
+    let E=0;
+    for(let i=0;i<n;i++){
+      const j=(i+1)%n, p=(i+n-1)%n;
+      const dx=Q[j][0]-Q[i][0], dy=Q[j][1]-Q[i][1], dz=Q[j][2]-Q[i][2];
+      const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+      E+=wBond*(d-1)*(d-1);
+      const ax=Q[p][0]-Q[i][0], ay=Q[p][1]-Q[i][1], az=Q[p][2]-Q[i][2];
+      const da=Math.sqrt(ax*ax+ay*ay+az*az);
+      const c=(ax*dx+ay*dy+az*dz)/(d*da+1e-12);
+      const t=sp2.has(i)?COS_SP2:COS_SP3;
+      E+=25*(c-t)*(c-t);
+    }
+    // torsion: all-sp3 quadruples prefer staggered (phi=60°), not eclipsed — what
+    // puckers cyclopentane into an envelope instead of a flat pentagon
+    for(let i=0;i<n;i++){
+      const idx=[i,(i+1)%n,(i+2)%n,(i+3)%n];
+      if(idx.some(k=>sp2.has(k))) continue;
+      const [A,B,C,D]=idx.map(k=>Q[k]);
+      const b1=[B[0]-A[0],B[1]-A[1],B[2]-A[2]], b2=[C[0]-B[0],C[1]-B[1],C[2]-B[2]], b3=[D[0]-C[0],D[1]-C[1],D[2]-C[2]];
+      const n1=[b1[1]*b2[2]-b1[2]*b2[1], b1[2]*b2[0]-b1[0]*b2[2], b1[0]*b2[1]-b1[1]*b2[0]];
+      const n2=[b2[1]*b3[2]-b2[2]*b3[1], b2[2]*b3[0]-b2[0]*b3[2], b2[0]*b3[1]-b2[1]*b3[0]];
+      const c=(n1[0]*n2[0]+n1[1]*n2[1]+n1[2]*n2[2])/(Math.hypot(...n1)*Math.hypot(...n2)+1e-9);
+      E+=0.12*(1+(4*c*c*c-3*c));
+    }
+    for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){
+      const sep=Math.min(j-i,n-(j-i));
+      if(sep<3) continue;
+      const dx=Q[j][0]-Q[i][0], dy=Q[j][1]-Q[i][1], dz=Q[j][2]-Q[i][2];
+      const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+      if(d<1.9) E+=2*(1.9-d)*(1.9-d);
+    }
+    return E;
+  }
+  let Q=P.map(p=>p.slice());
+  function minimize(wBond, iters){
+    let step=0.02, E=energy(Q,wBond);
+    for(let it=0;it<iters;it++){
+      const g=Q.map(()=>[0,0,0]);
+      for(let i=0;i<n;i++) for(let c=0;c<3;c++){
+        const h=1e-6; const v=Q[i][c];
+        Q[i][c]=v+h; const e1=energy(Q,wBond);
+        Q[i][c]=v-h; const e2=energy(Q,wBond);
+        Q[i][c]=v; g[i][c]=(e1-e2)/(2*h);
+      }
+      let improved=false;
+      for(let tries=0;tries<12;tries++){
+        const Q2=Q.map((p,i)=>[p[0]-step*g[i][0],p[1]-step*g[i][1],p[2]-step*g[i][2]]);
+        const E2=energy(Q2,wBond);
+        if(E2<E){ Q=Q2; E=E2; step*=1.3; improved=true; break; }
+        step*=0.5;
+      }
+      if(!improved) break;
+    }
+  }
+  minimize(60, 500);
+  minimize(3000, 400);
+  return Q;
+}
+
+// Monocyclic cycloalkanes / cycloalkenes / cycloalkadienes, optionally with
+// methyl/ethyl/halogen substituents. `dblStarts` lists, 0-indexed, the first
+// atom of each ring C=C. `subs`: [{locant, kind:'branch', type}|{locant,
+// kind:'halogen', elem}] (1-indexed ring locants). The ring is described as a
+// chain of unit directions (the format every other molecule uses) derived
+// from the relaxed 3-D ring, so it renders exactly like any hand-built one.
+function bBuildCycloalkaneObject(ringSize, dblStarts, subs){
   const n=ringSize;
+  dblStarts=dblStarts||[]; subs=subs||[];
   if(n<3||n>12) return null;
-  const turn=2*Math.PI/n;
+  const isDbl=new Set(dblStarts);
+  const sp2=new Set();
+  dblStarts.forEach(s=>{ sp2.add(s); sp2.add(s+1); });
+  const P=bRingCoords(n,sp2);
+  const unit=(a,b)=>{ const x=b[0]-a[0], y=b[1]-a[1], z=b[2]-a[2]; const l=Math.hypot(x,y,z)||1; return bVec(x/l,y/l,z/l); };
   const atoms=[{Z:6,sym:'C',dir:[0,0,0]}];
   const bonds=[];
   const stepDirs=[null];
-  const base=bVec(1,0,0);
   for(let i=1;i<n;i++){
-    const d=bRotateZ(base,(i-1)*turn);
+    const d=unit(P[i-1],P[i]);
     stepDirs[i]=d;
     atoms.push({Z:6,sym:'C',dir:bDirArr(d)});
-    bonds.push([i-1,i,1]);
+    // posOrder=1 (4th element): one uniform ring edge length so the ring closes
+    bonds.push(isDbl.has(i-1) ? [i-1,i,2,1] : [i-1,i,1]);
   }
-  bonds.push([n-1,0,1]); // ring-closing bond — listed last so resolveMoleculeAtoms's positioning walk (which takes the FIRST matching bond per atom) always anchors off the previous ring atom, not this one
-  const closingDir=bRotateZ(base,(n-1)*turn);
+  bonds.push([n-1,0,1]); // ring-closing bond, listed last so the positioning walk anchors off the previous ring atom
+  const closingDir=unit(P[n-1],P[0]);
+  const cen=[0,1,2].map(c=>P.reduce((s,p)=>s+p[c],0)/n);
+
+  const byLocant={};
+  subs.forEach(s=>{ (byLocant[s.locant-1]=byLocant[s.locant-1]||[]).push(s); });
 
   for(let i=0;i<n;i++){
     const toNext = i<n-1 ? stepDirs[i+1] : closingDir;
     const toPrev = i>0 ? bNeg(stepDirs[i]) : bNeg(closingDir);
-    bRemainingTetraSlots([toPrev,toNext]).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([i,atoms.length-1,1]); });
+    let slots = sp2.has(i) ? bTrigonalComplete([toPrev,toNext]).slice(2) : bRemainingTetraSlots([toPrev,toNext]);
+    const mine=byLocant[i]||[];
+    if(mine.length>slots.length) return null;
+    // substituents prefer the most outward (equatorial-like) slot
+    const out=bVec(P[i][0]-cen[0],P[i][1]-cen[1],P[i][2]-cen[2]);
+    slots=slots.slice().sort((a,b)=>(b.x*out.x+b.y*out.y+b.z*out.z)-(a.x*out.x+a.y*out.y+a.z*out.z));
+    let si=0;
+    mine.forEach(sub=>{
+      const dir=slots[si++];
+      if(sub.kind==='halogen'){
+        atoms.push({Z:HALOGEN_Z[sub.elem],sym:sub.elem,dir:bDirArr(dir)});
+        bonds.push([i,atoms.length-1,1]);
+      } else {
+        const armLen=sub.type==='methyl'?1:2;
+        const armDirs=bBuildAlkylArmDirs(dir,armLen);
+        if(armLen===2){
+          // point the ethyl's CH3 away from the ring, not back over it
+          const cand=bRemainingTetraSlots([bNeg(dir)]);
+          armDirs[1]=cand.slice().sort((a,b)=>(b.x*out.x+b.y*out.y+b.z*out.z)-(a.x*out.x+a.y*out.y+a.z*out.z))[0];
+        }
+        let anchor=i;
+        armDirs.forEach(d=>{ const c=atoms.length; atoms.push({Z:6,sym:'C',dir:bDirArr(d)}); bonds.push([anchor,c,1]); anchor=c; });
+        for(let k=0;k<armLen;k++){
+          const c=atoms.length-armLen+k;
+          const kn=[bNeg(armDirs[k])]; if(k<armLen-1) kn.push(armDirs[k+1]);
+          bRemainingTetraSlots(kn).forEach(hd=>{ atoms.push({Z:1,sym:'H',dir:bDirArr(hd)}); bonds.push([c,atoms.length-1,1]); });
+        }
+      }
+    });
+    for(;si<slots.length;si++){ atoms.push({Z:1,sym:'H',dir:bDirArr(slots[si])}); bonds.push([i,atoms.length-1,1]); }
   }
-  return {atoms, bonds, geometry:'Cyclic (flat-ring approximation)'};
+  const piBonds=dblStarts.map(s=>({atoms:[s,s+1]}));
+  const hasHal=subs.some(s=>s.kind==='halogen');
+  return {
+    atoms, bonds, piBonds,
+    functionalGroup: dblStarts.length ? 'alkene' : (hasHal ? 'halogenated' : null),
+    geometry: dblStarts.length ? 'Cyclic alkene (puckered ring)' : 'Cyclic (puckered ring)'
+  };
+}
+
+// Core of a cycloalkane/ene/diene name (no substituent prefixes):
+// "cyclohexane", "cyclohexene", "cyclopent-1-ene", "cyclohexa-1,3-diene" ...
+function bParseCycloCore(s){
+  let m, prefix, locs;
+  if((m=s.match(/^cyclo([a-z]+)ane$/))){ prefix=m[1]; locs=[]; }
+  else if((m=s.match(/^cyclo([a-z]+?)-?(?:1-)?ene$/)) && !/a-?$/.test(m[1])){ prefix=m[1]; locs=[1]; }
+  else if((m=s.match(/^cyclo([a-z]+?)a-((?:\d+,)*\d+)-(di|tri|tetra)ene$/))){
+    prefix=m[1]; locs=m[2].split(',').map(Number);
+    if(locs.length!=={di:2,tri:3,tetra:4}[m[3]]) return null;
+  } else return null;
+  const ringSize=CHAIN_PREFIXES[prefix];
+  if(!ringSize||ringSize<3||ringSize>12) return null;
+  const sorted=locs.slice().sort((a,b)=>a-b);
+  for(let i=0;i<sorted.length;i++){
+    if(sorted[i]<1||sorted[i]>ringSize-1) return null;
+    if(i>0 && sorted[i]-sorted[i-1]<2) return null; // duplicate or cumulated double bonds
+  }
+  return {ringSize, dbl:sorted.map(x=>x-1)};
+}
+// Full name: optional halogen / methyl / ethyl prefixes + core.
+// "methylcyclohexane", "1-methylcyclohexene", "1-chloro-2-methylcyclopentane",
+// "3-bromocyclohexene", "1,1-dimethylcyclohexane". Declines (null) on invalid
+// locants or more substituents than a ring carbon has free slots for.
+function bParseCycloName(norm){
+  let s=norm.replace(/\s+/g,'');
+  s=s.replace(/^(methyl|ethyl|fluoro|chloro|bromo|iodo)(?=cyclo)/,'1-$1');
+  const subs=[];
+  for(let guard=0;guard<6;guard++){
+    const h=bStripHalogens(s); if(!h) return null;
+    const b=bStripBranches(h.rest); if(!b) return null;
+    if(!h.halogens.length && !b.branches.length) break;
+    h.halogens.forEach(x=>subs.push({locant:x.locant,kind:'halogen',elem:x.elem}));
+    b.branches.forEach(x=>subs.push({locant:x.locant,kind:'branch',type:x.type}));
+    s=b.rest;
+  }
+  const core=bParseCycloCore(s);
+  if(!core) return null;
+  const sp2=new Set(); core.dbl.forEach(d=>{ sp2.add(d); sp2.add(d+1); });
+  const used={};
+  for(const sub of subs){
+    if(sub.locant<1||sub.locant>core.ringSize) return null;
+    const i=sub.locant-1;
+    used[i]=(used[i]||0)+1;
+    if(used[i]>(sp2.has(i)?1:2)) return null;
+  }
+  return {ringSize:core.ringSize, dbl:core.dbl, subs};
+}
+function bExpectedCycloFormula(spec){
+  let C=spec.ringSize, H=2*spec.ringSize-2*spec.dbl.length;
+  const out={};
+  spec.subs.forEach(s=>{
+    H-=1;
+    if(s.kind==='halogen') out[s.elem]=(out[s.elem]||0)+1;
+    else { const c=s.type==='methyl'?1:2; C+=c; H+=2*c+1; }
+  });
+  out.C=C; out.H=H;
+  return out;
 }
 
 // Tries every Tier-2 shape in turn; on success, formula-checks the result
@@ -15665,13 +17178,10 @@ function bResolveTier2(norm){
         built=bBuildEtherObject(etherSpec);
         if(built) expected={C:etherSpec.chainLength*2, H:etherSpec.chainLength*4+2, O:1};
       } else {
-        const ringMatch=norm.replace(/\s+/g,'').match(/^cyclo([a-z]+)ane$/);
-        if(ringMatch){
-          const ringSize=CHAIN_PREFIXES[ringMatch[1]];
-          if(ringSize){
-            built=bBuildCycloalkaneObject(ringSize);
-            if(built) expected={C:ringSize, H:ringSize*2};
-          }
+        const cyc=bParseCycloName(norm);
+        if(cyc){
+          built=bBuildCycloalkaneObject(cyc.ringSize, cyc.dbl, cyc.subs);
+          if(built) expected=bExpectedCycloFormula(cyc);
         }
       }
     }
@@ -15717,6 +17227,13 @@ async function bPubChemSpellingSuggestion(rawName){
   }catch(e){ return null; }
 }
 
+// PUG-REST bond order codes: 1 single, 2 double, 3 triple, 4 quadruple,
+// 5 dative, 6 complex, 7 ionic, 8 unknown. The old clamp
+// Math.min(3, order) turned dative/ionic/unknown bonds into TRIPLE bonds.
+function bPubChemOrder(o){
+  o=Math.round(o||1);
+  return (o===2||o===3) ? o : 1;
+}
 function bConvertPubChemRecord(rec){
   const compound=rec?.PC_Compounds?.[0];
   if(!compound) return null;
@@ -15732,12 +17249,13 @@ function bConvertPubChemRecord(rec){
   const aidToIdx={}; aids.forEach((aid,i)=>{ aidToIdx[aid]=i; });
   const pos=aids.map((_,i)=>({x:xs[i],y:ys[i],z:zs[i]}));
   const symFor=z=>(ELS.find(e=>e.Z===z)||{sym:'?'}).sym;
+  const chargeByAid={}; (compound.charge||[]).forEach(c=>{ chargeByAid[c.aid]=c.value; });
 
   const adj=aids.map(()=>[]);
   bondList.forEach(b=>{
     const i=aidToIdx[b.a1], j=aidToIdx[b.a2];
     if(i===undefined||j===undefined) return;
-    const ord=Math.max(1,Math.min(3,Math.round(b.order||1)));
+    const ord=bPubChemOrder(b.order);
     adj[i].push({to:j, order:ord}); adj[j].push({to:i, order:ord});
   });
 
@@ -15785,11 +17303,14 @@ function bConvertPubChemRecord(rec){
 
   const oldToNew={}; order.forEach((oldIdx,newIdx)=>{ oldToNew[oldIdx]=newIdx; });
   const atoms=order.map((oldIdx,newIdx)=>{
-    if(newIdx===0) return {Z:elements[0], sym:symFor(elements[0]), dir:[0,0,0]};
+    if(newIdx===0){ const q0=chargeByAid[aids[oldIdx]]||0; return q0 ? {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[0,0,0], perceptionCharge:q0} : {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[0,0,0]}; }
     const parentOld=parentOldOf[oldIdx];
     const dx=pos[oldIdx].x-pos[parentOld].x, dy=pos[oldIdx].y-pos[parentOld].y, dz=pos[oldIdx].z-pos[parentOld].z;
     const L=Math.hypot(dx,dy,dz)||1;
-    return {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[dx/L,dy/L,dz/L]};
+    const q=chargeByAid[aids[oldIdx]]||0;
+    // perceptionCharge feeds aromaticity perception only; a real `formalCharge` would switch the renderer to ion-cloud drawing
+    return q ? {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[dx/L,dy/L,dz/L], perceptionCharge:q}
+             : {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[dx/L,dy/L,dz/L]};
   });
 
   // Anchor (tree) edges are emitted FIRST, one per non-root atom in
@@ -15816,7 +17337,7 @@ function bConvertPubChemRecord(rec){
     if(treeEdgeKeys.has(key)) return; // already emitted above as this atom's anchor edge
     const ni=oldToNew[i], nj=oldToNew[j];
     if(ni===undefined||nj===undefined) return;
-    bonds.push([ni,nj,Math.max(1,Math.min(3,Math.round(b.order||1)))]);
+    bonds.push([ni,nj,bPubChemOrder(b.order)]);
   });
 
   return {atoms, bonds, geometry:'Complex'};
@@ -15873,15 +17394,21 @@ async function resolveMolecule(rawInput){
   const t2=bResolveTier2(norm);
   if(t2) return t2;
 
+  // A near-miss against a LOCAL name used to short-circuit here, before
+  // PubChem was ever asked — so real, valid names one or two letters from
+  // a curated one ("cyclohexanol", "cyclohexanone", "propene") answered
+  // "Did you mean Cyclohexane?" instead of being built. The local
+  // suggestion is now only a fallback when the lookup finds nothing.
   const suggestion=bNearestKnownName(norm);
-  if(suggestion) return {status:'suggestion', suggestion};
-
-  if(!navigator.onLine) return {status:'notfound', reason:'offline'};
+  if(!navigator.onLine) return suggestion ? {status:'suggestion', suggestion} : {status:'notfound', reason:'offline'};
   try{
     const t3=await bResolveTier3(trimmed, norm);
+    if(t3 && t3.status==='rendered') return t3;
+    if(suggestion) return {status:'suggestion', suggestion};
     if(t3) return t3;
   }catch(err){
     console.warn('[Build] Tier 3 lookup failed:', err);
+    if(suggestion) return {status:'suggestion', suggestion};
     return {status:'notfound', reason:'network'};
   }
   return {status:'notfound', reason:'unknown'};
@@ -15911,6 +17438,7 @@ async function runBuild(){
     select(outcome.Z);
     setLeftMode('elements');
     bShowBuildStatus(`✅ Built: ${outcome.name}`, 'ok');
+    updateBuildURL(raw);
   } else if(outcome.status==='rendered'){
     selectMolecule(outcome.key);
     // Still render regardless of size — MAX_CLOUD_POINTS already bounds
@@ -15918,6 +17446,7 @@ async function runBuild(){
     // a capability question.
     const big = outcome.mol.atoms.length>150;
     bShowBuildStatus(`✅ Built: ${outcome.mol.name} (${outcome.mol.formula})${big?' — large molecule, may render a bit slower':''}`, 'ok');
+    updateBuildURL(raw);
   } else if(outcome.status==='suggestion'){
     bShowBuildStatus('✍️ Did you mean', 'warn', outcome.suggestion);
   } else {
@@ -16061,7 +17590,7 @@ function slVal(v){return maxZoomDist*Math.pow(5/maxZoomDist,v/600);}
 const sl=document.getElementById('zsl');
 function applyZoom(){
   tZ=slVal(+sl.value);
-  const mx=(30/tZ).toFixed(1);
+  const mxv=30/tZ;const mx=mxv>=10?mxv.toFixed(0):mxv>=1?mxv.toFixed(1):mxv.toFixed(2);
   document.getElementById('zval').textContent=mx+'×';
   document.getElementById('szoom').textContent=mx+'×';
 }
@@ -16291,6 +17820,19 @@ document.getElementById('tab-right').addEventListener('click',()=>togglePanel('r
 // Keyboard navigation
 window.addEventListener('keydown',e=>{
   if(document.activeElement===document.getElementById('el-search')) return;
+  if(document.activeElement===document.getElementById('build-input')){
+    if(e.key==='Escape') document.getElementById('build-input').blur();
+    return;
+  }
+  if(e.key==='/'){
+    e.preventDefault();
+    setLeftMode('build');
+    document.getElementById('build-input')?.focus();
+    return;
+  }
+  if(e.key==='1'){ setLeftMode('elements'); return; }
+  if(e.key==='2'){ setLeftMode('molecules'); return; }
+  if(e.key==='3'){ setLeftMode('build'); return; }
   if(moleculeMode){
     const idx=MOLECULES.findIndex(m=>m.key===curMoleculeKey);
     if(e.key==='ArrowRight'||e.key==='ArrowUp'){
@@ -16422,8 +17964,10 @@ function loop(){
 }
 
 // INIT
+initColorblindMode();
 applyZoom();
 select(1);
+applySharedBuildLink();
 // Open panels on desktop only
 if(!isMobile()){
   openPanel('left');
@@ -16433,7 +17977,148 @@ loop();
 </script>
 
 <script>
+// ── DEV-ONLY: DARK/LIGHT PARITY SELF-CHECK ──
+// simulator_dark.html and simulator_light.html ship as two independent
+// files by design — which means a toolbar feature can be added to one and
+// silently forgotten in the other. That already happened once (Hyper
+// Realistic Mode shipped light-only with zero landing-page mention
+// anywhere). Open devtools on the live site and run checkThemeParity() in
+// the console rather than relying on a separate Node/CI script.
+//
+// Needs http(s) (e.g. the GitHub Pages URL) — a file:// page can't fetch()
+// its sibling due to browser security, and this says so rather than
+// failing silently.
+window.checkThemeParity = async function () {
+  const SIBLING = 'simulator_light.html';
+  // Known, reviewed, intentional asymmetries — name the reason, don't just
+  // silence the check.
+  const ALLOWED = {
+    buttonIds: ['hyperbtn'], // light-only: Hyper Realistic Mode needs WebGL2 float render targets
+  };
+  const extract = (doc) => ({
+    buttonIds: [...doc.querySelectorAll('button[id]')].map((e) => e.id),
+    modeIds: [...doc.querySelectorAll('[id^="mode-"]')].map((e) => e.id),
+  });
+  let res;
+  try {
+    res = await fetch(SIBLING);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    console.warn(
+      '[parity] Could not fetch ' + SIBLING + ' — this check needs http(s), ' +
+      'not file://. Open the live GitHub Pages URL instead. (' + e.message + ')'
+    );
+    return null;
+  }
+  const siblingDoc = new DOMParser().parseFromString(await res.text(), 'text/html');
+  const mine = extract(document);
+  const theirs = extract(siblingDoc);
+  let clean = true;
+  const report = {};
+  for (const field of Object.keys(mine)) {
+    const a = new Set(mine[field]), b = new Set(theirs[field]);
+    const allow = ALLOWED[field] || [];
+    const onlyHere = [...a].filter((x) => !b.has(x) && !allow.includes(x));
+    const onlyInSibling = [...b].filter((x) => !a.has(x) && !allow.includes(x));
+    if (onlyHere.length || onlyInSibling.length) {
+      clean = false;
+      report[field] = { onlyHere, onlyInSibling };
+    }
+  }
+  console.log(clean ? '✓ Theme parity OK vs ' + SIBLING : '✗ Theme parity MISMATCH vs ' + SIBLING, report);
+  return { clean, report };
+};
+</script>
+
+<script>
 function goLightSim(){localStorage.setItem('qas-theme','light');window.location.href='https://nazat02.github.io/Quantum-Atom/simulator_light.html';}
+</script>
+
+<!-- ELEMENT COMPARISON TOOL (Blueprint Tier 1, #20) -->
+<div id="compare-modal" class="compare-modal">
+  <div class="compare-card">
+    <div class="cmp-header">
+      <h3>Compare Elements</h3>
+      <button type="button" class="cmp-close" onclick="closeCompareModal()" aria-label="Close">✕</button>
+    </div>
+    <div class="cmp-pickers">
+      <select id="compare-el-1" onchange="renderCompareTable()"></select>
+      <select id="compare-el-2" onchange="renderCompareTable()"></select>
+    </div>
+    <div id="compare-table"></div>
+  </div>
+</div>
+
+<!-- GUIDED LESSON PATHS (Blueprint Tier 2, #27) -->
+<div id="lesson-modal" class="compare-modal">
+  <div class="compare-card">
+    <div class="cmp-header">
+      <h3>Guided Lessons</h3>
+      <button type="button" class="cmp-close" onclick="closeLessonModal()" aria-label="Close">✕</button>
+    </div>
+    <div id="lesson-picker-view">
+      <div id="lesson-list"></div>
+    </div>
+    <div id="lesson-player-view" class="hidden-view">
+      <button type="button" class="lesson-back" onclick="showLessonPicker()">← ALL LESSONS</button>
+      <div class="lesson-player-head">
+        <h4 id="lesson-player-title"></h4>
+        <div id="lesson-player-count"></div>
+      </div>
+      <div id="lesson-player-note"></div>
+      <div class="lesson-nav">
+        <button type="button" id="lesson-prev" class="lesson-nav-btn" onclick="lessonPrev()">← BACK</button>
+        <button type="button" id="lesson-next" class="lesson-nav-btn" onclick="lessonNext()">NEXT →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RECENTS (Blueprint Tier 0, #6) -->
+<div id="recents-modal" class="compare-modal">
+  <div class="compare-card">
+    <div class="cmp-header">
+      <h3>Recently Viewed</h3>
+      <button type="button" class="cmp-close" onclick="closeRecentsModal()" aria-label="Close">✕</button>
+    </div>
+    <div id="recents-list"></div>
+  </div>
+</div>
+
+<!-- MOLECULE ANALYSIS (Blueprint Tier 0, #1 / #2 / #9) -->
+<div id="analysis-modal" class="compare-modal">
+  <div class="compare-card">
+    <div class="cmp-header">
+      <h3>Molecule Analysis</h3>
+      <button type="button" class="cmp-close" onclick="closeAnalysisModal()" aria-label="Close">✕</button>
+    </div>
+    <div id="analysis-body"></div>
+  </div>
+</div>
+
+<script>
+/* Top-bar helpers: (1) edge-fade on the scrollable tool strip only when more content is hidden,
+   (2) full text as a tooltip on values that may be ellipsised. */
+(function(){
+  var tabs = document.getElementById('tabs');
+  if (tabs) {
+    var sync = function(){
+      var max = tabs.scrollWidth - tabs.clientWidth;
+      tabs.classList.toggle('fade-l', tabs.scrollLeft > 2);
+      tabs.classList.toggle('fade-r', max > 2 && tabs.scrollLeft < max - 2);
+    };
+    tabs.addEventListener('scroll', sync, {passive:true});
+    window.addEventListener('resize', sync);
+    if (window.ResizeObserver) new ResizeObserver(sync).observe(tabs);
+    sync();
+  }
+  ['ename','emeta','econf'].forEach(function(id){
+    var el = document.getElementById(id); if (!el) return;
+    var upd = function(){ el.title = el.textContent; };
+    new MutationObserver(upd).observe(el, {childList:true, characterData:true, subtree:true});
+    upd();
+  });
+})();
 </script>
 </body>
 </html>
