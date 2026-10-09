@@ -17784,7 +17784,12 @@ renderer.domElement.addEventListener('wheel',e=>{
 // natural jitter stays well under it.
 const CLICK_DRAG_THRESHOLD_PX=6;
 let downX=0,downY=0,isPotentialClick=false;
+// Touch screens emit emulated mouse events ~300ms after a touch; ignore them
+// so one tap is never processed twice.
+let lastTouchT=0;
+const isEmulatedMouse=()=>Date.now()-lastTouchT<700;
 renderer.domElement.addEventListener('mousedown',e=>{
+  if(isEmulatedMouse()) return;
   drag=true;lx=e.clientX;ly=e.clientY;autoSpin=false;
   downX=e.clientX;downY=e.clientY;isPotentialClick=true;
 });
@@ -17792,17 +17797,25 @@ window.addEventListener('mousemove',e=>{
   if(!drag)return;
   rotY+=(e.clientX-lx)*.007;rotX+=(e.clientY-ly)*.007; // unclamped: free vertical + horizontal orbit
   lx=e.clientX;ly=e.clientY;
-  if(isPotentialClick && Math.hypot(e.clientX-downX,e.clientY-downY)>CLICK_DRAG_THRESHOLD_PX) isPotentialClick=false;
+  if(isPotentialClick && Math.hypot(e.clientX-downX,e.clientY-downY)>CLICK_DRAG_THRESHOLD_PX){
+    isPotentialClick=false; collapsePanelsIfOpen(); // real drag = intent
+  }
 });
 window.addEventListener('mouseup',e=>{
-  drag=false;
-  if(isPotentialClick) tryFocusPick(e.clientX,e.clientY);
+  // Only a gesture that STARTED on the canvas can be a canvas tap. Without
+  // the drag guard, any later mouseup anywhere (panel scrollbar, slider,
+  // button) re-fired a stale tap because the flag was never cleared.
+  const wasCanvasGesture=drag, wasTap=drag&&isPotentialClick;
+  drag=false; isPotentialClick=false;
+  if(!wasCanvasGesture||isEmulatedMouse()) return;
+  if(wasTap){ collapsePanelsIfOpen(); tryFocusPick(e.clientX,e.clientY); }
 });
 renderer.domElement.addEventListener('dblclick',()=>{autoSpin=true;rotX=.28;showToast('AUTO-SPIN ON');});
 
 // Touch
 let pd=0;
 renderer.domElement.addEventListener('touchstart',e=>{
+  lastTouchT=Date.now();
   if(e.touches.length===1){
     drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;autoSpin=false;
     downX=lx;downY=ly;isPotentialClick=true;
@@ -17810,13 +17823,16 @@ renderer.domElement.addEventListener('touchstart',e=>{
   if(e.touches.length===2){
     pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
     isPotentialClick=false; // pinch-zoom is never a tap
+    collapsePanelsIfOpen();
   }
 },{passive:true});
 renderer.domElement.addEventListener('touchmove',e=>{
   if(e.touches.length===1&&drag){
     rotY+=(e.touches[0].clientX-lx)*.007;rotX+=(e.touches[0].clientY-ly)*.007;
     lx=e.touches[0].clientX;ly=e.touches[0].clientY;
-    if(isPotentialClick && Math.hypot(lx-downX,ly-downY)>CLICK_DRAG_THRESHOLD_PX) isPotentialClick=false;
+    if(isPotentialClick && Math.hypot(lx-downX,ly-downY)>CLICK_DRAG_THRESHOLD_PX){
+      isPotentialClick=false; collapsePanelsIfOpen();
+    }
   }
   if(e.touches.length===2){
     const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
@@ -17824,11 +17840,15 @@ renderer.domElement.addEventListener('touchmove',e=>{
   }
 },{passive:true});
 renderer.domElement.addEventListener('touchend',e=>{
-  drag=false;
-  if(isPotentialClick && e.changedTouches && e.changedTouches.length){
+  lastTouchT=Date.now();
+  const wasTap=drag&&isPotentialClick;
+  drag=false; isPotentialClick=false;
+  if(wasTap && e.changedTouches && e.changedTouches.length){
+    collapsePanelsIfOpen();
     tryFocusPick(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
   }
 },{passive:true});
+renderer.domElement.addEventListener('touchcancel',()=>{drag=false;isPotentialClick=false;},{passive:true});
 
 // FREE FOCUS — pick: raycast a tap/click against every atom's invisible
 // pick-proxy sphere (see buildMolecule) and, on a hit, re-center the
@@ -17989,6 +18009,21 @@ function togglePanel(id){
 
 document.getElementById('tab-left').addEventListener('click',()=>togglePanel('left'));
 document.getElementById('tab-right').addEventListener('click',()=>togglePanel('right'));
+
+// ── SMART AUTO-COLLAPSE ──
+// Interacting with the 3D scene means "I want to look at this", so open side
+// panels get out of the way — but only on a CONFIRMED gesture (a clean tap,
+// a drag past the threshold, or a pinch), never on a mere brush or while
+// scrolling a panel. Called from the canvas handlers above. The tab buttons
+// (and Esc) reopen them. Modals/sheets sit above the canvas.
+function collapsePanelsIfOpen(){
+  const l=document.getElementById('left'), r=document.getElementById('right');
+  if(!l.classList.contains('hidden')) closePanel('left');
+  if(!r.classList.contains('hidden')) closePanel('right');
+}
+// On phones the dimmed backdrop covers the scene while a sheet is open; treat
+// a touch (or swipe) on it exactly like touching the scene.
+backdrop.addEventListener('pointerdown',collapsePanelsIfOpen,{passive:true});
 
 // Keyboard navigation
 window.addEventListener('keydown',e=>{

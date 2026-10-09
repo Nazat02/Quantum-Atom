@@ -1176,6 +1176,18 @@ function openPanel(){
   if(active) active.scrollIntoView({block:'center'});
 }
 function closePanel(){ elpanel.classList.remove('open'); elscrim.classList.remove('open'); }
+
+// ── SMART AUTO-COLLAPSE ──
+// Touching the 3D scene dismisses the element list and the legend popover.
+// pointerdown (not click) so they start closing the instant a finger lands,
+// before an orbit-drag or pinch begins. The scrim sits over the canvas while
+// the list is open, so it gets the same instant-dismiss behaviour.
+function collapseOverlays(){
+  if(elpanel.classList.contains('open')) closePanel();
+  if(legendPop.classList.contains('open')) toggleLegend(false);
+}
+canvas.addEventListener('pointerdown',collapseOverlays,{passive:true});
+elscrim.addEventListener('pointerdown',collapseOverlays,{passive:true});
 document.getElementById('elbtn').addEventListener('click',()=>{
   elpanel.classList.contains('open') ? closePanel() : openPanel();
 });
