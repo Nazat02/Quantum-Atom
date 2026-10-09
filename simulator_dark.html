@@ -2973,7 +2973,7 @@ const ELS=[
   {Z:105,name:"Dubnium",      sym:"Db", p:7,g:5,  n:163},  // Db-268 (most stable)
   {Z:106,name:"Seaborgium",   sym:"Sg", p:7,g:6,  n:163},  // Sg-269 (most stable)
   {Z:107,name:"Bohrium",      sym:"Bh", p:7,g:7,  n:163},  // Bh-270 (most stable)
-  {Z:108,name:"Hassium",      sym:"Hs", p:7,g:8,  n:169},  // Hs-277 (most stable)
+  {Z:108,name:"Hassium",      sym:"Hs", p:7,g:8,  n:162},  // Hs-270 (longest-lived known isotope)
   {Z:109,name:"Meitnerium",   sym:"Mt", p:7,g:9,  n:169},  // Mt-278 (most stable)
   {Z:110,name:"Darmstadtium", sym:"Ds", p:7,g:10, n:171},  // Ds-281 (most stable)
   {Z:111,name:"Roentgenium",  sym:"Rg", p:7,g:11, n:171},  // Rg-282 (most stable)
@@ -18129,5 +18129,688 @@ function goLightSim(){localStorage.setItem('qas-theme','light');window.location.
   });
 })();
 </script>
+<style id="dl-style">
+.dl-card{width:min(820px,94vw);max-height:90vh}
+.dl-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.dl-chip{background:transparent;border:1px solid var(--border);color:var(--mid);border-radius:6px;padding:6px 10px;font-family:inherit;font-size:.72rem;cursor:pointer}
+.dl-chip:hover{border-color:var(--border-hi);color:var(--hi)}
+.dl-chip.on{color:var(--hi);border-color:var(--border-hi);background:var(--cyan-10)}
+.dl-chip:focus-visible,.dl-cell:focus-visible,.dl-sel:focus-visible{outline:2px solid var(--hi);outline-offset:1px}
+.dl-sel{background:var(--cyan-10);border:1px solid var(--border);color:var(--hi);border-radius:6px;padding:6px 8px;font-family:inherit;font-size:.72rem;max-width:100%}
+.dl-sp{flex:1}
+.dl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:16px}
+.dl-box{border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:16px;min-width:0}
+.dl-grid .dl-box{margin-bottom:0}
+.dl-box h4{margin:0 0 8px;font-size:.74rem;color:var(--hi);font-weight:600}
+.dl-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:16px}
+.dl-stat{border:1px solid var(--border);border-radius:8px;padding:8px}
+.dl-stat b{display:block;color:var(--hi);font-size:.95rem}
+.dl-stat span,.dl-note{color:var(--lo);font-size:.68rem}
+.dl-note{margin-bottom:12px;line-height:1.5}
+.dl-box .dl-note:last-child{margin-bottom:0}
+.dl-svg{width:100%;height:auto;display:block}
+.dl-donut{max-width:200px;margin:0 auto 8px}
+.dl-ring{fill:none;stroke:var(--border-hi);stroke-width:.6}
+.dl-area{fill:rgba(var(--cyan-rgb),.28);stroke:var(--cyan);stroke-width:1.6}
+.dl-line{fill:none;stroke:var(--cyan);stroke-width:1.5}
+.dl-band{fill:rgba(var(--cyan-rgb),.07)}
+.dl-dash{stroke:var(--hi);stroke-width:.8;stroke-dasharray:3 3;fill:none}
+.dl-t{fill:var(--mid);font-size:9px}
+.dl-pt{cursor:pointer}
+.dl-heat{display:grid;grid-template-columns:repeat(18,1fr);gap:2px}
+.dl-heat.f15{grid-template-columns:repeat(15,1fr)}
+.dl-cell{border:1px solid var(--border);border-radius:3px;color:var(--hi);font-family:inherit;font-size:.58rem;font-weight:600;padding:5px 0;cursor:pointer;line-height:1.15;min-width:0}
+.dl-cell small{display:block;font-size:.5rem;font-weight:400;color:var(--mid)}
+.dl-cell.on{outline:2px solid var(--hi);outline-offset:1px}
+.dl-cell.ph{cursor:default;color:var(--lo);font-weight:400;font-size:.5rem;background:transparent;border-style:dashed}
+.dl-gap{height:8px;grid-column:1/-1;grid-row:8}
+.dl-seg{display:flex;height:22px;border-radius:6px;overflow:hidden;margin-bottom:8px}
+.dl-kv,.dl-row{font-size:.7rem;color:var(--mid);margin:5px 0}
+.dl-kv{display:flex;justify-content:space-between}
+.dl-row{display:grid;grid-template-columns:64px 1fr 112px;gap:8px;align-items:center}
+.dl-row.click{cursor:pointer}
+.dl-row.on>span:first-child{color:var(--hi);font-weight:600}
+.dl-track{height:8px;border-radius:4px;background:var(--cyan-10)}
+.dl-fill{height:100%;border-radius:4px}
+.dl-orbs{display:flex;flex-wrap:wrap;gap:8px}
+.dl-orb{border:1px solid var(--border);border-radius:6px;padding:4px 6px}
+.dl-orb.val{border-color:var(--hi)}
+.dl-on{display:block;font-size:.62rem;color:var(--mid);margin-bottom:3px}
+.dl-ob{display:flex;gap:2px}
+.dl-sq{width:19px;height:19px;border:1px solid var(--border-hi);border-radius:3px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:.6rem;color:var(--hi)}
+.dl-leg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.62rem;color:var(--mid);margin-top:8px}
+.dl-grad{height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(var(--cyan-rgb),.12),rgba(var(--cyan-rgb),.8));margin-top:8px}
+.dl-gl{display:flex;justify-content:space-between;font-size:.6rem;color:var(--lo);margin-top:3px}
+.dl-hint{font-size:.62rem;color:var(--lo);margin:-6px 0 12px}
+#dl-pick{position:fixed;inset:0;z-index:600;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#dl-pick[hidden]{display:none}
+.dl-sheet{width:min(520px,100vw);max-height:78vh;display:flex;flex-direction:column;background:var(--bg-solid);border:1px solid var(--border-hi);border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));box-shadow:0 -12px 40px rgba(0,0,0,.5);font-family:inherit}
+.dl-sh-head{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.dl-sh-head b{color:var(--hi);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+.dl-search{flex:0 0 auto;width:100%;box-sizing:border-box;background:var(--cyan-10);border:1px solid var(--border);color:var(--hi);border-radius:8px;padding:11px 12px;font-family:inherit;font-size:16px;margin-bottom:8px}
+.dl-search:focus{outline:2px solid var(--hi);outline-offset:0}
+.dl-cats{flex:0 0 auto;display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.dl-cats .dl-chip{white-space:nowrap;flex:0 0 auto}
+.dl-list{overflow-y:auto;overscroll-behavior:contain;flex:1;min-height:120px;border-top:1px solid var(--border)}
+.dl-opt{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;background:transparent;border:0;border-bottom:1px solid var(--border);color:var(--mid);font-family:inherit;font-size:.82rem;text-align:left;padding:6px 8px;cursor:pointer}
+.dl-opt:hover,.dl-opt:focus-visible{background:var(--cyan-10);color:var(--hi);outline:none}
+.dl-opt.on{color:var(--hi);background:var(--cyan-10)}
+.dl-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+.dl-om{color:var(--hi);min-width:2.6em}
+.dl-os{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-or{color:var(--lo);font-size:.7rem;flex:0 0 auto}
+.dl-pickbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:1 1 200px;max-width:340px;min-height:38px;text-align:left;cursor:pointer}
+.dl-pickbtn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (pointer:coarse){.dl-chip{min-height:40px}}
+@media (min-width:700px){#dl-pick{align-items:center}.dl-sheet{border-radius:16px;max-height:70vh}}
+/* spacing and legibility pass */
+.dl-card.compare-card{padding:24px 22px 30px}
+.dl-bar{gap:8px;margin-bottom:18px}
+.dl-box{padding:18px 16px;margin-bottom:22px}
+.dl-box h4{font-size:.8rem;margin:0 0 14px;letter-spacing:.02em}
+.dl-grid{gap:22px;margin-bottom:22px}
+.dl-stats{gap:10px;margin-bottom:22px}
+.dl-stat{padding:10px 12px}
+.dl-note{line-height:1.7;margin-bottom:14px;font-size:.72rem}
+.dl-hint{margin-bottom:16px}
+.dl-svg{margin:6px 0}
+.dl-t{font-size:10.5px}
+.dl-t.dl-ax{font-size:11px;fill:var(--hi);opacity:.8}
+.dl-leg{gap:10px 16px;margin-top:16px;font-size:.68rem;line-height:1.4}
+.dl-kv,.dl-row{margin:9px 0;font-size:.74rem}
+.dl-axes{display:grid;grid-template-columns:auto 1fr;gap:12px 14px;align-items:center;margin-bottom:20px}
+.dl-axes .dl-note{margin:0}
+.dl-axes .dl-pickbtn{max-width:none;flex:none;width:100%}
+.dl-cell{padding:7px 0}
+.dl-heat{gap:3px}
+.dl-grad{margin-top:14px}
+.dl-seg{margin-bottom:14px}
+@media (max-width:520px){
+  .dl-card.compare-card{padding:20px 14px 26px}
+  .dl-box{padding:16px 12px;margin-bottom:20px}
+  .dl-grid{grid-template-columns:1fr}
+  .dl-row{grid-template-columns:58px 1fr 96px;gap:10px}
+  .dl-stats{grid-template-columns:repeat(2,1fr)}
+}
+/* structure drawing + bond-length rows */
+.dl-mol-wrap{display:flex;justify-content:center;margin:6px 0 4px}
+.dl-mol{overflow:visible;shape-rendering:geometricPrecision;text-rendering:geometricPrecision}
+.dl-mol text{font-family:inherit}
+.dl-chg{font-size:11px;font-weight:700;fill:var(--hi);paint-order:stroke;stroke:var(--bg-solid);stroke-width:3px;stroke-linejoin:round}
+.dl-row.w{grid-template-columns:64px 1fr 168px}
+.dl-row.w>span:last-child{font-size:.68rem;line-height:1.35}
+@media (max-width:520px){.dl-row.w{grid-template-columns:58px 1fr 132px}}
+/* crisp rendering */
+.dl-svg{shape-rendering:geometricPrecision;text-rendering:geometricPrecision}
+.dl-ring,.dl-dash,.dl-line,.dl-area{vector-effect:non-scaling-stroke}
+.dl-lbl{font-size:11.5px;font-weight:700;fill:var(--hi);paint-order:stroke;stroke:var(--bg-solid);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.dl-ok{color:var(--mid)}
+.dl-warn{color:var(--amber);font-weight:600}
+</style>
+<script id="dl-js">
+/* Data Lab: 118 elements (properties for H-Lr, nuclear data for all), f-block view, trend/scatter/shell/orbital/molecule charts, themed picker sheet, built-in molecule verification. Reads the simulator globals, never writes to them. */
+(()=>{
+'use strict';
+// ── Reference data. Index = Z-1. 0 = not available (never guessed). ──
+const MASS=[1.008,4.0026,6.94,9.0122,10.81,12.011,14.007,15.999,18.998,20.18,22.99,24.305,26.982,28.085,30.974,32.06,35.45,39.948,39.098,40.078,44.956,47.867,50.942,51.996,54.938,55.845,58.933,58.693,63.546,65.38,69.723,72.63,74.922,78.971,79.904,83.798,85.468,87.62,88.906,91.224,92.906,95.95,98,101.07,102.91,106.42,107.87,112.41,114.82,118.71,121.76,127.6,126.9,131.29,
+132.91,137.33,138.91,140.12,140.91,144.24,145,150.36,151.96,157.25,158.93,162.5,164.93,167.26,168.93,173.05,174.97,
+178.49,180.95,183.84,186.21,190.23,192.22,195.08,196.97,200.59,204.38,207.2,208.98,209,210,222,
+223,226,227,232.04,231.04,238.03,237,244,243,247,247,251,252,257,258,259,266];
+const EN=[2.2,0,.98,1.57,2.04,2.55,3.04,3.44,3.98,0,
+.93,1.31,1.61,1.9,2.19,2.58,3.16,0,
+.82,1,1.36,1.54,1.63,1.66,1.55,1.83,1.88,1.91,1.9,1.65,1.81,2.01,2.18,2.55,2.96,3,
+.82,.95,1.22,1.33,1.6,2.16,1.9,2.2,2.28,2.2,1.93,1.69,1.78,1.96,2.05,2.1,2.66,2.6,
+.79,.89,1.1,1.12,1.13,1.14,1.13,1.17,1.2,1.2,1.1,1.22,1.23,1.24,1.25,1.1,1.27,
+1.3,1.5,2.36,1.9,2.2,2.2,2.28,2.54,2,1.62,2.33,2.02,2,2.2,2.2,
+.7,.9,1.1,1.3,1.5,1.38,1.36,1.28,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3];
+const IE=[13.598,24.587,5.392,9.323,8.298,11.26,14.534,13.618,17.423,21.565,
+5.139,7.646,5.986,8.152,10.487,10.36,12.968,15.76,
+4.341,6.113,6.561,6.828,6.746,6.767,7.434,7.902,7.881,7.64,7.726,9.394,5.999,7.9,9.789,9.752,11.814,14,
+4.177,5.695,6.217,6.634,6.759,7.092,7.119,7.36,7.459,8.337,7.576,8.994,5.786,7.344,8.608,9.01,10.451,12.13,
+3.894,5.212,5.577,5.539,5.473,5.525,5.582,5.644,5.67,6.15,5.864,5.939,6.022,6.108,6.184,6.254,5.426,
+6.825,7.55,7.864,7.834,8.438,8.967,8.959,9.226,10.438,6.108,7.417,7.286,8.414,9.318,10.749,
+4.073,5.278,5.38,6.307,5.89,6.194,6.266,6.026,5.974,5.991,6.198,6.282,6.368,6.5,6.58,6.626,4.96];
+const R=[25,0,145,105,85,70,65,60,50,0,
+180,150,125,110,100,100,100,71,
+220,180,160,140,135,140,140,140,135,135,135,135,130,125,115,115,115,0,
+235,200,180,155,145,145,135,130,135,140,160,155,155,145,145,140,140,0,
+260,215,195,185,185,185,185,185,185,180,175,175,175,175,175,175,175,
+155,145,135,135,130,135,135,135,150,190,180,160,190,0,0,
+0,215,195,180,180,175,175,175,175,0,0,0,0,0,0,0,0];
+const COV=[31,28,128,96,84,76,71,66,57,58,166,141,121,111,107,105,102,106,203,176,170,160,153,139,139,132,126,124,132,122,122,120,119,120,120,116,220,195,190,175,164,154,147,146,142,139,145,144,142,139,139,138,139,140,
+244,215,207,204,203,201,199,198,198,196,194,192,192,189,190,187,187,
+175,170,162,151,144,141,136,136,132,145,146,148,140,150,150,
+260,221,215,206,200,196,190,187,180,169,0,0,0,0,0,0,0];
+const MP=[13.99,0,453.65,1560,2349,3823,63.15,54.36,53.48,24.56,370.87,923,933.47,1687,317.3,388.36,171.6,83.8,336.53,1115,1814,1941,2183,2180,1519,1811,1768,1728,1357.77,692.68,302.91,1211.4,1090,494,265.8,115.79,312.46,1050,1799,2128,2750,2896,2430,2607,2237,1828.05,1234.93,594.22,429.75,505.08,903.78,722.66,386.85,161.4,
+301.59,1000,1193,1068,1208,1297,1315,1345,1099,1585,1629,1680,1734,1802,1818,1097,1925,
+2506,3290,3695,3459,3306,2739,2041.4,1337.33,234.32,577,600.61,544.7,527,0,202,
+0,973,1323,2115,1841,1405.3,917,912.5,1449,1613,1259,1173,1133,0,0,0,0];
+const RHO=[8.988e-5,1.785e-4,.534,1.85,2.34,2.267,1.251e-3,1.429e-3,1.696e-3,8.999e-4,.968,1.738,2.7,2.329,1.82,2.07,3.214e-3,1.784e-3,.862,1.55,2.985,4.506,6,7.19,7.21,7.874,8.9,8.908,8.96,7.14,5.91,5.323,5.727,4.81,3.12,3.749e-3,1.532,2.64,4.472,6.52,8.57,10.28,11,12.37,12.45,12.02,10.49,8.65,7.31,7.31,6.697,6.24,4.93,5.894e-3,
+1.93,3.51,6.162,6.77,6.77,7.01,7.26,7.52,5.244,7.9,8.23,8.54,8.79,9.066,9.32,6.9,9.841,
+13.31,16.65,19.25,21.02,22.59,22.56,21.45,19.3,13.534,11.85,11.34,9.78,9.196,0,9.73e-3,
+0,5.5,10.07,11.72,15.37,19.1,20.45,19.85,12,13.51,14.78,15.1,8.84,0,0,0,0];
+
+// Values flagged as estimates / predictions in the literature (shown with "est." in the UI).
+const EST={en:[97,98,99,100,101,102,103],ie:[100,101]};
+/* ── Logic ── */
+const N=118;
+const P={
+  mass:{n:'Atomic mass',u:'u',d:MASS},
+  en:{n:'Electronegativity',u:'Pauling',d:EN},
+  ie:{n:'1st ionization energy',u:'eV',d:IE},
+  r:{n:'Atomic radius (empirical)',u:'pm',d:R},
+  cov:{n:'Covalent radius',u:'pm',d:COV},
+  mp:{n:'Melting point',u:'K',d:MP},
+  rho:{n:'Density',u:'g/cm³',d:RHO,log:true}
+};
+const PK=Object.keys(P);
+const SRC='Data notes: electronegativity on the Pauling scale; ionization energies, radii, melting points and densities cross-checked against two independent reference tables (mendeleev and pymatgen). Values marked est. are predicted or estimated in the literature, and n/a means no reliable value. Densities are for the standard state (gases at 0 °C, 1 atm); covalent radii use the low-spin values for Mn, Fe and Co.';
+const CATS={'Alkali Metal':'#e8564a','Alkaline Earth Metal':'#ee9b3a','Transition Metal':'#d9c43b','Post-Transition Metal':'#5fbf7a','Metalloid':'#3fb8b0','Nonmetal':'#4aa3e8','Halogen':'#7a7cf0','Noble Gas':'#b66be0','Lanthanide':'#e76fb1','Actinide':'#c4566f'};
+const S={sym0(){const e=el(S.Z);return `${e.sym} ${e.name} (${S.Z})`},molLabel(){const m=MOLECULES.find(x=>x.key===S.mol)||MOLECULES[0];return `${m.formula} ${m.name}`},tab:'el',Z:1,prop:'en',mol:null,hm:'val',rk:'hi',sx:'en',sy:'ie',mc:'el'};
+const tr=f=>{try{return f()}catch(e){return null}};
+const el=Z=>ELS.find(e=>e.Z===Z);
+const cat=Z=>{const e=el(Z);return (e&&tr(()=>categoryForElement(Z,e.p,e.g)))||'Nonmetal'};
+const cc=Z=>CATS[cat(Z)]||'#4aa3e8';
+const RADIO=Z=>Z===43||Z===61||(Z>=84&&Z!==90&&Z!==91&&Z!==92);
+const val=(k,Z)=>{let v=P[k].d[Z-1]||0;if(!v&&k==='mass'&&el(Z))v=Z+el(Z).n;return v};
+const defined=k=>{const o=[];for(let Z=1;Z<=N;Z++){const v=val(k,Z);if(v)o.push(v)}return o};
+const RNG={};
+const range=k=>RNG[k]||(RNG[k]=(()=>{const v=defined(k);return{lo:Math.min(...v),hi:Math.max(...v),n:v.length}})());
+const lf=(k,v)=>P[k].log?Math.log10(v):v;
+// Normalised 0..1: linear properties from zero, log properties from their minimum.
+const T=(k,v)=>{const r=range(k),a=P[k].log?lf(k,r.lo):0,b=lf(k,r.hi);return b===a?0:(lf(k,v)-a)/(b-a)};
+const fx=(v,u)=>!v?'n/a':(v>=1e4||v<.01?v.toExponential(2):String(+v.toPrecision(5)))+(u?' '+u:'');
+const sv=v=>!v?'–':v>=1e3?(v/1e3).toFixed(1)+'k':v>=100?String(Math.round(v)):v>=1?String(+v.toFixed(2)):v.toExponential(0);
+const fv=(k,Z)=>fx(val(k,Z),P[k].u)+(val(k,Z)&&EST[k]&&EST[k].includes(Z)?' (est.)':'');
+const stat=(l,v)=>`<div class="dl-stat"><b>${v}</b><span>${l}</span></div>`;
+const chip=(id,label,on,call)=>`<button type="button" class="dl-chip${on?' on':''}" data-id="${id}" aria-pressed="${!!on}" onclick="${call}">${label}</button>`;
+const legend=()=>'<div class="dl-leg">'+Object.keys(CATS).map(c=>`<span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${CATS[c]};margin-right:4px"></i>${c}</span>`).join('')+'</div>';
+const pos=e=>e.Z>=57&&e.Z<=71?[e.Z-57+3,9]:e.Z>=89&&e.Z<=103?[e.Z-89+3,10]:[e.g,e.p];
+const fcount=Z=>{const nm=Z>=89?'5f':'4f',o=tr(()=>getConfig(Z).filter(x=>x.name===nm).reduce((a,x)=>a+x.e,0));return o||0};
+
+const CW=()=>{const b=document.getElementById('dl-body'),w=b&&b.clientWidth?b.clientWidth:560;return Math.max(290,Math.min(640,Math.round(w-30)))};
+const tl=v=>{if(!v)return '0';const a=Math.abs(v);return (a>=1e4||a<.01)?v.toExponential(0).replace('e+','e'):String(+v.toPrecision(3))};
+const nice=(lo,hi,cnt,log)=>{const span=hi-lo||1,raw=span/Math.max(1,cnt-1),mag=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/mag;let step=(f<1.5?1:f<3?2:f<7?5:10)*mag;if(log)step=(Math.ceil(hi)-Math.floor(lo))>8?2:1;const a=Math.floor(lo/step+1e-9)*step,b=Math.ceil(hi/step-1e-9)*step,t=[];for(let v=a;v<=b+step/2;v+=step)t.push(+v.toFixed(10));return{a,b,t}};
+/* ── Element charts ── */
+// Bohr-style shell diagram, driven by the simulator's own getConfig()
+const shells=Z=>{
+  const cfg=tr(()=>getConfig(Z));if(!cfg)return '';
+  const by={};cfg.forEach(o=>by[o.n]=(by[o.n]||0)+o.e);
+  const ns=Object.keys(by).map(Number).sort((a,b)=>a-b),top=ns[ns.length-1];
+  let s=`<svg viewBox="0 0 220 220" class="dl-svg" style="max-width:280px;margin:0 auto" role="img" aria-label="Electron shell diagram">`;
+  ns.forEach((n,i)=>{
+    const r=24+i*(86/Math.max(ns.length,5)*1.0)+ (ns.length<5?i*6:0);
+    s+=`<circle cx="110" cy="110" r="${r.toFixed(1)}" class="dl-ring"/>`;
+    for(let j=0;j<by[n];j++){const a=-Math.PI/2+j*2*Math.PI/by[n];
+      s+=`<circle cx="${(110+Math.cos(a)*r).toFixed(1)}" cy="${(110+Math.sin(a)*r).toFixed(1)}" r="2.4" fill="${n===top?'var(--hi)':'var(--cyan)'}"/>`}
+  });
+  s+=`<circle cx="110" cy="110" r="11" fill="var(--amber)"/><text x="110" y="113.5" text-anchor="middle" style="font-size:9px;font-weight:700;fill:#111">${Z}</text></svg>`;
+  return s+`<div class="dl-note" style="text-align:center;margin:6px 0 0">Electrons per shell (n=1…${top}): <b style="color:var(--hi)">${ns.map(n=>by[n]).join(' · ')}</b>; outermost shell shown brightest</div>`};
+
+const parts=Z=>{
+  const a=[['Protons',Z,'--cyan'],['Neutrons',el(Z).n,'--amber'],['Electrons',Z,'--green']];
+  return `<div class="dl-seg">${a.map(x=>`<span style="flex:${x[1]||0};background:var(${x[2]})"></span>`).join('')}</div>`+
+    a.map(x=>`<div class="dl-kv"><span style="color:var(${x[2]})">●&nbsp;${x[0]}</span><b>${x[1]}</b></div>`).join('')+
+    `<div class="dl-kv"><span>Neutron / proton ratio</span><b>${(el(Z).n/Z).toFixed(2)}</b></div>`};
+
+// Orbital box diagram (Hund's rule arrows) from the simulator's sub-orbital occupancy
+const boxes=Z=>{
+  const cfg=tr(()=>getConfig(Z));if(!cfg)return '<div class="dl-note">Configuration unavailable.</div>';
+  const top=Math.max(...cfg.map(o=>o.n));
+  return '<div class="dl-orbs">'+cfg.filter(o=>o.e>0).map(o=>`<div class="dl-orb${o.n===top?' val':''}"><span class="dl-on">${o.name}</span><div class="dl-ob">${o.occ.map(s=>`<i class="dl-sq" title="${s.label}: ${s.e} e⁻">${s.e===0?'':s.e===1?'↑':'↑↓'}</i>`).join('')}</div></div>`).join('')+'</div>'};
+
+const radar=Z=>{
+  const ks=['mass','en','ie','cov','mp','rho'],lab=['Mass','Electroneg.','Ionization','Cov. radius','Melting pt','Density'],n=ks.length;
+  const f=ks.map(k=>{const v=val(k,Z);return v?T(k,v):0}),miss=ks.filter(k=>!val(k,Z)).map(k=>lab[ks.indexOf(k)]);
+  const pt=(i,q)=>{const a=-Math.PI/2+i*2*Math.PI/n;return[(110+Math.cos(a)*78*q).toFixed(1),(110+Math.sin(a)*78*q).toFixed(1)]};
+  let s='<svg viewBox="0 0 220 220" class="dl-svg" role="img" aria-label="Radar chart of normalised properties">';
+  [.25,.5,.75,1].forEach(q=>s+=`<polygon points="${ks.map((_,i)=>pt(i,q)).join(' ')}" class="dl-ring"/>`);
+  ks.forEach((_,i)=>{const[x,y]=pt(i,1.2);s+=`<line x1="110" y1="110" x2="${pt(i,1)[0]}" y2="${pt(i,1)[1]}" class="dl-ring"/><text x="${x}" y="${y}" class="dl-t" text-anchor="middle">${lab[i]}</text>`});
+  s+=`<polygon points="${f.map((q,i)=>pt(i,q)).join(' ')}" class="dl-area"/></svg>`;
+  return s+`<div class="dl-note" style="margin:14px 0 0">Scaled against the lowest and highest known value (density on a log scale).${miss.length?' No data: '+miss.join(', ')+'.':''}</div>`};
+
+const ranks=Z=>PK.map(k=>{
+  const v=val(k,Z),r=range(k);if(!v)return `<div class="dl-row"><span>${P[k].n.split(' (')[0].slice(0,11)}</span><div class="dl-track"></div><span>n/a</span></div>`;
+  const rk=defined(k).filter(x=>x>v).length+1;
+  return `<div class="dl-row"><span title="${P[k].n}">${P[k].n.split(' ')[0]}</span><div class="dl-track"><div class="dl-fill" style="width:${Math.max(2,T(k,v)*100).toFixed(1)}%;background:var(--cyan)"></div></div><span>#${rk} of ${r.n}</span></div>`}).join('');
+
+/* ── Trend charts ── */
+const trend=(k,Z)=>{
+  const W=CW(),H=190,L=36,Rr=10,Tp=18,B=26,X=z=>+(L+(z-1)/(N-1)*(W-L-Rr)).toFixed(1),Y=v=>+(H-B-T(k,v)*(H-B-Tp)).toFixed(1),r=range(k);
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="dl-svg" role="img" aria-label="${P[k].n} against atomic number">`;
+  [[57,71,'La–Lu'],[89,103,'Ac–Lr']].forEach(([a,b,t])=>s+=`<rect x="${X(a)-2}" y="${Tp}" width="${X(b)-X(a)+4}" height="${H-B-Tp}" class="dl-band"/><text x="${((X(a)+X(b))/2).toFixed(1)}" y="${Tp-5}" class="dl-t" text-anchor="middle">${t}</text>`);
+  s+=`<line x1="${L}" y1="${H-B}" x2="${W-Rr}" y2="${H-B}" class="dl-ring"/><line x1="${L}" y1="${Tp}" x2="${L}" y2="${H-B}" class="dl-ring"/>`;
+  s+=`<text x="${L-4}" y="${Tp+3}" class="dl-t" text-anchor="end">${sv(r.hi)}</text><text x="${L-4}" y="${H-B}" class="dl-t" text-anchor="end">${P[k].log?sv(r.lo):'0'}</text>`;
+  let d='',prev=false,dots='';
+  for(let z=1;z<=N;z++){const v=val(k,z);if(!v){prev=false;continue}
+    d+=(prev?'L':'M')+X(z)+','+Y(v);prev=true;const on=z===Z;
+    dots+=`<circle cx="${X(z)}" cy="${Y(v)}" r="${on?5:2.4}" fill="${on?'var(--hi)':cc(z)}" class="dl-pt" onclick="DL.z(${z})"><title>${el(z).sym} (${z}): ${fv(k,z)}</title></circle>`}
+  s+=`<path d="${d}" class="dl-line"/>`;
+  if(Z)s+=`<line x1="${X(Z)}" y1="${Tp}" x2="${X(Z)}" y2="${H-B}" class="dl-dash"/>`;
+  s+=dots+[1,10,18,36,54,86,118].map(z=>`<text x="${X(z)}" y="${H-10}" class="dl-t" text-anchor="middle">${el(z).sym}</text>`).join('');
+  const sv0=Z&&val(k,Z);
+  if(sv0){const sx=X(Z),sy=Y(sv0),right=sx>W*0.62;s+=`<text x="${sx+(right?-9:9)}" y="${Math.max(Tp+10,sy-9)}" text-anchor="${right?'end':'start'}" class="dl-lbl">${el(Z).sym} ${fv(k,Z)}</text>`}
+  return s+'</svg>'};
+
+const rankChart=(k,Z)=>{
+  const all=[];for(let z=1;z<=N;z++){const v=val(k,z);if(v)all.push({z,v})}
+  all.sort((a,b)=>S.rk==='lo'?a.v-b.v:b.v-a.v);
+  const row=(x,i)=>`<div class="dl-row click${x.z===Z?' on':''}" onclick="DL.z(${x.z})"><span>#${i+1} ${el(x.z).sym}</span><div class="dl-track"><div class="dl-fill" style="width:${Math.max(2,T(k,x.v)*100).toFixed(1)}%;background:${cc(x.z)}"></div></div><span>${fx(x.v,P[k].u)}</span></div>`;
+  const idx=all.findIndex(x=>x.z===Z);let h=all.slice(0,10).map(row).join('');
+  if(idx>=10)h+=`<div class="dl-note" style="margin:4px 0">…</div>`+row(all[idx],idx);
+  else if(idx<0)h+=`<div class="dl-note" style="margin:14px 0 0">${el(Z).name} has no value for this property.</div>`;
+  return h};
+
+const heat=(k,Z)=>{
+  let h='<div class="dl-heat">';
+  const cell=(e,x,y)=>{
+    const v=val(k,e.Z),bg=S.hm==='cat'?cc(e.Z)+'66':`rgba(var(--cyan-rgb),${v?(.12+.68*T(k,v)).toFixed(2):.03})`;
+    return `<button type="button" class="dl-cell${e.Z===Z?' on':''}" data-id="c${e.Z}" style="grid-column:${x};grid-row:${y};background:${bg}" onclick="DL.z(${e.Z})" aria-label="${e.name}" title="${e.name}: ${fv(k,e.Z)}">${e.sym}</button>`};
+  h+=ELS.filter(e=>!(e.Z>=57&&e.Z<=71)&&!(e.Z>=89&&e.Z<=103)).map(e=>cell(e,e.g,e.p)).join('');
+  h+='<div class="dl-cell ph" style="grid-column:3;grid-row:6">57–71</div><div class="dl-cell ph" style="grid-column:3;grid-row:7">89–103</div><div class="dl-gap"></div>';
+  h+=ELS.filter(e=>(e.Z>=57&&e.Z<=71)||(e.Z>=89&&e.Z<=103)).map(e=>{const p=pos(e);return cell(e,p[0],p[1])}).join('');
+  h+='</div>';
+  h+=S.hm==='cat'?legend():`<div class="dl-grad"></div><div class="dl-gl"><span>${P[k].log?sv(range(k).lo):'0'}</span><span>${fx(range(k).hi,P[k].u)}${P[k].log?' (log scale)':''}</span></div>`;
+  return h};
+
+/* ── f-block charts ── */
+const fblock=(k,Z)=>{
+  const W=CW(),H=200,L=36,Rr=10,Tp=14,B=34,X=i=>+(L+i/14*(W-L-Rr)).toFixed(1),Y=v=>+(H-B-T(k,v)*(H-B-Tp)).toFixed(1),r=range(k);
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="dl-svg" role="img" aria-label="${P[k].n} across the lanthanide and actinide series">`;
+  s+=`<line x1="${L}" y1="${H-B}" x2="${W-Rr}" y2="${H-B}" class="dl-ring"/><line x1="${L}" y1="${Tp}" x2="${L}" y2="${H-B}" class="dl-ring"/><text x="${L-4}" y="${Tp+3}" class="dl-t" text-anchor="end">${sv(r.hi)}</text><text x="${L-4}" y="${H-B}" class="dl-t" text-anchor="end">${P[k].log?sv(r.lo):'0'}</text>`;
+  [[57,'Lanthanide'],[89,'Actinide']].forEach(([z0,c],row)=>{
+    let d='',prev=false,dots='';
+    for(let i=0;i<15;i++){const z=z0+i,v=val(k,z);
+      if(row===0)s+=`<text x="${X(i)}" y="${H-20}" class="dl-t" text-anchor="middle">${el(z).sym}</text>`; else s+=`<text x="${X(i)}" y="${H-8}" class="dl-t" text-anchor="middle">${el(z).sym}</text>`;
+      if(!v){prev=false;continue}
+      d+=(prev?'L':'M')+X(i)+','+Y(v);prev=true;
+      dots+=`<circle cx="${X(i)}" cy="${Y(v)}" r="${z===Z?5.5:3}" fill="${CATS[c]}" stroke="${z===Z?'var(--hi)':'none'}" stroke-width="2" class="dl-pt" onclick="DL.z(${z})"><title>${el(z).sym} (${z}): ${fx(v,P[k].u)}</title></circle>`}
+    s+=`<path d="${d}" fill="none" stroke="${CATS[c]}" stroke-width="1.6"/>`+dots});
+  return s+'</svg>'+`<div class="dl-leg"><span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${CATS.Lanthanide};margin-right:4px"></i>Lanthanides (top symbol row)</span><span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${CATS.Actinide};margin-right:4px"></i>Actinides (bottom row)</span></div>`};
+
+const fchange=k=>{
+  const a=(z0,z1)=>{const x=val(k,z0),y=val(k,z1);return x&&y?`${el(z0).sym} → ${el(z1).sym}: ${fx(x,P[k].u)} → ${fx(y,P[k].u)} (${(y-x)/x>=0?'+':''}${((y-x)/x*100).toFixed(1)}%)`:`${el(z0).sym} → ${el(z1).sym}: incomplete data`};
+  return `<div class="dl-note">${a(57,71)}<br>${a(89,103)}</div>`};
+
+const fcountChart=Z=>{
+  const W=CW(),H=170,L=30,Rr=8,Tp=14,B=34,bw=(W-L-Rr)/15,Y=c=>+(H-B-c/14*(H-B-Tp)).toFixed(1);
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="dl-svg" role="img" aria-label="f-electron count across both series">`;
+  [0,7,14].forEach(c=>s+=`<line x1="${L}" y1="${Y(c)}" x2="${W-Rr}" y2="${Y(c)}" class="dl-ring"/><text x="${L-4}" y="${+Y(c)+3}" class="dl-t" text-anchor="end">${c}</text>`);
+  for(let i=0;i<15;i++){
+    [[57,'Lanthanide',0],[89,'Actinide',1]].forEach(([z0,c,o])=>{
+      const z=z0+i,n=fcount(z),x=L+i*bw+o*(bw/2-1)+1;
+      s+=`<rect x="${x.toFixed(1)}" y="${Y(n)}" width="${(bw/2-2).toFixed(1)}" height="${(H-B-Y(n)).toFixed(1)}" fill="${CATS[c]}" fill-opacity="${z===Z?1:.7}" stroke="${z===Z?'var(--hi)':'none'}" class="dl-pt" onclick="DL.z(${z})"><title>${el(z).sym} (${z}): ${n} f electrons</title></rect>`});
+    s+=`<text x="${(L+i*bw+bw/2).toFixed(1)}" y="${H-20}" class="dl-t" text-anchor="middle">${el(57+i).sym}</text><text x="${(L+i*bw+bw/2).toFixed(1)}" y="${H-8}" class="dl-t" text-anchor="middle">${el(89+i).sym}</text>`}
+  return s+'</svg>'};
+
+const fgrid=(k,Z)=>{
+  let h='<div class="dl-heat f15">';
+  [57,89].forEach(z0=>{for(let i=0;i<15;i++){const z=z0+i,e=el(z),v=val(k,z);
+    h+=`<button type="button" class="dl-cell${z===Z?' on':''}" data-id="c${z}" style="background:rgba(var(--cyan-rgb),${v?(.12+.68*T(k,v)).toFixed(2):.03})" onclick="DL.z(${z})" aria-label="${e.name}" title="${e.name}: ${fv(k,z)}">${e.sym}<small>${sv(v)}</small></button>`}});
+  return h+'</div>'};
+
+/* ── Explore: scatter and nuclear charts ── */
+const xy=o=>{
+  const W=CW(),H=o.H||(W<420?270:300),L=W<420?56:62,Rr=16,Tp=14,B=44,X=t=>+(L+(t-o.x0)/(o.x1-o.x0)*(W-L-Rr)).toFixed(1),Y=t=>+(H-B-(t-o.y0)/(o.y1-o.y0)*(H-B-Tp)).toFixed(1);
+  const xt=o.xt||[0,1,2,3,4].map(i=>o.x0+(o.x1-o.x0)*i/4),yt=o.yt||[0,1,2,3,4].map(i=>o.y0+(o.y1-o.y0)*i/4);
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="dl-svg" role="img" aria-label="${o.aria}">`;
+  const skip=xt.length>6&&W<420?2:1;
+  xt.forEach((t,i)=>s+=`<line x1="${X(t)}" y1="${Tp}" x2="${X(t)}" y2="${H-B}" class="dl-ring" opacity=".5"/>${i%skip?'':`<text x="${X(t)}" y="${H-B+16}" class="dl-t" text-anchor="middle">${o.fx(t)}</text>`}`);
+  yt.forEach(t=>s+=`<line x1="${L}" y1="${Y(t)}" x2="${W-Rr}" y2="${Y(t)}" class="dl-ring" opacity=".5"/><text x="${L-7}" y="${+Y(t)+3.5}" class="dl-t" text-anchor="end">${o.fy(t)}</text>`);
+  s+=`<text x="${((L+W-Rr)/2).toFixed(0)}" y="${H-8}" class="dl-t dl-ax" text-anchor="middle">${o.lx}</text><text transform="translate(11 ${((Tp+H-B)/2).toFixed(0)}) rotate(-90)" class="dl-t dl-ax" text-anchor="middle">${o.ly}</text>`;
+  if(o.ref)s+=`<line x1="${X(o.ref[0])}" y1="${Y(o.ref[1])}" x2="${X(o.ref[2])}" y2="${Y(o.ref[3])}" class="dl-dash"/>`;
+  let sel='';
+  o.pts.forEach(p=>{
+    s+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${o.r||4}" fill="${p.c}" fill-opacity=".85" class="dl-pt" onclick="DL.z(${p.z})"><title>${el(p.z).sym} (${p.z}): ${p.t}</title></circle>`;
+    if(p.z===o.sel){const px=X(p.x),py=Y(p.y),right=px>W*0.6;sel=`<circle cx="${px}" cy="${py}" r="8" fill="none" stroke="var(--hi)" stroke-width="2"/><text x="${px+(right?-12:12)}" y="${Math.max(Tp+10,py-10)}" text-anchor="${right?'end':'start'}" class="dl-lbl">${el(p.z).sym}</text>`}});
+  return s+sel+'</svg>'};
+
+const scatter=Z=>{
+  const kx=S.sx,ky=S.sy,pts=[],xs=[],ys=[];
+  for(let z=1;z<=N;z++){const a=val(kx,z),b=val(ky,z);if(a&&b){const x=lf(kx,a),y=lf(ky,b);xs.push(x);ys.push(y);pts.push({z,x,y,c:cc(z),t:`${fx(a,P[kx].u)}, ${fx(b,P[ky].u)}`})}}
+  if(pts.length<3)return '<div class="dl-note">Not enough overlapping data for this pair.</div>';
+  const mn=a=>Math.min(...a),mxv=a=>Math.max(...a),wide=CW()>=420;
+  const nxs=nice(mn(xs),mxv(xs),wide?6:4,P[kx].log),nys=nice(mn(ys),mxv(ys),5,P[ky].log);
+  const x0=nxs.a,x1=nxs.b,y0=nys.a,y1=nys.b;
+  const mx_=xs.reduce((a,b)=>a+b)/xs.length,my_=ys.reduce((a,b)=>a+b)/ys.length;
+  let sxy=0,sxx=0,syy=0;xs.forEach((x,i)=>{sxy+=(x-mx_)*(ys[i]-my_);sxx+=(x-mx_)**2;syy+=(ys[i]-my_)**2});
+  const r=sxx&&syy?sxy/Math.sqrt(sxx*syy):0;
+  const f=k=>t=>tl(P[k].log?Math.pow(10,t):t);
+  return xy({pts,x0,x1,y0,y1,xt:nxs.t,yt:nys.t,sel:Z,fx:f(kx),fy:f(ky),lx:`${P[kx].n} (${P[kx].u}${P[kx].log?', log':''})`,ly:`${P[ky].n} (${P[ky].u}${P[ky].log?', log':''})`,aria:`Scatter plot of ${P[ky].n} against ${P[kx].n}`})+
+    legend()+`<div class="dl-note" style="margin-top:14px">${pts.length} elements plotted. Pearson correlation r = <b style="color:var(--hi)">${r.toFixed(2)}</b>${P[kx].log||P[ky].log?' (computed on log-scaled values)':''}. Click any point to inspect that element.</div>`};
+
+const nz=Z=>{
+  const pts=ELS.map(e=>({z:e.Z,x:e.Z,y:e.n,c:cc(e.Z),t:`${e.n} neutrons, N/Z = ${(e.n/e.Z).toFixed(2)}`}));
+  const e=el(Z);
+  return xy({pts,x0:0,x1:120,y0:0,y1:180,xt:[0,30,60,90,120],yt:[0,45,90,135,180],sel:Z,ref:[0,0,120,120],r:3.4,fx:v=>Math.round(v),fy:v=>Math.round(v),lx:'Protons (Z)',ly:'Neutrons (N)',aria:'Neutrons against protons'})+
+    `<div class="dl-note" style="margin-top:14px">Dashed line: N = Z. Light nuclei sit on it; heavy nuclei need more neutrons to offset proton repulsion, so N/Z climbs from 1 to about 1.5. ${e.name} here: N/Z = <b style="color:var(--hi)">${(e.n/Z).toFixed(2)}</b>. Neutron counts are those of the isotope the simulator uses.</div>`};
+
+/* ── Element/Trends/f-block/Explore views ── */
+const propBar=()=>'<div class="dl-bar">'+PK.map(p=>chip('p'+p,P[p].n.split(' (')[0],p===S.prop,`DL.p('${p}')`)).join('')+'</div>';
+
+const elView=()=>{
+  const Z=S.Z,e=el(Z),ve=tr(()=>valenceElectronsFor(Z,e.g)),cfg=tr(()=>configString(Z));
+  return `<div class="dl-note">${cat(Z)}, period ${e.p}, group ${Z>=57&&Z<=71||Z>=89&&Z<=103?'3 (f-block)':e.g}${cfg?'. Configuration: '+cfg:''}${RADIO(Z)?'. Radioactive: no stable isotope, mass shown is the mass number of the isotope the simulator uses':''}</div>
+<div class="dl-stats">${stat('Atomic mass',fx(val('mass',Z),'u'))}${stat('Electronegativity',fv('en',Z))}${stat('1st ionization',fv('ie',Z))}${stat('Atomic radius',fx(val('r',Z),'pm'))}${stat('Covalent radius',fx(val('cov',Z),'pm'))}${stat('Melting point',fx(val('mp',Z),'K'))}${stat('Density',fx(val('rho',Z),'g/cm³'))}${stat('Valence e⁻',typeof ve==='number'?ve:'n/a')}</div>
+<div class="dl-grid"><div class="dl-box"><h4>Electron shells</h4>${shells(Z)}</div><div class="dl-box"><h4>Particles in the atom</h4>${parts(Z)}</div></div>
+<div class="dl-box"><h4>Orbital box diagram (Hund's rule)</h4>${boxes(Z)}<div class="dl-note" style="margin:14px 0 0">Each square is one orbital; arrows are electrons. Outermost shell outlined in the bright colour.</div></div>
+<div class="dl-grid"><div class="dl-box"><h4>Property profile</h4>${radar(Z)}</div><div class="dl-box"><h4>Rank among all elements with data</h4>${ranks(Z)}</div></div>
+<div class="dl-note">${SRC}</div>
+${Z>103?'<div class="dl-note">Elements above lawrencium (Z > 103) have too few measured properties, so only mass number and nuclear data are shown.</div>':''}`};
+
+const trView=()=>{const k=S.prop,r=range(k);
+  return `${propBar()}<div class="dl-box"><h4>${P[k].n} across Z = 1 to ${N}</h4>${trend(k,S.Z)}<div class="dl-note" style="margin:14px 0 0">Data for ${r.n} of ${N} elements${P[k].log?'; log scale':''}. Gaps mean no reliable value. Shaded bands are the lanthanides and actinides.</div></div>
+<div class="dl-box"><h4>${S.rk==='lo'?'Lowest':'Highest'} ${P[k].n.split(' (')[0].toLowerCase()}</h4><div class="dl-bar">${chip('rkhi','Highest',S.rk==='hi',"DL.rk('hi')")}${chip('rklo','Lowest',S.rk==='lo',"DL.rk('lo')")}</div>${rankChart(k,S.Z)}</div>
+<div class="dl-box"><h4>Periodic table: ${P[k].n}</h4><div class="dl-bar">${chip('hmv','By value',S.hm==='val',"DL.hm('val')")}${chip('hmc','By category',S.hm==='cat',"DL.hm('cat')")}</div>${heat(k,S.Z)}</div>`};
+
+const fbView=()=>{const k=S.prop;
+  return `<div class="dl-note">The f-block fills the 4f (lanthanides) and 5f (actinides) subshells. Because 4f electrons shield the nucleus poorly, radii shrink steadily across the lanthanides (the lanthanide contraction). The 5f row is more irregular because 5f and 6d energies are close.</div>${propBar()}
+<div class="dl-box"><h4>${P[k].n}: lanthanides against actinides</h4>${fblock(k,S.Z)}${fchange(k)}</div>
+<div class="dl-box"><h4>f electrons per element (4f for La–Lu, 5f for Ac–Lr)</h4>${fcountChart(S.Z)}<div class="dl-note" style="margin:14px 0 0">Gd and Cm sit at the half-filled value of 7 only through a 5d/6d electron; Lu and Lr reach a full 14.</div></div>
+<div class="dl-box"><h4>f-block at a glance: ${P[k].n}</h4>${fgrid(k,S.Z)}<div class="dl-note" style="margin:14px 0 0">Top row La–Lu, bottom row Ac–Lr. Values: ${P[k].u}${P[k].log?' (shade on log scale)':''}.</div></div>`};
+
+const exView=()=>{
+  const lb=k=>P[k].n.split(' (')[0];
+  return `<div class="dl-box"><h4>Scatter explorer</h4><div class="dl-axes"><span class="dl-note">X axis</span>${pbtn('sx','sx',lb(S.sx),'X axis')}<span class="dl-note">Y axis</span>${pbtn('sy','sy',lb(S.sy),'Y axis')}</div>${scatter(S.Z)}</div>
+<div class="dl-box"><h4>Nuclear stability: neutrons against protons</h4>${nz(S.Z)}</div>`};
+
+/* ── Molecule verification ── */
+const SUBS={'₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9','⁺':'+','⁻':'-','²':'2','³':'3'};
+const parseF=f=>{
+  let t=[...f].map(c=>SUBS[c]!==undefined?SUBS[c]:c).join(''),ch=0;const m=t.match(/\^?(\d*)([+-])$/);
+  if(m){ch=(+(m[1]||1))*(m[2]==='+'?1:-1);t=t.slice(0,m.index)}
+  t=t.replace(/·/g,'');let g=0;while(t.includes('(')&&g++<8)t=t.replace(/\(([^()]*)\)(\d*)/g,(_,a,n)=>a.repeat(+n||1));
+  const c={};(t.match(/[A-Z][a-z]?\d*/g)||[]).forEach(x=>{const r=x.match(/([A-Z][a-z]?)(\d*)/);c[r[1]]=(c[r[1]]||0)+(+r[2]||1)});
+  return{c,ch}};
+const checkMol=m=>{
+  const bad=[],n=m.atoms.length;
+  m.atoms.forEach(a=>{if(!el(a.Z))bad.push('unknown element Z='+a.Z)});
+  const seen=new Set();
+  (m.bonds||[]).forEach(b=>{const i=b[0],j=b[1];
+    if(!(i>=0&&i<n&&j>=0&&j<n)){bad.push('bond '+i+'–'+j+' points to a missing atom');return}
+    if(i===j)bad.push('atom '+i+' is bonded to itself');
+    const k=Math.min(i,j)+'-'+Math.max(i,j);if(seen.has(k))bad.push('duplicate bond '+k);seen.add(k)});
+  if(n<=60){
+    const cnt={};m.atoms.forEach(a=>{const y=(el(a.Z)||{}).sym;cnt[y]=(cnt[y]||0)+1});
+    const{c,ch}=parseF(m.formula),ks=new Set([...Object.keys(c),...Object.keys(cnt)]);
+    ks.forEach(y=>{if((c[y]||0)!==(cnt[y]||0))bad.push('formula says '+(c[y]||0)+' '+y+' but the structure has '+(cnt[y]||0))});
+    const net=m.atoms.reduce((a,x)=>a+(x.formalCharge||0),0);if(net!==ch)bad.push('formula charge '+ch+' but atom charges sum to '+net)}
+  if(n<=60){
+    const sum=m.atoms.map(()=>0),bs=m.bonds||[];
+    bs.forEach((b,i)=>{if(m.atoms[b[0]]&&m.atoms[b[1]]&&b[2]!==0){const q=ord(m,i);sum[b[0]]+=q;sum[b[1]]+=q}});
+    m.atoms.forEach((a,i)=>{const mx=MAXV[a.Z];if(mx&&!a.formalCharge&&sum[i]>mx+.01)bad.push(el(a.Z).sym+' (atom '+i+') has bond order sum '+sum[i]+', above its maximum of '+mx)});
+    if(!bs.some(b=>b[2]===0)){const p=m.atoms.map((_,i)=>i),f=i=>p[i]===i?i:(p[i]=f(p[i]));bs.forEach(b=>{if(m.atoms[b[0]]&&m.atoms[b[1]])p[f(b[0])]=f(b[1])});
+      const c=new Set(m.atoms.map((_,i)=>f(i))).size;if(c>1)bad.push('the structure splits into '+c+' disconnected pieces')}}
+  return bad};
+const MAXV={1:1,4:2,5:4,6:4,7:5,8:3,9:1,14:4,15:5,16:6,17:7,32:4,33:5,34:6,35:7,51:5,52:6,53:7,54:8};
+const EXP={h2:{'H–H':74.1},o2:{'O–O':120.8},n2:{'N–N':109.8},co:{'C–O':112.8},hf:{'F–H':91.7},hcl:{'Cl–H':127.5},h2o:{'H–O':95.8},co2:{'C–O':116.0},nh3:{'H–N':101.2},ch4:{'C–H':108.7},f2:{'F–F':141.2},cl2:{'Cl–Cl':198.8},br2:{'Br–Br':228.1},i2:{'I–I':266.6},no:{'N–O':115.1},hbr:{'Br–H':141.4},hi:{'H–I':160.9},clf:{'Cl–F':162.8},cs2:{'C–S':155.3},n2o:{'N–N':112.6,'N–O':118.6},hcn:{'C–H':106.5,'C–N':115.6},h2s:{'H–S':133.6},so2:{'O–S':143.1},of2:{'F–O':140.5},o3:{'O–O':127.2},ph3:{'H–P':142.0},nf3:{'F–N':136.5},sih4:{'H–Si':148.1},cf4:{'C–F':131.9},ccl4:{'C–Cl':176.6},bf3:{'B–F':130.7},so3:{'O–S':142.0},no2:{'N–O':119.7},clo2:{'Cl–O':147.0},c6h6:{'C–C':139.7,'C–H':108.4},h2co:{'C–O':120.3}};
+const EXPV={6:4,7:3,8:2},HYP={15:3,16:2,17:1,33:3,34:2,35:1,52:2,53:1,54:0};
+const modelNotes=m=>{
+  if(m.atoms.length>60)return[];
+  const o=[],sum=m.atoms.map(()=>0);
+  (m.bonds||[]).forEach((b,bi)=>{const q=ord(m,bi);if(q>0&&sum[b[0]]!==undefined&&sum[b[1]]!==undefined){sum[b[0]]+=q;sum[b[1]]+=q}});
+  const ne=m.atoms.reduce((a,x)=>a+x.Z-(x.formalCharge||0),0);
+  if(ne%2)o.push('Odd number of electrons: this species is a radical.');
+  const hy=new Set(),fc=new Set();
+  m.atoms.forEach((a,i)=>{
+    if(HYP[a.Z]!==undefined&&sum[i]>HYP[a.Z]&&!a.formalCharge)hy.add(el(a.Z).sym);
+    if(EXPV[a.Z]&&!a.formalCharge&&sum[i]>0&&Math.abs(sum[i]-EXPV[a.Z])>.01&&!(ne%2))fc.add(el(a.Z).sym)});
+  if(hy.size)o.push('Expanded octet (hypervalent) at '+[...hy].join(', ')+': more bonds than the simple octet rule allows.');
+  if(fc.size)o.push('The simulator draws a simplified neutral skeleton at '+[...fc].join(', ')+'; the real structure is charge-separated or resonance-delocalised, so bond orders and estimated lengths are model values.');
+  if(BOV[m.key])o.push('Bond orders here are resonance-averaged (e.g. 1.5 for each O–O bond in ozone), which matches measured bond lengths better than a single Lewis structure.');
+  return o};
+
+/* ── Molecules ── */
+/* ── Molecule structure: drawn from the simulator's own 3D coordinates ──
+   Every covalent entry stores a unit direction `dir` per atom (relative to the atom it bonds to).
+   Walking those directions with real bond lengths (the same walk the 3D view uses) gives true
+   coordinates; they are rotated onto their principal axes and projected to 2D, so rings come out as
+   regular hexagons, water is bent at its real angle, SF6 is octahedral and so on. No force layout. */
+const JM={1:'#ffffff',3:'#cc80ff',4:'#c2ff00',5:'#ffb5b5',6:'#909090',7:'#3050f8',8:'#ff0d0d',9:'#90e050',11:'#ab5cf2',12:'#8aff00',13:'#bfa6a6',14:'#f0c8a0',15:'#ff8000',16:'#ffff30',17:'#1ff01f',19:'#8f40d4',20:'#3dff00',22:'#bfc2c7',23:'#a6a6ab',26:'#e06633',30:'#7d80b0',31:'#c28f8f',32:'#668f8f',33:'#bd80e3',34:'#ffa100',35:'#a62929',36:'#5cb8d1',37:'#702eb0',38:'#00ff00',40:'#94e0e0',42:'#54b5b5',47:'#c0c0c0',50:'#668080',51:'#9e63b5',52:'#d47a00',53:'#940094',54:'#429eb0',55:'#57178f',56:'#00c900',74:'#2194d6',76:'#266696',80:'#b8b8d0',82:'#575961',92:'#008fff'};
+const cpk=Z=>JM[Z]||`#${[(Z*53)%160+70,(Z*97)%160+70,(Z*29)%160+70].map(v=>v.toString(16).padStart(2,'0')).join('')}`;
+const lum=h=>{const m=/^#([0-9a-f]{6})$/i.exec(h);if(!m)return 0;const v=parseInt(m[1],16);return(.299*(v>>16&255)+.587*(v>>8&255)+.114*(v&255))/255};
+const enCol=Z=>{const v=val('en',Z);if(!v)return '#888888';const t=Math.max(0,Math.min(1,(v-.7)/3.3));return `hsl(${(220-220*t).toFixed(0)} 75% 50%)`};
+// Resonance-averaged bond orders for the few species whose single authored Lewis structure misstates the bond
+// (O3 and NO2 have two equivalent bonds, NO is 2.5, N2O's N-O is partly double). Data Lab only; the 3D view is untouched.
+const BOV={o3:{0:1.5,1:1.5},no2:{0:1.5,1:1.5},no:{0:2.5},n2o:{1:1.5}};
+const ord=(m,i)=>{const v=BOV[m.key]&&BOV[m.key][i],o=m.bonds[i][2];return v!==undefined?v:(o==null?1:o)};
+const oLabel=o=>String(+o.toFixed(1));
+const REAL=(a,b,o)=>tr(()=>realBondLengthPm(a,b,o));
+const ionicPos=m=>{
+  const n=m.atoms.length,deg=m.atoms.map(()=>0);(m.bonds||[]).forEach(b=>{deg[b[0]]++;deg[b[1]]++});
+  const h=deg.indexOf(Math.max(...deg)),rest=[...Array(n).keys()].filter(i=>i!==h),P=new Array(n);P[h]=[0,0,0];
+  rest.forEach((i,q)=>{if(rest.length===1)P[i]=[2,0,0];else if(rest.length===2)P[i]=[q?-2:2,0,0];else{const a=q*2*Math.PI/rest.length;P[i]=[2*Math.cos(a),2*Math.sin(a),0]}});
+  return P};
+const geo3=m=>{
+  const A=m.atoms,n=A.length,bs=m.bonds||[];
+  if(!A.every(a=>Array.isArray(a.dir)))return ionicPos(m);
+  const P=new Array(n);P[0]=[0,0,0];
+  for(let i=1;i<n;i++){
+    const b=bs.find(b=>(b[0]===i&&P[b[1]])||(b[1]===i&&P[b[0]])),j=b?(b[0]===i?b[1]:b[0]):0,o=b?(b[3]!==undefined?b[3]:(b[2]||1)):1;
+    const L=(REAL(A[j].Z,A[i].Z,o)||150)/100,d=A[i].dir;
+    P[i]=[P[j][0]+d[0]*L,P[j][1]+d[1]*L,P[j][2]+d[2]*L]}
+  return P};
+// Principal axes of the point cloud (Jacobi eigen-solver on the 3x3 covariance matrix).
+const pca=P=>{
+  const n=P.length,c=[0,1,2].map(k=>P.reduce((s,p)=>s+p[k],0)/n),Q=P.map(p=>p.map((v,k)=>v-c[k])),A=[[0,0,0],[0,0,0],[0,0,0]];
+  Q.forEach(q=>{for(let i=0;i<3;i++)for(let j=0;j<3;j++)A[i][j]+=q[i]*q[j]/n});
+  const V=[[1,0,0],[0,1,0],[0,0,1]];
+  for(let sw=0;sw<50;sw++){
+    let p=0,q=1,mx=Math.abs(A[0][1]);if(Math.abs(A[0][2])>mx){p=0;q=2;mx=Math.abs(A[0][2])}if(Math.abs(A[1][2])>mx){p=1;q=2;mx=Math.abs(A[1][2])}
+    if(mx<1e-12)break;
+    const th=(A[q][q]-A[p][p])/(2*A[p][q]),t=(th<0?-1:1)/(Math.abs(th)+Math.sqrt(th*th+1)),cs=1/Math.sqrt(t*t+1),sn=t*cs;
+    for(let k=0;k<3;k++){const x=A[k][p],y=A[k][q];A[k][p]=cs*x-sn*y;A[k][q]=sn*x+cs*y}
+    for(let k=0;k<3;k++){const x=A[p][k],y=A[q][k];A[p][k]=cs*x-sn*y;A[q][k]=sn*x+cs*y}
+    for(let k=0;k<3;k++){const x=V[k][p],y=V[k][q];V[k][p]=cs*x-sn*y;V[k][q]=sn*x+cs*y}}
+  const ev=[A[0][0],A[1][1],A[2][2]],ix=[0,1,2].sort((a,b)=>ev[b]-ev[a]),ax=ix.map(i=>[V[0][i],V[1][i],V[2][i]]);
+  return{ev:ix.map(i=>ev[i]),pts:Q.map(q=>ax.map(a=>a[0]*q[0]+a[1]*q[1]+a[2]*q[2]))}};
+// Flat molecules are shown face-on; 3D ones (CH4, SF6, PF5...) get a fixed three-quarter view with depth ordering.
+const rot=(pts,a,b)=>{const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);return pts.map(([x,y,z])=>{const x1=x*cb+z*sb,z1=-x*sb+z*cb,y1=y*ca-z1*sa,z2=y*sa+z1*ca;return[x1,-y1,z2]})};
+// Pick the viewing angle that keeps atoms apart from each other and from bonds they are not part of (no overlaps).
+const viewScore=(Q,bs)=>{
+  let mn=1e9;const n=Q.length;
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)mn=Math.min(mn,Math.hypot(Q[i][0]-Q[j][0],Q[i][1]-Q[j][1]));
+  bs.forEach(b=>{const A=Q[b[0]],B=Q[b[1]],dx=B[0]-A[0],dy=B[1]-A[1],L2=dx*dx+dy*dy||1e-9;
+    for(let i=0;i<n;i++){if(i===b[0]||i===b[1])continue;const t=Math.max(0,Math.min(1,((Q[i][0]-A[0])*dx+(Q[i][1]-A[1])*dy)/L2));mn=Math.min(mn,Math.hypot(Q[i][0]-A[0]-t*dx,Q[i][1]-A[1]-t*dy))}});
+  return mn};
+const project=(P,bs)=>{
+  const{ev,pts}=pca(P),flat=ev[2]<=ev[0]*.01+1e-9;
+  if(flat)return{flat:true,pts:pts.map(p=>[p[0],-p[1],0])};
+  let best=null,bsc=-1;
+  for(let a=.25;a<=1.2;a+=.15)for(let b=-1.3;b<=1.3;b+=.15){const Q=rot(pts,a,b),sc=viewScore(Q,bs);if(sc>bsc+1e-9){bsc=sc;best=Q}}
+  return{flat:false,pts:best}};
+// Smallest ring through every bond (rings up to 8 atoms): used to put the second line of a ring double bond on the inside.
+const ringsOf=(n,bs)=>{
+  const adj=[...Array(n)].map(()=>[]);bs.forEach(b=>{if(b[2]!==0){adj[b[0]].push(b[1]);adj[b[1]].push(b[0])}});
+  const seen=new Map();
+  bs.forEach(b=>{if(b[2]===0)return;const a=b[0],t=b[1],prev=new Array(n).fill(-2);prev[a]=-1;const q=[a];
+    while(q.length){const u=q.shift();if(u===t)break;for(const v of adj[u]){if(u===a&&v===t)continue;if(prev[v]===-2){prev[v]=u;q.push(v)}}}
+    if(prev[t]!==-2){const path=[];for(let x=t;x!==-1;x=prev[x])path.push(x);if(path.length>=3&&path.length<=8){const k=[...path].sort((x,y)=>x-y).join(',');if(!seen.has(k))seen.set(k,path)}}});
+  return[...seen.values()]};
+const angleRows=(m,P)=>{
+  const n=m.atoms.length,bs=m.bonds||[];if(n>30||bs.some(b=>b[2]===0))return[];
+  const adj=[...Array(n)].map(()=>[]);bs.forEach(b=>{adj[b[0]].push(b[1]);adj[b[1]].push(b[0])});
+  const sy=i=>el(m.atoms[i].Z).sym,rows={};
+  adj.forEach((nb,c)=>{for(let x=0;x<nb.length;x++)for(let y=x+1;y<nb.length;y++){
+    const u=P[nb[x]].map((v,k)=>v-P[c][k]),w=P[nb[y]].map((v,k)=>v-P[c][k]),d=u[0]*w[0]+u[1]*w[1]+u[2]*w[2],
+      ang=Math.acos(Math.max(-1,Math.min(1,d/(Math.hypot(...u)*Math.hypot(...w)))))*180/Math.PI,
+      e=[sy(nb[x]),sy(nb[y])].sort(),key=e[0]+'–'+sy(c)+'–'+e[1]+'|'+ang.toFixed(1);
+    (rows[key]=rows[key]||{k:key.split('|')[0],a:+ang.toFixed(1),n:0}).n++}});
+  return Object.values(rows).sort((p,q)=>q.n-p.n).slice(0,8)};
+const skeleton=m=>{
+  const n=m.atoms.length;
+  if(n>60)return `<div class="dl-note">This molecule has ${n} atoms, too many for a readable 2D drawing. Use the composition and bond charts instead.</div>`;
+  const bs=(m.bonds||[]).map((b,i)=>({a:b[0],b:b[1],o:ord(m,i)})).filter(b=>m.atoms[b.a]&&m.atoms[b.b]);
+  const P3=geo3(m),pj=project(P3,m.bonds||[]),Q=pj.pts,rings=ringsOf(n,m.bonds||[]);
+  const rad=a=>a.Z===1?9:Math.round(Math.min(17,Math.max(11.5,4+(val('cov',a.Z)||110)/7.5)));
+  const xs=Q.map(p=>p[0]),ys=Q.map(p=>p[1]),ex=Math.max(...xs)-Math.min(...xs),ey=Math.max(...ys)-Math.min(...ys),pad=30;
+  const sc=Math.min(ex>1e-6?(560-2*pad)/ex:1e9,ey>1e-6?(320-2*pad)/ey:1e9,72),W=Math.round(ex*sc+2*pad),H=Math.round(ey*sc+2*pad);
+  const X=v=>+((v-Math.min(...xs))*sc+pad).toFixed(2),Y=v=>+((v-Math.min(...ys))*sc+pad).toFixed(2),pt=Q.map(p=>[X(p[0]),Y(p[1])]);
+  const zs=Q.map(p=>p[2]),zr=Math.max(.001,Math.max(...zs)-Math.min(...zs));
+  const dz=i=>pj.flat?0:(Q[i][2]-Math.min(...zs))/zr-.5;
+  const items=[];
+  bs.forEach(b=>{items.push({z:(dz(b.a)+dz(b.b))/2-.001,t:'b',b})});
+  m.atoms.forEach((a,i)=>items.push({z:dz(i),t:'a',a,i}));
+  items.sort((p,q)=>p.z-q.z);
+  const bondSvg=b=>{
+    const A=pt[b.a],B=pt[b.b],dx=B[0]-A[0],dy=B[1]-A[1],d=Math.hypot(dx,dy)||1,nx=-dy/d,ny=dx/d,w=5;
+    const solid=b.o===0?0:Math.max(1,Math.floor(b.o+1e-9)),frac=b.o===0?0:b.o-solid,k=b.o===0?1:solid+(frac>.2?1:0);
+    const ring=rings.find(r=>r.includes(b.a)&&r.includes(b.b)&&Math.abs(r.indexOf(b.a)-r.indexOf(b.b))%(r.length-1)<=1);
+    let out='';const ra=(rad(m.atoms[b.a])*(pj.flat?1:1+.1*dz(b.a))+.5)/d,rb=(rad(m.atoms[b.b])*(pj.flat?1:1+.1*dz(b.b))+.5)/d;
+    const ln=(o,dash,sh)=>{const e=sh||0,s1=ra+e,s2=rb+e,x1=A[0]+dx*s1+nx*o,y1=A[1]+dy*s1+ny*o,x2=B[0]-dx*s2+nx*o,y2=B[1]-dy*s2+ny*o;
+      return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--hi)" stroke-opacity="${dash?.7:.92}" stroke-width="${dash?1.8:2.3}" stroke-linecap="round"${dash?' stroke-dasharray="4.5 3.5"':''}/>`};
+    if(b.o===0)return ln(0,true);
+    if(ring&&solid===2&&frac<.2){const cx=ring.reduce((s,i)=>s+pt[i][0],0)/ring.length,cy=ring.reduce((s,i)=>s+pt[i][1],0)/ring.length,side=((cx-(A[0]+B[0])/2)*nx+(cy-(A[1]+B[1])/2)*ny)>=0?1:-1;
+      return ln(0)+ln(side*w*1.25,false,.12)}
+    for(let j=0;j<k;j++){const o=(j-(k-1)/2)*w,isDash=j>=solid;out+=ln(o,isDash)}
+    return out};
+  const atomSvg=(a,i)=>{
+    const r=rad(a)*(pj.flat?1:1+.1*dz(i)),fill=S.mc==='en'?enCol(a.Z):cpk(a.Z),sym=el(a.Z).sym,fc=a.formalCharge||0,
+      txt=S.mc==='en'||lum(fill)<.5?'#ffffff':'#111111';
+    return `<g><circle cx="${pt[i][0]}" cy="${pt[i][1]}" r="${r.toFixed(1)}" fill="${fill}" stroke="rgba(0,0,0,.55)" stroke-width="1.2"><title>${sym}${fc?' ('+(fc>0?'+':'')+fc+')':''}, EN ${fx(val('en',a.Z))}, covalent radius ${fx(val('cov',a.Z),'pm')}</title></circle>`+
+      `<text x="${pt[i][0]}" y="${pt[i][1]+(a.Z===1?4:4.8)}" text-anchor="middle" style="font-size:${a.Z===1?12:14.5}px;font-weight:700;fill:${txt};pointer-events:none">${sym}</text>`+
+      (fc?`<text x="${(pt[i][0]+r*.72).toFixed(1)}" y="${(pt[i][1]-r*.72).toFixed(1)}" class="dl-chg">${fc>0?(fc>1?fc:'')+'+':(fc<-1?-fc:'')+'−'}</text>`:'')+'</g>'};
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="dl-svg dl-mol" style="width:${W}px;max-width:100%;height:auto" role="img" aria-label="Structural diagram of ${esc(m.name)}">`;
+  items.forEach(it=>{s+=it.t==='b'?bondSvg(it.b):atomSvg(it.a,it.i)});
+  s+='</svg>';
+  const key=S.mc==='en'?'<div class="dl-grad" style="background:linear-gradient(90deg,hsl(220 75% 50%),hsl(110 75% 50%),hsl(0 75% 50%))"></div><div class="dl-gl"><span>low electronegativity</span><span>high</span></div>':'';
+  const used=[...new Set(m.atoms.map(a=>a.Z))].sort((p,q)=>p-q),
+    leg='<div class="dl-leg">'+used.map(z=>`<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,.45);background:${S.mc==='en'?enCol(z):cpk(z)}"></i>${el(z).name}</span>`).join('')+'</div>';
+  const ionic=(m.bonds||[]).some(b=>b[2]===0);
+  return `<div class="dl-bar">${chip('mce','Colour by element',S.mc==='el',"DL.mc('el')")}${chip('mcn','Colour by electronegativity',S.mc==='en',"DL.mc('en')")}</div><div class="dl-mol-wrap">`+s+`</div>`+key+leg+
+    `<div class="dl-note" style="margin-top:14px">${ionic?'Ions drawn along the line of contact (dotted); real salts form crystal lattices, this is the gas-phase pair or cluster.':'Drawn from the simulator’s 3D coordinates and real covalent bond lengths'+(pj.flat?', viewed face-on (the molecule is planar or linear).':', viewed from a fixed angle; nearer atoms are drawn larger.')} Parallel lines are double or triple bonds; a dashed line beside a solid one marks a delocalised (fractional) bond.</div>`};
+
+const donut=it=>{
+  const T0=it.reduce((a,x)=>a+x.v,0),C=2*Math.PI*40;let o=0;
+  return '<svg viewBox="0 0 100 100" class="dl-svg dl-donut" role="img" aria-label="Composition donut chart">'+it.map(x=>{
+    const l=x.v/T0*C,s=`<circle cx="50" cy="50" r="40" fill="none" stroke="${x.c}" stroke-width="16" stroke-dasharray="${l.toFixed(2)} ${(C-l).toFixed(2)}" stroke-dashoffset="${(-o).toFixed(2)}" transform="rotate(-90 50 50)"/>`;o+=l;return s}).join('')+'</svg>'};
+
+const molView=()=>{
+  const m=MOLECULES.find(x=>x.key===S.mol);if(!m)return '';
+  const bondsArr=m.bonds||[],cnt={};m.atoms.forEach(a=>cnt[a.Z]=(cnt[a.Z]||0)+1);
+  const zs=Object.keys(cnt).map(Number),ok=zs.every(z=>val('mass',z)&&z<=103);
+  const it=zs.map((z,i)=>({z,n:cnt[z],v:ok?val('mass',z)*cnt[z]:cnt[z],c:`hsl(${200+i*70} 65% 52%)`}));
+  const T0=it.reduce((a,x)=>a+x.v,0),nMax=Math.max(...it.map(x=>x.n));
+  const charge=m.atoms.reduce((a,x)=>a+(x.formalCharge||0),0),electrons=m.atoms.reduce((a,x)=>a+x.Z,0)-charge;
+  const par=m.atoms.map((_,i)=>i),find=i=>par[i]===i?i:(par[i]=find(par[i]));
+  bondsArr.forEach(b=>{if(m.atoms[b[0]]&&m.atoms[b[1]])par[find(b[0])]=find(b[1])});
+  const comps=new Set(m.atoms.map((_,i)=>find(i))).size,rings=Math.max(0,bondsArr.length-m.atoms.length+comps);
+  const rows={},types={s:0,i:0,d:0,t:0,z:0},lens={},EXPM=EXP[m.key]||{};
+  bondsArr.forEach((b,bi)=>{const A=m.atoms[b[0]],B=m.atoms[b[1]];if(!A||!B)return;const o=ord(m,bi);
+    o===0?types.z++:o<1.25?types.s++:o<1.75?types.i++:o<2.25?types.d++:types.t++;
+    const a=val('en',A.Z),c=val('en',B.Z),sy=[el(A.Z).sym,el(B.Z).sym].sort().join('–');
+    if(a&&c)(rows[sy]=rows[sy]||{k:sy,d:Math.abs(a-c),n:0}).n++;
+    if(o>0){const L=REAL(A.Z,B.Z,o),key=sy+(o>1?' ('+oLabel(o)+')':'');(lens[key]=lens[key]||{k:key,L,n:0,x:EXPM[sy]}).n++}});
+  const cls=d=>d<.4?['nonpolar','--green']:d<1.7?['polar','--cyan']:['ionic-like','--amber'];
+  const bondRows=Object.values(rows).map(r=>{const[t,c]=cls(r.d);return `<div class="dl-row"><span>${r.k}${r.n>1?' ×'+r.n:''}</span><div class="dl-track"><div class="dl-fill" style="width:${Math.min(r.d,3)/3*100}%;background:var(--${c.slice(2)})"></div></div><span>${r.d.toFixed(2)} ${t}</span></div>`}).join('');
+  const legendRows=it.map(x=>`<div class="dl-row"><span style="color:${x.c}">●&nbsp;${el(x.z).sym}</span><div class="dl-track"><div class="dl-fill" style="width:${x.n/nMax*100}%;background:${x.c}"></div></div><span>${x.n}× ${(x.v/T0*100).toFixed(1)}%</span></div>`).join('');
+  const lv=Object.values(lens),lmax=Math.max(1,...lv.map(x=>x.L||0));
+  const lenRows=lv.some(x=>x.L)?lv.map(x=>`<div class="dl-row w"><span>${x.k}${x.n>1?' ×'+x.n:''}</span><div class="dl-track">${x.L?`<div class="dl-fill" style="width:${x.L/lmax*100}%;background:var(--cyan)"></div>`:''}</div><span>${x.L?'est. '+x.L.toFixed(0)+' pm':'n/a'}${x.x?' · <b>exp. '+x.x.toFixed(1)+' pm</b>':''}</span></div>`).join(''):'';
+  const seg=[['Single',types.s,'--cyan'],['Intermediate (1.5)',types.i,'--green'],['Double',types.d,'--amber'],['Triple',types.t,'--hi'],['Ionic contact',types.z,'--mid']].filter(x=>x[1]);
+  const bad=checkMol(m),mn=modelNotes(m),angR=(()=>{try{return angleRows(m,geo3(m))}catch(e){return[]}})(),
+    angBox=angR.length?`<div class="dl-box"><h4>Bond angles (from the 3D geometry)</h4>${angR.map(r=>`<div class="dl-kv"><span>${r.k}${r.n>1?' ×'+r.n:''}</span><b>${r.a.toFixed(1)}°</b></div>`).join('')}<div class="dl-note" style="margin:10px 0 0">Computed from the same atom coordinates the 3D view uses; lone pairs and real-molecule angles are the values shown in the geometry label above.</div></div>`:'';
+  const vbox=bad.length?`<div class="dl-note dl-warn">Data check found ${bad.length} issue${bad.length>1?'s':''}: ${bad.join('; ')}.</div>`:`<div class="dl-note dl-ok">✓ Verified: the formula matches the atom list${m.atoms.length>60?' (skipped for very large structures)':''}, all ${bondsArr.length} bonds link existing atoms, no atom exceeds its maximum valence, the molecule is one connected piece, and charges balance.</div>`;
+  return `<div class="dl-note">${m.geometry||''}</div>${vbox}${mn.length?'<div class="dl-note"><b style="color:var(--hi)">Model notes</b><br>'+mn.join('<br>')+'</div>':''}
+<div class="dl-stats">${stat('Molar mass',ok?fx(T0,'g/mol'):'n/a')}${stat('Atoms',m.atoms.length)}${stat('Bonds',bondsArr.length)}${stat('Elements',zs.length)}${stat('Electrons',electrons)}${stat('Rings',rings)}${stat('Net charge',charge>0?'+'+charge:charge)}</div>
+<div class="dl-box"><h4>Structure</h4>${skeleton(m)}</div>
+<div class="dl-grid"><div class="dl-box"><h4>${ok?'Mass':'Atom'} composition</h4>${donut(it)}${legendRows}</div>
+<div class="dl-box"><h4>Bond polarity (electronegativity difference)</h4>${bondRows||'<div class="dl-note">No bond data for this molecule.</div>'}<div class="dl-note">Nonpolar below 0.4, polar 0.4 to 1.7, ionic-like above 1.7.</div></div></div>
+<div class="dl-grid"><div class="dl-box"><h4>Bond order mix</h4>${seg.length?`<div class="dl-seg">${seg.map(x=>`<span style="flex:${x[1]};background:var(${x[2]})" title="${x[0]}: ${x[1]}"></span>`).join('')}</div>`+seg.map(x=>`<div class="dl-kv"><span style="color:var(${x[2]})">●&nbsp;${x[0]}</span><b>${x[1]}</b></div>`).join(''):'<div class="dl-note">No bond data.</div>'}</div>
+<div class="dl-box"><h4>Estimated bond lengths</h4>${lenRows||'<div class="dl-note">No covalent-radius data for these bond types.</div>'}<div class="dl-note">est. = sum of Cordero covalent radii with 12% shortening per extra bond order. exp. = measured gas-phase value (CRC Handbook / NIST), shown where well established.</div></div></div>${angBox}`};
+
+/* ── Shell: header, modal, public API ── */
+const pbtn=(id,kind,label,aria)=>`<button type="button" class="dl-sel dl-pickbtn" data-id="${id}" aria-haspopup="dialog" aria-label="${aria}: ${label}" onclick="DL.pick('${kind}')"><span>${label}</span><span aria-hidden="true">▾</span></button>`;
+const head=()=>{
+  const el_=S.tab!=='mol',tabs=[['el','Element'],['tr','Trends'],['fb','f-block'],['ex','Explore'],['mol','Molecules']];
+  return `<div class="dl-bar" role="group" aria-label="Views">${tabs.map(t=>chip('t'+t[0],t[1],S.tab===t[0],`DL.tab('${t[0]}')`)).join('')}</div><div class="dl-bar">`+
+  (el_?`<button type="button" class="dl-chip" data-id="prev" aria-label="Previous element" onclick="DL.step(-1)">‹</button>${pbtn('elsel','el',S.sym0(),'Choose element')}<button type="button" class="dl-chip" data-id="next" aria-label="Next element" onclick="DL.step(1)">›</button>`
+    :`${pbtn('molsel','mol',S.molLabel(),'Choose molecule')}`)+'</div>'};
+
+/* ── Themed picker sheet (replaces native selects) ── */
+const PS={kind:null,q:'',cat:'all'};
+const sheet=document.createElement('div');sheet.id='dl-pick';sheet.hidden=true;document.body.appendChild(sheet);
+const pickOpen=()=>!sheet.hidden;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pickItems=()=>{
+  const k=PS.kind;
+  if(k==='el')return ELS.map(e=>({v:e.Z,main:e.sym,sub:e.name,r:String(e.Z),c:cc(e.Z),cat:cat(e.Z),on:e.Z===S.Z}));
+  if(k==='mol')return MOLECULES.map(m=>({v:m.key,main:m.formula,sub:m.name,r:'',on:m.key===S.mol}));
+  return PK.map(p=>({v:p,main:P[p].n.split(' (')[0],sub:'',r:P[p].u,on:p===S[k]}));
+};
+const pickTitle=()=>({el:'Choose element',mol:'Choose molecule',sx:'X axis property',sy:'Y axis property'}[PS.kind]);
+const pickFiltered=()=>{
+  const q=PS.q.trim().toLowerCase();
+  return pickItems().filter(i=>(PS.cat==='all'||i.cat===PS.cat)&&(!q||`${i.main} ${i.sub} ${i.r}`.toLowerCase().includes(q)))};
+const paintList=()=>{
+  const it=pickFiltered(),l=sheet.querySelector('#dl-list');
+  l.innerHTML=it.length?it.map(i=>`<button type="button" class="dl-opt${i.on?' on':''}" role="option" aria-selected="${i.on}" data-v="${esc(i.v)}" onclick="DL._pick(this.dataset.v)">${i.c?`<i class="dl-dot" style="background:${i.c}"></i>`:''}<b class="dl-om">${esc(i.main)}</b><span class="dl-os">${esc(i.sub)}</span><span class="dl-or">${esc(i.r)}${i.on?' ✓':''}</span></button>`).join(''):'<div class="dl-note" style="padding:16px">Nothing matches your search.</div>';
+  const c=sheet.querySelector('#dl-cats');
+  if(c)c.innerHTML=['all',...Object.keys(CATS)].map(x=>`<button type="button" class="dl-chip${PS.cat===x?' on':''}" aria-pressed="${PS.cat===x}" onclick="DL._cat('${x}')">${x==='all'?'All':x}</button>`).join('')};
+const closePick=(restore=true)=>{if(!pickOpen())return;sheet.hidden=true;sheet.innerHTML='';if(restore){const id={el:'elsel',mol:'molsel',sx:'sx',sy:'sy'}[PS.kind],n=id&&document.querySelector(`#dl-body [data-id="${id}"]`);if(n)n.focus({preventScroll:true})}};
+document.addEventListener('keydown',e=>{
+  if(!pickOpen())return;
+  if(e.key==='Escape'){e.stopPropagation();e.preventDefault();closePick();return}
+  if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('dl-search')){const f=pickFiltered()[0];if(f){e.preventDefault();DL._pick(String(f.v))}}
+},true);
+sheet.addEventListener('click',e=>{if(e.target===sheet)closePick()});
+
+const modal=document.createElement('div');
+modal.id='datalab-modal';modal.className='compare-modal';
+modal.innerHTML='<div class="compare-card dl-card" role="dialog" aria-modal="true" aria-label="Data Lab"><div class="cmp-header"><h3>Data Lab</h3><button type="button" class="cmp-close" aria-label="Close" onclick="DL.close()">✕</button></div><div id="dl-body"></div></div>';
+document.body.appendChild(modal);
+const card=modal.firstChild,isOpen=()=>modal.classList.contains('open');
+let lastFocus=null;
+const render=(top)=>{
+  const body=document.getElementById('dl-body'),act=document.activeElement,id=act&&act.getAttribute&&act.getAttribute('data-id'),st=card.scrollTop;
+  let h;try{h=head()+({el:elView,tr:trView,fb:fbView,ex:exView,mol:molView}[S.tab]||elView)()}catch(err){console.error('Data Lab render failed',err);h=head()+'<div class="dl-note">This view could not be drawn. See the console for details.</div>'}
+  body.innerHTML=h;card.scrollTop=top?0:st;
+  if(id){const n=body.querySelector(`[data-id="${id}"]`);if(n)n.focus({preventScroll:true})}};
+const close=()=>{if(!isOpen())return;closePick(false);modal.classList.remove('open');if(lastFocus&&lastFocus.focus)lastFocus.focus()};
+modal.addEventListener('click',e=>{if(e.target===modal)close()});
+document.addEventListener('keydown',e=>{
+  if(!isOpen()||pickOpen())return;
+  if(e.key==='Escape'){close();return}
+  const t=e.target.tagName;if(t==='SELECT'||t==='INPUT'||S.tab==='mol')return;
+  if(e.key==='ArrowRight'){e.preventDefault();DL.step(1)}else if(e.key==='ArrowLeft'){e.preventDefault();DL.step(-1)}});
+window.DL={
+  pick(kind){
+    PS.kind=kind;PS.q='';PS.cat='all';
+    sheet.innerHTML=`<div class="dl-sheet" role="dialog" aria-modal="true" aria-label="${pickTitle()}"><div class="dl-sh-head"><b>${pickTitle()}</b><button type="button" class="cmp-close" aria-label="Close picker" onclick="DL._close()">✕</button></div><input class="dl-search" type="search" placeholder="${kind==='el'?'Search name, symbol or number':kind==='mol'?'Search name or formula':'Search property'}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search" oninput="DL._q(this.value)">${kind==='el'?'<div id="dl-cats" class="dl-cats"></div>':''}<div id="dl-list" class="dl-list" role="listbox"></div></div>`;
+    sheet.hidden=false;paintList();
+    const on=sheet.querySelector('.dl-opt.on');if(on)on.scrollIntoView({block:'center'});
+    if(window.matchMedia&&matchMedia('(pointer:fine)').matches)sheet.querySelector('.dl-search').focus({preventScroll:true})},
+  _q(v){PS.q=v;paintList()},
+  _cat(c){PS.cat=c;paintList()},
+  _close(){closePick()},
+  _pick(v){const k=PS.kind;closePick(false);if(k==='el')DL.z(+v);else if(k==='mol')DL.m(v);else DL.ax(k,v)},
+  open(){
+    lastFocus=document.activeElement;
+    if(typeof curZ==='number')S.Z=curZ;
+    const live=typeof moleculeMode!=='undefined'&&moleculeMode&&typeof curMoleculeKey!=='undefined'&&curMoleculeKey&&MOLECULES.some(m=>m.key===curMoleculeKey)?curMoleculeKey:null;
+    S.mol=live||S.mol||MOLECULES[0].key;S.tab=live?'mol':(S.tab==='mol'?'el':S.tab);modal.classList.add('open');render(true);
+    const c=modal.querySelector('.cmp-close');if(c)c.focus({preventScroll:true})},
+  close,
+  tab(t){S.tab=t;render(true)},
+  z(Z,keep){S.Z=Math.max(1,Math.min(N,Z|0));if(S.tab==='mol')S.tab='el';render(false)},
+  step(d){DL.z(((S.Z-1+d+N)%N)+1)},
+  m(k){if(!MOLECULES.some(x=>x.key===k))return;S.mol=k;S.tab='mol';render(true)},
+  p(k){S.prop=k;render()},
+  rk(v){S.rk=v;render()},
+  hm(v){S.hm=v;render()},
+  mc(v){S.mc=v;render()},
+  ax(a,k){S[a]=k;render()},
+  _state:S,
+  _check:checkMol,
+  _notes:modelNotes
+};
+let rz=0;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(isOpen()&&!pickOpen())render()},150)});
+const a=document.getElementById('analysisbtn'),b=document.createElement('button');
+b.type='button';b.id='databtn';b.className='theme-toggle-btn';b.title='Data Lab: element and molecule data, charts';b.setAttribute('aria-label','Data Lab');
+b.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="4" cy="11" r="1.6" fill="currentColor"/><circle cx="8" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="9" r="1.6" fill="currentColor"/><path d="M4 11L8 5l4 4" stroke="currentColor" stroke-width="1.2"/></svg>';
+b.onclick=()=>DL.open();
+if(a)a.after(b);
+})();
+</script>
+
 </body>
 </html>
