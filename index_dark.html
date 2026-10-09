@@ -84,7 +84,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;
   border-bottom:1px solid var(--glass-border);box-shadow:var(--glass-shadow);
   display:flex;flex-direction:column;padding:0 24px;gap:0;max-height:0;overflow:hidden;
   transition:max-height .32s ease,padding .32s ease;}
-#mobile-menu.open{max-height:520px;padding:10px 24px 22px;}
+#mobile-menu.open{max-height:calc(100vh - 60px);max-height:calc(100dvh - 60px);padding:10px 24px 22px;overflow-y:auto;overscroll-behavior:contain;}
 #mobile-menu a{font-size:.7rem;letter-spacing:.12em;padding:14px 2px;color:var(--lo);text-decoration:none;
   border-bottom:1px solid var(--border);transition:color .15s;}
 #mobile-menu a:last-child{border-bottom:none;}
@@ -105,7 +105,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;
 .reveal-delay-3{transition-delay:.3s;}
 
 /* ═══ HERO ═══ */
-#hero{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;
+#hero{position:relative;z-index:1;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;padding:120px 40px 100px;text-align:center;overflow:hidden;}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.7rem;letter-spacing:.22em;
   color:var(--cx);text-transform:uppercase;border:1px solid var(--cx-40);border-radius:20px;
@@ -421,6 +421,23 @@ footer{border-top:1px solid var(--border);background:var(--glass-bg);backdrop-fi
 @keyframes scrollPulse{0%{transform:scaleY(0);transform-origin:top;}50%{transform:scaleY(1);transform-origin:top;}51%{transform:scaleY(1);transform-origin:bottom;}100%{transform:scaleY(0);transform-origin:bottom;}}
 
 /* RESPONSIVE */
+/* NAV COLLAPSE — covers phones in "Desktop site" mode (~980px viewport), tablets and small laptops.
+   Full link row needs ~1180px, so collapse to the hamburger below 1240px. */
+@media(max-width:1240px){
+  .nav-links{display:none;}
+  .nav-hamburger{display:flex;}
+}
+@media(min-width:601px){.nav-name{white-space:nowrap;}}
+@media(max-width:340px){
+  .nav-badge,.nav-badge svg{width:34px;height:34px;}
+  .nav-logo{gap:8px;}
+  .nav-name{font-size:.7rem;letter-spacing:.1em;}
+  .theme-toggle-btn{margin-left:0;width:32px;height:32px;}
+  .nav-actions{gap:6px;}
+  .nav-cta{padding:8px 10px;}
+}
+nav{min-width:0;}
+@media(min-width:601px){.nav-logo,.nav-actions{flex-shrink:0;}}
 @media(max-width:960px){
   .two-col,.bohr-layout,.qm-intro{grid-template-columns:1fr;}
   .compare-grid{grid-template-columns:1fr;}
@@ -437,8 +454,6 @@ footer{border-top:1px solid var(--border);background:var(--glass-bg);backdrop-fi
   .tl-item:nth-child(odd) .tl-content,.tl-item:nth-child(even) .tl-content{grid-column:2;text-align:left;padding:0 0 40px 24px;}
   .tl-item:nth-child(odd) .tl-dot-wrap,.tl-item:nth-child(even) .tl-dot-wrap{grid-column:1;}
   .tl-item:nth-child(odd) .tl-empty,.tl-item:nth-child(even) .tl-empty{display:none;}
-  .nav-links{display:none;}
-  .nav-hamburger{display:flex;}
   .orb-deep-grid{grid-template-columns:1fr;}
 }
 @media(max-width:600px){
