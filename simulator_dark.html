@@ -1221,6 +1221,50 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 #left-inner .ptitle{margin:20px 0 10px !important;padding-top:2px;}
 #left-inner .oleg{padding-bottom:12px;}
 </style>
+
+<style id="brand-buttons">
+/* ════════════════════════════════
+   BRAND BUTTONS
+   One layer that brands every button: solid brand gradient + white label/icon.
+   Dark = orange (#ff5500 → #ff7a1a), Light = violet → blue (landing-page CTA).
+   Colours come from --cyan, so antimatter mode still retints them (pink→violet).
+   !important is intentional: the per-button rules (#realbtn.active, #ultrabtn:hover …)
+   have ID specificity and each used a different colour.
+════════════════════════════════ */
+:root{--brand-a:var(--cyan);--brand-b:#ff7a1a;}
+:root[data-matter="anti"]{--brand-b:var(--green);}
+:root{--brand-grad:linear-gradient(135deg,var(--brand-a) 0%,var(--brand-b) 100%);}
+
+:is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn){
+  background:var(--brand-grad) !important;
+  color:#fff !important;
+  border:1px solid rgba(255,255,255,.28) !important;
+  text-shadow:0 1px 2px rgba(0,0,0,.32);
+  box-shadow:0 3px 12px rgba(var(--cyan-rgb),.32),inset 0 1px 0 rgba(255,255,255,.22) !important;
+  cursor:pointer;
+  transition:filter .15s,transform .15s,box-shadow .15s;
+}
+:is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) svg{color:#fff;}
+:is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) :is(.lesson-item-title,.lesson-item-count){color:#fff !important;}
+:is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):hover{filter:brightness(1.1);transform:translateY(-1px);
+  box-shadow:0 6px 18px rgba(var(--cyan-rgb),.45),inset 0 1px 0 rgba(255,255,255,.28) !important;}
+:is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):active{transform:none;filter:brightness(.94);}
+/* ON / ACTIVE state: white inner ring + glow, so toggles stay readable */
+:is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):is(.on,.active,[aria-pressed="true"]){
+  box-shadow:inset 0 0 0 2px #fff,0 0 16px rgba(var(--cyan-rgb),.65) !important;}
+:is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):disabled{opacity:.4;filter:grayscale(.35);transform:none;cursor:default;}
+
+/* round toolbar icons sit in a clipping scroller: keep their glow tight so it isn't cut off */
+.theme-toggle-btn{box-shadow:0 2px 6px rgba(var(--cyan-rgb),.35),inset 0 1px 0 rgba(255,255,255,.22) !important;}
+.theme-toggle-btn:hover{box-shadow:0 3px 8px rgba(var(--cyan-rgb),.45),inset 0 1px 0 rgba(255,255,255,.28) !important;}
+.theme-toggle-btn:is(.on,.active,[aria-pressed="true"]){box-shadow:inset 0 0 0 2px #fff,0 0 6px rgba(var(--cyan-rgb),.6) !important;}
+
+/* Tiles (element grid, molecule cards): keep them scannable, brand the selected one */
+.ebtn:hover,.mcard:hover{border-color:var(--brand-a);}
+.ebtn.on,.mcard.on{background:var(--brand-grad) !important;border-color:rgba(255,255,255,.55) !important;
+  box-shadow:0 0 14px rgba(var(--cyan-rgb),.55) !important;color:#fff !important;}
+.ebtn.on .s,.ebtn.on .z,.mcard.on .mf,.mcard.on .mn{color:#fff !important;}
+</style>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -18243,6 +18287,31 @@ function goLightSim(){localStorage.setItem('qas-theme','light');window.location.
 /* crisp rendering */
 .dl-svg{shape-rendering:geometricPrecision;text-rendering:geometricPrecision}
 .dl-ring,.dl-dash,.dl-line,.dl-area{vector-effect:non-scaling-stroke}
+/* ── Data-lab mobile fixes: full rank labels + radar labels that never collide ── */
+.dl-row.rk{grid-template-columns:116px 1fr auto}
+.dl-row.rk>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl-row.rk>span:last-child{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:520px){
+  /* label + rank share the first line, the bar gets the full width underneath */
+  .dl-row.rk{grid-template-columns:1fr auto;grid-template-areas:"l r" "t t";gap:4px 10px;margin:12px 0}
+  .dl-row.rk>span:first-child{grid-area:l}
+  .dl-row.rk>span:last-child{grid-area:r}
+  .dl-row.rk>.dl-track{grid-area:t}
+  .dl-grid{gap:14px;margin-bottom:14px}
+  .dl-box{margin-bottom:14px}
+}
+.dl-radar{max-width:340px;margin-left:auto;margin-right:auto}
+.dl-radar .dl-t{font-size:10px}
+/* heatmap cells: tighter type on phones so symbols/values stay inside their tiles */
+@media (max-width:440px){
+  .dl-heat .dl-cell{font-size:.52rem;letter-spacing:-.025em}
+  .dl-heat .dl-cell small{font-size:.44rem;letter-spacing:-.05em}
+  .dl-heat .dl-cell.ph{font-size:.4rem;overflow-wrap:anywhere;letter-spacing:-.04em}
+}
+@media (max-width:440px){.dl-heat.f15 .dl-cell small{font-size:.4rem;letter-spacing:-.07em}}
+@media (max-width:380px){.dl-heat .dl-cell{font-size:.5rem;letter-spacing:-.045em}.dl-heat{gap:1px}}
+
+
 .dl-lbl{font-size:11.5px;font-weight:700;fill:var(--hi);paint-order:stroke;stroke:var(--bg-solid);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
 .dl-ok{color:var(--mid)}
 .dl-warn{color:var(--amber);font-weight:600}
@@ -18363,16 +18432,17 @@ const radar=Z=>{
   const ks=['mass','en','ie','cov','mp','rho'],lab=['Mass','Electroneg.','Ionization','Cov. radius','Melting pt','Density'],n=ks.length;
   const f=ks.map(k=>{const v=val(k,Z);return v?T(k,v):0}),miss=ks.filter(k=>!val(k,Z)).map(k=>lab[ks.indexOf(k)]);
   const pt=(i,q)=>{const a=-Math.PI/2+i*2*Math.PI/n;return[(110+Math.cos(a)*78*q).toFixed(1),(110+Math.sin(a)*78*q).toFixed(1)]};
-  let s='<svg viewBox="0 0 220 220" class="dl-svg" role="img" aria-label="Radar chart of normalised properties">';
+  let s='<svg viewBox="-46 0 312 224" class="dl-svg dl-radar" role="img" aria-label="Radar chart of normalised properties">';
   [.25,.5,.75,1].forEach(q=>s+=`<polygon points="${ks.map((_,i)=>pt(i,q)).join(' ')}" class="dl-ring"/>`);
-  ks.forEach((_,i)=>{const[x,y]=pt(i,1.2);s+=`<line x1="110" y1="110" x2="${pt(i,1)[0]}" y2="${pt(i,1)[1]}" class="dl-ring"/><text x="${x}" y="${y}" class="dl-t" text-anchor="middle">${lab[i]}</text>`});
+  ks.forEach((_,i)=>{const[x,y]=pt(i,1.16),dx=+x-110,anc=Math.abs(dx)<8?'middle':dx>0?'start':'end',dy=Math.abs(dx)<8?(+y<110?-2:11):4;s+=`<line x1="110" y1="110" x2="${pt(i,1)[0]}" y2="${pt(i,1)[1]}" class="dl-ring"/><text x="${(+x+(anc==='start'?3:anc==='end'?-3:0)).toFixed(1)}" y="${(+y+dy).toFixed(1)}" class="dl-t" text-anchor="${anc}">${lab[i]}</text>`});
   s+=`<polygon points="${f.map((q,i)=>pt(i,q)).join(' ')}" class="dl-area"/></svg>`;
   return s+`<div class="dl-note" style="margin:14px 0 0">Scaled against the lowest and highest known value (density on a log scale).${miss.length?' No data: '+miss.join(', ')+'.':''}</div>`};
 
+const RANK_LBL={mass:'Atomic mass',en:'Electroneg.',ie:'1st ionization',r:'Atomic radius',cov:'Covalent radius',mp:'Melting point',rho:'Density'};
 const ranks=Z=>PK.map(k=>{
-  const v=val(k,Z),r=range(k);if(!v)return `<div class="dl-row"><span>${P[k].n.split(' (')[0].slice(0,11)}</span><div class="dl-track"></div><span>n/a</span></div>`;
+  const v=val(k,Z),r=range(k);if(!v)return `<div class="dl-row rk"><span title="${P[k].n}">${RANK_LBL[k]||P[k].n}</span><div class="dl-track"></div><span>n/a</span></div>`;
   const rk=defined(k).filter(x=>x>v).length+1;
-  return `<div class="dl-row"><span title="${P[k].n}">${P[k].n.split(' ')[0]}</span><div class="dl-track"><div class="dl-fill" style="width:${Math.max(2,T(k,v)*100).toFixed(1)}%;background:var(--cyan)"></div></div><span>#${rk} of ${r.n}</span></div>`}).join('');
+  return `<div class="dl-row rk"><span title="${P[k].n}">${RANK_LBL[k]||P[k].n}</span><div class="dl-track"><div class="dl-fill" style="width:${Math.max(2,T(k,v)*100).toFixed(1)}%;background:var(--cyan)"></div></div><span>#${rk} of ${r.n}</span></div>`}).join('');
 
 /* ── Trend charts ── */
 const trend=(k,Z)=>{
