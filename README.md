@@ -1,144 +1,303 @@
-# ⚛️ Quantum Atom Simulator
+<div align="center">
 
-### See the Invisible.
+# ⚛️ Quantum Atom
 
-You've seen the atom drawn a thousand times — a ball in the middle, some smaller balls looping around it like tiny planets. It's a lie we tell in grade school because the truth doesn't fit on a chalkboard.
+### Everything you were taught about the atom was a drawing.<br>This is the real thing.
 
-The truth is stranger and more beautiful: electrons aren't balls on rails. They're probability clouds — fuzzy, glowing regions of *maybe* — and the "orbits" you were taught are really shapes called **orbitals**, sculpted by the math of quantum mechanics. Zoom into the nucleus at the center, and it gets stranger still: protons and neutrons held together by a force so powerful it can only be described as an endless exchange of ghost particles, all the way down to quarks bound by gluons.
+**The world's first Quantum Atom Simulator that runs all 118 elements in one browser, free.**<br>A new way to learn chemistry: see real orbitals, real molecules and real nuclei in 3D, with no install and no account.
 
-**Quantum Atom Simulator** puts that entire universe in your browser. No installs, no plugins, no PhD required — just drag, zoom, and watch matter reveal itself.
+[**▶ Launch the Simulator**](https://nazat02.github.io/Quantum-Atom/) &nbsp;·&nbsp; [The Story](#-the-story) &nbsp;·&nbsp; [Features](#-what-you-can-do) &nbsp;·&nbsp; [Run It](#-run-it-in-30-seconds)
 
-![Quantum Atom Simulator Preview](images/preview.png)
+<br>
 
-## 🌐 Live Demo
+<img src="images/preview1.png" alt="Quantum Atom — main preview" width="100%">
 
-**[Launch Quantum Atom Simulator →](https://nazat02.github.io/Quantum-Atom/)**
+<table>
+<tr>
+<td><img src="images/preview2.png" alt="Preview 2"></td>
+<td><img src="images/preview3.png" alt="Preview 3"></td>
+<td><img src="images/preview4.png" alt="Preview 4"></td>
+</tr>
+<tr>
+<td><img src="images/preview5.png" alt="Preview 5"></td>
+<td><img src="images/preview6.png" alt="Preview 6"></td>
+<td><img src="images/preview7.png" alt="Preview 7"></td>
+</tr>
+</table>
 
----
-
-## 🌟 What's Inside
-
-The project has three parts, wired together, each with matching light and dark themes:
-
-1. **Landing page** (`index_dark.html` / `index_light.html`) — the "See the Invisible" intro page, explaining what orbitals actually are before you launch the tool. `index.html` auto-redirects here.
-2. **Atom + Molecule Simulator** (`simulator_dark.html` / `simulator_light.html`) — the main tool, reached via the landing page's "Launch" button.
-3. **Nucleus Explorer** (`nucleus_explorer.html` / `nucleus_explorer_light.html`) — reached via a button inside the Simulator.
-
-### ⚛️ The Atom Simulator
-A real-time 3D renderer that builds **accurate s, p, and d orbital shapes** from genuine quantum probability distributions, using custom GLSL shaders for tens of thousands of glowing points per cloud.
-
-- **The full periodic table, all 118 elements**, from Hydrogen to Oganesson, instantly selectable with live search
-- **A living data panel**, atomic number, full electron configuration, period, group, and orbital info that update as you explore
-- **A 3D nucleus you can actually see**, protons (red) and neutrons (blue) packed with a Fibonacci sphere distribution and real internal lighting, not a flat sprite
-- **Excited State mode**, promotes electrons to higher orbitals and shows the transition path in the data panel (atoms only, not available in molecule mode)
-- **Ultra Mode**, switches orbitals from point-cloud rendering to mesh-based surfaces with a Fresnel shader (transparent center, glowing rim), for a smooth "glass bubble" look with zero point grain
-- **Smooth Orbitals mode**, a softer point-cloud alternative to the default detailed/grainy rendering, plus a **Real Image Mode** styled after real atomic imaging
-- **A Cartesian grid overlay** for anyone who wants to see the geometry, not just the glow
-- **Antimatter Mode**, charge-conjugate any element or molecule on the fly: electrons render as positrons, protons and neutrons render as antiprotons and antineutrons, with identical orbital geometry to the matter version. The UI retints into its own neon pink/violet and electric-blue color model, the data panel relabels live (ANTIPROTONS / ANTINEUTRONS / POSITRONS, an ANTI- prefix on the name, overline antimatter notation on the symbol), and nucleus lighting shifts to match
-
-### 🧪 Molecule Mode
-Flip the switch from **Atoms** to **Molecules** inside the Simulator and watch individual electron clouds fuse into real chemical structures, **52 curated molecules**, from simple diatomics like H₂ and O₂ to shapes every chemistry student has drawn by hand: bent H₂O, trigonal pyramidal NH₃, tetrahedral CH₄, trigonal bipyramidal PF₅, octahedral SF₆, and more. Bond angles and geometry are derived from real VSEPR theory, not hard-coded guesses, so the shapes you see are the shapes molecules actually take. Antimatter Mode works here too, charge-conjugating every atom in the molecule at once.
-
-### 🔬 Nucleus Explorer
-A companion tool that does one thing no textbook diagram can: **lets you zoom in forever.**
-
-Start at the whole nucleus and keep scrolling in. First the individual protons and neutrons resolve into view, with toggleable **pion exchange** and **gluon field** overlays showing the forces holding them together. Keep going, and nucleons dissolve into **quarks bound by gluons**, the actual bottom of the visible matter stack. You can step through elements with previous/next controls, jump straight to one from the element picker, and there's a built-in legend and help panel for what you're looking at.
+</div>
 
 ---
 
-## 🛠️ Technologies
+## 💔 The problem
 
-- **Three.js (r128)** for all 3D rendering
-- **Custom GLSL shaders**, high-performance point clouds with additive blending and dynamic per-point sizing, plus mesh-based Fresnel shading for Ultra Mode
-- **Vanilla JavaScript**, every tool is a single self-contained HTML file, no build step, no bundler, no dependencies to install
+Remember the atom from school? A dot in the middle. A few smaller dots circling it like tiny planets.
+
+**It's wrong.** Your teacher knew it was wrong. The textbook knew it was wrong. It stayed on the page because the truth is hard to draw, and nobody gave you a better picture.
+
+So a whole generation grew up believing:
+
+- electrons *orbit* the nucleus (they don't),
+- atoms are *mostly solid stuff* (they're almost entirely empty),
+- chemistry is *memorization* (it's geometry you were never shown).
+
+The result is the same everywhere: students who can recite "2, 8, 8, 18" but can't tell you **why water is bent**, why **helium never reacts**, or why **neon signs glow orange**. They memorize the answer because they never got to *see* the question.
+
+And the tools that *do* show the truth? Heavy desktop software. Research-grade, licence-gated, and built for people who already understand it.
+
+> **There was nothing in between. Something you could open in a browser, in ten seconds, and just *get it*.**
+
+---
+
+## ✨ The idea
+
+**Quantum Atom is that something.**
+
+Open a link. Pick any element. Watch its electrons appear, not as dots on rails, but as what they really are: glowing clouds of probability, shaped by the mathematics of quantum mechanics. Spheres. Dumbbells. Cloverleaves. Rings.
+
+Then keep going.
+
+- Snap two atoms together and watch a **molecule** form.
+- Type the name of *anything* and **build it**.
+- Dive into the **nucleus**, past the protons and neutrons, down to the **quarks**.
+- Flip a switch and see the **antimatter** version of the same thing.
+
+No install. No account. No equations required. Drag to rotate, scroll to zoom, and the invisible becomes something you can hold in your hands.
+
+---
+
+## 🌍 Why it matters
+
+**Quantum Atom is the world's first Quantum Atom Simulator to run all 118 elements in a single browser, completely free.** It puts **every one of the 118 elements** (hydrogen to oganesson) into **a single browser tab**, rendered as real 3D quantum orbitals, and **it's free**. No software to install, no licence to buy, no account to make. If you have a link and a browser, you have a quantum laboratory.
+
+**A revolution in how chemistry can be learned.** Chemistry has always been taught as rules to memorize. Quantum Atom turns it into something you *watch happen*:
+
+| Chemistry has always said… | Quantum Atom lets you **see**… |
+|---|---|
+| "Electrons fill shells in a set order." | The shells filling, element by element, from H to Og. |
+| "Noble gases are stable." | A full outer shell, glowing and complete. |
+| "Water is bent." | The geometry that forces the bend, with angles from VSEPR theory. |
+| "Orbitals are s, p and d." | The spheres, dumbbells and cloverleaves themselves. |
+| "The nucleus is protons and neutrons." | Them, packed together, and the quarks inside them. |
+| "Matter has an antimatter twin." | That twin, side by side with the original. |
+
+### How it compares
+
+| | Textbook diagram | Desktop research software | **Quantum Atom** |
+|---|:---:|:---:|:---:|
+| Shows real orbital shapes | ❌ | ✅ | ✅ |
+| All 118 elements | ✅ (as a table) | varies | ✅ (in 3D) |
+| Runs in a browser, no install | ✅ | ❌ | ✅ |
+| Free | ✅ | usually ❌ | ✅ |
+| Made for beginners | ✅ | ❌ | ✅ |
+| Interactive, rotate and zoom | ❌ | ✅ | ✅ |
+| Atoms, molecules *and* nuclei in one place | ❌ | ❌ | ✅ |
+
+---
+
+## 📖 The story
+
+Quantum Atom is built as a journey with four chapters. Each one answers a question you've probably wondered about and never had the picture for.
+
+| | Chapter | The question it answers |
+|---|---|---|
+| **1** | **The Atom** | *"What does an electron actually look like?"* |
+| **2** | **The Molecule** | *"Why do atoms stick together, and why are the shapes what they are?"* |
+| **3** | **The Nucleus** | *"What's inside the middle?"* |
+| **4** | **The Mirror** | *"What if everything were made of antimatter?"* |
+
+The landing page walks you through this the way it unfolded in history: from **Democritus** guessing in 400 BCE, to **Dalton's** billiard balls, **Thomson's** plum pudding, **Rutherford's** gold-foil shock, **Bohr's** planetary orbits, and finally **Schrödinger, Heisenberg and Born**, who threw out the orbits altogether. Two thousand four hundred years of "we were close, but wrong," and then, for the first time, you can see where it ended up.
+
+---
+
+---
+
+## 🎯 What you can do
+
+### Understand it
+- 🎓 **Guided Lessons.** Three short, step-by-step paths: *Understanding Covalent Bonds*, *VSEPR: Why Molecules Have Shapes*, and *Building Up the Periodic Table*. Each step moves the scene for you and explains what you're looking at in a sentence or two.
+- 🆚 **Compare Elements.** Put two elements side by side and see how they differ.
+- 🔬 **Molecule Analysis.** Dig into the structure of the molecule on screen.
+- 📜 **The Bohr vs. Quantum showdown.** A side-by-side on the landing page of the model everyone learns and the one that's actually true.
+
+### Explore it
+- 🧪 **All 118 elements**, hydrogen to oganesson, with live search and arrow-key cycling.
+- 🧬 **52 molecules**, plus **Build mode** for anything else.
+- ⚡ **Excited State.** Promote electrons to higher orbitals and watch the transition.
+- 🎲 **Surprise Me.** Land on something random. Rabbit holes guaranteed.
+- 🕘 **Recently Viewed.** Jump back to what you were just looking at.
+
+### Make it yours
+- 🌗 Light and dark themes
+- 🎨 Colorblind-safe palette
+- 🔮 Real Image · Ultra · Smooth · Spherical · Cartesian Grid
+- 🪞 Antimatter mode, for atoms *and* molecules
+
+### Go all the way down
+- 🔭 **Nucleus Explorer.** Continuous zoom from nucleus to quarks, with toggleable **pion exchange** and **gluon field** overlays, a color legend, and element-by-element navigation.
+
+---
+
+## 🧭 A quick tour: your first five minutes
+
+1. **Open the app and pick hydrogen.** One electron, one perfect sphere. This is the simplest atom in the universe.
+2. **Press → to step through the table.** Watch helium complete the first shell, then lithium start a new one. That's *why the periodic table has rows*.
+3. **Jump to carbon or oxygen.** Now you'll see the dumbbell-shaped **p orbitals** appear.
+4. **Try a transition metal like iron.** Now the cloverleaf-shaped **d orbitals** show up.
+5. **Switch to Molecules and open water.** See the bend, then run the **VSEPR lesson** to learn why.
+6. **Finish in the Nucleus Explorer.** Keep scrolling until you hit quarks.
+
+By the end you've covered most of a first-year chemistry course, visually.
+
+## 🔤 The three shapes, in plain words
+
+| Orbital | Shape | What it means |
+|---|---|---|
+| **s** | A sphere | The simplest cloud, same in every direction. Every atom has them. |
+| **p** | A dumbbell (three of them, at right angles) | Where much of chemistry happens: bonding in carbon, nitrogen, oxygen. |
+| **d** | A cloverleaf (five of them) | The reason transition metals have colour, magnetism and catalytic power. |
+
+## ❓ FAQ
+
+**Is it really free?** Yes. Open the link and use it.
+
+**Do I need to install anything?** No. It runs in any modern browser.
+
+**Does it work on a phone?** Yes, with touch rotate and pinch-to-zoom.
+
+**Are the shapes real or artistic?** The orbitals are drawn from quantum probability distributions, so they're the shapes the theory predicts, not decoration.
+
+**Can I use it in a class?** For learning, yes, by opening the official link. For hosting it elsewhere or any commercial use, see [License & Credit](#-license--credit).
+
+**Why do orbitals look like fuzzy clouds?** Because an electron doesn't have an exact position. The cloud shows *where it's likely to be*.
+
+---
+
+## 👥 Who it's for
+
+| If you are… | Quantum Atom gives you… |
+|---|---|
+| **A student** | The picture your textbook never had. Stop memorizing, start seeing. |
+| **A teacher** | A projector-ready demo that works from a link, with built-in lessons. No installs, no logins, no lab licences. |
+| **A curious person** | Ten minutes of *"wait, really?"* that you'll tell someone about tonight. |
+| **A developer or designer** | A readable, single-file WebGL project to study and learn from. |
+
+---
+
+## 🚀 Run it in 30 seconds
+
+**Easiest:** open the [live demo](https://nazat02.github.io/Quantum-Atom/). Nothing else needed.
+
+**Locally:** every tool is a single self-contained HTML file. There is no build step, no bundler and no dependency install.
+
+```bash
+git clone https://github.com/nazat02/Quantum-Atom.git
+cd Quantum-Atom
+open index_dark.html      # or index_light.html
+```
+
+Double-click works. So does any static file server. Use **Launch** to reach the Simulator, and the nucleus icon inside it to reach the Nucleus Explorer.
+
+> 💡 *The 3D engine (three.js) and fonts load from a CDN, and Build mode's online lookups need a connection, so the first run should be online.*
 
 ---
 
 ## 🎮 Controls
 
-### Atom / Molecule Simulator
+### Atom & Molecule Simulator
 
-| Action                       | Input                              |
-|-------------------------------|-------------------------------------|
-| Rotate Atom                   | Mouse drag / Touch drag            |
-| Zoom                           | Scroll wheel / Pinch gesture       |
-| Cycle Elements                 | Left / Right Arrow keys            |
-| Reset View                     | **RESET** button                   |
-| Select Element                 | Click element in left panel        |
-| Search Elements                 | Search bar in the element panel    |
-| Switch Atoms / Molecules        | **ATOMS / MOLECULES** mode toggle  |
-| Toggle Antimatter Mode          | **ANTIMATTER** button              |
-| Toggle Real Image Mode          | **REAL IMAGE MODE** button         |
-| Toggle Cartesian Grid           | **CARTESIAN GRID** button          |
-| Toggle Smooth Orbitals          | **SMOOTH ORBITALS** button         |
-| Toggle Ultra Mode               | **ULTRA MODE** button              |
-| Toggle Excited State            | **EXCITED STATE** button (atoms only) |
-| Open element/molecule browser   | **EXPLORE** tab                    |
-| Open Data Panel                 | **DATA** tab                       |
-| Open Nucleus Explorer           | Nucleus icon button in the toolbar |
+| Action | Input |
+|---|---|
+| Rotate | Mouse drag · Touch drag |
+| Zoom | Scroll · Pinch · Zoom slider |
+| Cycle elements | ← / → arrow keys |
+| Pick an element or molecule | **EXPLORE** panel (Atoms · Molecules · Build) |
+| Search | Search bar in the element panel |
+| Atomic data | **DATA** panel |
+| Reset view | **RESET** |
+| Toggle modes | **ANTIMATTER · REAL IMAGE · CARTESIAN GRID · SMOOTH ORBITALS · ULTRA MODE · SPHERICAL MODE · EXCITED STATE** |
+| Lessons · Compare · Recents · Surprise · Analysis · Colorblind | Toolbar icons (top right) |
+| Open Nucleus Explorer | Nucleus icon in the toolbar |
 
 ### Nucleus Explorer
 
-| Action                      | Input                               |
-|------------------------------|--------------------------------------|
-| Zoom nucleus → quark scale   | Zoom slider / Scroll / Pinch         |
-| Previous / next element      | **‹ ›** nav buttons                  |
-| Jump to an element           | **ELEMENTS** button                  |
-| Toggle pion exchange overlay | **PIONS** toggle                     |
-| Toggle gluon field overlay   | **GLUONS** toggle                    |
-| Reset camera                 | **RESET** toggle                     |
-| Show color legend            | Legend button                        |
-| Controls help                | **?** button                         |
+| Action | Input |
+|---|---|
+| Zoom nucleus → quarks | Slider · Scroll · Pinch |
+| Previous / next element | **‹ ›** |
+| Jump to any element | **ELEMENTS** |
+| Pion exchange / gluon field | **PIONS** / **GLUONS** |
+| Reset camera | **RESET** |
+| Legend · Help | Legend button · **?** |
 
-Fully responsive, desktop gets full side panels, mobile gets touch-friendly bottom sheets.
-
-**Pro Tips:**
-- Double-click the atom to snap back into auto-spin
-- Try **Real Image Mode** + **Smooth Orbitals** together for the most cinematic view, or **Ultra Mode** for a glassy, grain-free look
-- In Nucleus Explorer, just keep scrolling in, the physics changes as you go
-- Flip **ANTIMATTER MODE** on any element or molecule to see its charge-conjugated counterpart, same geometry, opposite matter
+**Pro tips**
+- Double-click the atom to snap back into auto-spin.
+- **Real Image + Smooth Orbitals** is the most cinematic combination. **Ultra Mode** is the cleanest.
+- In the Nucleus Explorer, *just keep scrolling.* The physics changes as you go.
+- Run the **VSEPR lesson** end to end. It's the fastest way to see why molecules have the shapes they do.
 
 ---
 
-## 📋 Roadmap
+## 🧱 Under the hood
 
-Actively growing. Up next:
+For the builders. Everything is deliberately simple.
 
-- Probability density isosurfaces
-- Bohr model toggle for side-by-side comparison with the classic (wrong) picture
+- **three.js r128** for 3D rendering
+- **Custom GLSL shaders** for point-cloud orbitals (additive blending, per-point sizing) and Fresnel-shaded mesh surfaces in Ultra Mode
+- **Vanilla JavaScript**, one self-contained HTML file per tool
+- **Zero build step.** What you read is what runs.
+
+```
+Quantum-Atom/
+├── index.html                  # theme-aware redirect to the landing page
+├── index_dark.html             # landing page: the story, history, Bohr vs Quantum
+├── index_light.html
+├── simulator_dark.html         # atoms · molecules · build · lessons · compare · analysis
+├── simulator_light.html
+├── nucleus_explorer.html       # nucleus → nucleons → quarks
+├── nucleus_explorer_light.html
+└── images/
+```
+
+---
+
+## 🗺️ Roadmap
+
+- Probability-density isosurfaces
 - Ionization states and electron transitions
-- High-resolution screenshot export
-- Performance / quality presets
 - Electron spin visualization
-- WebXR augmented reality support
+- High-resolution screenshot export
+- Performance and quality presets
+- WebXR augmented reality: *put an orbital on your desk*
 
 ---
 
-## 🚀 Getting Started
+## 📄 License & Credit
 
-Because every tool is a single HTML file, there's nothing to build and nothing to install.
+**© Md. Shaikhul Hadis Nazat. All rights reserved.**
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/nazat02/Quantum-Atom.git
-   ```
-2. **Open it**
-   ```bash
-   cd Quantum-Atom
-   open index_dark.html   # or index_light.html
-   ```
-   Any modern browser works, just double-click the file, or serve the folder with any static file server. From there, use "Launch" to reach the Simulator, and the nucleus icon inside the Simulator to reach the Nucleus Explorer.
+Quantum Atom is made for **learning and personal use only**.
 
----
+| ✅ You may | ❌ You may not |
+|---|---|
+| Open it, explore it, and learn from it | Host or re-publish it on any other domain or platform |
+| Use it for your own personal study | Use it commercially in any way without a **written license** from the author |
+| Share the official link with friends and classmates | Copy, redistribute, sell or repackage the files or the code |
 
-## 📄 License
+Want to use it commercially, host it elsewhere, or build on it? **Ask first, and get written permission.**
 
-Released under **[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)** (Attribution-ShareAlike). Use it, remix it, build on it, even commercially, as long as you credit **nazat02** and release your version under this same license. See `LICENSE.txt` for the full terms.
+**Created by Md. Shaikhul Hadis Nazat** (GitHub: [nazat02](https://github.com/nazat02)).
+
+See `LICENSE.txt` for the full terms.
 
 ---
 
-### Why this exists
+<div align="center">
 
-Most atom visualizers are either scientifically hand-wavy cartoons or dense simulation software that only a physicist could love. Quantum Atom Simulator was built to sit in the gap, real quantum-derived geometry, real chemistry, real nuclear physics, wrapped in something you can hand to a curious 12-year-old or a chemistry professor and have both walk away impressed.
+### The atom was never a drawing.
 
-Drag. Zoom. See what you're actually made of.
+**[▶ Open Quantum Atom](https://nazat02.github.io/Quantum-Atom/)**, and see what you're made of.
+
+*If it made you say "oh, wow," give it a ⭐ and send it to someone who's still picturing tiny planets.*
+
+</div>
