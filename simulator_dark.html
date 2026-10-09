@@ -1265,6 +1265,54 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
   box-shadow:0 0 14px rgba(var(--cyan-rgb),.55) !important;color:#fff !important;}
 .ebtn.on .s,.ebtn.on .z,.mcard.on .mf,.mcard.on .mn{color:#fff !important;}
 </style>
+
+<style id="bsel-css">
+/* ════════════════════════════════
+   BRANDED SELECT (replaces the OS-native <select> picker)
+   Native <select> stays in the DOM (value, onchange, forms keep working) but is hidden;
+   a trigger button + bottom sheet is shown instead.
+════════════════════════════════ */
+.bsel-wrap{position:relative;min-width:0}
+.bsel-native{position:absolute !important;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;}
+.bsel{display:flex;align-items:center;gap:10px;width:100%;min-height:46px;padding:9px 12px;font:inherit;font-size:.78rem;
+  color:var(--hi);background:var(--cyan-06);border:1px solid var(--border-hi);border-radius:var(--radius);cursor:pointer;text-align:left;
+  transition:border-color .15s,background .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent}
+.bsel:hover,.bsel[aria-expanded="true"]{border-color:var(--cyan);background:var(--cyan-10)}
+.bsel:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.bsel-z{flex:0 0 auto;min-width:28px;height:26px;padding:0 6px;display:grid;place-items:center;border-radius:7px;font-size:.7rem;font-weight:700;
+  color:#fff;background:var(--brand-grad,var(--cyan))}
+.bsel-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bsel-chev{flex:0 0 auto;width:16px;height:16px;stroke:var(--cyan);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.bsel[aria-expanded="true"] .bsel-chev{transform:rotate(180deg)}
+
+#bsel-sheet{position:fixed;inset:0;z-index:700;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#bsel-sheet[hidden]{display:none}
+.bsel-panel{width:100%;max-width:520px;max-height:78vh;max-height:78dvh;display:flex;flex-direction:column;
+  background:var(--bg-solid);border:1px solid var(--border-hi);border-bottom:0;border-radius:20px 20px 0 0;
+  box-shadow:0 -12px 48px rgba(0,0,0,.45);animation:bselUp .22s ease-out}
+@keyframes bselUp{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@media (min-width:700px){#bsel-sheet{align-items:center}.bsel-panel{border-radius:18px;border-bottom:1px solid var(--border-hi);max-height:70vh}}
+.bsel-grab{width:40px;height:4px;border-radius:2px;background:var(--border-hi);margin:9px auto 0;flex:0 0 auto}
+.bsel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 10px;flex:0 0 auto}
+.bsel-head b{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--hi)}
+.bsel-search{flex:0 0 auto;display:block;width:calc(100% - 32px);margin:0 16px 8px;padding:11px 12px;font:inherit;font-size:.84rem;
+  color:var(--hi);background:var(--cyan-06);border:1px solid var(--border-hi);border-radius:10px}
+.bsel-search:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(var(--cyan-rgb),.18)}
+.bsel-list{overflow-y:auto;padding:2px 8px calc(14px + env(safe-area-inset-bottom,0px));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.bsel-opt{display:flex;align-items:center;gap:12px;width:100%;min-height:50px;padding:8px 12px;margin:2px 0;border:0;border-radius:12px;
+  background:transparent;color:var(--hi);font:inherit;font-size:.86rem;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bsel-opt:hover,.bsel-opt:focus-visible{background:var(--cyan-10);outline:none}
+.bsel-opt .z{flex:0 0 38px;height:30px;display:grid;place-items:center;border-radius:8px;font-size:.72rem;font-weight:700;
+  color:var(--cyan);background:var(--cyan-10);border:1px solid var(--border-hi)}
+.bsel-opt .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bsel-opt .s{flex:0 0 auto;font-size:.74rem;color:var(--lo);letter-spacing:.04em}
+.bsel-opt[aria-selected="true"]{background:var(--brand-grad,var(--cyan));color:#fff;box-shadow:0 4px 14px rgba(var(--cyan-rgb),.35)}
+.bsel-opt[aria-selected="true"] .z{color:#fff;background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5)}
+.bsel-opt[aria-selected="true"] .s{color:rgba(255,255,255,.88)}
+.bsel-opt[aria-selected="true"]::after{content:"✓";font-weight:700;margin-left:2px}
+.bsel-empty{padding:26px 12px;text-align:center;color:var(--lo);font-size:.8rem}
+</style>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -11919,6 +11967,75 @@ function compareRow(Z){
     config: configString(Z),
   };
 }
+
+/* ── Branded select: swaps the OS-native <select> picker for an on-brand bottom sheet ── */
+const BSel=(function(){
+  let sheet,list,search,head,cur=null,items=[],lastFocus=null;
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const parse=o=>{const m=/^(\d+)\s[\u2014-]\s(.+)$/.exec(o.text);return {v:o.value,z:m?m[1]:'',n:m?m[2]:o.text,s:o.dataset.sub||''};};
+  function label(sel){
+    const o=sel.options[sel.selectedIndex];if(!o)return;const p=parse(o),b=sel._bsel;
+    b.innerHTML=(p.z?'<span class="bsel-z">'+esc(p.z)+'</span>':'')+'<span class="bsel-txt">'+esc(p.n)+'</span>'+
+      '<svg class="bsel-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+  }
+  function ensure(){
+    if(sheet)return;
+    sheet=document.createElement('div');sheet.id='bsel-sheet';sheet.hidden=true;
+    sheet.innerHTML='<div class="bsel-panel" role="dialog" aria-modal="true"><div class="bsel-grab"></div>'+
+      '<div class="bsel-head"><b></b><button type="button" class="cmp-close" aria-label="Close">\u2715</button></div>'+
+      '<input class="bsel-search" type="search" placeholder="Search name or number\u2026" autocomplete="off" aria-label="Search">'+
+      '<div class="bsel-list" role="listbox"></div></div>';
+    document.body.appendChild(sheet);
+    list=sheet.querySelector('.bsel-list');search=sheet.querySelector('.bsel-search');head=sheet.querySelector('.bsel-head b');
+    sheet.addEventListener('click',e=>{if(e.target===sheet||e.target.closest('.cmp-close'))close();});
+    search.addEventListener('input',()=>paint(search.value));
+    list.addEventListener('click',e=>{const b=e.target.closest('.bsel-opt');if(b)pick(b.dataset.v);});
+    sheet.addEventListener('keydown',e=>{
+      if(e.key==='Escape'){e.stopPropagation();e.preventDefault();close();return;}
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+        const o=[...list.querySelectorAll('.bsel-opt')];if(!o.length)return;e.preventDefault();
+        const i=o.indexOf(document.activeElement),n=e.key==='ArrowDown'?Math.min(o.length-1,i+1):Math.max(0,i<0?0:i-1);o[n].focus();}
+    });
+  }
+  function paint(q){
+    q=(q||'').trim().toLowerCase();const sv=cur?cur.value:'';
+    const f=items.filter(x=>!q||x.n.toLowerCase().includes(q)||x.z===q||x.s.toLowerCase().startsWith(q)||x.z.startsWith(q));
+    list.innerHTML=f.length?f.map(x=>'<button type="button" class="bsel-opt" role="option" data-v="'+esc(x.v)+'" aria-selected="'+(x.v===sv)+'">'+
+      (x.z?'<span class="z">'+esc(x.z)+'</span>':'')+'<span class="n">'+esc(x.n)+'</span>'+(x.s?'<span class="s">'+esc(x.s)+'</span>':'')+'</button>').join('')
+      :'<div class="bsel-empty">No matches</div>';
+  }
+  function open(sel,title){
+    ensure();cur=sel;lastFocus=document.activeElement;items=[...sel.options].map(parse);
+    head.textContent=title||'Choose';search.value='';paint('');sheet.hidden=false;sel._bsel.setAttribute('aria-expanded','true');
+    const on=list.querySelector('[aria-selected="true"]');if(on)on.scrollIntoView({block:'center'});
+    if(window.matchMedia&&matchMedia('(pointer:fine)').matches)search.focus({preventScroll:true});
+    else (on||sheet.querySelector('.cmp-close')).focus({preventScroll:true});
+  }
+  function close(){
+    if(!sheet||sheet.hidden)return;sheet.hidden=true;
+    if(cur&&cur._bsel){cur._bsel.setAttribute('aria-expanded','false');cur._bsel.focus({preventScroll:true});}
+    cur=null;
+  }
+  function pick(v){
+    const sel=cur;if(!sel)return;sel.value=v;label(sel);close();
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  function attach(sel,opts){
+    if(!sel)return;opts=opts||{};
+    if(!sel._bsel){
+      const wrap=document.createElement('div');wrap.className='bsel-wrap';
+      sel.parentNode.insertBefore(wrap,sel);wrap.appendChild(sel);
+      const b=document.createElement('button');b.type='button';b.className='bsel';
+      b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-expanded','false');
+      b.setAttribute('aria-label',opts.title||'Choose option');
+      b.addEventListener('click',()=>open(sel,opts.title));
+      wrap.appendChild(b);sel._bsel=b;sel.classList.add('bsel-native');sel.tabIndex=-1;sel.setAttribute('aria-hidden','true');
+    }
+    label(sel);
+  }
+  return {attach,refresh:label,close};
+})();
+
 function renderCompareTable(){
   const z1=parseInt(document.getElementById('compare-el-1').value,10);
   const z2=parseInt(document.getElementById('compare-el-2').value,10);
@@ -11946,14 +12063,17 @@ function openCompareModal(){
   const sel1=document.getElementById('compare-el-1');
   const sel2=document.getElementById('compare-el-2');
   if(sel1.options.length===0){
-    const opts = ELS.map(e=>'<option value="'+e.Z+'">'+e.Z+' — '+e.name+'</option>').join('');
+    const opts = ELS.map(e=>'<option value="'+e.Z+'" data-sub="'+e.sym+'">'+e.Z+' — '+e.name+'</option>').join('');
     sel1.innerHTML=opts; sel2.innerHTML=opts;
     sel2.value = ELS[7] ? ELS[7].Z : ELS[0].Z; // default 2nd picker to Oxygen (Z=8) if present
   }
+  BSel.attach(sel1,{title:'Choose first element'});
+  BSel.attach(sel2,{title:'Choose second element'});
   renderCompareTable();
   modal.classList.add('open');
 }
 function closeCompareModal(){
+  BSel.close();
   const modal=document.getElementById('compare-modal');
   if(modal) modal.classList.remove('open');
 }
