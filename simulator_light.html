@@ -1460,6 +1460,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
   <ellipse cx="8" cy="8" rx="6.6" ry="2.6" stroke="currentColor" stroke-width="1.1" fill="none" transform="rotate(60 8 8)"/>
   <ellipse cx="8" cy="8" rx="6.6" ry="2.6" stroke="currentColor" stroke-width="1.1" fill="none" transform="rotate(-60 8 8)"/>
 </svg></a>
+          <button type="button" id="reactbtn" class="theme-toggle-btn" onclick="ReactionMode.toggle()" title="Watch H₂ + O₂ react to form water" aria-label="Watch H₂ + O₂ react to form water"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1.5h4M6.6 1.5v4.2L2.9 12.3a1.4 1.4 0 0 0 1.2 2.2h7.8a1.4 1.4 0 0 0 1.2-2.2L9.4 5.7V1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.4 10.2h7.2" stroke="currentColor" stroke-width="1.1"/></svg></button>
           <button type="button" id="comparebtn" class="theme-toggle-btn" onclick="openCompareModal()" title="Compare two elements side by side" aria-label="Compare two elements side by side"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="5.2" cy="8" r="3.6" stroke="currentColor" stroke-width="1.3"/>
   <circle cx="10.8" cy="8" r="3.6" stroke="currentColor" stroke-width="1.3"/>
@@ -19508,5 +19509,1157 @@ if(a)a.after(b);
 })();
 </script>
 
+<script id="reaction-mode">
+/* =====================================================================
+   REACTION PIPELINE — watch any reaction with the simulator's OWN atoms
+   ---------------------------------------------------------------------
+   A reaction is a declarative SPEC (see REACTIONS.md). The engine:
+     1. validates it (atoms conserved, species composition, timeline order)
+     2. places every species at the simulator's own bond lengths/angles
+     3. builds each atom's real orbital cloud with the simulator's builders
+        (free atoms: buildCloud…; molecules: buildMoleculeImpl, bond-aware
+        lobes and sp³ hybrids)
+     4. morphs those clouds continuously between stages (sliced optimal
+        transport: every density point flows to a matched point of the next
+        orbital) with a glow while bonds exchange
+   Nothing is redrawn or simplified: point counts are preserved (cap only
+   protects extreme cases) and brightness is compensated when resampled.
+   ===================================================================== */
+const ReactionMode=(function(){
+  'use strict';
+  const D2R=Math.PI/180, TSC=1.9, SN=12;     // SN: path snapshots per transition (finer than the solver's collision-free steps' spacing so the Catmull-Rom spline cannot cut corners)
+                   // TSC: slow-motion factor (spec times are authored at 1×)
+  const REGISTRY=new Map();
+
+  /* ================= reaction library (declarative: atoms + stages; geometry/path are computed by the engine) ================= */
+  const HO2A=52.25*D2R;
+  const SPC={
+    oh:{formula:'OH',name:'Hydroxyl radical',atoms:[{Z:8,sym:'O',dir:[0,0,0]},{Z:1,sym:'H',dir:[1,0,0]}],bonds:[[0,1]]},
+    ho2:{formula:'HO₂',name:'Hydroperoxyl radical',atoms:[{Z:8,sym:'O',dir:[0,0,0]},{Z:1,sym:'H',dir:[Math.sin(HO2A),-Math.cos(HO2A),0]},{Z:8,sym:'O',dir:[-Math.sin(HO2A),-Math.cos(HO2A),0]}],bonds:[[0,1],[0,2]]},
+    ch3:{formula:'CH₃',name:'Methyl radical',atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:1,sym:'H',dir:[1,0,0]},{Z:1,sym:'H',dir:[-.5,.866,0]},{Z:1,sym:'H',dir:[-.5,-.866,0]}],bonds:[[0,1],[0,2],[0,3]]}
+  };
+  const A_NH2=103.4/2*D2R,A_HCO=124.4*D2R,A_NNO=97*D2R;
+  Object.assign(SPC,{
+    nh:{formula:'NH',name:'Imidogen radical',atoms:[{Z:7,sym:'N',dir:[0,0,0]},{Z:1,sym:'H',dir:[1,0,0]}],bonds:[[0,1]]},
+    nh2:{formula:'NH₂',name:'Amidogen radical',atoms:[{Z:7,sym:'N',dir:[0,0,0]},{Z:1,sym:'H',dir:[Math.sin(A_NH2),-Math.cos(A_NH2),0]},{Z:1,sym:'H',dir:[-Math.sin(A_NH2),-Math.cos(A_NH2),0]}],bonds:[[0,1],[0,2]]},
+    hco:{formula:'HCO',name:'Formyl radical',atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:8,sym:'O',dir:[1,0,0]},{Z:1,sym:'H',dir:[Math.cos(A_HCO),Math.sin(A_HCO),0]}],bonds:[[0,1,2],[0,2]]},
+    n2o2:{formula:'(NO)₂',name:'Nitric oxide dimer (cis-ONNO)',atoms:[{Z:7,sym:'N',dir:[0,0,0]},{Z:8,sym:'O',dir:[Math.cos(A_NNO),Math.sin(A_NNO),0]},{Z:7,sym:'N',dir:[1,0,0]},{Z:8,sym:'O',dir:[-Math.cos(A_NNO),Math.sin(A_NNO),0]}],bonds:[[0,1,2],[0,2],[2,3,2]]}
+  });
+  const S=s=>s.split(' ').map(x=>{const[k,a]=x.split(':');return{k,a:a.split(',').map(Number)};});
+  // R(id,title,atoms,[[species,stageLabel,equation,text],…]) — one timeline per stage, bond-exchange window between stages
+  function R(id,title,atoms,steps,species,opts){
+    const kf=[];
+    for(let k=0;k<=SN*(steps.length-1);k++){const f={t:k*1.5*4/SN};if(k%SN===0){const s=steps[k/SN];f.stage=s[1];f.eq=s[2];f.txt=s[3];}kf.push(f);}
+    register({id,title,atoms,species:species||SPC,auto:true,fixed:!!(opts&&opts.fixed),
+      stages:steps.map((s,i)=>({rest:SN*i,species:S(s[0])})),windows:steps.slice(1).map((_,i)=>SN*i+SN/2),keyframes:kf});
+  }
+  R('water','2 H₂ + O₂ → 2 H₂O',['O','O','H','H','H','H'],[
+    ['h2:2,3 o2:0,1 h2:4,5','Reactants','2 H₂ + O₂','Two H–H σ bonds and one O=O double bond with two unpaired electrons — why the mixture needs a spark.'],
+    ['atom:2 ho2:0,3,1 h2:4,5','Step 1 · Initiation','H₂ + O₂ → H• + HO₂•','One H–H bond breaks as H attaches to O₂; O–O becomes a single bond (≈133 pm).'],
+    ['oh:0,3 oh:1,2 h2:4,5','Step 2 · Chain branching','H• + HO₂• → 2 •OH','H• attacks the far oxygen, the O–O bond splits: two hydroxyl radicals (97 pm).'],
+    ['h2o:0,3,4 oh:1,2 atom:5','Step 3 · Propagation','•OH + H₂ → H₂O + H•','First water: O–H 95.8 pm, bent 104.5° (two lone pairs). A new H• is released.'],
+    ['h2o:0,3,4 h2o:1,2,5','Products','2 H₂O (ΔH° = −483.6 kJ)','H• + •OH pair into the last O–H σ bond. Four O–H bonds replace two H–H and one O=O: heat is released.']]);
+  R('hcl','H₂ + Cl₂ → 2 HCl',['H','H','Cl','Cl'],[
+    ['h2:0,1 cl2:2,3','Reactants','H₂ + Cl₂','H₂ (74 pm) and Cl₂ (199 pm): the long, weak Cl–Cl bond is what light breaks first.'],
+    ['h2:0,1 atom:2 atom:3','Step 1 · Initiation','Cl₂ → 2 Cl•','A photon splits Cl–Cl; each Cl keeps one electron.'],
+    ['hcl:2,1 atom:0 atom:3','Step 2 · Propagation','Cl• + H₂ → HCl + H•','Cl• takes one hydrogen; HCl forms (127.5 pm) and H• is released.'],
+    ['hcl:2,1 hcl:3,0','Products','2 HCl (ΔH° = −184.6 kJ)','H• + Cl• pair into the second σ bond. Net: two H–Cl bonds replace H–H and Cl–Cl.']]);
+  R('zeldovich','N₂ + O₂ → 2 NO (Zeldovich)',['N','N','O','O'],[
+    ['n2:0,1 o2:2,3','Reactants','N₂ + O₂','N≡N (110 pm) is one of the strongest bonds known, so this only runs in flames and lightning (>1800 K).'],
+    ['n2:0,1 atom:2 atom:3','Step 1 · Thermal O₂ splitting','O₂ → 2 O•','High temperature cleaves O=O into two oxygen atoms.'],
+    ['no:0,2 atom:1 atom:3','Step 2 · N≡N attack','O• + N₂ → NO + N•','The slow, rate-limiting step: O• breaks N≡N and leaves a nitrogen atom.'],
+    ['no:0,2 no:1,3','Products','2 NO (ΔH° = +180.6 kJ)','N• + O• form the second NO. Endothermic overall: this is how engines make NOx.']]);
+  R('ozone','2 O₃ → 3 O₂',['O','O','O','O','O','O'],[
+    ['o3:0,1,2 o3:3,4,5','Reactants','2 O₃','Two bent ozone molecules (O–O–O 116.8°, 127.2 pm).'],
+    ['o2:0,1 atom:2 o3:3,4,5','Step 1 · Photolysis','O₃ → O₂ + O•','UV splits ozone: stable O₂ and a reactive oxygen atom.'],
+    ['o2:0,1 o2:2,5 o2:3,4','Products','O• + O₃ → 2 O₂ (ΔH° = −285 kJ)','O• snatches a terminal oxygen from the second ozone: two more O₂.']]);
+  R('no-o3','NO + O₃ → NO₂ + O₂',['N','O','O','O','O'],[
+    ['no:0,1 o3:2,3,4','Reactants','NO + O₃','Nitric oxide (an unpaired-electron radical) meets bent ozone (central O is atom 2).'],
+    ['no2:0,1,4 o2:2,3','Products','NO₂ + O₂ (ΔH° = −200 kJ)','N attacks a TERMINAL O of O₃; that O transfers to NO giving bent NO₂ (134°), and the O–O–O backbone left behind closes into O₂.']],null,{fixed:true});
+  R('co-o2','2 CO + O₂ → 2 CO₂',['C','O','C','O','O','O'],[
+    ['co:0,1 co:2,3 o2:4,5','Reactants','2 CO + O₂','Two carbon monoxide triple bonds and one O=O.'],
+    ['co:0,1 co2:2,3,4 atom:5','Step 1','CO + O₂ → CO₂ + O•','One CO captures an O and linear CO₂ forms; the other O is released (ΔH° ≈ −34 kJ, high barrier).'],
+    ['co2:0,1,5 co2:2,3,4','Products','2 CO₂ (ΔH° = −566 kJ)','O• adds to the second CO. Two linear O=C=O (116 pm).']]);
+  R('no-o2','2 NO + O₂ → 2 NO₂ (via the (NO)₂ dimer)',['N','O','N','O','O','O'],[
+    ['no:0,1 no:2,3 o2:4,5','Reactants','2 NO + O₂','Two nitric oxide radicals and an oxygen molecule.'],
+    ['n2o2:0,1,2,3 o2:4,5','Step 1 · Dimerisation (fast, reversible)','2 NO ⇌ (NO)₂','The two unpaired electrons pair into a weak N–N bond. This pre-equilibrium is why the reaction slows as temperature rises.'],
+    ['no2:0,1,4 no2:2,3,5','Products','(NO)₂ + O₂ → 2 NO₂ (ΔH° = −114 kJ)','O₂ inserts across the weak N–N bond: each N takes one O, giving two bent NO₂ (134°), the brown gas of smog.']]);
+  R('haber','N₂ + 3 H₂ → 2 NH₃ (Fe surface, schematic)',['N','N','H','H','H','H','H','H'],[
+    ['n2:0,1 h2:2,3 h2:4,5 h2:6,7','Reactants','N₂ + 3 H₂','N≡N (110 pm) is cleaved industrially on an iron catalyst at ~450 °C, 200 atm. The iron surface itself is not drawn.'],
+    ['atom:0 atom:1 h2:2,3 h2:4,5 h2:6,7','Step 1 · N₂ dissociation (rate-limiting)','N₂ → 2 N*','The very strong triple bond splits on the surface; each N keeps three unpaired electrons.'],
+    ['atom:0 atom:1 atom:2 atom:3 atom:4 atom:5 atom:6 atom:7','Step 2 · H₂ dissociation','3 H₂ → 6 H*','Every H–H bond splits on the metal: six hydrogen atoms.'],
+    ['nh:0,2 nh:1,3 atom:4 atom:5 atom:6 atom:7','Step 3 · First hydrogenation','N* + H* → NH*','Each N bonds its first hydrogen.'],
+    ['nh2:0,2,4 nh2:1,3,5 atom:6 atom:7','Step 4 · Second hydrogenation','NH* + H* → NH₂*','Bent NH₂ (103°) forms on each nitrogen.'],
+    ['nh3:0,2,4,6 nh3:1,3,5,7','Products','2 NH₃ (ΔH° = −92 kJ)','The third N–H bond closes: two pyramidal NH₃ (107.8°, one lone pair each) leave the surface.']]);
+  R('methane','CH₄ + 2 O₂ → CO₂ + 2 H₂O',['C','H','H','H','H','O','O','O','O'],[
+    ['ch4:0,1,2,3,4 o2:5,6 o2:7,8','Reactants','CH₄ + 2 O₂','Tetrahedral methane (109.5°) and two O=O.'],
+    ['ch3:0,2,3,4 ho2:5,1,6 o2:7,8','Step 1 · Initiation','CH₄ + O₂ → CH₃• + HO₂•','O₂ abstracts a hydrogen; planar methyl radical forms.'],
+    ['h2co:0,7,2,3 oh:8,4 ho2:5,1,6','Step 2 · Oxygen addition','CH₃• + O₂ → H₂CO + •OH','O₂ adds to carbon and a hydrogen shifts to the far oxygen: planar formaldehyde plus a hydroxyl radical.'],
+    ['hco:0,7,3 h2o:8,4,2 ho2:5,1,6','Step 3 · H abstraction','H₂CO + •OH → HCO• + H₂O','•OH pulls a hydrogen off formaldehyde: water and the bent formyl radical.'],
+    ['co2:0,7,6 atom:3 oh:5,1 h2o:8,4,2','Step 4 · Oxidation','HCO• + HO₂• → CO₂ + H• + •OH','The formyl carbon takes the far oxygen of HO₂•: linear CO₂ forms, the O–O bond breaks.'],
+    ['co2:0,7,6 h2o:5,1,3 h2o:8,4,2','Products','CO₂ + 2 H₂O (ΔH° = −802 kJ)','H• + •OH pair into the last O–H bond. Linear CO₂, two bent H₂O.']],null,{fixed:true});
+
+  /* ---- Benzene: thermal cyclotrimerisation of acetylene, 3 C₂H₂ → C₆H₆ (ΔH° ≈ −597 kJ, gas phase) ----
+     Hand-authored path. The three C≡C axes lie on alternate edges of the future hexagon, so the reactants start there:
+     a CLOSE flat triangle, each acetylene on a radius of the ring, axis along the tangent.
+       Step 1: one π bond in each of two neighbours opens, the two H–C≡C–H bend (180° → 120°) and hold each other
+               through a new C–C σ bond: •HC=CH–CH=CH• (the first four ring carbons, exactly on the benzene arc).
+       Step 2: the third acetylene bends in against both open ends; two more C–C σ bonds close the ring.
+     Every π electron is already there from the start: the C≡C spindles open into C=C lobes, and those lobes (not
+     new density) flow into the ring-shaped π cloud (see absorbExtras). Rest geometries are the simulator's own library
+     shapes, so there is no jump at the stage hand-over. */
+  Object.assign(SPC,{
+    c2h2:{formula:'C₂H₂',name:'Acetylene',
+      atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:6,sym:'C',dir:[1,0,0]},{Z:1,sym:'H',dir:[-1,0,0]},{Z:1,sym:'H',dir:[1,0,0]}],
+      bonds:[[0,1,3],[0,2],[1,3]],tripleBonds:[{atoms:[0,1]}]},
+    c4h4:{formula:'C₄H₄',name:'Butadienediyl diradical (•HC=CH–CH=CH•)',
+      atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:6,sym:'C',dir:[1,0,0]},{Z:6,sym:'C',dir:[.5,.866025403784,0]},{Z:6,sym:'C',dir:[-.5,.866025403784,0]},
+             {Z:1,sym:'H',dir:[-.5,-.866025403784,0]},{Z:1,sym:'H',dir:[.5,-.866025403784,0]},{Z:1,sym:'H',dir:[1,0,0]},{Z:1,sym:'H',dir:[.5,.866025403784,0]}],
+      bonds:[[0,1,2],[1,2],[2,3,2],[0,4],[1,5],[2,6],[3,7]],piBonds:[{atoms:[0,1]},{atoms:[2,3]}]},
+    c6h6k:(()=>{const b=MOLECULES.find(m=>m.key==='c6h6');   // same ring, but with the π bonds still LOCALISED (Kekulé cyclohexatriene): no aromatic ring cloud yet
+      return{formula:'C₆H₆',name:'Cyclohexa-1,3,5-triene (Kekulé ring, localised π bonds)',atoms:b.atoms,bonds:b.bonds,aromaticRings:[],piBonds:[{atoms:[0,1]},{atoms:[2,3]},{atoms:[4,5]}]};})()
+  });
+  function buildBenzenePath(spec){
+    const hw=resolveMoleculeAtoms(MOLECULES.find(m=>m.key==='h2o')),
+      sc=Math.hypot(hw[1].pos[0]-hw[0].pos[0],hw[1].pos[1]-hw[0].pos[1],hw[1].pos[2]-hw[0].pos[2])/0.958;   // sim units per Å (keyframes are stored in Å)
+    const mk=d=>resolveMoleculeAtoms(Object.assign({key:'rx_benzene_'+d.formula,geometry:'—'},d)).map(a=>a.pos);
+    const bz=resolveMoleculeAtoms(MOLECULES.find(m=>m.key==='c6h6')).map(a=>a.pos),ac=mk(SPC.c2h2);
+    const sstep=x=>{x=Math.min(1,Math.max(0,x));return x*x*x*(x*(x*6-15)+10);};
+    const d3=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]);
+    const LT=d3(ac[0],ac[1]),LH=d3(ac[0],ac[2]);                       // library C≡C and C–H lengths
+    const cen=bz.reduce((c,p)=>[c[0]+p[0]/12,c[1]+p[1]/12,c[2]+p[2]/12],[0,0,0]);
+    const F=bz.map(p=>[p[0]-cen[0],p[1]-cen[1],0]);                    // library benzene, centred, in the xy plane
+    const ang=v=>Math.atan2(v[1],v[0]),wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
+    const mol=[0,1,2].map(k=>{      // acetylene k = C(2k), C(2k+1) with H(6+2k), H(7+2k): its C–C edge in the final ring
+      const c0=F[2*k],c1=F[2*k+1],e0=F[6+2*k],e1=F[7+2*k],hl=Math.hypot(c1[0]-c0[0],c1[1]-c0[1])/2;
+      const M=[(c0[0]+c1[0])/2,(c0[1]+c1[1])/2],T=[(c1[0]-c0[0])/(2*hl),(c1[1]-c0[1])/(2*hl)],rho=Math.hypot(M[0],M[1]);
+      const a0=ang([-T[0],-T[1]]),a1=ang(T);                           // linear: each H points straight away along the axis
+      return{T,R:[M[0]/rho,M[1]/rho],rho,hl,a0,da0:wrap(ang([e0[0]-c0[0],e0[1]-c0[1]])-a0),a1,da1:wrap(ang([e1[0]-c1[0],e1[1]-c1[1]])-a1),
+        l0:Math.hypot(e0[0]-c0[0],e0[1]-c0[1]),l1:Math.hypot(e1[0]-c1[0],e1[1]-c1[1])};
+    });
+    const R0=95,R0d=82;                                               // close triangle; the third molecule drifts a little closer while step 1 happens
+    const at=t=>{
+      const P=new Array(12);
+      mol.forEach((m,k)=>{
+        let bH,bC,rb;                                                  // bend and closure progress; rb = radius before closure
+        if(k<2){bH=sstep((t-1.2)/4.6);bC=sstep((t-1.8)/4.6);rb=R0;}    // step 1: the neighbours open, bend and join
+        else{bH=sstep((t-7.6)/4.4);bC=sstep((t-8)/4.6);rb=R0+(R0d-R0)*sstep(t/7);}   // step 2: the third bends in and closes the ring
+        const rho=rb+(m.rho-rb)*bC,h=LT/2+(m.hl-LT/2)*bC;
+        const Mx=m.R[0]*rho,My=m.R[1]*rho;
+        const c0=[Mx-m.T[0]*h,My-m.T[1]*h,0],c1=[Mx+m.T[0]*h,My+m.T[1]*h,0];
+        const x0=m.a0+m.da0*bH,x1=m.a1+m.da1*bH,l0=LH+(m.l0-LH)*bH,l1=LH+(m.l1-LH)*bH;
+        P[2*k]=c0;P[2*k+1]=c1;
+        P[6+2*k]=[c0[0]+l0*Math.cos(x0),c0[1]+l0*Math.sin(x0),0];
+        P[7+2*k]=[c1[0]+l1*Math.cos(x1),c1[1]+l1*Math.sin(x1),0];
+      });
+      return P.map(p=>[p[0]/sc,p[1]/sc,p[2]/sc]);
+    };
+    const LBL={
+      0:['Reactants','3 HC≡CH','Three linear acetylene molecules sit close together in a flat triangle, each C≡C (120 pm) on one edge. Every C≡C holds two π bonds. The reaction needs heat or a metal catalyst (Ni, Co, Pd) to get started.'],
+      8:['Step 1 · First π bond opens','2 HC≡CH → •HC=CH–CH=CH•','One π bond in each of two neighbours opens. Their H atoms bend away and the two molecules hold each other through a new C–C σ bond. Each C≡C is now C=C, with a lone electron left at both open ends (a diradical).'],
+      19:['Step 2 · Last π bond opens, ring closes','C₄H₄•• + HC≡CH → cyclohexatriene','The third acetylene opens one π bond too and bends in against both open ends. Two more C–C σ bonds close the hexagon. The π electrons that were already there stay where they are.'],
+      28:['The cycle is closed','C₆H₆ (cyclohexa-1,3,5-triene)','A six-carbon ring now exists, still with three separate C=C π bonds above and below the plane. Next, those π electrons are free to move around the ring.'],
+      36:['Products · π bonds flow into the ring','C₆H₆ (ΔH° ≈ −597 kJ)','The three π bonds flow together into one ring-shaped cloud above and below the plane: six delocalised π electrons. All C–C bonds equalise (139 pm), all angles 120°. Aromatic stabilisation makes benzene very stable.']};
+    spec.keyframes=Array.from({length:44},(_,i)=>{const f={t:i*.5,pos:at(i*.5)},l=LBL[i];if(l){f.stage=l[0];f.eq=l[1];f.txt=l[2];}return f;});
+  }
+  register({id:'benzene',title:'3 C₂H₂ → C₆H₆ (how benzene forms)',atoms:['C','C','C','C','C','C','H','H','H','H','H','H'],
+    species:SPC,auto:false,fixed:true,half:2,build:buildBenzenePath,keyframes:[],
+    stages:[{rest:0,species:S('c2h2:0,1,6,7 c2h2:2,3,8,9 c2h2:4,5,10,11')},
+            {rest:14,species:S('c4h4:0,1,2,3,6,7,8,9 c2h2:4,5,10,11')},
+            {rest:27,species:S('c6h6k:0,1,2,3,4,5,6,7,8,9,10,11')},
+            {rest:39,species:S('c6h6:0,1,2,3,4,5,6,7,8,9,10,11')}],
+    windows:[8,21,33]});
+
+  /* ================= spec → validation → compile ================= */
+  function register(spec){REGISTRY.set(spec.id,spec);}
+  function symZ(sym){const e=ELS.find(x=>x.sym===sym);return e?e.Z:0;}
+  function speciesDef(spec,k){return (spec.species&&spec.species[k])||MOLECULES.find(m=>m.key===k)||null;}
+  function validate(spec){
+    const err=[],n=spec.atoms.length,Z=spec.atoms.map(symZ);fit(spec);
+    Z.forEach((z,i)=>{if(!z)err.push(`atom ${i}: unknown element "${spec.atoms[i]}"`);});
+    spec.keyframes.forEach((f,i)=>{
+      if(f.pos&&f.pos.length!==n)err.push(`keyframe ${i}: needs ${n} positions`);
+      if(i&&f.t<=spec.keyframes[i-1].t)err.push(`keyframe ${i}: times must increase`);
+    });
+    if(spec.windows.length!==spec.stages.length-1)err.push('needs exactly one window per stage transition');
+    spec.stages.forEach((st,si)=>{
+      const seen=new Set();
+      if(st.rest<0||st.rest>=spec.keyframes.length)err.push(`stage ${si}: bad rest keyframe`);
+      if(si&&st.rest<=spec.stages[si-1].rest)err.push(`stage ${si}: rest keyframes must increase`);
+      if(si&&(spec.windows[si-1]<=spec.stages[si-1].rest||spec.windows[si-1]>=st.rest))err.push(`window ${si-1} must lie between stage ${si-1} and ${si}`);
+      st.species.forEach(sp=>{
+        const def=sp.k==='atom'?null:speciesDef(spec,sp.k);
+        if(sp.k!=='atom'&&!def){err.push(`stage ${si}: unknown species "${sp.k}"`);return;}
+        const want=sp.k==='atom'?[sp.a.length===1?Z[sp.a[0]]:-1]:def.atoms.map(a=>a.Z);
+        if(want.length!==sp.a.length||want.some((z,i)=>z!==Z[sp.a[i]]))err.push(`stage ${si}: species "${sp.k}" does not match atoms [${sp.a}]`);
+        sp.a.forEach(a=>{if(seen.has(a))err.push(`stage ${si}: atom ${a} appears twice`);seen.add(a);});
+      });
+      if(seen.size!==n)err.push(`stage ${si}: ${n-seen.size} atom(s) missing — atoms must be conserved`);
+    });
+    {const MAXV={1:1,6:4,7:4,8:3};   // physical valence caps (CO's O=3 and NH₄-type N=4 allowed): a species can never carry more bonds than the atom can make
+      spec.stages.forEach((st,si)=>st.species.forEach(sp=>{
+        if(sp.k==='atom')return;const def=speciesDef(spec,sp.k);if(!def)return;
+        const tot=new Map();(def.bonds||[]).forEach(([i,j,o])=>{const w=o==null?1:o;tot.set(i,(tot.get(i)||0)+w);tot.set(j,(tot.get(j)||0)+w);});
+        tot.forEach((v,i)=>{const mv=MAXV[def.atoms[i].Z];if(mv&&v>mv+1e-9)err.push(`stage ${si}: species "${sp.k}" atom ${i} (${def.atoms[i].sym}) has total bond order ${v} > max valence ${mv}`);});
+      }));}
+    return err;
+  }
+  function lumpWarn(){   // an elementary step makes/breaks at most ~4 bonds; more means a lumped (non-elementary) step
+    const bm=si=>{const m=new Map();STAGES[si].species.forEach(sp=>{if(sp.k==='atom')return;const d=speciesDef(SPEC,sp.k);((d&&d.bonds)||[]).forEach(([i,j])=>{const a=sp.a[i],b=sp.a[j];m.set(Math.min(a,b)*NA+Math.max(a,b),1);});});return m;};
+    for(let i=1;i<STAGES.length;i++){const A=bm(i-1),B=bm(i);let n=0;A.forEach((_,k)=>{if(!B.has(k))n++;});B.forEach((_,k)=>{if(!A.has(k))n++;});
+      if(n>4)console.warn(`[Reaction] "${SPEC.id}" step ${i-1}→${i} changes ${n} bonds: lumped, not an elementary step`);}
+  }
+  let SPEC=null,KF,STAGES,TS,HALF,T_END,ATOM_Z,NA;
+  function compile(spec){
+    SPEC=spec; NA=spec.atoms.length; ATOM_Z=spec.atoms.map(symZ);
+    KF=spec.keyframes.map(f=>Object.assign({},f,{t:f.t*TSC}));
+    STAGES=spec.stages.map(st=>({rest:st.rest,species:st.species.map(sp=>({k:sp.k,a:sp.a.slice()}))}));   // private copy: the proximity re-pairing in solvePath must never mutate the registered spec
+    TS=spec.windows.map(i=>KF[i].t); T_END=KF[KF.length-1].t;
+    let gap=1e9;for(let i=1;i<TS.length;i++)gap=Math.min(gap,TS[i]-TS[i-1]);
+    HALF=spec.half!=null?spec.half*TSC:spec.auto?(KF[SN].t-KF[0].t)*.49:Math.min(1.5*TSC,TS.length>1?gap*0.45:1.5*TSC);
+  }
+
+  /* ================= physics path: linear synchronous transit (LST) =================
+     Every atom pair has a target distance that is interpolated between the reactant and product
+     stage (pairs inside a species keep that species' real geometry; bonds being made pull in from their
+     starting separation, bonds being broken stretch ×1.9 while their stiffness fades). Positions are the
+     least-squares solution (constraint relaxation, no randomness): continuous, deterministic, reversible. */
+  function solvePath(){
+    const G=sp=>{const g=geom(sp.k);return g.pts.map(p=>[0,1,2].map(d=>(p[d]-g.cen[d])/scale));};
+    const dist=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]);
+    const RZ=a=>Math.max(...getEffectiveConfig(ATOM_Z[a]).map(o=>o.R))/scale;   // outer-orbital radius (the simulator's geometry is cloud-sized, not Å)
+    const dmap=si=>{const m=new Map();STAGES[si].species.forEach(sp=>{const p=G(sp);for(let i=0;i<p.length;i++)for(let j=i+1;j<p.length;j++){const a=sp.a[i],b=sp.a[j];m.set(Math.min(a,b)*NA+Math.max(a,b),dist(p[i],p[j]));}});return m;};
+    /* ORIENTATION: reactants are rigid bodies and must be placed so their reacting ends FACE each other (an N that starts
+       behind its own O has to swing round it to reach the partner: forward, then back). Placement is therefore optimised:
+       solve the path, rigidly re-orient each reactant (Kabsch) to where its atoms actually end up, re-solve, keep the
+       least-total-travel solution (minimum action). Deterministic; identical to the old behaviour whenever it is already best. */
+    const lab0=STAGES.map(st=>st.species.map(sp=>sp.a.slice()));
+    const attempt=(Qs,ord,ring,tg,labOv)=>{
+      STAGES.forEach((st,i)=>st.species.forEach((sp,j)=>{sp.a=(labOv||lab0)[i][j].slice();}));
+    const X=new Array(NA),items=STAGES[0].species.map((sp,k)=>{let p=G(sp);const q=Qs&&Qs[k];if(q)p=p.map(v=>{const w=new THREE.Vector3(v[0],v[1],v[2]).applyQuaternion(q);return[w.x,w.y,w.z];});return{sp,p,r:Math.max(.1,...p.map((q,i)=>Math.hypot(q[0],q[1],q[2])+.9*RZ(sp.a[i])))};});
+    const slots=ord?ord.map(i=>items[i]):items;   // placement order along the approach axis (searched: reacting partners must be neighbours)
+    if(ring&&slots.length>=3){   // collision complex: three or more reactants meet in a ring, every neighbour in contact (as the benzene triangle)
+      const n=slots.length;let Rr=0;for(let k=0;k<n;k++)Rr=Math.max(Rr,(slots[k].r+slots[(k+1)%n].r+.6)/(2*Math.sin(Math.PI/n)));
+      slots.forEach((o,k)=>{const th=2*Math.PI*k/n,cx=Rr*Math.cos(th),cy=Rr*Math.sin(th);o.sp.a.forEach((a,i)=>{X[a]=[cx+o.p[i][0],cy+o.p[i][1],o.p[i][2]];});});
+    }else{
+    let x=-slots.reduce((s,o)=>s+2*o.r+.6,-.6)/2;
+    slots.forEach((o,k)=>{x+=o.r;o.sp.a.forEach((a,i)=>{X[a]=[x+o.p[i][0],o.p[i][1]+(k%2?.3:-.3)*o.r,o.p[i][2]];});x+=o.r+.6;});}
+    if(tg&&tg[0])tg[0].forEach((p,a)=>{X[a]=p.slice();});   // refinement pass: keep the winning start arrangement
+    KF[0].pos=X.map(p=>p.slice());
+    const pull=(p,q,t,w)=>{const dx=q[0]-p[0],dy=q[1]-p[1],dz=q[2]-p[2],L=Math.hypot(dx,dy,dz)||1e-6,c=(L-t)/L*w;p[0]+=c*dx;p[1]+=c*dy;p[2]+=c*dz;q[0]-=c*dx;q[1]-=c*dy;q[2]-=c*dz;};
+    /* PROXIMITY PAIRING — atoms of one element are physically identical, so which of them joins which product is
+       decided by chemistry + geometry, never by the spec's index order. Every permutation of same-element atoms over
+       the next stage's species slots is scored by (1) bond edits against the previous stage — bonds that need not
+       break stay intact, so an H already on an O never gets swapped for another H — and then (2) summed intra-species
+       distances at the current geometry, so the NEAREST atoms form the new bonds. Gains <3% keep the authored labelling. */
+    const bondMap=si=>{const m=new Map();STAGES[si].species.forEach(sp=>{if(sp.k==='atom')return;const d=speciesDef(SPEC,sp.k);((d&&d.bonds)||[]).forEach(([i,j,o])=>{const a=sp.a[i],b=sp.a[j];m.set(Math.min(a,b)*NA+Math.max(a,b),o!=null?o:1);});});return m;};
+    const repair=si=>{
+      const sps=STAGES[si].species,slots=new Map(),prev=bondMap(si-1);
+      sps.forEach((sp,j)=>sp.a.forEach((a,i)=>{const z=ATOM_Z[a];if(!slots.has(z))slots.set(z,[]);slots.get(z).push([j,i]);}));
+      const groups=[...slots.values()].filter(g=>g.length>1);
+      let combos=1;groups.forEach(g=>{for(let k=2;k<=g.length;k++)combos*=k;});
+      if(!groups.length||combos>60000)return;
+      const score=()=>{
+        const nb=bondMap(si);let e=0;
+        prev.forEach((o,k)=>{e+=Math.abs(o-(nb.get(k)||0));});nb.forEach((o,k)=>{if(!prev.has(k))e+=o;});
+        let c=0;for(const sp of sps)for(let i=0;i<sp.a.length;i++)for(let j=i+1;j<sp.a.length;j++)c+=dist(X[sp.a[i]],X[sp.a[j]]);
+        return[e,c];
+      };
+      const better=(a,b)=>a[0]<b[0]-1e-9||(Math.abs(a[0]-b[0])<1e-9&&a[1]<b[1]*0.97);
+      const base=score();let best=base,bestAssign=null;
+      const cur=groups.map(g=>g.map(([j,i])=>sps[j].a[i]));
+      const apply=asg=>groups.forEach((g,gi)=>g.forEach(([j,i],k)=>{sps[j].a[i]=asg[gi][k];}));
+      const perm=(gi,asg)=>{
+        if(gi===groups.length){apply(asg);const c=score();if(better(c,best)){best=c;bestAssign=asg.map(x=>x.slice());}return;}
+        const arr=cur[gi],n=arr.length,out=asg[gi]=new Array(n),used=new Array(n).fill(false);
+        const rec=k=>{if(k===n){perm(gi+1,asg);return;}for(let q=0;q<n;q++){if(used[q])continue;used[q]=true;out[k]=arr[q];rec(k+1);used[q]=false;}};
+        rec(0);
+      };
+      perm(0,[]);
+      apply(bestAssign||cur);
+    };
+    const N=144,snap=Array.from({length:SN},(_,q)=>Math.round(N*(q+1)/SN));
+    for(let m=0;m<STAGES.length-1;m++){
+      if(!SPEC.fixed&&!labOv)repair(m+1);   // proximity re-pairing, unless the mechanism pins its labelling
+      const dA=dmap(m),dB=dmap(m+1),keys=new Set([...dA.keys(),...dB.keys()]),P=[];
+      keys.forEach(key=>P.push([(key/NA)|0,key%NA,dA.get(key),dB.get(key)]));
+      const X0=X.map(p=>p.slice());
+      for(let a=0;a<NA;a++)X[a][2]+=.06*Math.sin(a*2.399+m*1.7+1);
+      P.forEach(p=>p.push(dist(X[p[0]],X[p[1]])));
+      const free=[],ITER=40;   // exclusion floors: no two nuclei may sit closer than the simulator's own single-bond length for that pair (bonds being broken/made are exempt below their own distance)
+      for(let i=0;i<NA;i++)for(let j=i+1;j<NA;j++){
+        const fl=Math.max(.95*bondLength(ATOM_Z[i],ATOM_Z[j],1)/scale,.6*(RZ(i)+RZ(j))),pa=dA.get(i*NA+j),pb=dB.get(i*NA+j);
+        if(pa!==undefined&&pb!==undefined)continue;
+        free.push([i,j,Math.min(fl,pa!==undefined?pa:1e9,pb!==undefined?pb:1e9)]);
+      }
+      const B=STAGES[m+1].species;
+      for(let k=1;k<=N;k++){
+        const u=k/N,s=sm(u);
+        for(let it=0;it<ITER;it++){
+          for(const[i,j,a,b,d0]of P){
+            if(a!==undefined&&b!==undefined)pull(X[i],X[j],a+(b-a)*s,.5);
+            else if(a!==undefined)pull(X[i],X[j],a+s*.5*(RZ(i)+RZ(j)),.5*(1-s));
+            else pull(X[i],X[j],d0+(b-d0)*s,.5*s);
+          }
+          for(const[i,j,dm]of free)if(dist(X[i],X[j])<dm)pull(X[i],X[j],dm,.5);
+        }
+        const sep=(m===STAGES.length-2)?sm(clamp((u-.45)/.45)):0;   // only the FINAL products leave each other; intermediates stay together (no fly-away-and-return)
+        for(let rep=0;rep<(sep>0?10:0);rep++){   // finished species drift apart as rigid bodies (repeated: a single 8% nudge could not untangle interleaved molecules)
+          const c=B.map(sp=>{const v=[0,0,0];sp.a.forEach(a=>{for(let d=0;d<3;d++)v[d]+=X[a][d]/sp.a.length;});return{v,r:Math.max(.1,...sp.a.map(a=>dist(X[a],v)+.9*RZ(a))),sp};});
+          for(let i=0;i<c.length;i++)for(let j=i+1;j<c.length;j++){
+            const L=dist(c[i].v,c[j].v)||1e-6,need=c[i].r+c[j].r+.6-L;if(need<=0)continue;
+            const f=need*.08*sep/L;
+            c[i].sp.a.forEach(a=>{for(let d=0;d<3;d++)X[a][d]-=(c[j].v[d]-c[i].v[d])*f;});
+            c[j].sp.a.forEach(a=>{for(let d=0;d<3;d++)X[a][d]+=(c[j].v[d]-c[i].v[d])*f;});
+          }
+        }
+        for(let it=0;it<8;it++){let moved=false;for(const[i,j,dm]of free)if(dist(X[i],X[j])<dm-1e-4){pull(X[i],X[j],dm,.5);moved=true;}if(!moved)break;}
+      }
+      if(tg&&tg[m+1])tg[m+1].forEach((p,a)=>{X[a]=p.slice();});   // refinement pass: this stage's rest pose is the smoothed one
+      {const X1=X.map(p=>p.slice()),ret=[];
+        P.forEach(([i,j,a,b])=>{if(a!==undefined&&b!==undefined)ret.push([i,j,a,b]);});
+        for(let q=0;q<SN;q++){
+          const g=sm((q+1)/SN),Y=X0.map((p,a)=>[0,1,2].map(d=>p[d]+(X1[a][d]-p[d])*g));
+          if(q<SN-1)for(let it=0;it<30;it++){
+            for(const[i,j,a,b]of ret)pull(Y[i],Y[j],a+(b-a)*g,.5);
+            for(const[i,j,dm]of free)if(dist(Y[i],Y[j])<dm)pull(Y[i],Y[j],dm,.5);
+          }
+          KF[SN*m+q+1].pos=Y;
+        }
+      }
+    }
+    {const MS=ATOM_Z.map(z=>({1:1.008,6:12.011,7:14.007,8:15.999,17:35.45}[z]||2*z)),MT=MS.reduce((s,v)=>s+v,0);   // momentum conservation: the centre of mass of the isolated system never drifts
+      const com=P=>{const c=[0,0,0];P.forEach((p,a)=>{for(let d=0;d<3;d++)c[d]+=MS[a]*p[d]/MT;});return c;};
+      const c0=com(KF[0].pos);
+      KF.forEach((f,k)=>{if(!k)return;const c=com(f.pos);f.pos=f.pos.map(p=>[p[0]-c[0]+c0[0],p[1]-c[1]+c0[1],p[2]-c[2]+c0[2]]);});}
+    let cost=0;for(let k=1;k<KF.length;k++)for(let a=0;a<NA;a++)cost+=dist(KF[k].pos[a],KF[k-1].pos[a]);
+    {const rs=STAGES.map(s=>s.rest);   // forward-then-back penalty: an atom whose next leg points against its previous leg wastes the shorter of the two legs twice
+      for(let a=0;a<NA;a++)for(let i=1;i<rs.length-1;i++){
+        const P0=KF[rs[i-1]].pos[a],P1=KF[rs[i]].pos[a],P2=KF[rs[i+1]].pos[a],u=[0,1,2].map(d=>P1[d]-P0[d]),v=[0,1,2].map(d=>P2[d]-P1[d]),lu=Math.hypot(...u),lv=Math.hypot(...v);
+        if(lu>.05&&lv>.05){const c=(u[0]*v[0]+u[1]*v[1]+u[2]*v[2])/(lu*lv);if(c<0)cost+=-2*c*Math.min(lu,lv);}
+      }}   // total atom travel
+    return cost;
+    };
+    /* PLACEMENT SEARCH (principle of least action): every distinct order of the reactants along the approach axis is tried
+       (identical species are not distinguished), each with the orientation refinement above; the arrangement whose atoms
+       travel least over the WHOLE reaction wins. Deterministic. */
+    const nsp=STAGES[0].species.length,ords=[],seenO=new Set(),keys0=STAGES[0].species.map(sp=>sp.k+':'+sp.a.map(a=>ATOM_Z[a]).join(','));
+    const permute=(arr,pre)=>{if(!arr.length){const sig=pre.map(i=>keys0[i]).join('|');if(!seenO.has(sig)){seenO.add(sig);ords.push(pre);}return;}arr.forEach((v,i)=>permute(arr.filter((_,j)=>j!==i),pre.concat(v)));};
+    if(nsp<=5)permute([...Array(nsp).keys()],[]);else ords.push(null);
+    const cand=[];ords.forEach(o=>cand.push([o,false]));
+    if(nsp>=3&&nsp<=5){const seenR=new Set();   // ring arrangements, de-duplicated under rotation and reflection
+      permute2:for(const o of ords){if(!o)continue;const sg=o.map(i=>keys0[i]),n=sg.length,forms=[];
+        for(let r=0;r<n;r++){forms.push(sg.map((_,k)=>sg[(k+r)%n]).join('|'));forms.push(sg.map((_,k)=>sg[(r-k+n*2)%n]).join('|'));}
+        const can=forms.sort()[0];if(seenR.has(can))continue permute2;seenR.add(can);cand.push([o,true]);}}
+    let best=null;
+    for(const[ord,ring]of cand){
+      let Qs=null,loc=null;
+      for(let pass=0;pass<4;pass++){
+        const cost=attempt(Qs,ord,ring);
+        if(!loc||cost<loc.cost*0.99)loc={cost,pos:KF.map(f=>f.pos),lab:STAGES.map(st=>st.species.map(sp=>sp.a.slice()))};
+        else if(pass>0)break;   // no real improvement: converged
+        Qs=STAGES[0].species.map(sp=>{const gp=G(sp);return sp.a.length<2?null:orientation(gp,sp.a.map(a=>KF[SN].pos[a].slice()));});
+      }
+      if(!best||loc.cost<best.cost*0.99)best=loc;
+    }
+    /* LOOK-AHEAD SMOOTHING: the transitions above are solved one after another, so a species' intermediate pose knows nothing
+       about where its atoms go next (this is what makes an atom lunge one way and then the other). Every intermediate species is
+       therefore re-seated, as a rigid body with its true bond lengths and angles, at the least-squares fit to the midpoint of where
+       its atoms were and will be (Kabsch), and the path is re-solved. A pass is kept only if total travel + forward-then-back
+       motion falls and no two nuclei end up closer than before. */
+    for(let it=0;it<5&&STAGES.length>2;it++){
+      const lab=best.lab,R=STAGES.map(s=>best.pos[s.rest]),tg=STAGES.map(()=>null);tg[0]=R[0];
+      for(let i=1;i<STAGES.length-1;i++){
+        const T=R[i].map(p=>p.slice());
+        STAGES[i].species.forEach((_,j)=>{
+          const a=lab[i][j],sk=STAGES[i].species[j].k,mids=a.map(g=>[0,1,2].map(d=>(R[i-1][g][d]+R[i+1][g][d])/2));
+          if(a.length===1){T[a[0]]=mids[0];return;}
+          const gp=G({k:sk,a}),q=orientation(gp,mids),c=[0,1,2].map(d=>mids.reduce((s,p)=>s+p[d],0)/mids.length);
+          a.forEach((g,ii)=>{const v=new THREE.Vector3(gp[ii][0],gp[ii][1],gp[ii][2]).applyQuaternion(q);T[g]=[c[0]+v.x,c[1]+v.y,c[2]+v.z];});
+        });
+        let ok=true;const own=new Map();lab[i].forEach((a,j)=>a.forEach(g=>own.set(g,j)));
+        for(let p=0;p<NA&&ok;p++)for(let q=p+1;q<NA;q++){if(own.get(p)===own.get(q))continue;
+          if(dist(T[p],T[q])<Math.min(dist(R[i][p],R[i][q]),Math.max(.95*bondLength(ATOM_Z[p],ATOM_Z[q],1)/scale,.6*(RZ(p)+RZ(q))))-1e-6){ok=false;break;}}
+        if(ok)tg[i]=T;
+      }
+      if(!tg.slice(1).some(Boolean))break;
+      const cost=attempt(null,null,false,tg,lab);
+      if(cost<best.cost*0.98)best={cost,pos:KF.map(f=>f.pos),lab:STAGES.map(st=>st.species.map(sp=>sp.a.slice()))};else break;
+    }
+    KF.forEach((f,i)=>{f.pos=best.pos[i];});
+    STAGES.forEach((st,i)=>st.species.forEach((sp,j)=>{sp.a=best.lab[i][j].slice();}));
+  }
+  function fit(spec){   // species atoms may be listed in any order: re-order to the definition's element order
+    const Z=spec.atoms.map(symZ);
+    spec.stages.forEach(st=>st.species.forEach(sp=>{
+      const def=sp.k==='atom'?null:speciesDef(spec,sp.k);if(!def||sp.a.length!==def.atoms.length)return;
+      const want=def.atoms.map(a=>a.Z);if(want.every((z,i)=>Z[sp.a[i]]===z))return;
+      const pool=sp.a.slice(),out=[];for(const z of want){const i=pool.findIndex(a=>Z[a]===z);if(i<0)return;out.push(pool.splice(i,1)[0]);}
+      sp.a=out;
+    }));
+  }
+
+  /* ================= pure helpers ================= */
+  const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+  const sm=x=>x*x*x*(x*(x*6-15)+10);
+  let simKF=null;
+  function posAt(t,K){   // monotone cubic Hermite (PCHIP) through keyframes: continuous velocity, no stop-and-go, and it can NEVER overshoot a keyframe along any axis
+    K=K||simKF;   // (Catmull-Rom overshot, so atoms ran past their destination and came back: forward-then-backward)
+    let i=0; while(i<KF.length-2&&t>KF[i+1].t)i++;
+    const n=KF.length,h=KF[i+1].t-KF[i].t,u=clamp((t-KF[i].t)/h),u2=u*u,u3=u2*u,h00=2*u3-3*u2+1,h10=u3-2*u2+u,h01=-2*u3+3*u2,h11=u3-u2;
+    const sl=(k,a,d)=>(K[k+1][a][d]-K[k][a][d])/(KF[k+1].t-KF[k].t);
+    const dv=(k,a,d)=>{   // Fritsch–Carlson / Brodlie weighted harmonic-mean slope; zero where the axis motion reverses
+      if(k===0)return sl(0,a,d);if(k===n-1)return sl(n-2,a,d);
+      const s0=sl(k-1,a,d),s1=sl(k,a,d);if(s0*s1<=0)return 0;
+      const h0=KF[k].t-KF[k-1].t,h1=KF[k+1].t-KF[k].t,w1=2*h1+h0,w2=h1+2*h0;return(w1+w2)/(w1/s0+w2/s1);
+    };
+    return K[i].map((_,a)=>K[i][a].map((_,d)=>h00*K[i][a][d]+h10*h*dv(i,a,d)+h01*K[i+1][a][d]+h11*h*dv(i+1,a,d)));
+  }
+  const fwin=(s,t)=>sm(clamp((t-(TS[s]-HALF))/(2*HALF)));
+  function weight(s,t){return (s===0?1:fwin(s-1,t))*(s===STAGES.length-1?1:1-fwin(s,t));}
+  const cur=t=>{let b=0,bw=-1;STAGES.forEach((_,s)=>{const w=weight(s,t);if(w>bw){bw=w;b=s;}});return b;};
+  const sub=n=>String(n).split('').map(d=>'₀₁₂₃₄₅₆₇₈₉'[+d]).join('');
+
+  /* ================= runtime state ================= */
+  let active=false,rg=null,raf=0,ui=null,ready=false,warming=false,MORPH=true;
+  let t=0,playing=true,speed=1,last=0,shownKF=-1,scale=20,saved=null,focus=-1,curP=null,downXY=null;
+  const rgOff=new THREE.Vector3();
+  const built=new Map(),data=new Map(),pairs=new Map(),nuclei=[],timeUniforms=[];
+  let geomCache={},oriCache={},molCache={};
+
+  /* ================= builders (the simulator's own) ================= */
+  function disposeTree(o){
+    o.traverse(c=>{
+      if(c.userData&&c.userData.isAtomLabel)return;
+      if(c.geometry)c.geometry.dispose();
+      if(c.material)(Array.isArray(c.material)?c.material:[c.material]).forEach(m=>m.dispose&&m.dispose());
+    });
+  }
+  /* ================= π-ELECTRON OVERLAY =================
+     buildMoleculeImpl draws each molecule's shared π-systems (the delocalised benzene ring, localised C=C π lobes,
+     C≡C spindles) as separate objects that are NOT part of any atom's cloud, so the per-atom pipeline below drops
+     them. moleculeSubs() now hands them back as `subs.extras`; each stage keeps them in a holder that follows its
+     species (same live centre + orientation as the atom clouds) and cross-fades with the stage weight, so
+     π bonds visibly open, become C=C lobes and finally merge into the ring. */
+  const OV=new Map(),OV_AX=new THREE.Vector3(0,1,0),OV_Q=new THREE.Quaternion();
+  function ovBuild(si,j,subs,sp){
+    const ex=subs&&subs.extras;if(!ex||!ex.length||sp.k==='atom')return;
+    const g=geom(sp.k),holder=new THREE.Group(),inner=new THREE.Group(),spin=[],fades=[];
+    inner.position.set(-g.cen[0],-g.cen[1],-g.cen[2]);holder.add(inner);
+    ex.forEach(e=>{
+      inner.add(e);
+      if(subs.ringSet&&subs.ringSet.has(e)){e.userData.qBase=e.quaternion.clone();spin.push(e);}
+      fades.push(fadeify(e));
+    });
+    holder.visible=false;rg.add(holder);
+    if(!OV.has(si))OV.set(si,[]);
+    OV.get(si).push({si,sp,holder,spin,setFade:v=>fades.forEach(f=>f(v))});
+  }
+  function ovRelease(si){const l=OV.get(si);if(!l)return;l.forEach(o=>{rg.remove(o.holder);disposeTree(o.holder);});OV.delete(si);}
+  function ovUpdate(P,tm){
+    OV.forEach(l=>l.forEach(o=>{
+      const w=weight(o.si,t),vis=w>0.003;o.holder.visible=vis;if(!vis)return;
+      const a=o.sp.a,c=[0,0,0];a.forEach(g=>{for(let d=0;d<3;d++)c[d]+=P[g][d]/a.length;});
+      o.holder.position.set(c[0],c[1],c[2]);
+      if(a.length>1)o.holder.quaternion.copy(orientation(geom(o.sp.k).pts,a.map(g=>P[g])));
+      OV_Q.setFromAxisAngle(OV_AX,tm*PI_SPIN_SPEED);
+      const wf=o.spin.length?sm(clamp((w-.35)/.65)):w;   // the aromatic ring cloud fades in LAST, once the σ framework is already there: no sudden pop
+      o.spin.forEach(e=>{e.quaternion.copy(e.userData.qBase).multiply(OV_Q);e.scale.setScalar(.3+.7*wf);});   // ring grows in as it forms; circulates about its own axis
+      o.setFade(wf);
+    }));
+  }
+  function speciesMol(k){
+    if(!molCache[k]){const d=speciesDef(SPEC,k);molCache[k]=MOLECULES.includes(d)?d:Object.assign({key:'rx_'+SPEC.id+'_'+k,geometry:'—'},d);}
+    return molCache[k];
+  }
+  function freeAtomGroup(Z){
+    moleculePointScale=1;
+    const g=new THREE.Group();
+    for(const orb of getEffectiveConfig(Z))g.add(ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e));
+    return g;
+  }
+  function moleculeSubs(mol){   // runs buildMoleculeImpl in isolation and returns the per-atom groups
+    const keepGrp=atomGrp,keepCMA=curMoleculeAtoms,keepMaxZ=maxZoomDist,keepFar=camera.far;
+    atomGrp=null;
+    const temp=!MOLECULES.includes(mol); if(temp)MOLECULES.push(mol);
+    try{
+      buildMoleculeImpl(mol.key);
+      const b=atomGrp,subs=b.children.filter(c=>c.isGroup).slice(0,mol.atoms.length);
+      const ringSet=new Set(aromaticRingGroup),keep=new Set(subs),hasPts=c=>{let f=false;c.traverse(o=>{if(o.isPoints)f=true;});return f;};
+      const extras=b.children.filter(c=>!keep.has(c)&&(ringSet.has(c)||hasPts(c)));   // shared π clouds (aromatic ring, C=C lobes, C≡C spindle)
+      subs.forEach(s=>b.remove(s)); extras.forEach(e=>b.remove(e)); pivot.remove(b); disposeTree(b);
+      aromaticRingGroup=[];subs.extras=extras;subs.ringSet=ringSet;
+      return subs;
+    }finally{
+      if(temp)MOLECULES.splice(MOLECULES.indexOf(mol),1);
+      atomGrp=keepGrp;curMoleculeAtoms=keepCMA;maxZoomDist=keepMaxZ;camera.far=keepFar;camera.updateProjectionMatrix();applyZoom();
+    }
+  }
+  function speciesSubs(si,j,absorb){
+    const sp=STAGES[si].species[j];let subs,isMol=true;
+    try{
+      if(sp.k==='atom'){subs=[freeAtomGroup(ATOM_Z[sp.a[0]])];isMol=false;}
+      else subs=moleculeSubs(speciesMol(sp.k));
+    }catch(err){
+      console.warn('[Reaction] species build failed, using free atoms:',sp.k,err);
+      subs=sp.a.map(g=>freeAtomGroup(ATOM_Z[g]));isMol=false;
+    }
+    subs.forEach(s=>{
+      s.position.set(0,0,0);
+      const nuc=s.children[0]; if(isMol&&nuc){s.remove(nuc);disposeTree(nuc);}     // nuclei are persistent
+      s.children.filter(c=>c.userData&&c.userData.isAtomPickProxy).forEach(c=>{s.remove(c);disposeTree(c);});
+    });
+    if(!absorb)ovBuild(si,j,subs,sp);   // Grainy mode hands the π clouds to the atoms instead (absorbExtras)
+    return subs;
+  }
+
+  /* ================= geometry: exact species, reaction layout ================= */
+  /* ORIENTATION: best-fit proper rotation taking a species' library geometry (src) onto its live atom positions (dst).
+     Horn's closed-form quaternion method over EVERY atom (unique and smooth for bent / pyramidal / tetrahedral species),
+     solved with a tiny exact 4x4 Jacobi eigen-solver. Where the roll about the axis is mathematically undefined
+     (linear species, or a bent one passing through a straight geometry) a weak reference restraint ties the species'
+     normal to the screen axis, blended in by planarity, so the result is a continuous function of the atom positions:
+     no 180° pops when an axis sweeps through -x or when a molecule momentarily straightens mid-reaction. */
+  const sstep=(a,b,x)=>{x=Math.min(1,Math.max(0,(x-a)/(b-a)));return x*x*(3-2*x);};
+  function topEigvec4(N){
+    const A=N.map(r=>r.slice()),V=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+    for(let sw=0;sw<24;sw++){
+      let off=0;for(let p=0;p<3;p++)for(let r=p+1;r<4;r++)off+=A[p][r]*A[p][r];
+      if(off<1e-22)break;
+      for(let p=0;p<3;p++)for(let r=p+1;r<4;r++){
+        const apq=A[p][r];if(Math.abs(apq)<1e-300)continue;
+        const th=(A[r][r]-A[p][p])/(2*apq),t=(th>=0?1:-1)/(Math.abs(th)+Math.sqrt(th*th+1)),c=1/Math.sqrt(t*t+1),s=t*c;
+        for(let k=0;k<4;k++){const x=A[k][p],y=A[k][r];A[k][p]=c*x-s*y;A[k][r]=s*x+c*y;}
+        for(let k=0;k<4;k++){const x=A[p][k],y=A[r][k];A[p][k]=c*x-s*y;A[r][k]=s*x+c*y;}
+        for(let k=0;k<4;k++){const x=V[k][p],y=V[k][r];V[k][p]=c*x-s*y;V[k][r]=s*x+c*y;}
+      }
+    }
+    let m=0;for(let i=1;i<4;i++)if(A[i][i]>A[m][m])m=i;
+    return[V[0][m],V[1][m],V[2][m],V[3][m]];
+  }
+  function planarity(b){   // λ2/λ1 of the point set's covariance: 0 = collinear, ~1 = isotropic
+    const C=[[0,0,0],[0,0,0],[0,0,0]];for(const p of b)for(let j=0;j<3;j++)for(let k=0;k<3;k++)C[j][k]+=p[j]*p[k];
+    const p1=C[0][1]*C[0][1]+C[0][2]*C[0][2]+C[1][2]*C[1][2],tr=C[0][0]+C[1][1]+C[2][2];
+    if(tr<1e-18)return 0;
+    const q=tr/3,p2=(C[0][0]-q)**2+(C[1][1]-q)**2+(C[2][2]-q)**2+2*p1,pp=Math.sqrt(p2/6);
+    if(pp<1e-12*tr)return 1;
+    const B=C.map((r,i)=>r.map((v,j)=>(v-(i===j?q:0))/pp)),
+      det=B[0][0]*(B[1][1]*B[2][2]-B[1][2]*B[2][1])-B[0][1]*(B[1][0]*B[2][2]-B[1][2]*B[2][0])+B[0][2]*(B[1][0]*B[2][1]-B[1][1]*B[2][0]),
+      phi=Math.acos(Math.max(-1,Math.min(1,det/2)))/3,e1=q+2*pp*Math.cos(phi),e3=q+2*pp*Math.cos(phi+2*Math.PI/3),e2=3*q-e1-e3;
+    return e1>1e-18?Math.max(0,e2)/e1:0;
+  }
+  function orientation(src,dst){
+    const q=new THREE.Quaternion(),n=src.length;
+    if(n<2)return q;
+    const cen=P=>{const c=[0,0,0];for(const p of P){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];}return c.map(v=>v/P.length);};
+    const cs=cen(src),cd=cen(dst),a=src.map(p=>[p[0]-cs[0],p[1]-cs[1],p[2]-cs[2]]),b=dst.map(p=>[p[0]-cd[0],p[1]-cd[1],p[2]-cd[2]]);
+    const dot=(u,v)=>u[0]*v[0]+u[1]*v[1]+u[2]*v[2],cr=(u,v)=>[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+    const nz=v=>{const l=Math.hypot(v[0],v[1],v[2]);return l>1e-12?[v[0]/l,v[1]/l,v[2]/l]:null;};
+    const far=P=>{let k=0,m=-1;P.forEach((p,i)=>{const l=dot(p,p);if(l>m+1e-12){m=l;k=i;}});return k;};
+    const S=[[0,0,0],[0,0,0],[0,0,0]];let L2=0;
+    for(let i=0;i<n;i++){L2+=dot(a[i],a[i]);for(let j=0;j<3;j++)for(let k=0;k<3;k++)S[j][k]+=a[i][j]*b[i][k];}
+    if(L2<1e-18||b.every(p=>dot(p,p)<1e-18))return q;
+    const w=1-sstep(.003,.025,Math.min(planarity(a),planarity(b)));   // roll is undefined if EITHER side is (near-)collinear
+    if(w>1e-6){
+      const ZR=[0,0,1],XR=[1,0,0],perp=(ax)=>{let r=ZR;if(Math.hypot(...cr(ax,ZR))<1e-3)r=XR;const d=dot(r,ax);return nz([r[0]-d*ax[0],r[1]-d*ax[1],r[2]-d*ax[2]]);};
+      const v1=nz(a[far(a)]);let ns=null,best=1e-6;
+      for(const p of a){const c=cr(v1,p),l=Math.hypot(...c);if(l>best){best=l;ns=[c[0]/l,c[1]/l,c[2]/l];}}
+      if(ns){if(dot(ns,ZR)<-1e-9||(Math.abs(dot(ns,ZR))<=1e-9&&ns[1]<0))ns=ns.map(v=>-v);}else ns=perp(v1);   // planar/3-D species: its plane normal; linear: any ⟂ (the cloud is cylindrically symmetric)
+      const v=[0,0,0];for(let i=0;i<n;i++){const c=dot(a[i],v1);v[0]+=c*b[i][0];v[1]+=c*b[i][1];v[2]+=c*b[i][2];}   // live image of the species axis: a smooth weighted sum, no argmax
+      const nd=perp(nz(v)||nz(b[far(b)]));
+      const lam=.5*w*L2;for(let j=0;j<3;j++)for(let k=0;k<3;k++)S[j][k]+=lam*ns[j]*nd[k];
+    }
+    const[Sxx,Sxy,Sxz,Syx,Syy,Syz,Szx,Szy,Szz]=[S[0][0],S[0][1],S[0][2],S[1][0],S[1][1],S[1][2],S[2][0],S[2][1],S[2][2]];
+    const e=topEigvec4([[Sxx+Syy+Szz,Syz-Szy,Szx-Sxz,Sxy-Syx],[Syz-Szy,Sxx-Syy-Szz,Sxy+Syx,Szx+Sxz],[Szx-Sxz,Sxy+Syx,-Sxx+Syy-Szz,Syz+Szy],[Sxy-Syx,Szx+Sxz,Syz+Szy,-Sxx-Syy+Szz]]);
+    return e[0]<0?q.set(-e[1],-e[2],-e[3],-e[0]):q.set(e[1],e[2],e[3],e[0]);
+  }
+  function geom(k){
+    if(!geomCache[k]){
+      const pts=k==='atom'?[[0,0,0]]:resolveMoleculeAtoms(speciesMol(k)).map(a=>a.pos);
+      geomCache[k]={pts,cen:pts.reduce((c,p)=>[c[0]+p[0]/pts.length,c[1]+p[1]/pts.length,c[2]+p[2]/pts.length],[0,0,0])};
+    }
+    return geomCache[k];
+  }
+  function speciesQ(si,j){
+    const key=si+'-'+j;
+    if(!oriCache[key]){const sp=STAGES[si].species[j];
+      oriCache[key]=orientation(geom(sp.k).pts,sp.a.map(a=>{const p=KF[STAGES[si].rest].pos[a];return[p[0],p[1],p[2]||0];}));}
+    return oriCache[key];
+  }
+  const CX=()=>0, CY=()=>0;
+  let cenX=0,cenY=0;
+  function layout(si,kfi){   // atoms at the SIMULATOR'S bond lengths/angles; only species centres follow the layout
+    const out=[];
+    STAGES[si].species.forEach((sp,j)=>{
+      const g=geom(sp.k),q=speciesQ(si,j),C=sp.a.map(a=>KF[kfi].pos[a]);
+      const cx=(C.reduce((m,p)=>m+p[0],0)/C.length-cenX)*scale,cy=(C.reduce((m,p)=>m+p[1],0)/C.length-cenY)*scale,cz=C.reduce((m,p)=>m+(p[2]||0),0)/C.length*scale;
+      sp.a.forEach((a,i)=>{
+        const v=new THREE.Vector3(g.pts[i][0]-g.cen[0],g.pts[i][1]-g.cen[1],g.pts[i][2]-g.cen[2]).applyQuaternion(q);
+        out[a]=[cx+v.x,cy+v.y,cz+v.z];
+      });
+    });
+    return out;
+  }
+  function buildSimKF(){
+    const restOf=new Map(STAGES.map((s,i)=>[s.rest,i])),lastS=STAGES.length-1;
+    let sx=0,sy=0,c=0;KF.forEach(f=>f.pos.forEach(p=>{sx+=p[0];sy+=p[1];c++;}));cenX=sx/c;cenY=sy/c;
+    simKF=KF.map((f,i)=>restOf.has(i)?layout(restOf.get(i),i)
+      :i>STAGES[lastS].rest?layout(lastS,i)
+      :f.pos.map(p=>[(p[0]-cenX)*scale,(p[1]-cenY)*scale,(p[2]||0)*scale]));    // transition states: stretched-bond geometry
+  }
+
+  /* ================= fallback (Smooth/Ultra): cross-fade ================= */
+  function fadeify(root){
+    const setters=[],cache=new Map();
+    root.traverse(o=>{
+      const m=o.material; if(!m||Array.isArray(m))return;
+      let c=cache.get(m);
+      if(!c){
+        if(m.isShaderMaterial&&/\}\s*$/.test(m.fragmentShader)){
+          c=m.clone();c.transparent=true;c.depthWrite=false;c.uniforms=THREE.UniformsUtils.clone(m.uniforms);c.uniforms.uFade={value:1};
+          c.fragmentShader='uniform float uFade;\n'+m.fragmentShader.replace(/\}\s*$/,'  gl_FragColor.a*=uFade;\n}');c.needsUpdate=true;
+          if(c.uniforms.uTime)timeUniforms.push(c.uniforms.uTime);
+          setters.push(v=>{c.uniforms.uFade.value=v;});
+        }else{c=m.clone();c.transparent=true;const base=c.opacity===undefined?1:c.opacity;setters.push(v=>{c.opacity=base*v;});}
+        cache.set(m,c);
+      }
+      o.material=c;
+    });
+    return v=>setters.forEach(f=>f(v));
+  }
+  function buildStage(si){ovRelease(si);
+    const holders=[];
+    STAGES[si].species.forEach((sp,j)=>{
+      const subs=speciesSubs(si,j),q=speciesQ(si,j);
+      sp.a.forEach((g,i)=>{const h=new THREE.Group();h.add(subs[i]);h.quaternion.copy(q);h.visible=false;rg.add(h);holders.push({g,h,sp,setFade:fadeify(subs[i])});});
+    });
+    built.set(si,{holders});
+  }
+  function releaseStage(si){ovRelease(si);const b=built.get(si);if(!b)return;b.holders.forEach(o=>{rg.remove(o.h);disposeTree(o.h);});built.delete(si);}
+  function applyCross(P){
+    const s0=cur(t); if(!built.has(s0))buildStage(s0);
+    [...built.keys()].forEach(k=>{if(Math.abs(k-s0)>1)releaseStage(k);});
+    for(let s=0;s<STAGES.length;s++){
+      const w=weight(s,t); if(w>0.003&&!built.has(s))buildStage(s);
+      const b=built.get(s); if(!b)continue;
+      b.holders.forEach(o=>{o.h.visible=w>0.003;if(o.h.visible){o.h.position.set(P[o.g][0],P[o.g][1],P[o.g][2]);if(o.sp.a.length>1)o.h.quaternion.copy(orientation(geom(o.sp.k).pts,o.sp.a.map(a=>P[a])));o.setFade(w);}});
+    }
+    if(s0+1<STAGES.length&&!built.has(s0+1))setTimeout(()=>{if(active&&!built.has(s0+1))buildStage(s0+1);},60);
+  }
+
+  /* ================= MORPH ENGINE (default grainy clouds) ================= */
+  const GLOW=0.9;
+  const capPts=()=>(typeof isMobile==='function'&&isMobile())?100000:260000;   // above the simulator's own per-atom totals: no decimation in normal cases
+  const sig=(si,g)=>{const sp=STAGES[si].species.find(x=>x.a.includes(g));return sp.k+':'+sp.a.join(',');};
+  const changes=(m,g)=>sig(m,g)!==sig(m+1,g);
+  function extract(sg,q){
+    sg.updateMatrixWorld(true);
+    const gs=[];sg.traverse(o=>{if(o.isPoints&&o.material&&o.material.vertexShader===VERT)gs.push(o);});
+    let N=0;gs.forEach(o=>N+=o.geometry.attributes.position.count);
+    if(!N)return{N:1,pos:new Float32Array(3),col:new Float32Array(3),alp:new Float32Array(1),seed:new Float32Array(1),jd:new Float32Array(3),jf:new Float32Array(1)};
+    const pos=new Float32Array(N*3),col=new Float32Array(N*3),alp=new Float32Array(N),seed=new Float32Array(N),jd=new Float32Array(N*3),jf=new Float32Array(N);
+    const Rq=new THREE.Matrix4().makeRotationFromQuaternion(q),R=Rq.elements;let k=0;
+    gs.forEach(o=>{
+      const g=o.geometry,n=g.attributes.position.count,M=new THREE.Matrix4().multiplyMatrices(Rq,o.matrixWorld).elements,p=g.attributes.position.array,d=g.attributes.aJDir.array;
+      col.set(g.attributes.aC.array,k*3);alp.set(g.attributes.aA.array,k);seed.set(g.attributes.aSeed.array,k);jf.set(g.attributes.aJFreq.array,k);
+      for(let i=0;i<n;i++){
+        const x=p[3*i],y=p[3*i+1],z=p[3*i+2],o3=3*(k+i);
+        pos[o3]=M[0]*x+M[4]*y+M[8]*z+M[12];pos[o3+1]=M[1]*x+M[5]*y+M[9]*z+M[13];pos[o3+2]=M[2]*x+M[6]*y+M[10]*z+M[14];
+        const a=d[3*i],b=d[3*i+1],c=d[3*i+2];
+        jd[o3]=M[0]*a+M[4]*b+M[8]*c;jd[o3+1]=M[1]*a+M[5]*b+M[9]*c;jd[o3+2]=M[2]*a+M[6]*b+M[10]*c;
+      }
+      k+=n;
+    });
+    return{N,pos,col,alp,seed,jd,jf};
+  }
+  /* π clouds that belong to a bond, not to one atom (C≡C spindles, C=C lobes, the aromatic ring) are handed to the NEAREST
+     atom of their species and morphed together with that atom's own cloud. The same density therefore flows from spindle →
+     lobes → ring through the optimal-transport pairing: no π grain is ever faded in or out, nothing "appears". */
+  function joinCloud(a,b){
+    if(!a||a.N<=1&&!a.alp[0])return b;if(!b||b.N<=1&&!b.alp[0])return a;
+    const N=a.N+b.N,f=(T,k,A,B)=>{const o=new T(N*k);o.set(A,0);o.set(B,a.N*k);return o;};
+    return{N,pos:f(Float32Array,3,a.pos,b.pos),col:f(Float32Array,3,a.col,b.col),alp:f(Float32Array,1,a.alp,b.alp),seed:f(Float32Array,1,a.seed,b.seed),jd:f(Float32Array,3,a.jd,b.jd),jf:f(Float32Array,1,a.jf,b.jf)};
+  }
+  function absorbExtras(sp,ex,q){
+    if(!ex||!ex.length||sp.k==='atom')return null;
+    const pts=geom(sp.k).pts,n=pts.length,R=new THREE.Matrix4().makeRotationFromQuaternion(q).elements,I=new THREE.Quaternion(),out=new Array(n).fill(null);
+    ex.forEach(e=>{
+      const c=extract(e,I);if(c.N<=1&&!c.alp[0])return;
+      const who=new Uint8Array(c.N),cnt=new Array(n).fill(0);
+      for(let i=0;i<c.N;i++){let b=0,bd=1e30;for(let a=0;a<n;a++){const d=(c.pos[3*i]-pts[a][0])**2+(c.pos[3*i+1]-pts[a][1])**2+(c.pos[3*i+2]-pts[a][2])**2;if(d<bd){bd=d;b=a;}}who[i]=b;cnt[b]++;}
+      for(let a=0;a<n;a++){
+        if(!cnt[a])continue;const M=cnt[a],o={N:M,pos:new Float32Array(M*3),col:new Float32Array(M*3),alp:new Float32Array(M),seed:new Float32Array(M),jd:new Float32Array(M*3),jf:new Float32Array(M)};let k=0;
+        for(let i=0;i<c.N;i++){if(who[i]!==a)continue;
+          const x=c.pos[3*i]-pts[a][0],y=c.pos[3*i+1]-pts[a][1],z=c.pos[3*i+2]-pts[a][2],u=c.jd[3*i],v=c.jd[3*i+1],w=c.jd[3*i+2];
+          o.pos[3*k]=R[0]*x+R[4]*y+R[8]*z;o.pos[3*k+1]=R[1]*x+R[5]*y+R[9]*z;o.pos[3*k+2]=R[2]*x+R[6]*y+R[10]*z;
+          o.jd[3*k]=R[0]*u+R[4]*v+R[8]*w;o.jd[3*k+1]=R[1]*u+R[5]*v+R[9]*w;o.jd[3*k+2]=R[2]*u+R[6]*v+R[10]*w;
+          for(let d=0;d<3;d++)o.col[3*k+d]=c.col[3*i+d];o.alp[k]=c.alp[i];o.seed[k]=c.seed[i];o.jf[k]=c.jf[i];k++;}
+        out[a]=joinCloud(out[a],o);
+      }
+    });
+    return out;
+  }
+  function buildStageData(si){
+    ovRelease(si);
+    const arr=new Array(NA);
+    STAGES[si].species.forEach((sp,j)=>{const subs=speciesSubs(si,j,true),q=speciesQ(si,j),ex=subs.extras||[],share=absorbExtras(sp,ex,q);sp.a.forEach((g,i)=>{arr[g]=share&&share[i]?joinCloud(extract(subs[i],q),share[i]):extract(subs[i],q);disposeTree(subs[i]);});ex.forEach(disposeTree);});
+    data.set(si,arr);
+  }
+  // sliced optimal transport: split both clouds at the median of the widest axis, recurse → spatially coherent pairing
+  function select(idx,lo,hi,m,P,ax){
+    let l=lo,r=hi-1;
+    while(l<r){
+      const pv=P[idx[(l+r)>>1]*3+ax];let i=l,j=r;
+      while(i<=j){while(P[idx[i]*3+ax]<pv)i++;while(P[idx[j]*3+ax]>pv)j--;if(i<=j){const x=idx[i];idx[i]=idx[j];idx[j]=x;i++;j--;}}
+      if(m<=j)r=j;else if(m>=i)l=i;else break;
+    }
+  }
+  function split(ia,ib,pa,pb,lo,hi){
+    if(hi-lo<=4)return;
+    const mn=[1e30,1e30,1e30],mx=[-1e30,-1e30,-1e30];
+    for(let i=lo;i<hi;i++){const a=ia[i]*3,b=ib[i]*3;for(let d=0;d<3;d++){mn[d]=Math.min(mn[d],pa[a+d],pb[b+d]);mx[d]=Math.max(mx[d],pa[a+d],pb[b+d]);}}
+    let ax=0;if(mx[1]-mn[1]>mx[ax]-mn[ax])ax=1;if(mx[2]-mn[2]>mx[ax]-mn[ax])ax=2;
+    const m=(lo+hi)>>1;select(ia,lo,hi,m,pa,ax);select(ib,lo,hi,m,pb,ax);split(ia,ib,pa,pb,lo,m);split(ia,ib,pa,pb,m,hi);
+  }
+  /* Pairwise-swap refinement of the sliced pairing: swapping two grains' targets whenever that shortens the total squared flight
+     moves the pairing toward true optimal transport, removing the leaf-level crossings that made neighbouring grains move in
+     different directions. Deterministic (xorshift), bounded work (~5M candidate tests), pairing multiset unchanged. */
+  // Pairwise-swap refinement of the sliced-OT pairing: lowers sum |a-b|^2 (closer to true optimal transport),
+  // which removes the leaf-level crossings that make neighbouring grains move in different directions.
+  function refinePairs(ia,ib,pa,pb,N,sweeps,cand){
+    if(N<16)return;
+    const mn=[1e30,1e30,1e30],mx=[-1e30,-1e30,-1e30];
+    for(let k=0;k<N;k++)for(let d=0;d<3;d++){const v=pa[3*ia[k]+d];if(v<mn[d])mn[d]=v;if(v>mx[d])mx[d]=v;}
+    const ext=[0,1,2].map(d=>Math.max(mx[d]-mn[d],1e-6));
+    const h=Math.max(Math.cbrt(ext[0]*ext[1]*ext[2]*6/N),Math.max(ext[0],ext[1],ext[2])/48);   // ~6 grains per cell (bounded grid)
+    const dm=ext.map(e=>Math.floor(e/h)+1),S=dm[0]*dm[1]*dm[2],cs=new Uint32Array(S+1),cell=new Uint32Array(N);
+    for(let k=0;k<N;k++){const a=3*ia[k];cell[k]=(Math.floor((pa[a+2]-mn[2])/h)*dm[1]+Math.floor((pa[a+1]-mn[1])/h))*dm[0]+Math.floor((pa[a]-mn[0])/h);cs[cell[k]+1]++;}
+    for(let c=0;c<S;c++)cs[c+1]+=cs[c];
+    const fill=cs.slice(0,S),ord=new Uint32Array(N);
+    for(let k=0;k<N;k++)ord[fill[cell[k]]++]=k;
+    let rs=0x9e3779b9;const rnd=()=>{rs^=rs<<13;rs^=rs>>>17;rs^=rs<<5;return(rs>>>0)/4294967296;};   // xorshift32: deterministic, no Math.random cost
+    for(let sw=0;sw<sweeps;sw++)for(let k=0;k<N;k++){
+      const c=cell[k],cx=c%dm[0],cy=((c/dm[0])|0)%dm[1],cz=(c/(dm[0]*dm[1]))|0;
+      for(let t=0;t<cand;t++){
+        const x=cx+((rnd()*3)|0)-1,y=cy+((rnd()*3)|0)-1,z=cz+((rnd()*3)|0)-1;
+        if(x<0||y<0||z<0||x>=dm[0]||y>=dm[1]||z>=dm[2])continue;
+        const cc=(z*dm[1]+y)*dm[0]+x,n=cs[cc+1]-cs[cc];if(!n)continue;
+        const j=ord[cs[cc]+((rnd()*n)|0)];if(j===k)continue;
+        const a=3*ia[k],b=3*ib[k],a2=3*ia[j],b2=3*ib[j];
+        const cur=(pa[a]-pb[b])**2+(pa[a+1]-pb[b+1])**2+(pa[a+2]-pb[b+2])**2+(pa[a2]-pb[b2])**2+(pa[a2+1]-pb[b2+1])**2+(pa[a2+2]-pb[b2+2])**2;
+        const alt=(pa[a]-pb[b2])**2+(pa[a+1]-pb[b2+1])**2+(pa[a+2]-pb[b2+2])**2+(pa[a2]-pb[b])**2+(pa[a2+1]-pb[b+1])**2+(pa[a2+2]-pb[b+2])**2;
+        if(alt<cur*0.9999){const q=ib[k];ib[k]=ib[j];ib[j]=q;}
+      }
+    }
+  }
+  function smoothTarget(pos,pos2,N,h0){   // continuous flow field: trilinear-splat the displacements, blur (3 passes of [1 2 1]), sample back. Returns pos + smoothed displacement.
+    const mn=[1e30,1e30,1e30],mx=[-1e30,-1e30,-1e30];
+    for(let i=0;i<N;i++)for(let d=0;d<3;d++){const v=pos[3*i+d];if(v<mn[d])mn[d]=v;if(v>mx[d])mx[d]=v;}
+    const h=Math.max(h0,Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2])/60),dm=[0,1,2].map(d=>Math.ceil((mx[d]-mn[d])/h)+4),S=dm[0]*dm[1]*dm[2],G=new Float32Array(S*4),idx=(x,y,z)=>((z*dm[1]+y)*dm[0]+x)*4;
+    const cell=(p,d)=>{const g=(p-mn[d])/h+1.5,i=Math.floor(g);return[i,g-i];};
+    for(let i=0;i<N;i++){
+      const[ix,fx]=cell(pos[3*i],0),[iy,fy]=cell(pos[3*i+1],1),[iz,fz]=cell(pos[3*i+2],2),vx=pos2[3*i]-pos[3*i],vy=pos2[3*i+1]-pos[3*i+1],vz=pos2[3*i+2]-pos[3*i+2];
+      for(let c=0;c<8;c++){const ox=c&1,oy=(c>>1)&1,oz=(c>>2)&1,w=(ox?fx:1-fx)*(oy?fy:1-fy)*(oz?fz:1-fz),o=idx(ix+ox,iy+oy,iz+oz);G[o]+=vx*w;G[o+1]+=vy*w;G[o+2]+=vz*w;G[o+3]+=w;}
+    }
+    const T=new Float32Array(S*4);
+    for(let pass=0;pass<3;pass++)for(let ax=0;ax<3;ax++){
+      const st=[4,dm[0]*4,dm[0]*dm[1]*4][ax],n=dm[ax];
+      for(let z=0;z<dm[2];z++)for(let y=0;y<dm[1];y++)for(let x=0;x<dm[0];x++){
+        const o=idx(x,y,z),c=[x,y,z][ax];
+        for(let k=0;k<4;k++){const a=c>0?G[o-st+k]:G[o+k],b=c<n-1?G[o+st+k]:G[o+k];T[o+k]=.25*a+.5*G[o+k]+.25*b;}
+      }
+      G.set(T);
+    }
+    const out=new Float32Array(N*3);
+    for(let i=0;i<N;i++){
+      const[ix,fx]=cell(pos[3*i],0),[iy,fy]=cell(pos[3*i+1],1),[iz,fz]=cell(pos[3*i+2],2);let sx=0,sy=0,sz=0,sw=0;
+      for(let c=0;c<8;c++){const ox=c&1,oy=(c>>1)&1,oz=(c>>2)&1,w=(ox?fx:1-fx)*(oy?fy:1-fy)*(oz?fz:1-fz),o=idx(ix+ox,iy+oy,iz+oz);sx+=G[o]*w;sy+=G[o+1]*w;sz+=G[o+2]*w;sw+=G[o+3]*w;}
+      if(sw>1e-5){out[3*i]=pos[3*i]+sx/sw;out[3*i+1]=pos[3*i+1]+sy/sw;out[3*i+2]=pos[3*i+2]+sz/sw;}else{out[3*i]=pos2[3*i];out[3*i+1]=pos2[3*i+1];out[3*i+2]=pos2[3*i+2];}
+    }
+    return out;
+  }
+  function resample(n,N){
+    const idx=new Uint32Array(N);
+    if(n>=N){const all=new Uint32Array(n);for(let i=0;i<n;i++)all[i]=i;for(let i=0;i<N;i++){const j=i+((Math.random()*(n-i))|0),x=all[i];all[i]=all[j];all[j]=x;}idx.set(all.subarray(0,N));}
+    else{for(let i=0;i<n;i++)idx[i]=i;for(let i=n;i<N;i++)idx[i]=(Math.random()*n)|0;}
+    return idx;
+  }
+  function morphMaterial(){
+    let v=VERT.replace(/\bposition\b/g,'rxP');
+    v=v.replace('void main(){','void main(){\n  float rxE=clamp((uMorph-0.3)/0.7,0.0,1.0); vec3 rxP=mix(qr(uQA,position),qr(uQB,aPosS),uMorph)+(qr(uQB,aPos2)-qr(uQB,aPosS))*(rxE*rxE*rxE*(rxE*(rxE*6.0-15.0)+10.0));\n  float pw=smoothstep(0.12,0.85,length(rxP)/uRv); vec3 rxP0=rxP; vec3 rxD=vec3(0.0); for(int i=0;i<8;i++){ if(float(i)>=uNn)break; vec3 nv=uNb[i].xyz; float Ln=length(nv)+1e-4; vec3 ax=nv/Ln; float w=clamp(uNb[i].w,-0.3,1.3); float a=dot(rxP0,ax); vec3 pr=rxP0-ax*a; float c=a/(length(rxP0)+1e-4); float lobe=smoothstep(-0.3,1.0,c); lobe*=lobe; float ur=clamp(uAmp*w*lobe*pw/(0.3*Ln),-30.0,30.0); float ua=0.3*Ln*ur*inversesqrt(sqrt(1.0+ur*ur*ur*ur))*(1.0-smoothstep(0.2,0.8,a/Ln)); rxD+=ax*ua-pr*(0.5*ua/uRv*lobe); } rxP=rxP0+rxD;').replace('vC=aC; vA=aA;','vC=mix(aC,aC2,uMorph); vA=mix(aA,aA2,uMorph);');
+    v='attribute vec3 aPos2;attribute vec3 aPosS;attribute vec3 aC2;attribute float aA2;uniform float uMorph;uniform vec4 uNb[8];uniform float uNn;uniform float uAmp;uniform float uSig;uniform float uRv;uniform vec4 uQA;uniform vec4 uQB;vec3 qr(vec4 q,vec3 v){return v+2.0*cross(q.xyz,cross(q.xyz,v)+q.w*v);}\n'+v;
+    /* The morph material must look exactly like the theme's own grain material (blending, depth, shading),
+       otherwise clouds visibly change look the moment a reaction starts. Dark: additive glow clouds.
+       Light: opaque, depth-written, normal-blended grains on a bright canvas — there the bond-exchange
+       "glow" is a deepening/saturation of the grain colour (brightening would wash out to the background). */
+    const base=getSharedGrainyMaterial();
+    let f;
+    if(FRAG.includes('vC*(0.7+core*0.6)'))f='uniform float uGlow;\n'+FRAG.replace('vC*(0.7+core*0.6)','vC*(0.7+core*0.6)*(1.0+uGlow)');
+    else if(FRAG.includes('gl_FragColor=vec4(vC, vA);'))f='uniform float uGlow;\n'+FRAG.replace('gl_FragColor=vec4(vC, vA);','float gk=clamp(uGlow,0.0,1.0);\n  vec3 gc=mix(vC,vC*vC*0.55,gk*0.85);\n  gl_FragColor=vec4(gc, vA);');
+    else throw new Error('grainy shader layout changed');
+    if(!v.includes('mix(aC,aC2')||!v.includes('vec3 rxP')||!f.includes('uGlow'))throw new Error('grainy shader layout changed');
+    const mat=new THREE.ShaderMaterial({vertexShader:v,fragmentShader:f,transparent:base.transparent,depthWrite:base.depthWrite,blending:base.blending,uniforms:{uTime:{value:0},uMorph:{value:0},uGlow:{value:0},uNb:{value:Array.from({length:8},()=>new THREE.Vector4())},uQA:{value:new THREE.Vector4(0,0,0,1)},uQB:{value:new THREE.Vector4(0,0,0,1)},uNn:{value:0},uAmp:{value:1},uSig:{value:1},uRv:{value:1}}});
+    timeUniforms.push(mat.uniforms.uTime);return mat;
+  }
+  function buildPair(g,m){
+    const A=data.get(m)[g],B=data.get(m+1)[g],moves=changes(m,g),T=moves?B:A;
+    const N=Math.min(capPts(),moves?Math.max(A.N,B.N):A.N),ia=resample(A.N,N),ib=moves?resample(B.N,N):ia;
+    if(moves){split(ia,ib,A.pos,B.pos,0,N);refinePairs(ia,ib,A.pos,B.pos,N,Math.max(1,Math.min(4,Math.floor(5e6/(N*16)))),16);}
+    const pos=new Float32Array(N*3),pos2=new Float32Array(N*3),col=new Float32Array(N*3),col2=new Float32Array(N*3),alp=new Float32Array(N),alp2=new Float32Array(N),seed=new Float32Array(N),jd=new Float32Array(N*3),jf=new Float32Array(N);
+    const sa=A.N/N,sb=T.N/N;     // brightness compensation when resampled → density preserved
+    for(let i=0;i<N;i++){
+      const a=ia[i],b=ib[i];
+      for(let d=0;d<3;d++){pos[3*i+d]=A.pos[3*a+d];pos2[3*i+d]=T.pos[3*b+d];col[3*i+d]=A.col[3*a+d];col2[3*i+d]=T.col[3*b+d];jd[3*i+d]=A.jd[3*a+d];}
+      alp[i]=A.alp[a]*sa;alp2[i]=T.alp[b]*sb;seed[i]=A.seed[a];jf[i]=A.jf[a];
+    }
+    const geo=new THREE.BufferGeometry(),at=(n,arr,c)=>geo.setAttribute(n,new THREE.BufferAttribute(arr,c));
+    at('position',pos,3);at('aPos2',pos2,3);at('aPosS',moves?smoothTarget(pos,pos2,N,Rz(g)/8):pos2,3);at('aC',col,3);at('aC2',col2,3);at('aA',alp,1);at('aA2',alp2,1);at('aSeed',seed,1);at('aJDir',jd,3);at('aJFreq',jf,1);
+    const pts=new THREE.Points(geo,morphMaterial());pts.frustumCulled=false;pts.visible=false;rg.add(pts);
+    const rec={pts,moves};pairs.set(g+'-'+m,rec);return rec;
+  }
+  function disposePair(k){const p=pairs.get(k);if(!p)return;rg.remove(p.pts);p.pts.geometry.dispose();p.pts.material.dispose();pairs.delete(k);}
+  function warm(m){   // pre-build the next transition one atom per tick, off the critical path
+    if(warming||m>=STAGES.length-1||!data.has(m)||!data.has(m+1))return;
+    const g=[...Array(NA).keys()].find(x=>!pairs.has(x+'-'+m));if(g===undefined)return;
+    warming=true;setTimeout(()=>{warming=false;if(active&&data.has(m)&&data.has(m+1)&&!pairs.has(g+'-'+m))buildPair(g,m);},40);
+  }
+  const CHI={1:2.20,3:.98,4:1.57,5:2.04,6:2.55,7:3.04,8:3.44,9:3.98,11:.93,12:1.31,13:1.61,14:1.9,15:2.19,16:2.58,17:3.16,19:.82,20:1.0,35:2.96,53:2.66};
+  const chi=z=>CHI[z]||2.0,RzC={},Rz=g=>RzC[ATOM_Z[g]]||(RzC[ATOM_Z[g]]=Math.max(...getEffectiveConfig(ATOM_Z[g]).map(o=>o.R)));
+  const same=(s,i,j)=>STAGES[s].species.some(sp=>sp.a.includes(i)&&sp.a.includes(j))?1:0;
+  /* FLUID response: each (atom, neighbour) interaction follows a damped spring (omega 5 rad/s, zeta .6): the density lags its driver, overshoots ~9% and settles like a viscous drop.
+     State is per atom and shared across pair hand-overs; scrubs (|dt|>0.3 s) snap to the driver. */
+  const FL=[],FLt=[],FL_OM=5,FL_ZT=.6;let FLid=null;
+  function polarise(P,g,m,u,uni){
+    if(FLid!==SPEC.id){FL.length=0;FLt.length=0;FLid=SPEC.id;}
+    const dt=FLt[g]===undefined?1e9:Math.abs(t-FLt[g]);FLt[g]=t;
+    const M=FL[g]||(FL[g]=new Map()),nb=[];
+    for(let b=0;b<NA;b++){
+      if(b===g)continue;
+      const dx=P[b][0]-P[g][0],dy=P[b][1]-P[g][1],dz=P[b][2]-P[g][2],dA=Math.hypot(dx,dy,dz)/(Rz(g)+Rz(b));
+      const prox=sm(clamp((2.2-dA)/1.2)),act=same(m,g,b)===same(m+1,g,b)?0:Math.sin(Math.PI*u);
+      const c=.55+.45*Math.tanh((chi(ATOM_Z[b])-chi(ATOM_Z[g]))*1.1),tg=c*prox*act;   // driver: toward the more electronegative partner, only while a bond forms/breaks
+      let st=M.get(b);if(!st){st={y:tg,v:0};M.set(b,st);}
+      if(dt>.3){st.y=tg;st.v=0;}
+      else if(dt>0){const n=Math.ceil(dt/.008),h=dt/n;for(let k=0;k<n;k++){st.v+=(FL_OM*FL_OM*(tg-st.y)-2*FL_ZT*FL_OM*st.v)*h;st.y+=st.v*h;}}
+      nb.push([dx,dy,dz,st.y,dA]);
+    }
+    nb.sort((p,q)=>Math.abs(q[3])-Math.abs(p[3])||p[4]-q[4]);   // shader holds 8 neighbours: keep the strongest
+    const n=Math.min(8,nb.length);
+    for(let k=0;k<n;k++)uni.uNb.value[k].set(nb[k][0],nb[k][1],nb[k][2],nb[k][3]);
+    uni.uNn.value=n;uni.uAmp.value=.42*Rz(g);uni.uSig.value=1.6*Rz(g)+1;uni.uRv.value=Rz(g);
+  }
+  // a cloud must turn with its molecule: rotation from the stage's baked orientation to the species' CURRENT orientation (from live atom positions)
+  function relQ(si,g,P){
+    const j=STAGES[si].species.findIndex(sp=>sp.a.includes(g)),sp=STAGES[si].species[j];
+    if(sp.a.length<2)return new THREE.Quaternion();
+    return orientation(geom(sp.k).pts,sp.a.map(a=>P[a])).multiply(speciesQ(si,j).clone().invert());
+  }
+  function applyMorph(P){
+    const r=cur(t);
+    for(let s=Math.max(0,r-1);s<=Math.min(STAGES.length-1,r+1);s++)if(!data.has(s))buildStageData(s);
+    [...data.keys()].forEach(k=>{if(Math.abs(k-r)>1){data.delete(k);ovRelease(k);}});
+    let m=r===0?0:r-1,u=r===0?0:1,inWin=false;
+    for(let s=0;s<TS.length;s++)if(t>=TS[s]-HALF&&t<=TS[s]+HALF){m=s;u=fwin(s,t);inWin=true;}
+    [...pairs.keys()].forEach(k=>{const mm=+k.split('-')[1];if(mm!==m&&mm!==m+1)disposePair(k);});
+    for(let g=0;g<NA;g++){
+      const rec=pairs.get(g+'-'+m)||buildPair(g,m);
+      pairs.forEach((p,k)=>{if(k.startsWith(g+'-'))p.pts.visible=(p===rec);});
+      rec.pts.position.set(P[g][0],P[g][1],P[g][2]);
+      rec.pts.material.uniforms.uMorph.value=u;polarise(P,g,m,u,rec.pts.material.uniforms);
+      {let qa=relQ(m,g,P),qb=relQ(rec.moves?m+1:m,g,P);const U=rec.pts.material.uniforms;
+        if(rec.moves){const wa=sm(clamp((u-.5)/.5)),wb=1-sm(clamp(u/.5)),qa2=qa.clone().slerp(qb,wa),qb2=qb.clone().slerp(qa,wb);qa=qa2;qb=qb2;}
+        if(rec.qaS&&Math.abs(t-rec.tS)<.3){const cap=6*Math.abs(t-rec.tS);rec.qaS.rotateTowards(qa,cap);rec.qbS.rotateTowards(qb,cap);}else{rec.qaS=qa.clone();rec.qbS=qb.clone();}
+        rec.tS=t;qa=rec.qaS;qb=rec.qbS;U.uQA.value.set(qa.x,qa.y,qa.z,qa.w);U.uQB.value.set(qb.x,qb.y,qb.z,qb.w);}
+      rec.pts.material.uniforms.uGlow.value=(inWin&&rec.moves)?GLOW*Math.sin(Math.PI*u):0;
+    }
+    if(!inWin)warm(r);
+  }
+
+  /* ================= focus (tap an atom → rotation re-centres on it, follows it as it moves) ================= */
+  function setFocus(g){
+    focus=g;
+    if(ui)ui.chips.forEach((c,i)=>c.classList.toggle('on',i-1===g));
+  }
+  function pick(e){
+    if(!curP)return;
+    const el=renderer.domElement,rect=el.getBoundingClientRect();pivot.updateMatrixWorld(true);
+    let best=-1,bd=64;
+    for(let g=0;g<NA;g++){
+      const v=new THREE.Vector3(curP[g][0],curP[g][1],curP[g][2]);rg.localToWorld(v);v.project(camera);
+      const d=Math.hypot((v.x*.5+.5)*rect.width+rect.left-e.clientX,(-v.y*.5+.5)*rect.height+rect.top-e.clientY);
+      if(v.z<1&&d<bd){bd=d;best=g;}
+    }
+    setFocus(best>=0&&best!==focus?best:-1);
+  }
+  const onDown=e=>{downXY=[e.clientX,e.clientY];};
+  const onUp=e=>{if(!downXY)return;const moved=Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1]);downXY=null;if(moved<=6)pick(e);};
+
+  /* ================= frame / UI ================= */
+  function uiUpdate(){
+    const tm=performance.now()/1000;timeUniforms.forEach(u=>u.value=tm);
+    let k=0;KF.forEach((f,i)=>{if(f.stage&&t>=f.t-2*TSC)k=i;});
+    if(k!==shownKF){shownKF=k;ui.stage.textContent=KF[k].stage;ui.eq.textContent=KF[k].eq;ui.txt.textContent=KF[k].txt;[ui.stage,ui.eq,ui.txt].forEach(e=>{e.classList.remove('rx-pop');void e.offsetWidth;e.classList.add('rx-pop');});}
+    ui.scrub.value=Math.round(t/T_END*1000);ui.scrub.style.setProperty('--p',(t/T_END*100)+'%');ui.el.style.setProperty('--ppn',(t/T_END).toFixed(4));
+    {const cs=cur(t);ui.ct.textContent=(cs+1)+' / '+STAGES.length;[...ui.dots.children].forEach((d,i)=>{d.className=i===cs?'on':i<cs?'done':'';});ui.zoom.style.setProperty('--p',((sl.value-1)/599*100)+'%');}
+    if(document.activeElement!==ui.zoom)ui.zoom.value=sl.value;
+  }
+  function apply(){
+    const P=posAt(t);curP=P;
+    nuclei.forEach((n,g)=>n.position.set(P[g][0],P[g][1],P[g][2]));
+    if(MORPH)applyMorph(P);else applyCross(P);
+    ovUpdate(P,performance.now()/1000);
+    uiUpdate();
+  }
+  /* Nucleus glow, identical to the single-atom / molecule view (main loop): the sun-sprite grows with camera
+     distance so every nucleus stays a visible glowing point however far you zoom out, the point light pulses,
+     and the close-range halo shells fade with distance. The main loop only walks the normal atom group, so the
+     reaction's own nuclei need the same per-frame update. */
+  function nucleusFx(tm){
+    const s=Math.max(8,camZ*0.06),li=4+Math.sin(tm*3.5)*.9,zf=Math.max(0,Math.min(1,80/camZ));
+    for(let i=0;i<nuclei.length;i++)nuclei[i].traverse(o=>{
+      if(o.isSprite&&o.userData.isSunSprite)o.scale.set(s,s,1);
+      else if(o.isPointLight)o.intensity=li;
+      else if(o.isMesh&&o.material&&o.material.side===THREE.BackSide&&o.geometry&&o.geometry.parameters&&o.geometry.parameters.radius<0.1){
+        if(o.material._baseOpacity===undefined)o.material._baseOpacity=o.material.opacity;
+        o.material.opacity=o.material._baseOpacity*zf;
+      }
+    });
+  }
+  function frame(now){
+    raf=requestAnimationFrame(frame);
+    if(atomGrp&&atomGrp.visible){exit(false);return;}
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    if(!ready)return;
+    if(playing){t+=dt*speed;if(t>=T_END){t=T_END;playing=false;setPlayIcon();}}
+    apply();
+    nucleusFx(now/1000);
+    const tgt=focus>=0&&curP?new THREE.Vector3(-curP[focus][0],-curP[focus][1],-curP[focus][2]):new THREE.Vector3(0,0,0);
+    rgOff.lerp(tgt,1-Math.exp(-dt*6));rg.position.copy(rgOff);
+  }
+  function makeUI(){
+    const ICON={
+      prev:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="2.6" height="14" rx="1.2"/><path d="M19 5.5v13L9.5 12z"/></svg>',
+      next:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="16.4" y="5" width="2.6" height="14" rx="1.2"/><path d="M5 5.5v13L14.5 12z"/></svg>',
+      chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>',
+      x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>',
+      minus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
+      plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>'
+    };
+    PLAY_ICON={play:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6L19.2 12z"/></svg>',pause:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.4"/><rect x="13.5" y="5" width="4" height="14" rx="1.4"/></svg>'};
+    const old=document.getElementById('rx-style');if(old)old.remove();const css=document.createElement('style');css.id='rx-style';
+    css.textContent="@keyframes rxFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}\n@keyframes rxSettle{from{opacity:.5;transform:translateX(-50%) translateY(10px) scale(.985)}to{opacity:1;transform:translateX(-50%)}}\n#rx-panel{--rx-r:20px;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:60;width:min(560px,calc(100vw - 16px));max-height:min(62vh,660px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;box-sizing:border-box;padding:22px 14px 14px;border-radius:var(--rx-r);\n  background:linear-gradient(180deg,rgba(255,255,255,.07),transparent 42%),var(--glass-bg-hi,var(--bg-solid,#0e0804));border:1px solid var(--glass-border,rgba(255,255,255,.12));-webkit-backdrop-filter:var(--glass-blur,blur(20px));backdrop-filter:var(--glass-blur,blur(20px));box-shadow:var(--glass-shadow,0 8px 32px rgba(0,0,0,.45));\n  color:var(--hi,#fff);font:500 14px/1.4 var(--display,'Rajdhani'),system-ui,sans-serif;scrollbar-width:none;-webkit-tap-highlight-color:transparent;transition:opacity .22s ease,filter .22s ease}\n#rx-panel::-webkit-scrollbar{display:none}\n#rx-panel.rx-settle{animation:rxSettle .26s cubic-bezier(.2,.8,.2,1) backwards}\n#rx-panel::before{content:'';position:absolute;left:18px;right:18px;top:0;height:2px;border-radius:0 0 2px 2px;background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a))}\n#rx-panel::after{content:'';position:absolute;left:18px;top:0;height:2px;width:calc((100% - 36px) * var(--ppn,0));border-radius:0 0 2px 2px;background:var(--brand-grad,var(--cyan));opacity:0;transition:opacity .2s}\n#rx-panel.dim{opacity:.16;pointer-events:none;filter:saturate(.7)}\n#rx-panel .rx-row{display:flex;gap:8px;align-items:center;margin:0}\n#rx-panel .rx-top{margin-bottom:12px}#rx-panel .rx-ctl{margin-top:14px}\n#rx-panel button{box-sizing:border-box;height:42px;min-width:42px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font:600 15px var(--display,'Rajdhani'),system-ui,sans-serif;color:var(--hi,#fff);background:rgba(var(--cyan-rgb,255,85,0),.08);border:1px solid rgba(var(--cyan-rgb,255,85,0),.24);border-radius:12px;cursor:pointer;touch-action:manipulation;transition:background .15s,border-color .15s,transform .1s,filter .15s,box-shadow .15s}\n#rx-panel button svg{width:18px;height:18px;flex:none;display:block}\n#rx-panel button:hover{background:rgba(var(--cyan-rgb,255,85,0),.16);border-color:rgba(var(--cyan-rgb,255,85,0),.5)}#rx-panel button:active{transform:scale(.95)}\n#rx-panel button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}\n#rx-panel .rx-play,#rx-panel .rx-x{background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a));color:#fff;border:1px solid rgba(255,255,255,.3);box-shadow:0 3px 12px rgba(var(--cyan-rgb,255,85,0),.38),inset 0 1px 0 rgba(255,255,255,.25)}\n#rx-panel .rx-play:hover,#rx-panel .rx-x:hover{background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a));filter:brightness(1.08)}\n#rx-panel .rx-play{min-width:58px;height:44px;border-radius:14px}\n#rx-panel .rx-play svg{width:20px;height:20px}\n#rx-panel .rx-grab{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:76px;height:22px;min-width:0;padding:0;border:0;border-radius:11px;background:transparent;box-shadow:none;touch-action:none}\n#rx-panel .rx-grab:hover{background:transparent}#rx-panel .rx-grab:active{transform:translateX(-50%)}\n#rx-panel .rx-grab i{display:block;width:34px;height:4px;border-radius:2px;margin:9px auto 0;background:rgba(var(--cyan-rgb,255,85,0),.38);transition:background .15s,width .15s}\n#rx-panel .rx-grab:hover i{background:rgba(var(--cyan-rgb,255,85,0),.7);width:42px}\n#rx-panel .rx-sel{flex:1;min-width:0;justify-content:flex-start;text-align:left;font-size:16px;font-weight:700;padding:0 38px 0 14px;\n  background-image:linear-gradient(45deg,transparent 50%,var(--cyan) 50%),linear-gradient(135deg,var(--cyan) 50%,transparent 50%);background-position:calc(100% - 19px) 50%,calc(100% - 14px) 50%;background-size:5px 5px;background-repeat:no-repeat}\n#rx-panel .rx-sel[aria-expanded=true]{border-color:var(--cyan);background-color:rgba(var(--cyan-rgb,255,85,0),.16);box-shadow:0 0 0 3px rgba(var(--cyan-rgb,255,85,0),.16)}\n#rx-panel .rx-sel-t{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n#rx-panel .rx-min svg{transition:transform .22s cubic-bezier(.2,.8,.2,1)}#rx-panel.min .rx-min svg{transform:rotate(180deg)}\n#rx-panel .rx-dots{display:flex;gap:6px;margin:0 0 12px}#rx-panel .rx-dots i{flex:1;height:5px;border-radius:3px;background:rgba(var(--cyan-rgb,255,85,0),.18);cursor:pointer;position:relative;transition:background .25s}\n#rx-panel .rx-dots i::after{content:'';position:absolute;inset:-12px 0}\n#rx-panel .rx-dots i.done{background:rgba(var(--cyan-rgb,255,85,0),.58)}#rx-panel .rx-dots i.on{background:var(--brand-grad,var(--cyan));box-shadow:0 0 8px rgba(var(--cyan-rgb,255,85,0),.5)}\n#rx-panel .rx-meta{display:flex;align-items:baseline;justify-content:space-between;gap:10px}\n#rx-panel .rx-st{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}\n#rx-panel .rx-ct{flex:none;font:400 11px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.1em;color:var(--lo,rgba(255,255,255,.6))}\n#rx-panel .rx-eq{font:700 22px/1.2 var(--display,'Rajdhani'),sans-serif;margin:3px 0 5px;color:var(--hi,#fff)}\n#rx-panel .rx-tx{font:500 14px/1.45 var(--display,'Rajdhani'),sans-serif;color:var(--mid,rgba(255,255,255,.75))}\n#rx-panel .rx-pop{animation:rxFade .3s ease-out both}\n#rx-panel .rx-lb{flex:none;width:44px;font:400 11px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lo,rgba(255,255,255,.6))}\n#rx-panel .rx-spd{min-width:50px;padding:0 8px;font:400 13px var(--mono,'Share Tech Mono'),monospace}\n#rx-panel .rx-view{margin-top:14px;padding-top:12px;border-top:1px solid rgba(var(--cyan-rgb,255,85,0),.16)}\n#rx-panel .rx-more{margin-top:10px}#rx-panel .rx-more:first-child{margin-top:0}\n#rx-panel .rx-zo,#rx-panel .rx-zi{height:36px;min-width:36px;padding:0}\n#rx-panel input[type=range]{flex:1;min-width:60px;height:28px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;touch-action:none}\n#rx-panel input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--cyan) var(--p,0%),rgba(var(--cyan-rgb,255,85,0),.2) var(--p,0%))}\n#rx-panel input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:rgba(var(--cyan-rgb,255,85,0),.2)}#rx-panel input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--cyan)}\n#rx-panel input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:var(--brand-grad,var(--cyan));border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4)}\n#rx-panel input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--cyan);border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4)}\n#rx-panel .rx-focus{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);padding-right:22px}\n#rx-panel .rx-focus::-webkit-scrollbar{display:none}\n#rx-panel .rx-focus button{flex:none;height:34px;min-width:0;padding:0 14px;border-radius:99px;font-size:14px}\n#rx-panel .rx-focus button.on{background:var(--brand-grad,var(--cyan));color:#fff;border-color:rgba(255,255,255,.5);box-shadow:0 0 10px rgba(var(--cyan-rgb,255,85,0),.5)}\n#rx-panel.min{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;grid-template-areas:'play info exp x';align-items:center;column-gap:10px;padding:16px 12px 12px;max-height:none;overflow:visible}\n#rx-panel.min::after{opacity:1}#rx-panel.min::before{background:rgba(var(--cyan-rgb,255,85,0),.2)}\n#rx-panel.min .rx-top,#rx-panel.min .rx-ctl{display:contents}\n#rx-panel.min .rx-sel,#rx-panel.min .rx-dots,#rx-panel.min .rx-prev,#rx-panel.min .rx-next,#rx-panel.min .rx-scrub,#rx-panel.min .rx-spd,#rx-panel.min .rx-tx,#rx-panel.min .rx-view{display:none}\n#rx-panel.min .rx-play{grid-area:play}#rx-panel.min .rx-min{grid-area:exp}#rx-panel.min .rx-x{grid-area:x}\n#rx-panel.min .rx-info{grid-area:info;min-width:0;cursor:pointer;touch-action:none}\n#rx-panel.min .rx-eq{font-size:16px;margin:1px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\nbody.rx-on #botbar{visibility:hidden}\n@media (pointer:coarse){#rx-panel button{min-width:44px;height:44px}#rx-panel .rx-play{height:48px;min-width:62px}#rx-panel .rx-focus button{height:38px}#rx-panel .rx-zo,#rx-panel .rx-zi{height:40px;min-width:40px}}\n@media (max-width:380px){#rx-panel{padding-left:12px;padding-right:12px}#rx-panel .rx-eq{font-size:20px}}\n@media (prefers-reduced-motion:reduce){#rx-panel,#rx-panel *{animation:none!important;transition:none!important}}\n@keyframes rxMenu{from{opacity:0;transform:translateY(var(--rx-dy,6px)) scale(.98)}to{opacity:1;transform:none}}\n.rx-menu{--rx-bg:rgba(16,9,4,.94);--rx-line:rgba(255,255,255,.10);--rx-hover:rgba(var(--cyan-rgb,255,85,0),.12);position:fixed;z-index:70;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding:6px;border-radius:14px;outline:none;scrollbar-width:thin;scrollbar-color:rgba(var(--cyan-rgb,255,85,0),.4) transparent;\n  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent 36%),var(--rx-bg);border:1px solid var(--glass-border,var(--rx-line));-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);box-shadow:0 18px 48px rgba(0,0,0,.5),0 0 0 1px rgba(var(--cyan-rgb,255,85,0),.10),inset 0 1px 0 rgba(255,255,255,.06);\n  color:var(--hi,#fff);font:500 15px/1.3 var(--display,'Rajdhani'),system-ui,sans-serif;animation:rxMenu .16s cubic-bezier(.2,.8,.2,1) both}\n.rx-menu.rx-light{--rx-bg:rgba(255,255,255,.97);--rx-line:rgba(33,28,66,.12);box-shadow:0 18px 48px rgba(33,28,66,.22),0 0 0 1px rgba(var(--cyan-rgb,105,82,224),.14)}\n.rx-menu .rx-o{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px 8px 16px;border-radius:10px;cursor:pointer;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .12s}\n.rx-menu .rx-o+.rx-o{margin-top:2px}\n.rx-menu .rx-o.act{background:var(--rx-hover)}\n.rx-menu .rx-o[aria-selected=true]{background:rgba(var(--cyan-rgb,255,85,0),.16)}\n.rx-menu .rx-o[aria-selected=true]::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:2px;background:var(--brand-grad,var(--cyan))}\n.rx-menu .rx-oc{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}\n.rx-menu .rx-ot{font-weight:700;font-size:16px;line-height:1.25;letter-spacing:.005em}\n.rx-menu .rx-om{font:400 10.5px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lo,rgba(255,255,255,.6))}\n.rx-menu .rx-ok{flex:none;width:18px;height:18px;color:var(--cyan);opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s}\n.rx-menu .rx-o[aria-selected=true] .rx-ok{opacity:1;transform:none}\n@media (prefers-reduced-motion:reduce){.rx-menu,.rx-menu *{animation:none!important;transition:none!important}}\n";
+    document.head.appendChild(css);
+    const el=document.createElement('div');el.id='rx-panel';el.setAttribute('role','region');el.classList.toggle('rx-light',!!getComputedStyle(document.documentElement).getPropertyValue('--ink').trim());el.setAttribute('aria-label','Reaction player');
+    el.innerHTML=`<button type="button" class="rx-grab" aria-label="Collapse controls" aria-expanded="true"><i></i></button>
+      <div class="rx-row rx-top"><button type="button" class="rx-sel" aria-haspopup="listbox" aria-expanded="false" aria-controls="rx-menu" aria-label="Choose reaction"><span class="rx-sel-t"></span></button><button type="button" class="rx-min" aria-label="Collapse controls" aria-expanded="true">${ICON.chev}</button><button type="button" class="rx-x" aria-label="Close reaction">${ICON.x}</button></div>
+      <div class="rx-dots" role="tablist" aria-label="Reaction stages"></div>
+      <div class="rx-info"><div class="rx-meta"><span class="rx-st"></span><span class="rx-ct"></span></div><div class="rx-eq"></div><div class="rx-tx"></div></div>
+      <div class="rx-row rx-ctl"><button type="button" class="rx-prev" aria-label="Previous stage">${ICON.prev}</button><button type="button" class="rx-play" aria-label="Pause"></button><button type="button" class="rx-next" aria-label="Next stage">${ICON.next}</button><input class="rx-scrub" type="range" min="0" max="1000" value="0" aria-label="Reaction progress"><button type="button" class="rx-spd" aria-label="Playback speed">1×</button></div>
+      <div class="rx-view"><div class="rx-row rx-more"><span class="rx-lb">Zoom</span><button type="button" class="rx-zo" aria-label="Zoom out">${ICON.minus}</button><input class="rx-zoom" type="range" min="1" max="600" aria-label="Zoom"><button type="button" class="rx-zi" aria-label="Zoom in">${ICON.plus}</button></div>
+      <div class="rx-row rx-more rx-focus"><span class="rx-lb">Focus</span></div></div>`;
+    document.body.appendChild(el);
+    const q=s=>el.querySelector(s);
+    ui={el,dots:q('.rx-dots'),stage:q('.rx-st'),ct:q('.rx-ct'),eq:q('.rx-eq'),txt:q('.rx-tx'),play:q('.rx-play'),scrub:q('.rx-scrub'),spd:q('.rx-spd'),zoom:q('.rx-zoom'),grab:q('.rx-grab'),minBtn:q('.rx-min'),chips:[]};
+    setPlayIcon();
+    makeDropdown();
+    ui.dots.onclick=e=>{const i=[...ui.dots.children].indexOf(e.target);if(i>=0){t=KF[STAGES[i].rest].t;}};
+    ui.play.onclick=()=>{playing=!playing;if(playing&&t>=T_END)t=0;setPlayIcon();};
+    ui.scrub.oninput=e=>{t=e.target.value/1000*T_END;};
+    ui.spd.onclick=()=>{const L=[1,2,3,4,6,8,.5,.25],i=L.indexOf(speed);speed=L[(i+1)%L.length];ui.spd.textContent=speed+'×';};
+    const go=d=>{const s=clamp(cur(t)+d,0,STAGES.length-1,true);t=KF[STAGES[s].rest].t;};
+    q('.rx-prev').onclick=()=>go(-1);q('.rx-next').onclick=()=>go(1);
+    const toggleMin=()=>setMin(!el.classList.contains('min'),true);
+    ui.minBtn.onclick=toggleMin;
+    bindSwipe(ui.grab,toggleMin,()=>true);
+    bindSwipe(q('.rx-info'),()=>setMin(false,true),()=>el.classList.contains('min'));
+    const setZoom=v=>{sl.value=Math.max(1,Math.min(600,v));applyZoom();};
+    ui.zoom.value=sl.value;ui.zoom.oninput=e=>setZoom(+e.target.value);
+    q('.rx-zi').onclick=()=>setZoom(+sl.value+25);q('.rx-zo').onclick=()=>setZoom(+sl.value-25);
+    q('.rx-x').onclick=()=>exit(true);
+    /* remembered preference; short landscape screens start as the compact player */
+    let pref=null;try{pref=localStorage.getItem('rx-panel-min');}catch(e){}
+    if(pref==='1'||(pref===null&&innerHeight<520))setMin(true,false);
+  }
+  let PLAY_ICON=null;
+  function setPlayIcon(){
+    if(!ui||!PLAY_ICON)return;
+    ui.play.innerHTML=playing?PLAY_ICON.pause:PLAY_ICON.play;
+    ui.play.setAttribute('aria-label',playing?'Pause':'Play');
+  }
+  /* ---- smart panel: compact "mini player" state + gesture-aware collapse ---- */
+  function setMin(v,manual){
+    if(!ui)return;
+    const el=ui.el,was=el.classList.contains('min');
+    if(manual){try{localStorage.setItem('rx-panel-min',v?'1':'0');}catch(e){}}
+    if(was===v)return;
+    if(ui.closeMenu)ui.closeMenu(false);
+    el.classList.toggle('min',v);
+    ui.grab.setAttribute('aria-expanded',v?'false':'true');ui.grab.setAttribute('aria-label',v?'Expand controls':'Collapse controls');
+    ui.minBtn.setAttribute('aria-expanded',v?'false':'true');ui.minBtn.setAttribute('aria-label',v?'Expand controls':'Collapse controls');
+    el.classList.remove('rx-settle');void el.offsetWidth;el.classList.add('rx-settle');
+  }
+  function bindSwipe(node,onTap,active){
+    let y0=null;
+    node.addEventListener('pointerdown',e=>{if(!active()||e.button>0)return;y0=e.clientY;try{node.setPointerCapture(e.pointerId);}catch(_){}});
+    node.addEventListener('pointerup',e=>{if(y0==null)return;const dy=e.clientY-y0;y0=null;if(dy>26)setMin(true,true);else if(dy<-26)setMin(false,true);else onTap();});
+    node.addEventListener('pointercancel',()=>{y0=null;});
+  }
+  /* Same convention as the main app's SMART AUTO-COLLAPSE: a CONFIRMED scene gesture (drag past the tap threshold,
+     a pinch, or a clean tap) means "I want to look at this". The panel fades out while a finger/mouse is down on the
+     scene (so nothing hides the molecules, and touches pass straight through), then — on touch or narrow screens —
+     settles into the mini player. On a desktop mouse it only fades during the drag. */
+  const G={on:false,x:0,y:0,moved:false,type:'mouse',tm:0,wheelTm:0,watch:0};
+  const gCompact=()=>G.type==='touch'||innerWidth<640;
+  function gDim(on){if(ui)ui.el.classList.toggle('dim',on);}
+  function gWatch(){clearTimeout(G.watch);G.watch=setTimeout(()=>{G.on=false;gDim(false);},1400);}
+  function gConfirm(){if(!ui)return;if(ui.closeMenu)ui.closeMenu(false);gDim(true);gWatch();if(gCompact())setMin(true,false);}
+  function gBegin(x,y,type){clearTimeout(G.tm);G.on=true;G.x=x;G.y=y;G.moved=false;G.type=type;}
+  function gMoveTo(x,y){if(!G.on)return;if(G.moved){gWatch();return;}if(Math.hypot(x-G.x,y-G.y)>6){G.moved=true;gConfirm();}}
+  function gPinch(){if(!G.on)gBegin(0,0,'touch');G.moved=true;gConfirm();}                  // 2nd finger = pinch
+  function gEnd(){
+    if(!G.on)return;G.on=false;
+    if(!G.moved&&gCompact()&&ui)setMin(true,false);                                           // clean tap on the scene tucks the panel away, like the side panels
+    clearTimeout(G.watch);G.tm=setTimeout(()=>gDim(false),260);
+  }
+  /* mouse via pointer events; touch via touch events (the canvas pans touches itself, so the browser cancels touch pointers mid-gesture) */
+  const gPDown=e=>{if(e.pointerType==='mouse')gBegin(e.clientX,e.clientY,'mouse');};
+  const gPMove=e=>{if(e.pointerType==='mouse')gMoveTo(e.clientX,e.clientY);};
+  const gPUp=e=>{if(e.pointerType==='mouse')gEnd();};
+  const gTStart=e=>{if(e.touches.length===1)gBegin(e.touches[0].clientX,e.touches[0].clientY,'touch');else gPinch();};
+  const gTMove=e=>{if(e.touches.length===1)gMoveTo(e.touches[0].clientX,e.touches[0].clientY);else if(e.touches.length>1)gPinch();};
+  const gTEnd=e=>{if(e.touches.length===0)gEnd();};
+  function gWheel(){if(!ui)return;if(ui.closeMenu)ui.closeMenu(false);gDim(true);clearTimeout(G.wheelTm);G.wheelTm=setTimeout(()=>{if(!G.on)gDim(false);},650);}
+
+  /* ================= reaction picker: themed dropdown (replaces the OS-drawn <select> list) ================= */
+  function makeDropdown(){
+    const btn=ui.el.querySelector('.rx-sel'),lab=btn.querySelector('.rx-sel-t');
+    let menu=null,items=[],act=-1,curId=null,offs=[];
+    const ids=()=>[...REGISTRY.keys()];
+    const setAct=(i,scroll)=>{
+      if(!items.length)return;act=(i+items.length)%items.length;
+      items.forEach((o,k)=>o.classList.toggle('act',k===act));
+      menu.setAttribute('aria-activedescendant',items[act].id);
+      if(scroll!==false)items[act].scrollIntoView({block:'nearest'});
+    };
+    const place=()=>{
+      if(!menu)return;
+      const r=btn.getBoundingClientRect(),pr=ui.el.getBoundingClientRect(),m=8,vw=innerWidth,vh=innerHeight;
+      const w=Math.min(Math.max(pr.width-4,260),vw-2*m),left=Math.max(m,Math.min(pr.left+2,vw-w-m));
+      menu.style.maxHeight='';menu.style.width=w+'px';menu.style.left=left+'px';
+      const want=menu.scrollHeight+14,above=r.top-m-6,below=vh-r.bottom-m-6,up=above>=Math.min(want,below)||above>below;
+      const room=Math.max(120,up?above:below);
+      menu.style.maxHeight=Math.min(want,room)+'px';
+      menu.style.setProperty('--rx-dy',up?'6px':'-6px');
+      if(up){menu.style.top='';menu.style.bottom=(vh-r.top+6)+'px';}else{menu.style.bottom='';menu.style.top=(r.bottom+6)+'px';}
+    };
+    const close=(refocus)=>{
+      if(!menu)return;
+      offs.forEach(f=>f());offs=[];menu.remove();menu=null;items=[];act=-1;
+      btn.setAttribute('aria-expanded','false');if(refocus)btn.focus({preventScroll:true});
+    };
+    const choose=id=>{close(true);if(id&&id!==curId)load(id);};
+    const open=()=>{
+      if(menu)return;
+      menu=document.createElement('div');
+      menu.className='rx-menu'+(ui.el.classList.contains('rx-light')?' rx-light':'');
+      menu.id='rx-menu';menu.tabIndex=-1;menu.setAttribute('role','listbox');menu.setAttribute('aria-label','Reaction');
+      const CHECK='<svg class="rx-ok" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3.5 9.5l3.6 3.6L14.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      items=ids().map((id,k)=>{
+        const s=REGISTRY.get(id),o=document.createElement('div');
+        o.className='rx-o';o.id='rx-opt-'+k;o.setAttribute('role','option');o.setAttribute('aria-selected',id===curId?'true':'false');o.dataset.id=id;
+        const n=s.stages.length;
+        o.innerHTML='<span class="rx-oc"><span class="rx-ot"></span><span class="rx-om">'+n+' stages</span></span>'+CHECK;
+        o.querySelector('.rx-ot').textContent=s.title;
+        o.addEventListener('pointermove',()=>{if(act!==k)setAct(k,false);});
+        o.addEventListener('click',()=>choose(id));
+        menu.appendChild(o);return o;
+      });
+      document.body.appendChild(menu);
+      btn.setAttribute('aria-expanded','true');
+      place();setAct(Math.max(0,ids().indexOf(curId)));
+      menu.focus({preventScroll:true});
+      const onDoc=e=>{if(menu&&!menu.contains(e.target)&&!btn.contains(e.target))close(false);};
+      const onKey=e=>{
+        if(!menu)return;
+        const k=e.key;
+        if(['Escape','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End','Enter',' ','Tab'].includes(k))e.stopPropagation();
+        if(k==='Escape'){e.preventDefault();e.stopPropagation();close(true);}
+        else if(k==='ArrowDown'){e.preventDefault();setAct(act+1);}
+        else if(k==='ArrowUp'){e.preventDefault();setAct(act-1);}
+        else if(k==='Home'){e.preventDefault();setAct(0);}
+        else if(k==='End'){e.preventDefault();setAct(items.length-1);}
+        else if(k==='Enter'||k===' '){e.preventDefault();choose(items[act]&&items[act].dataset.id);}
+        else if(k==='Tab'){close(false);}
+      };
+      const onSize=()=>place();
+      document.addEventListener('pointerdown',onDoc,true);document.addEventListener('keydown',onKey,true);
+      addEventListener('resize',onSize);addEventListener('orientationchange',onSize);
+      offs=[()=>document.removeEventListener('pointerdown',onDoc,true),()=>document.removeEventListener('keydown',onKey,true),()=>removeEventListener('resize',onSize),()=>removeEventListener('orientationchange',onSize)];
+    };
+    btn.addEventListener('click',()=>menu?close(true):open());
+    btn.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();e.stopPropagation();open();}});
+    ui.setSel=id=>{curId=id;const s=REGISTRY.get(id);lab.textContent=s?s.title:'';btn.title=s?s.title:'';if(menu)items.forEach(o=>o.setAttribute('aria-selected',o.dataset.id===id?'true':'false'));};
+    ui.closeMenu=close;
+  }
+  function makeChips(){
+    const row=ui.el.querySelector('.rx-focus');ui.chips.forEach(c=>c.remove());ui.chips=[];
+    const mk=(label,g)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>setFocus(g===focus?-1:g);row.appendChild(b);ui.chips.push(b);};
+    mk('Centre',-1);const cnt={};
+    SPEC.atoms.forEach((s,g)=>{cnt[s]=(cnt[s]||0)+1;mk(s+sub(cnt[s]),g);});
+    setFocus(-1);
+    ui.dots.innerHTML=STAGES.map((_,i)=>'<i role="tab" aria-label="Stage '+(i+1)+'"></i>').join('');
+  }
+
+  /* ================= load / enter / exit ================= */
+  function teardownReaction(){
+    [...built.keys()].forEach(releaseStage);[...OV.keys()].forEach(ovRelease);[...pairs.keys()].forEach(disposePair);data.clear();
+    nuclei.splice(0).forEach(n=>{rg.remove(n);disposeTree(n);});timeUniforms.length=0;
+    geomCache={};oriCache={};molCache={};ready=false;warming=false;curP=null;
+  }
+  function load(id){
+    const spec=REGISTRY.get(id);if(!spec)return;
+    if(spec.build)spec.build(spec);   // hand-authored paths generate their keyframes from the simulator's own geometry
+    const errs=validate(spec);
+    if(errs.length){console.error('[Reaction] invalid spec "'+id+'":\n - '+errs.join('\n - '));if(typeof showToast==='function')showToast('⚠️ Reaction spec invalid — see console');return;}
+    teardownReaction();compile(spec);
+    const w=resolveMoleculeAtoms(MOLECULES.find(m=>m.key==='h2o'));
+    scale=Math.hypot(w[1].pos[0]-w[0].pos[0],w[1].pos[1]-w[0].pos[1],w[1].pos[2]-w[0].pos[2])/0.958;   // sim units per Å, from the simulator's own water
+    ultraMeshes=[];grainyMaterials=[];_sharedGrainyMat=null;_sharedSmoothMat=null;
+    if(SPEC.auto){solvePath();lumpWarn();}
+    buildSimKF();
+    for(let g=0;g<NA;g++){const el=ELS.find(e=>e.Z===ATOM_Z[g]);const n=makeNucleus(ATOM_Z[g],el?el.n:0);n.visible=false;rg.add(n);nuclei.push(n);}   // hidden until the first frame is built & positioned: no stacked-at-origin dot while loading
+    MORPH=!ultraMode&&!smoothMode;
+    if(MORPH){try{morphMaterial().dispose();timeUniforms.pop();}catch(e){console.warn('[Reaction] morph unavailable, cross-fading instead:',e);MORPH=false;}}
+    t=0;playing=true;shownKF=-1;rgOff.set(0,0,0);rg.position.set(0,0,0);setPlayIcon();ui.setSel(id);makeChips();
+    let ext=0;simKF.forEach(K=>K.forEach(p=>{ext=Math.max(ext,Math.hypot(p[0],p[1]));}));ext=Math.max(ext+Math.max(...ATOM_Z.map(z=>Math.max(...getEffectiveConfig(z).map(o=>o.R)))),4*scale);
+    maxZoomDist=Math.max(4000,ext*8);camera.far=maxZoomDist*1.2;camera.updateProjectionMatrix();
+    sl.value=Math.max(1,Math.min(600,600*Math.log(ext*2.4/Math.min(1,innerWidth/innerHeight)/maxZoomDist)/Math.log(5/maxZoomDist)));applyZoom();
+    ui.stage.textContent='Preparing orbitals…';ui.eq.textContent=spec.title;ui.txt.textContent='Sampling the real electron clouds of every atom.';
+    setTimeout(()=>{if(!active)return;try{apply();}catch(e){console.error('[Reaction] first build failed',e);}nuclei.forEach(n=>{n.visible=true;});ready=true;last=performance.now();},60);
+  }
+  function enter(id){
+    if(active)return;active=true;
+    saved={vis:atomGrp?atomGrp.visible:true};
+    if(atomGrp)atomGrp.visible=false;
+    rg=new THREE.Group();pivot.add(rg);makeUI();document.body.classList.add('rx-on');
+    const el=renderer.domElement;el.addEventListener('pointerdown',onDown);el.addEventListener('pointerup',onUp);el.addEventListener('pointerdown',gPDown);el.addEventListener('wheel',gWheel,{passive:true});addEventListener('pointermove',gPMove);addEventListener('pointerup',gPUp);addEventListener('pointercancel',gPUp);el.addEventListener('touchstart',gTStart,{passive:true});el.addEventListener('touchmove',gTMove,{passive:true});el.addEventListener('touchend',gTEnd,{passive:true});el.addEventListener('touchcancel',gTEnd,{passive:true});
+    const b=document.getElementById('reactbtn');if(b){b.classList.add('active');b.title='Watch chemical reactions with real orbital clouds';}
+    last=performance.now();speed=1;load(id||REGISTRY.keys().next().value);
+    raf=requestAnimationFrame(frame);
+  }
+  function exit(restore){
+    if(!active)return;active=false;cancelAnimationFrame(raf);
+    const el=renderer.domElement;el.removeEventListener('pointerdown',onDown);el.removeEventListener('pointerup',onUp);el.removeEventListener('pointerdown',gPDown);el.removeEventListener('wheel',gWheel);removeEventListener('pointermove',gPMove);removeEventListener('pointerup',gPUp);removeEventListener('pointercancel',gPUp);el.removeEventListener('touchstart',gTStart);el.removeEventListener('touchmove',gTMove);el.removeEventListener('touchend',gTEnd);el.removeEventListener('touchcancel',gTEnd);G.on=false;clearTimeout(G.tm);clearTimeout(G.wheelTm);clearTimeout(G.watch);clearTimeout(G.watch);
+    teardownReaction();pivot.remove(rg);rg=null;focus=-1;
+    if(ui){if(ui.closeMenu)ui.closeMenu(false);ui.el.remove();ui=null;}document.body.classList.remove('rx-on');
+    const b=document.getElementById('reactbtn');if(b)b.classList.remove('active');
+    if(restore!==false&&saved)rebuildScene();
+    saved=null;
+  }
+  return{register,validate,toggle:()=>active?exit(true):enter(),enter,exit,load,list:()=>[...REGISTRY.keys()],
+    _test:{dbg:()=>({data,curP,simKF,pairs,STAGES,oriCache,KF}),compile,validate,weight,fwin,posAt,setSimKF:k=>{simKF=k;},get:()=>({KF,STAGES,TS,T_END,HALF}),REGISTRY}};
+})();
+
+</script>
 </body>
 </html>
