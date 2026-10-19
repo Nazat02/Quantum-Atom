@@ -1534,9 +1534,9 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
         <p class="ct-p ct-soft reveal">Cannot contribute? That is completely fine. Send the link to someone who is still picturing tiny planets, or give it a <a href="https://github.com/nazat02/Quantum-Atom" target="_blank" rel="noopener">star on GitHub</a>. That helps just as much.</p>
       </div>
 
-      <aside class="ct-card-col reveal" aria-label="Contribute with ETH">
+      <aside class="ct-card-col reveal" aria-label="Contribute with USDT">
         <div data-contribute-card>
-          <noscript><p class="ct-p">Contribute ETH on Ethereum Mainnet to: <code style="word-break:break-all">0x9b799218B3F43c98DD6Eb7b32C00FD624e5a76DD</code></p></noscript>
+          <noscript><p class="ct-p">Contribute USDT (ERC-20) on Ethereum Mainnet only, to: <code style="word-break:break-all">0x9b799218B3F43c98DD6Eb7b32C00FD624e5a76DD</code></p></noscript>
         </div>
         <p class="ct-thanks">Thank you for being part of how the next student sees it.</p>
       </aside>
@@ -1992,7 +1992,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
  * followed by this module.
  *
  * Design notes
- *   - No network dependencies. The QR encoder (qrcode-generator, MIT) is
+ *   - The only network call is the read-only live goal total (fails closed if unreachable). The QR encoder (qrcode-generator, MIT) is
  *     bundled in the same inline script, just above this module.
  *   - The address is only ever written to the DOM with textContent / setAttribute
  *     (never innerHTML) and is validated before anything is rendered; an invalid
@@ -2009,14 +2009,24 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 
   var CONFIG = Object.freeze({
     address: '0x9b799218B3F43c98DD6Eb7b32C00FD624e5a76DD', // EIP-55 checksummed
-    asset: 'ETH',
+    asset: 'USDT',
+    standard: 'ERC-20',
     network: 'Ethereum Mainnet',
     explorerBase: 'https://etherscan.io/address/',
+    // Fundraising goal. Progress is read live from the public blockchain (no backend):
+    // the sum of USDT transfers into `address`. Change `amount` here to move the goal.
+    goal: Object.freeze({
+      amount: 10000,
+      asset: 'USDT',
+      decimals: 6,
+      contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // Tether USD (USDT) on Ethereum Mainnet
+      minTransfer: 1 // transfers below this many USDT are ignored (blocks dust / address-poisoning noise)
+    }),
     story: { dark: 'index_dark.html#contribute', light: 'index_light.html#contribute' }
   });
 
   var ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
-  if (!ADDRESS_RE.test(CONFIG.address)) {
+  if (!ADDRESS_RE.test(CONFIG.address) || !ADDRESS_RE.test(CONFIG.goal.contract)) {
     if (window.console) console.error('[contribute] Wallet address is malformed; Contribute is disabled.');
     return;
   }
@@ -2109,6 +2119,21 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     '.qa-c-note strong{color:var(--c-ink);font-weight:600;}',
     '.qa-c-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}',
 
+    /* goal progress */
+    '.qa-c-goal{width:100%;display:flex;flex-direction:column;gap:8px;text-align:left;}',
+    '.qa-c-goal-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;}',
+    '.qa-c-goal-title{font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--c-dim);}',
+    '.qa-c-goal-amt{font-family:var(--c-display);font-weight:700;font-size:1.15rem;letter-spacing:.02em;color:var(--c-ink);}',
+    '.qa-c-bar{height:12px;border-radius:999px;background:var(--c-card);border:1px solid var(--c-line);overflow:hidden;}',
+    '.qa-c-bar[hidden]{display:none;}',
+    '.qa-c-bar-fill{height:100%;width:0;border-radius:999px;background:var(--c-btn-bg);transition:width .9s cubic-bezier(.2,.7,.2,1);}',
+    '.qa-c-bar.loading .qa-c-bar-fill{width:35%;opacity:.35;animation:qa-c-pulse 1.2s ease-in-out infinite;}',
+    '.qa-c-goal-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.74rem;letter-spacing:.04em;line-height:1.6;color:var(--c-dim);}',
+    '.qa-c-goal-meta strong{color:var(--c-ink);font-weight:600;}',
+    '.qa-c-goal-src{font-size:.64rem;line-height:1.7;letter-spacing:.05em;color:var(--c-dim);}',
+    '.qa-c-goal-src a{color:var(--c-accent);text-underline-offset:3px;}',
+    '@keyframes qa-c-pulse{50%{opacity:.8}}',
+
     /* modal */
     '.qa-c-lock{overflow:hidden !important;}',
     '.qa-c-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;',
@@ -2136,7 +2161,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     '@keyframes qa-c-fade{from{opacity:0}to{opacity:1}}',
     '@keyframes qa-c-rise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}',
     '@media (max-width:480px){.qa-c-dialog{padding:26px 18px 20px}.qa-c{padding:18px 14px}.qa-c-qr svg{width:160px;height:160px}}',
-    '@media (prefers-reduced-motion:reduce){.qa-c-overlay,.qa-c-dialog{animation:none}.qa-c-btn{transition:none}}'
+    '@media (prefers-reduced-motion:reduce){.qa-c-overlay,.qa-c-dialog{animation:none}.qa-c-btn,.qa-c-bar-fill{transition:none;animation:none}}'
   ].join('\n');
 
   function injectStyles() {
@@ -2198,6 +2223,214 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     });
   }
 
+  /* ───────────────────────── Live goal progress ───────────────────────── */
+
+  /*
+   * Reads USDT transfers into the wallet straight from public, CORS-enabled
+   * blockchain explorers (Blockscout). No backend, no API key, nothing written.
+   *
+   * Trust rules:
+   *   - Only transfers of the exact USDT contract, TO the wallet, are counted
+   *     (fake tokens with the same name are ignored); self-transfers are ignored.
+   *   - Transfers under CONFIG.goal.minTransfer are ignored, so zero-value and
+   *     dust "address poisoning" spam cannot inflate the total or contributor count.
+   *   - Totals use BigInt (exact, no float drift); the bar shows total RECEIVED,
+   *     not balance, so spending funds never makes the bar go backwards.
+   *   - Fails closed: if every source fails or returns an unrecognised shape, the
+   *     bar is hidden and a plain "unavailable" message is shown. It never guesses.
+   */
+  var GOAL = CONFIG.goal;
+  var WALLET_LC = CONFIG.address.toLowerCase();
+  var CONTRACT_LC = GOAL.contract.toLowerCase();
+  var NET = { timeoutMs: 8000, maxPages: 25, cacheTtlMs: 5 * 60 * 1000 };
+  var CACHE_KEY = 'qa-c-raised-v1:' + WALLET_LC + ':' + CONTRACT_LC;
+  var raisedPromise = null;
+
+  function fmtNum(n) {
+    try { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n); }
+    catch (e) { return String(Math.round(n * 100) / 100); }
+  }
+
+  function getJson(url) {
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function () { ctl.abort(); }, NET.timeoutMs) : null;
+    return fetch(url, {
+      headers: { Accept: 'application/json' }, credentials: 'omit',
+      referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (j) { clearTimeout(timer); return j; },
+            function (e) { clearTimeout(timer); throw e; });
+  }
+
+  function newTally() { return { total: BigInt(0), donors: 0, seen: {}, recognised: 0 }; }
+
+  function addTransfer(t, from, to, raw) {
+    if (to !== WALLET_LC || from === WALLET_LC) return;
+    var s = String(raw);
+    if (!/^\d+$/.test(s)) throw new Error('bad value');
+    var v = BigInt(s);
+    var min = BigInt(GOAL.minTransfer) * BigInt(Math.pow(10, GOAL.decimals));
+    if (v < min) return;
+    t.total += v;
+    if (!t.seen[from]) { t.seen[from] = 1; t.donors++; }
+  }
+
+  function addrOf(x) {
+    if (x && typeof x === 'object') return String(x.hash || x.address_hash || '').toLowerCase();
+    return String(x || '').toLowerCase();
+  }
+
+  function checkDecimals(d) {
+    if (d !== undefined && d !== null && Number(d) !== GOAL.decimals) throw new Error('decimals mismatch');
+  }
+
+  /* Source A: Blockscout REST v2 (cursor pagination). */
+  function fromBlockscoutV2() {
+    var base = 'https://eth.blockscout.com/api/v2/addresses/' + CONFIG.address + '/token-transfers';
+    var tally = newTally();
+    function page(params, n) {
+      if (n > NET.maxPages) throw new Error('too many pages');
+      var qs = 'type=ERC-20&filter=to&token=' + GOAL.contract;
+      Object.keys(params || {}).forEach(function (k) {
+        if (params[k] !== null && params[k] !== undefined) qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+      });
+      return getJson(base + '?' + qs).then(function (j) {
+        if (!j || !Array.isArray(j.items)) throw new Error('bad shape');
+        var known = 0;
+        j.items.forEach(function (it) {
+          var tok = it.token || {};
+          var ta = String(tok.address_hash || tok.address || '').toLowerCase();
+          if (ta) known++;
+          if (ta !== CONTRACT_LC) return;
+          var tot = it.total || {};
+          checkDecimals(tot.decimals !== undefined ? tot.decimals : tok.decimals);
+          addTransfer(tally, addrOf(it.from), addrOf(it.to), tot.value);
+        });
+        if (j.items.length && !known) throw new Error('unrecognised shape');
+        return j.next_page_params ? page(j.next_page_params, n + 1) : tally;
+      });
+    }
+    return page(null, 1);
+  }
+
+  /* Source B: Etherscan-compatible endpoint, also served by Blockscout. */
+  function fromEtherscanCompat() {
+    var tally = newTally(), OFFSET = 1000;
+    function page(n) {
+      if (n > NET.maxPages) throw new Error('too many pages');
+      var url = 'https://eth.blockscout.com/api?module=account&action=tokentx&address=' + CONFIG.address +
+        '&contractaddress=' + GOAL.contract + '&page=' + n + '&offset=' + OFFSET + '&sort=asc';
+      return getJson(url).then(function (j) {
+        if (!j || !Array.isArray(j.result)) throw new Error('bad shape');
+        var known = 0;
+        j.result.forEach(function (it) {
+          var ca = String(it.contractAddress || '').toLowerCase();
+          if (ca) known++;
+          if (ca !== CONTRACT_LC) return;
+          checkDecimals(it.tokenDecimal);
+          addTransfer(tally, String(it.from || '').toLowerCase(), String(it.to || '').toLowerCase(), it.value);
+        });
+        if (j.result.length && !known) throw new Error('unrecognised shape');
+        return j.result.length < OFFSET ? tally : page(n + 1);
+      });
+    }
+    return page(1);
+  }
+
+  function readCache() {
+    try {
+      var c = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
+      if (c && isFinite(c.raised) && c.raised >= 0 && isFinite(c.donors) && c.donors >= 0 &&
+          isFinite(c.at) && Date.now() - c.at < NET.cacheTtlMs) return c;
+    } catch (e) { /* storage unavailable: just fetch */ }
+    return null;
+  }
+
+  function writeCache(c) {
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch (e) { /* ignore */ }
+  }
+
+  /** Memoised so the page card and the modal card share one set of requests. */
+  function loadRaised() {
+    if (raisedPromise) return raisedPromise;
+    if (typeof BigInt !== 'function' || typeof fetch !== 'function') {
+      return Promise.reject(new Error('unsupported browser'));
+    }
+    var cached = readCache();
+    if (cached) { raisedPromise = Promise.resolve(cached); return raisedPromise; }
+    raisedPromise = fromBlockscoutV2().catch(fromEtherscanCompat).then(function (t) {
+      var out = { raised: Number(t.total) / Math.pow(10, GOAL.decimals), donors: t.donors, at: Date.now() };
+      writeCache(out);
+      return out;
+    });
+    raisedPromise.catch(function () { raisedPromise = null; }); // allow a retry on next render
+    return raisedPromise;
+  }
+
+  function tokenExplorerUrl() {
+    return 'https://etherscan.io/token/' + GOAL.contract + '?a=' + CONFIG.address;
+  }
+
+  /** EIP-681 payment request: a USDT transfer to the wallet on chain 1. */
+  function walletLink() {
+    return 'ethereum:' + GOAL.contract + '@1/transfer?address=' + CONFIG.address;
+  }
+
+  function renderGoal() {
+    var goalText = fmtNum(GOAL.amount) + ' ' + GOAL.asset;
+    var fill = el('div', { 'class': 'qa-c-bar-fill' });
+    var bar = el('div', {
+      'class': 'qa-c-bar loading', role: 'progressbar', 'aria-valuemin': '0',
+      'aria-valuemax': String(GOAL.amount), 'aria-label': 'Fundraising progress toward ' + goalText
+    }, [fill]);
+    var meta = el('div', { 'class': 'qa-c-goal-meta', 'aria-live': 'polite' }, [
+      el('span', { text: 'Loading the live total from the blockchain…' })
+    ]);
+    var src = el('div', { 'class': 'qa-c-goal-src' });
+    var box = el('div', { 'class': 'qa-c-goal' }, [
+      el('div', { 'class': 'qa-c-goal-head' }, [
+        el('span', { 'class': 'qa-c-goal-title', text: 'Fundraising goal' }),
+        el('span', { 'class': 'qa-c-goal-amt', text: goalText })
+      ]),
+      bar, meta, src
+    ]);
+
+    function link(text) {
+      return el('a', { href: tokenExplorerUrl(), target: '_blank', rel: 'noopener noreferrer', text: text });
+    }
+
+    loadRaised().then(function (r) {
+      var pct = Math.round(Math.min(100, (r.raised / GOAL.amount) * 100) * 100) / 100;
+      bar.classList.remove('loading');
+      bar.setAttribute('aria-valuenow', String(Math.min(r.raised, GOAL.amount)));
+      fill.style.width = pct + '%'; // animates from the 35% loading state via the CSS transition
+      meta.textContent = '';
+      if (r.raised <= 0) {
+        meta.appendChild(el('span', { text: 'Be the first to contribute.' }));
+      } else {
+        var raised = el('span');
+        raised.appendChild(el('strong', { text: fmtNum(r.raised) + ' ' + GOAL.asset }));
+        raised.appendChild(document.createTextNode(' raised'));
+        meta.appendChild(raised);
+        meta.appendChild(el('span', { text: (Math.round(pct * 10) / 10) + '% of goal' }));
+        meta.appendChild(el('span', { text: r.donors + (r.donors === 1 ? ' contributor' : ' contributors') }));
+        if (r.raised >= GOAL.amount) meta.appendChild(el('span', { text: 'Goal reached. Thank you!' }));
+      }
+      src.appendChild(document.createTextNode('Read live from the Ethereum blockchain, never typed in by hand. '));
+      src.appendChild(link('Verify on Etherscan ↗'));
+    }).catch(function () {
+      bar.hidden = true; // fail closed: no number is better than a wrong number
+      meta.textContent = '';
+      meta.appendChild(el('span', { text: 'The live total is unavailable right now.' }));
+      src.appendChild(document.createTextNode('You can always check the wallet directly: '));
+      src.appendChild(link('Open on Etherscan ↗'));
+    });
+
+    return box;
+  }
+
   /* ───────────────────────── Wallet card ───────────────────────── */
 
   function renderCard(container) {
@@ -2208,9 +2441,13 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var a = CONFIG.address;
     var root = el('div', { 'class': 'qa-c', 'data-theme': THEME });
 
+    // Goal + live progress (reads public blockchain data; hides itself on failure)
+    root.appendChild(renderGoal());
+
     // Network chips
     root.appendChild(el('div', { 'class': 'qa-c-chips' }, [
       el('span', { 'class': 'qa-c-chip solid', text: CONFIG.asset }),
+      el('span', { 'class': 'qa-c-chip', text: CONFIG.standard }),
       el('span', { 'class': 'qa-c-chip', text: CONFIG.network })
     ]));
 
@@ -2254,11 +2491,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     });
 
     var explorer = el('a', {
-      'class': 'qa-c-btn', href: CONFIG.explorerBase + a, target: '_blank',
+      'class': 'qa-c-btn', href: tokenExplorerUrl(), target: '_blank',
       rel: 'noopener noreferrer', text: 'Verify on Etherscan ↗'
     });
     // EIP-681 deep link; only shown on touch devices where a wallet app can answer it.
-    var wallet = el('a', { 'class': 'qa-c-btn wallet', href: 'ethereum:' + a, text: 'Open in wallet' });
+    var wallet = el('a', { 'class': 'qa-c-btn wallet', href: walletLink(), text: 'Open in wallet' });
 
     root.appendChild(el('div', { 'class': 'qa-c-actions' }, [copyBtn, explorer, wallet]));
     root.appendChild(live);
@@ -2266,8 +2503,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     // Safety + honesty
     var note = el('p', { 'class': 'qa-c-note' });
     note.appendChild(document.createTextNode('Send '));
-    note.appendChild(el('strong', { text: 'ETH on Ethereum Mainnet only' }));
-    note.appendChild(document.createTextNode('. Before you confirm, check that the address starts with '));
+    note.appendChild(el('strong', { text: 'USDT (ERC-20) on Ethereum Mainnet only' }));
+    note.appendChild(document.createTextNode('. Other networks and tokens are not counted and may be unrecoverable (ETH is welcome too, but is not counted in the goal bar). Before you confirm, check that the address starts with '));
     note.appendChild(el('strong', { text: a.slice(0, 6) }));
     note.appendChild(document.createTextNode(' and ends with '));
     note.appendChild(el('strong', { text: a.slice(-4) }));
@@ -2297,7 +2534,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     p1.appendChild(document.createTextNode('Somewhere tonight, a student is memorising an atom that does not exist: a dot with tiny planets going round it. This simulator is the picture they never got, and it is free because '));
     p1.appendChild(el('em', { text: 'nobody should need a licence to see the truth' }));
     p1.appendChild(document.createTextNode('.'));
-    var p2 = el('p', { 'class': 'qa-c-text', text: 'If it ever gave you an “oh, wow”, you can help the next one happen: more molecules, deeper physics, and a door that stays open for every classroom. Any amount of ETH keeps the lights on.' });
+    var p2 = el('p', { 'class': 'qa-c-text', text: 'If it ever gave you an “oh, wow”, you can help the next one happen: more molecules, deeper physics, and a door that stays open for every classroom. Every USDT counts toward the 10,000 USDT goal, and you can watch the total grow live on the blockchain.' });
     intro.appendChild(p1);
     intro.appendChild(p2);
 
@@ -2370,7 +2607,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  window.QuantumAtomContribute = Object.freeze({ open: openModal, close: closeModal, address: CONFIG.address });
+  window.QuantumAtomContribute = Object.freeze({ open: openModal, close: closeModal, address: CONFIG.address, goal: GOAL.amount });
 })();
 </script>
 <!-- CONTRIBUTE:END -->

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Quantum Atom Simulator</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='%23ff5500'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.85' fill='none'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.75' fill='none' transform='rotate(60 45 45)'/><ellipse cx='45' cy='45' rx='34' ry='12' stroke='white' stroke-width='2.2' stroke-opacity='.7' fill='none' transform='rotate(-60 45 45)'/><circle cx='45' cy='45' r='10' fill='white' opacity='.95'/></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1313,6 +1313,222 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 .bsel-opt[aria-selected="true"]::after{content:"✓";font-weight:700;margin-left:2px}
 .bsel-empty{padding:26px 12px;text-align:center;color:var(--lo);font-size:.8rem}
 </style>
+<script>try{if(localStorage.getItem('qa-glass')==='off')document.documentElement.setAttribute('data-glass','off');}catch(e){}</script>
+<style id="sim-glass-v2">
+/* ═══════════════════════════════════════════════
+   SIMULATOR — GLASSMORPHISM + UX POLISH (matches landing page)
+═══════════════════════════════════════════════ */
+:root{
+  --g-fill:rgba(255,236,222,.055);
+  --g-fill-hi:rgba(255,236,222,.11);
+  --g-edge:rgba(255,226,205,.16);
+  --g-edge-hi:rgba(var(--cyan-rgb),.5);
+  --g-hl:inset 0 1px 0 rgba(255,255,255,.10);
+  --glass-bg:rgba(16,9,5,.46);
+  --glass-bg-hi:rgba(24,14,8,.66);
+  --glass-border:rgba(255,226,205,.15);
+  --glass-blur:blur(22px) saturate(175%);
+  --glass-shadow:0 10px 36px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.08);
+  --sheet-bg:rgba(14,8,5,.62);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+
+/* Ambient colour field between the 3D canvas and the UI — gives the glass something to refract */
+body::after{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(46vmax 46vmax at 0% 0%,rgba(var(--cyan-rgb),.20),transparent 70%),
+    radial-gradient(40vmax 40vmax at 100% 18%,rgba(var(--cyan-rgb),.12),transparent 72%),
+    radial-gradient(50vmax 50vmax at 70% 100%,rgba(255,150,40,.10),transparent 72%);}
+
+/* ── Top bar / bottom bar: frosted, inner highlight ── */
+#topbar{background:linear-gradient(180deg,rgba(255,236,222,.07),rgba(16,9,5,.46));
+  border-bottom:1px solid var(--g-edge);padding-top:var(--safe-t);}
+#botbar{background:linear-gradient(0deg,rgba(255,236,222,.06),rgba(16,9,5,.5));
+  border-top:1px solid var(--g-edge);padding-bottom:var(--safe-b);}
+#left,#right{background:linear-gradient(180deg,rgba(255,236,222,.06),rgba(16,9,5,.5));}
+#left{border-right-color:var(--g-edge);}#right{border-left-color:var(--g-edge);}
+.panel-header{border-bottom:1px solid rgba(255,226,205,.10);}
+
+/* ── Readability: nothing under 12px; clearer hierarchy ── */
+#emeta,.hint,.zbar label,#zval,.ptitle,.panel-title,.ebtn .z,.mcard .mn,.tab,.mode-btn,.rbtn,
+.build-examples-note,.ex-chip,#build-status,.lesson-item-count,#lesson-player-count,.an-section-title,.an-unit-btn,
+.recents-empty,.cmp-row,.an-row,.cmp-pickers select,.dl-chip,.dl-sel,.dl-note,.dl-hint{font-size:.76rem !important;}
+.sk,.sv{font-size:.78rem;}
+#ename{font-size:1.15rem;}
+.hint{color:rgba(255,255,255,.7);}
+.ptitle{letter-spacing:.14em;}
+#left-inner,#right-inner{gap:16px;}
+
+/* ── Glass tiles inside panels ── */
+.ebtn,.mcard,.orow,.ex-chip,#build-status,.data-section,.lesson-item,.dl-box,.cmp-row{
+  background:var(--g-fill);border-color:var(--g-edge);box-shadow:var(--g-hl);}
+.ebtn,.mcard{border-radius:10px;}
+.ebtn:hover,.mcard:hover,.ex-chip:hover,.lesson-item:hover{background:var(--g-fill-hi);border-color:var(--g-edge-hi);}
+.ebtn:active,.mcard:active{transform:scale(.97);}
+.data-section{border:1px solid var(--g-edge);border-radius:12px;padding:4px 12px;}
+.srow{padding:9px 0;}
+.orow{border-radius:10px;padding:7px 10px;}
+.egrid{gap:6px;}
+.ebtn{min-height:52px;}
+.ebtn.on,.mcard.on{box-shadow:0 0 18px rgba(var(--cyan-rgb),.5),inset 0 1px 0 rgba(255,255,255,.3) !important;}
+
+/* Inputs */
+#el-search,#build-input{background:var(--g-fill);border:1px solid var(--g-edge);border-radius:12px;font-size:16px;padding:11px 12px 11px 36px;box-shadow:var(--g-hl);}
+#el-search:focus,#build-input:focus{border-color:var(--g-edge-hi);background:var(--g-fill-hi);box-shadow:0 0 0 3px rgba(var(--cyan-rgb),.18);}
+.search-wrap svg{left:12px;}
+.search-wrap{border-bottom:1px solid rgba(255,226,205,.10);}
+.cmp-pickers select,.dl-sel{background:var(--g-fill);border-color:var(--g-edge);border-radius:10px;min-height:42px;}
+
+/* Buttons keep brand gradient, gain gloss */
+:is(.mode-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn){
+  border-radius:12px !important;min-height:42px;}
+.mode-btn{min-height:40px;}
+.theme-toggle-btn{width:38px;height:38px;}
+.panel-close{width:36px;height:36px;border-radius:50%;}
+.tab{min-height:38px;border-radius:12px;}
+#esym-badge{border-radius:12px;background:var(--g-fill-hi);box-shadow:var(--g-hl);}
+#topbar-logo{border-right-color:var(--g-edge);}
+#econf-wrap{border-color:var(--g-edge);}
+
+/* Zoom slider: bigger thumb, glass track */
+input[type=range]::-webkit-slider-runnable-track{background:rgba(255,236,222,.14) !important;box-shadow:inset 0 1px 2px rgba(0,0,0,.4);}
+input[type=range]::-moz-range-track{background:rgba(255,236,222,.14) !important;}
+input[type=range]::-webkit-slider-thumb{width:22px;height:22px;margin-top:-8px;border:2px solid rgba(255,255,255,.55);}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border:2px solid rgba(255,255,255,.55);}
+#zval{width:48px;}
+
+/* Toast */
+#toast{background:var(--glass-bg-hi);border:1px solid var(--g-edge);font-size:.78rem;padding:10px 20px;bottom:calc(var(--botbar-h) + 16px + var(--safe-b));}
+
+/* ── Modals: frosted dialogs instead of solid black ── */
+.compare-modal,#bsel-sheet,#dl-pick{background:rgba(6,3,2,.5);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);}
+.compare-card,.bsel-panel,.dl-sheet{
+  background:linear-gradient(180deg,rgba(255,236,222,.09),rgba(18,10,6,.72)) !important;
+  -webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);
+  border:1px solid var(--g-edge) !important;
+  box-shadow:0 24px 70px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.12);}
+.compare-card{border-radius:18px;padding:24px 22px 28px;}
+.cmp-header h3,#lesson-player-title,.dl-sh-head b,.bsel-head b{font-size:.86rem;}
+.cmp-close{width:36px;height:36px;border-radius:50%;}
+.cmp-row,.an-row{padding:11px 0;}
+.cmp-label,.an-key{color:rgba(255,255,255,.72);}
+.cmp-val,.an-val{color:rgba(255,255,255,.92);}
+.lesson-item{padding:14px 16px;border-radius:12px;}
+.lesson-item-title{font-size:.82rem;}
+#lesson-player-note{font-size:.86rem;line-height:1.7;color:rgba(255,255,255,.9);}
+.dl-box{border-radius:14px;background:var(--g-fill);}
+.dl-opt:hover,.dl-opt:focus-visible,.bsel-opt:hover{background:var(--g-fill-hi);}
+.dl-search,.bsel-search{background:var(--g-fill);border-color:var(--g-edge);}
+.bsel{background:var(--g-fill);border-color:var(--g-edge);border-radius:12px;box-shadow:var(--g-hl);}
+.bsel:hover,.bsel[aria-expanded="true"]{background:var(--g-fill-hi);border-color:var(--g-edge-hi);}
+.compare-card::-webkit-scrollbar,.dl-list::-webkit-scrollbar,.bsel-list::-webkit-scrollbar{width:4px;}
+.compare-card::-webkit-scrollbar-thumb,.dl-list::-webkit-scrollbar-thumb,.bsel-list::-webkit-scrollbar-thumb{background:var(--cyan-20);border-radius:2px;}
+#backdrop{background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
+
+/* ── Mobile ── */
+@media (max-width:640px){
+  /* bottom sheets become real frosted glass (were solid #000) */
+  #left,#right{
+    background:linear-gradient(180deg,rgba(255,236,222,.10),var(--sheet-bg) 40%) !important;
+    -webkit-backdrop-filter:blur(26px) saturate(180%) !important;backdrop-filter:blur(26px) saturate(180%) !important;
+    border-top:1px solid var(--g-edge-hi) !important;border-radius:22px 22px 0 0 !important;
+    top:auto !important;bottom:var(--botbar-h) !important;
+    height:66vh;height:66dvh;max-height:calc(100dvh - var(--topbar-h) - var(--botbar-h) - 8px);
+    box-shadow:0 -14px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.14);}
+  .search-wrap{background:rgba(14,8,5,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
+  .panel-header::before{width:44px;height:5px;background:rgba(255,255,255,.28);}
+  .panel-header{padding:24px 16px 10px;}
+  .egrid{grid-template-columns:repeat(5,1fr);gap:6px;}
+  .ebtn{min-height:54px;}
+  #left-inner,#right-inner{padding:10px 14px calc(28px + var(--safe-b));}
+  #botbar{padding:10px 14px calc(10px + var(--safe-b));}
+  .rbtn{min-height:44px;}
+  .compare-card{width:94vw;max-height:88dvh;padding:20px 16px 24px;border-radius:20px;}
+  .cmp-pickers{grid-template-columns:1fr;}
+  .cmp-row{grid-template-columns:1fr 1fr 1fr;gap:6px;}
+  .topbar-text{min-width:0;}
+  .dl-sheet,.bsel-panel{border-radius:22px 22px 0 0;}
+}
+@media (max-width:380px){.egrid{grid-template-columns:repeat(4,1fr);}}
+@media (max-height:520px) and (orientation:landscape){
+  :root{--topbar-h:52px;--botbar-h:54px;}
+  #left,#right{max-height:calc(100dvh - var(--topbar-h) - var(--botbar-h));}
+}
+
+/* ── Perf: cheaper blur on phones, no blur on tiny chrome there ── */
+@media (max-width:760px){
+  :root{--glass-blur:blur(14px) saturate(160%);}
+  #esym-badge,#el-search,#build-input,.panel-close,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#excitedbtn,#antibtn,#sphericalbtn,.rbtn{
+    -webkit-backdrop-filter:none;backdrop-filter:none;}
+}
+@media (hover:none){.ebtn:hover,.mcard:hover,.lesson-item:hover{transform:none;}}
+
+/* Fallbacks */
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  #topbar,#botbar,#left,#right,.compare-card,.bsel-panel,.dl-sheet{background:rgba(14,8,5,.95) !important;}
+}
+@media (prefers-reduced-transparency:reduce){
+  *{-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
+  #topbar,#botbar,#left,#right,.compare-card,.bsel-panel,.dl-sheet,#toast{background:rgba(14,8,5,.97) !important;}
+}
+</style>
+<style id="sim-flat">
+/* ═══ GLASS OFF — flat mode (html[data-glass="off"]): pure black + flat orange. No blur, no translucency, no gradients, no glow. ═══ */
+html[data-glass="off"]{
+  --glass-bg:#000;--glass-bg-hi:#000;--glass-border:rgba(var(--cyan-rgb),.45);--glass-blur:none;--glass-shadow:none;
+  --g-fill:#000;--g-fill-hi:#140700;--g-edge:rgba(var(--cyan-rgb),.4);--g-edge-hi:var(--cyan);--g-hl:none;--sheet-bg:#000;
+  --brand-grad:var(--cyan);
+}
+html[data-glass="off"] body::after{display:none !important;}
+html[data-glass="off"] *,html[data-glass="off"] *::before,html[data-glass="off"] *::after{
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;text-shadow:none !important;}
+html[data-glass="off"] :is(#topbar,#botbar,#left,#right,#backdrop,#toast,.search-wrap,.compare-modal,#bsel-sheet,#dl-pick,.compare-card,.bsel-panel,.dl-sheet,#esym-badge,#el-search,#build-input,.panel-close,.rbtn){-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
+/* surfaces */
+html[data-glass="off"] :is(#topbar,#botbar,#left,#right,.search-wrap,.compare-card,.bsel-panel,.dl-sheet,#toast,#esym-badge){
+  background:#000 !important;box-shadow:none !important;}
+html[data-glass="off"] :is(#topbar){border-bottom:1px solid var(--cyan) !important;}
+html[data-glass="off"] :is(#botbar){border-top:1px solid var(--cyan) !important;}
+html[data-glass="off"] #left{border-right:1px solid var(--cyan) !important;}
+html[data-glass="off"] #right{border-left:1px solid var(--cyan) !important;}
+html[data-glass="off"] :is(.compare-card,.bsel-panel,.dl-sheet){border:1px solid var(--cyan) !important;}
+html[data-glass="off"] #toast{border:1px solid var(--cyan);}
+html[data-glass="off"] .panel-header,html[data-glass="off"] .search-wrap,html[data-glass="off"] .ptitle{border-bottom-color:rgba(var(--cyan-rgb),.35) !important;}
+/* overlays: plain dim, no blur */
+html[data-glass="off"] :is(.compare-modal,#bsel-sheet,#dl-pick){background:rgba(0,0,0,.82) !important;}
+html[data-glass="off"] #backdrop{background:rgba(0,0,0,.8) !important;}
+/* tiles / inputs: black with flat orange outline */
+html[data-glass="off"] :is(.ebtn,.mcard,.orow,.ex-chip,#build-status,.data-section,.lesson-item,.dl-box,.cmp-row,#el-search,#build-input,.bsel,.dl-search,.bsel-search,.cmp-pickers select,.dl-sel,.dl-chip,.an-unit-group,.tab:not(.on)){
+  background:#000 !important;border:1px solid rgba(var(--cyan-rgb),.4) !important;box-shadow:none !important;}
+html[data-glass="off"] :is(.ebtn:hover,.mcard:hover,.ex-chip:hover,.lesson-item:hover,.dl-opt:hover,.bsel-opt:hover){background:#1a0800 !important;border-color:var(--cyan) !important;}
+html[data-glass="off"] :is(#el-search:focus,#build-input:focus){border-color:var(--cyan) !important;box-shadow:none !important;outline:2px solid var(--cyan);outline-offset:1px;}
+html[data-glass="off"] :is(.egrid,.mgrid){gap:6px;}
+/* buttons / selected: solid flat orange, black or white label, no gloss/glow */
+html[data-glass="off"] :is(.mode-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn,.ebtn.on,.mcard.on,.bsel-opt[aria-selected="true"]){
+  background-image:none !important;}
+html[data-glass="off"] :is(.mode-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.theme-toggle-btn,.panel-close,.cmp-close,.tab){
+  background:var(--cyan) !important;border:1px solid var(--cyan) !important;box-shadow:none !important;color:#fff !important;text-shadow:none !important;}
+html[data-glass="off"] :is(.mode-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.lesson-nav-btn,.theme-toggle-btn,.panel-close,.cmp-close,.tab):hover{
+  background:#ff7a1a !important;border-color:#ff7a1a !important;box-shadow:none !important;transform:none !important;filter:none !important;}
+/* "on" state = inverted (black fill, orange outline) so it's still obvious without glow */
+html[data-glass="off"] :is(.mode-btn,.tab,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,.theme-toggle-btn):is(.on,.active,[aria-pressed="true"]){
+  background:#000 !important;color:var(--cyan) !important;border:2px solid var(--cyan) !important;box-shadow:none !important;}
+html[data-glass="off"] :is(.ebtn.on,.mcard.on,.bsel-opt[aria-selected="true"]){
+  background:var(--cyan) !important;border-color:var(--cyan) !important;box-shadow:none !important;color:#fff !important;}
+html[data-glass="off"] :is(.ebtn.on .s,.ebtn.on .z,.mcard.on .mf,.mcard.on .mn){color:#fff !important;}
+html[data-glass="off"] :is(.bsel-z,.bsel-opt .z){background:#000;border-color:var(--cyan);color:var(--cyan);}
+/* slider flat */
+html[data-glass="off"] input[type=range]::-webkit-slider-runnable-track{background:rgba(var(--cyan-rgb),.3) !important;box-shadow:none !important;}
+html[data-glass="off"] input[type=range]::-webkit-slider-thumb{box-shadow:none;background:var(--cyan);border:2px solid #000;}
+html[data-glass="off"] input[type=range]::-moz-range-thumb{box-shadow:none;background:var(--cyan);border:2px solid #000;}
+/* no glow animation on logo, no ambient shadows */
+html[data-glass="off"] #topbar-logo-badge svg{animation:none !important;filter:none !important;}
+html[data-glass="off"] .panel-header::before{background:rgba(var(--cyan-rgb),.5) !important;}
+html[data-glass="off"] :is(.uncertainty-box,.compare-card,.bsel-panel,.dl-sheet,.ebtn,.mcard){box-shadow:none !important;}
+@media (max-width:640px){
+  html[data-glass="off"] :is(#left,#right){background:#000 !important;border-top:1px solid var(--cyan) !important;box-shadow:none !important;}
+}
+</style>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -1426,6 +1642,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
   <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>
   <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1" stroke-opacity=".5"/>
 </svg></button>
+          <button type="button" id="glassbtn" class="theme-toggle-btn" aria-pressed="true" title="Glass effect: on (click for flat black &amp; orange)" aria-label="Toggle glass effect"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.6 13.6 8 8 14.4 2.4 8 8 1.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5.2 6.2h5.6M8 1.6v12.8" stroke="currentColor" stroke-width="1" stroke-opacity=".55"/></svg></button>
     </div>
   </div>
 
@@ -20181,6 +20398,35 @@ const ReactionMode=(function(){
     _test:{dbg:()=>({data,curP,simKF,pairs,STAGES,oriCache,KF}),compile,validate,weight,fwin,posAt,setSimKF:k=>{simKF=k;},get:()=>({KF,STAGES,TS,T_END,HALF}),REGISTRY}};
 })();
 
+</script>
+<script id="glassier-js">
+(function(){
+  var btn=document.getElementById('glassbtn');if(!btn)return;
+  var root=document.documentElement;
+  function isOn(){return root.getAttribute('data-glass')!=='off';}
+  function sync(){
+    var on=isOn();
+    btn.setAttribute('aria-pressed',on?'true':'false');
+    btn.classList.toggle('active',on);
+    btn.title='Glass effect: '+(on?'on (click for flat black & orange)':'off (click for glass)');
+  }
+  function set(on){
+    if(on)root.removeAttribute('data-glass');else root.setAttribute('data-glass','off');
+    try{localStorage.setItem('qa-glass',on?'on':'off');}catch(e){}
+    sync();
+    var t=document.getElementById('toast');
+    if(t){t.textContent='Glass '+(on?'on':'off — flat mode');t.classList.add('show');clearTimeout(set._t);set._t=setTimeout(function(){t.classList.remove('show');},1400);}
+  }
+  btn.addEventListener('click',function(){set(!isOn());});
+  window.addEventListener('keydown',function(e){
+    if(e.key&&e.key.toLowerCase()==='g'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      var a=document.activeElement,tg=a&&a.tagName;
+      if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT'||(a&&a.isContentEditable))return;
+      set(!isOn());
+    }
+  });
+  sync();
+})();
 </script>
 </body>
 </html>
