@@ -19667,6 +19667,1002 @@ if(a)a.after(b);
 })();
 </script>
 
+<script id="reaction-core">
+/* =====================================================================
+   reaction-core.js — universal reaction finder (pure logic, zero deps)
+   ---------------------------------------------------------------------
+   Given reactants as bond graphs, searches elementary steps and returns
+   the path whose rate-limiting barrier is lowest ("least energy" route),
+   with ties broken by fewest/lowest total steps ("least path").
+
+   Physics used (all heuristic, textbook-level — see LIMITS below):
+   - Electronegativity (Pauling): bond polarity via Hannay–Smyth
+       ionic character i = 0.16|dχ| + 0.035·dχ²  -> partial charges.
+   - EM attraction: Coulomb term between attacking/attacked atoms
+       E = 1389·qA·qX / r  (kJ/mol, r in Å) adjusts the barrier, so
+       opposite partial charges approach more easily.
+   - Energy: average bond enthalpies (kJ/mol); Pauling's formula
+       D(AB) = ½(DAA+DBB) + 96.5·dχ²  fills gaps for single bonds.
+   - Barrier: Bell–Evans–Polanyi  Ea = E0 + α·ΔH  (clamped to ≥ max(ΔH,0)).
+   - Spin: Wigner spin rule. Total spin must be conservable across a
+     step (reactant and product spin-coupling sets must intersect);
+     opposite spins pair, same spins cannot. Violations pay an
+     intersystem-crossing penalty and are flagged.
+   - Hierarchy: Dijkstra over states with cost (max barrier, sum of
+     barriers) — the rate-limiting step decides, not the total.
+
+   LIMITS: bond enthalpies are averages (errors of tens of kJ/mol);
+   no solvent, catalyst, or ionic (heterolytic) steps; geometry is not
+   modelled here (the renderer's engine places atoms).
+   ===================================================================== */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.ReactionCore = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /* ---------- data ---------- */
+  // v: standard valence, en: Pauling electronegativity, d: homonuclear single-bond enthalpy
+  const EL = {
+    H: { v: 1, en: 2.20, d: 436 }, C: { v: 4, en: 2.55, d: 346 }, N: { v: 3, en: 3.04, d: 163 },
+    O: { v: 2, vmax: 3, en: 3.44, d: 146 }, F: { v: 1, en: 3.98, d: 155 }, Cl: { v: 1, en: 3.16, d: 242 },
+    Br: { v: 1, en: 2.96, d: 193 }, S: { v: 2, vl: [2, 4, 6], vmax: 6, en: 2.58, d: 266 },
+    I: { v: 1, en: 2.66, d: 151 }, Si: { v: 4, en: 1.90, d: 222 }, P: { v: 3, vl: [3, 5], vmax: 5, en: 2.19, d: 201 },
+    Li: { v: 1, en: 0.98, d: 105 }, Na: { v: 1, en: 0.93, d: 72 }, K: { v: 1, en: 0.82, d: 53 },
+    // metals: only ever bonded as ions in the aqueous model (d is a placeholder, never used for energies)
+    Mg: { v: 2, en: 1.31, d: 20 }, Ca: { v: 2, en: 1.00, d: 20 }, Ba: { v: 2, en: 0.89, d: 20 }, Al: { v: 3, en: 1.61, d: 30 },
+    Zn: { v: 2, en: 1.65, d: 30 }, Fe: { v: 2, en: 1.83, d: 30 }, Cu: { v: 2, en: 1.90, d: 30 }, Ag: { v: 1, en: 1.93, d: 30 }, Pb: { v: 2, en: 2.33, d: 30 }
+  };
+  // average bond enthalpies kJ/mol by bond order (index 0 = single, 1 = double, 2 = triple)
+  const BOND = {
+    'H-H': [436], 'C-H': [413], 'H-N': [391], 'H-O': [463], 'F-H': [567], 'Cl-H': [431], 'Br-H': [366], 'H-S': [339],
+    'C-C': [346, 614, 839], 'C-N': [305, 615, 891], 'C-O': [358, 745, 1072], 'C-F': [485], 'C-Cl': [328], 'C-S': [272, 573],
+    'N-N': [163, 418, 945], 'N-O': [201, 607], 'O-O': [146, 495], 'F-F': [155], 'Cl-Cl': [242], 'Br-Br': [193], 'S-S': [266, 425],
+    'H-I': [299], 'Br-C': [285], 'C-I': [213], 'I-I': [151], 'H-Si': [323], 'C-Si': [301], 'Si-Si': [222], 'H-P': [322], 'P-P': [201],
+    'O-S': [265, 523], 'F-S': [327], 'Cl-S': [253], 'O-P': [335, 544], 'O-Si': [452, 640],
+    // alkali compounds: gas-phase diatomic dissociation energies (these are ionic bonds in reality)
+    'H-Li': [238], 'H-Na': [186], 'H-K': [175], 'Li-Li': [105], 'Na-Na': [72], 'K-K': [53],
+    'F-Li': [577], 'Cl-Li': [469], 'F-Na': [477], 'Cl-Na': [412], 'Br-Na': [367], 'F-K': [498], 'Cl-K': [433], 'Br-K': [380]
+  };
+  const VE = { H: 1, Li: 1, Na: 1, K: 1, C: 4, Si: 4, N: 5, P: 5, O: 6, S: 6, F: 7, Cl: 7, Br: 7, I: 7, Mg: 2, Ca: 2, Ba: 2, Al: 3, Zn: 2, Fe: 2, Cu: 1, Ag: 1, Pb: 2 };
+  const ONIUM = new Set(['N', 'P', 'O', 'S', 'F', 'Cl', 'Br', 'I']);   // non-metals that gain a bond when positively charged (NH4+, H3O+)   // valence electrons
+  Object.keys(EL).forEach(k => { EL[k].ve = VE[k]; });
+  const EA = { H: 73, Li: 60, C: 122, N: -7, O: 141, F: 328, Na: 53, Si: 134, P: 72, S: 200, Cl: 349, K: 48, Br: 325, I: 295 };       // electron affinity, kJ/mol
+  const IE = { H: 1312, Li: 520, C: 1086, N: 1402, O: 1314, F: 1681, Na: 496, Si: 787, P: 1012, S: 1000, Cl: 1251, K: 419, Br: 1140, I: 1008 };   // first ionisation energy
+  const R_ION = { F: 1.33, Cl: 1.81, Br: 1.96, I: 2.20, O: 1.40, S: 1.84, N: 1.46, Li: 0.76, Na: 1.02, K: 1.38 };   // Å (Born model; Latimer shift applied below)
+  const HET = new Set(['N', 'O', 'F', 'Cl', 'Br', 'I', 'S']);   // atoms that can carry away an electron pair as a leaving group / donate a lone pair
+  // Hund exceptions: stable diradicals whose valence bookkeeping shows no unpaired electrons
+  const MULT_OVERRIDE = { O2: 3 };
+  const ISC_PENALTY = 60;      // kJ/mol, spin-forbidden step (intersystem crossing)
+  const R_APPROACH = 2.0;      // Å, nominal approach distance for the Coulomb term
+  const RING3_STRAIN = 115;    // kJ/mol per three-membered ring
+  const KCOUL = 1389;          // kJ·Å/mol per e²
+
+  /* ---------- bond graph state ---------- */
+  const mk = (z, q) => ({ z, n: z.length, B: new Uint8Array(z.length * z.length), q: q || new Int8Array(z.length) });
+  const clone = (s) => ({ z: s.z, n: s.n, B: s.B.slice(), q: s.q.slice() });
+  const ord = (s, i, j) => s.B[i * s.n + j];
+  const setOrd = (s, i, j, o) => { s.B[i * s.n + j] = o; s.B[j * s.n + i] = o; };
+  const used = (s, i) => { let t = 0; for (let j = 0; j < s.n; j++) t += s.B[i * s.n + j]; return t; };
+  function vAt(s, i) {   // allowed bond count given formal charge: N⁺ 4, O⁺ 3, O⁻ 1, Cl⁻ 0, H⁺ 0, Na⁺ 0, C⁺/C⁻ 3
+    const e = EL[s.z[i]], q = s.q[i]; if (!q) return e.v;
+    return (q > 0 && ONIUM.has(s.z[i])) ? e.v + q : Math.max(0, e.v - Math.abs(q));
+  }
+  const canExpand = (s, i) => s.q[i] === 0 && !!EL[s.z[i]].vl && EL[s.z[i]].vl.some(v => v > used(s, i));   // S: 2→4→6, P: 3→5
+  const vMaxAt = (s, i) => (s.q[i] === 0 && EL[s.z[i]].vmax) || vAt(s, i);   // O may carry a dative 3rd bond, S up to 6, P up to 5
+  const excess = (s, i) => { const e = EL[s.z[i]]; return e.vl && s.q[i] === 0 ? Math.max(0, used(s, i) - e.vmax) : Math.max(0, used(s, i) - vAt(s, i)); };   // dative bonds (O in C≡O); S/P expanding their valence is not dative
+  function openV(s, i) {   // unpaired electrons on atom i
+    const u = used(s, i), e = EL[s.z[i]];
+    if (s.q[i] === 0 && e.vl) { const v2 = e.vl.find(x => x >= u); return v2 == null ? 0 : v2 - u; }   // hypervalent S (2/4/6), P (3/5)
+    const v = vAt(s, i); if (u > v) return 0;
+    let o = v - u;
+    for (let n = 0; n < s.n; n++) { const b = ord(s, i, n); if (b && excess(s, n) > 0) o -= Math.min(excess(s, n), b); }   // partner of a dative donor has no free valence left
+    return Math.max(0, o);
+  }
+  const pairKey = (a, b) => [a, b].sort().join('-');
+
+  function D(a, b, o) {
+    const t = BOND[pairKey(a, b)];
+    if (t && t[o - 1] != null) return t[o - 1];
+    if (o === 1) { const dx = EL[a].en - EL[b].en; return 0.5 * (EL[a].d + EL[b].d) + 96.5 * dx * dx; }
+    return null;
+  }
+  const isEstimate = (a, b, o) => { const t = BOND[pairKey(a, b)]; return !(t && t[o - 1] != null); };
+  function bondEnergy(s, i, j, o) {
+    let d = D(s.z[i], s.z[j], o);
+    if (d != null && o === 2 && s.z[i] !== s.z[j] && (s.z[i] === 'C' || s.z[j] === 'C') && (s.z[i] === 'O' || s.z[j] === 'O')) {
+      const c = s.z[i] === 'C' ? i : j; let n = 0;
+      for (let k = 0; k < s.n; k++) if (s.z[k] === 'O' && ord(s, c, k) === 2) n++;
+      if (n === 2) d = 799;   // O=C=O: both C=O bonds are 799, not the 745 of a ketone
+    }
+    return d;
+  }
+  function energy(s) {   // lower = more stable
+    let e = 0;
+    for (let i = 0; i < s.n; i++) for (let j = i + 1; j < s.n; j++) {
+      const o = ord(s, i, j); if (!o) continue;
+      const d = bondEnergy(s, i, j, o); if (d == null) return Infinity; e -= d;
+    }
+    // three-membered rings are strained (cyclopropane ≈ 115 kJ/mol): average bond energies alone would make them look free
+    for (let a = 0; a < s.n; a++) for (let b = a + 1; b < s.n; b++) { if (!ord(s, a, b)) continue; for (let c = b + 1; c < s.n; c++) if (ord(s, a, c) && ord(s, b, c)) e += RING3_STRAIN; }
+    return e;
+  }
+  function charges(s) {   // Hannay–Smyth partial charges from electronegativity differences
+    const q = new Float64Array(s.n);
+    for (let i = 0; i < s.n; i++) for (let j = i + 1; j < s.n; j++) {
+      if (!ord(s, i, j)) continue;
+      const dx = EL[s.z[i]].en - EL[s.z[j]].en, ion = 0.16 * Math.abs(dx) + 0.035 * dx * dx;
+      if (dx > 0) { q[i] -= ion; q[j] += ion; } else if (dx < 0) { q[i] += ion; q[j] -= ion; }
+    }
+    return q;
+  }
+  function components(s) {
+    const seen = new Int8Array(s.n), out = [];
+    for (let i = 0; i < s.n; i++) {
+      if (seen[i]) continue;
+      const comp = [], st = [i]; seen[i] = 1;
+      while (st.length) { const a = st.pop(); comp.push(a); for (let b = 0; b < s.n; b++) if (!seen[b] && ord(s, a, b)) { seen[b] = 1; st.push(b); } }
+      out.push(comp.sort((x, y) => x - y));
+    }
+    return out;
+  }
+  const SHOW = ['Li', 'Na', 'K', 'C', 'Si', 'N', 'P', 'H', 'S', 'O', 'Se', 'I', 'Br', 'Cl', 'F'];   // display order: NaCl, CH4, NH3, H2O, HCl, CO2
+  function formula(s, atoms) {
+    const c = {}; atoms.forEach(i => { c[s.z[i]] = (c[s.z[i]] || 0) + 1; });
+    const keys = Object.keys(c).sort((a, b) => SHOW.indexOf(a) - SHOW.indexOf(b));
+    return keys.map(k => k + (c[k] > 1 ? c[k] : '')).join('');
+  }
+  function canonKey(s) {   // Weisfeiler–Lehman colour refinement per component: identical atoms never create duplicate states
+    let col = s.z.map((c, i) => s.q[i] ? c + (s.q[i] > 0 ? '+' : '-') + Math.abs(s.q[i]) : c);
+    for (let r = 0; r < 4; r++) {
+      col = col.map((c, i) => {
+        const nb = []; for (let j = 0; j < s.n; j++) { const o = ord(s, i, j); if (o) nb.push(o + col[j]); }
+        return c + '(' + nb.sort().join(',') + ')';
+      });
+    }
+    return components(s).map(cp => cp.map(i => col[i]).sort().join('.')).sort().join('|');
+  }
+
+  /* ---------- spin (Wigner rule) ---------- */
+  function twoS(s, comp) {   // high-spin (Hund) ground state unless overridden
+    const f = formula(s, comp);
+    if (MULT_OVERRIDE[f] && comp.length === 2 && ord(s, comp[0], comp[1]) === 2) return MULT_OVERRIDE[f] - 1;
+    let n = 0; comp.forEach(i => { n += Math.max(0, openV(s, i)); });
+    return n;
+  }
+  function couple(list) {   // all total-spin values reachable by coupling these fragments (values are 2S)
+    let set = new Set([0]);
+    list.forEach(a => { const nx = new Set(); set.forEach(b => { for (let t = Math.abs(a - b); t <= a + b; t += 2) nx.add(t); }); set = nx; });
+    return set;
+  }
+  function spinAllowed(s0, s1, atoms) {
+    const pick = (s) => { const out = [], seen = new Set(); components(s).forEach(c => { if (c.some(i => atoms.includes(i)) && !seen.has(c[0])) { seen.add(c[0]); out.push(twoS(s, c)); } }); return out; };
+    const A = couple(pick(s0)), B = couple(pick(s1));
+    for (const v of A) if (B.has(v)) return true;
+    return false;
+  }
+
+  /* ---------- elementary steps ---------- */
+  // Three move types, all conserve atoms and respect valence:
+  //  homolysis  X–Y            -> X• + •Y            (breaks one bond order)
+  //  coupling   A• + B•        -> A–B                (opposite spins pair)
+  //  attack     A• + X–Y       -> A–X + Y•           (abstraction / addition to X=Y)
+  function steps(s, polar, concerted) {
+    if (polar) { const o = []; polarSteps(s, o); return o; }   // aqueous polar chemistry never mixes with gas-phase radical bond energies
+    const out = [], q = charges(s), E0 = energy(s);
+    const push = (type, atoms, s2, ea0, e0, alpha, coulomb) => {
+      const E1 = energy(s2); if (!isFinite(E1)) return;
+      const dH = E1 - E0;
+      let ea = type === 'homolysis' ? Math.max(dH, 0) : Math.max(e0 + alpha * dH + coulomb, Math.max(dH, 0), 0);
+      const ok = spinAllowed(s, s2, atoms);
+      if (!ok) ea += ISC_PENALTY;
+      out.push({ type, atoms, s2, dH, ea, spinOK: ok, coulomb });
+    };
+    for (let i = 0; i < s.n; i++) for (let j = i + 1; j < s.n; j++) {
+      const o = ord(s, i, j);
+      if (s.q[i] || s.q[j]) continue;   // charged atoms react through the polar steps below
+      if (o) { const s2 = clone(s); setOrd(s2, i, j, o - 1); push('homolysis', [i, j], s2, 0, 0, 0, 0); }
+      const oi = openV(s, i), oj = openV(s, j), expI = oi === 0 && canExpand(s, i), expJ = oj === 0 && canExpand(s, j);
+      if (((oi > 0 && oj > 0) || (oi > 0 && expJ) || (oj > 0 && expI)) && vMaxAt(s, i) >= used(s, i) + 1 && vMaxAt(s, j) >= used(s, j) + 1) {
+        const s2 = clone(s); setOrd(s2, i, j, o + 1);
+        if (D(s.z[i], s.z[j], o + 1) != null) push('coupling', [i, j], s2, 0, (expI || expJ) ? 45 : 5, 0, Math.min(0, KCOUL * q[i] * q[j] / R_APPROACH));   // +40 kJ/mol to promote S/P to its next valence
+      }
+    }
+    // stable diradicals (triplet O2 = O=O with two unpaired π* electrons) attack a bond directly: no 349 kJ/mol π-cleavage first
+    components(s).forEach(cp => {
+      if (cp.length !== 2 || !MULT_OVERRIDE[formula(s, cp)] || ord(s, cp[0], cp[1]) !== 2) return;
+      [[cp[0], cp[1]], [cp[1], cp[0]]].forEach(([a, b]) => {
+        for (let x = 0; x < s.n; x++) for (let y = 0; y < s.n; y++) {
+          if (x === a || x === b || y === a || y === b || x === y || s.q[x] || s.q[y]) continue;
+          const o = ord(s, x, y); if (!o || ord(s, a, x) >= 3) continue;
+          const s2 = clone(s); setOrd(s2, a, b, 1); setOrd(s2, x, y, o - 1); setOrd(s2, a, x, ord(s, a, x) + 1);
+          if (D(s.z[a], s.z[x], ord(s, a, x) + 1) == null) continue;
+          const dH = energy(s2) - E0, n0 = out.length;
+          push('attack', [a, b, x, y], s2, 0, o >= 2 ? 20 : 35, dH > 0 ? 0.5 : 0.3, KCOUL * q[a] * q[x] / R_APPROACH);
+          if (out.length > n0) out[out.length - 1].diradical = true;
+        }
+      });
+    });
+    for (let a = 0; a < s.n; a++) {
+      if (openV(s, a) <= 0 || s.q[a]) continue;
+      for (let x = 0; x < s.n; x++) for (let y = 0; y < s.n; y++) {
+        if (x === a || y === a || x === y || s.q[x] || s.q[y]) continue;
+        const o = ord(s, x, y); if (!o || ord(s, a, x) >= 3) continue;
+        const s2 = clone(s); setOrd(s2, x, y, o - 1); setOrd(s2, a, x, ord(s, a, x) + 1);
+        if (D(s.z[a], s.z[x], ord(s, a, x) + 1) == null) continue;
+        const dH = energy(s2) - E0, add = o >= 2;
+        const coul = KCOUL * q[a] * q[x] / R_APPROACH;   // opposite charges lower the barrier, like charges raise it
+        push('attack', [a, x, y], s2, 0, add ? 20 : 35, dH > 0 ? 0.5 : 0.3, coul);
+      }
+    }
+    if (concerted) concertedSteps(s, out, E0);
+    return out;
+  }
+
+  /* Four-centre steps for closed-shell gas-phase chemistry that has no radical route: addition X–Y + A=B → X–A–B–Y (HBr + ethene),
+     elimination X–A–B–Y → X–Y + A=B (dehydration), and exchange A–B + C–D → A–C + B–D (esterification, hydrolysis). They are formally
+     forbidden thermally (real routes need an acid or a catalyst), so their barrier is a rough estimate; plan() tries them only when no radical route exists. */
+  function concertedSteps(s, out, E0) {
+    const bonds = []; for (let i = 0; i < s.n; i++) for (let j = i + 1; j < s.n; j++) { const o = ord(s, i, j); if (o && !s.q[i] && !s.q[j]) bonds.push([i, j, o]); }
+    const push = (atoms, s2) => { const E1 = energy(s2); if (!isFinite(E1)) return; const dH = E1 - E0; out.push({ type: 'concerted', atoms, s2, dH, ea: Math.max(180 + 0.4 * dH, Math.max(dH, 0), 120), spinOK: true, coulomb: 0 }); };
+    const distinct = (...v) => new Set(v).size === v.length;
+    for (const [x, y, o1] of bonds) {
+      if (o1 !== 1) continue;
+      for (const [a, b, o2] of bonds) {
+        if (o2 < 2 || !distinct(x, y, a, b)) continue;
+        [[a, b], [b, a]].forEach(([p2, q2]) => { const s2 = clone(s); setOrd(s2, x, y, 0); setOrd(s2, a, b, o2 - 1); setOrd(s2, x, p2, ord(s, x, p2) + 1); setOrd(s2, y, q2, ord(s, y, q2) + 1); push([x, y, p2, q2], s2); });
+      }
+    }
+    for (const [a0, b0, o] of bonds) {
+      if (o >= 3) continue;
+      [[a0, b0], [b0, a0]].forEach(([a, b]) => {
+        for (let x = 0; x < s.n; x++) { if (x === a || x === b || ord(s, a, x) !== 1 || s.q[x]) continue;
+          for (let y = 0; y < s.n; y++) { if (y === a || y === b || y === x || ord(s, b, y) !== 1 || s.q[y]) continue;
+            const s2 = clone(s); setOrd(s2, a, x, 0); setOrd(s2, b, y, 0); setOrd(s2, x, y, ord(s, x, y) + 1); setOrd(s2, a, b, o + 1); push([a, b, x, y], s2); } }
+      });
+    }
+    for (let m = 0; m < bonds.length; m++) for (let n = m + 1; n < bonds.length; n++) {
+      const [a, b, o1] = bonds[m], [c, d, o2] = bonds[n]; if (o1 !== 1 || o2 !== 1 || !distinct(a, b, c, d)) continue;
+      [[c, d], [d, c]].forEach(([p2, q2]) => { const s2 = clone(s); setOrd(s2, a, b, 0); setOrd(s2, c, d, 0); setOrd(s2, a, p2, ord(s, a, p2) + 1); setOrd(s2, b, q2, ord(s, b, q2) + 1); push([a, b, c, d], s2); });
+    }
+  }
+
+  /* ---------- polar / ionic layer (aqueous) ----------
+     Two-electron analogues of the radical steps. The electronegativity rule: an electron pair always leaves
+     with the MORE electronegative atom (a leaving group must be N, O, S or a halogen — never carbon or hydrogen).
+       heterolysis  X–Y           -> X⁺ + Y⁻
+       dative       D(lone pair) + A⁺ -> D⁺–A  (ion pairing, protonation: D⁻ + A⁺ -> D–A)
+       attack       D(lone pair) + X–Y -> D⁺–X + Y⁻   (proton transfer when X = H; SN2; addition to X=Y) */
+  const canLeave = (s, y) => HET.has(s.z[y]) || (s.z[y] === 'C' && s.q[y] === 0 && Array.from({ length: s.n }, (_, n) => n).some(n => s.z[n] === 'N' && ord(s, y, n) === 3));   // …or the carbon of a nitrile (cyanide)
+  const canDonate = (s, d) => HET.has(s.z[d]) || (s.z[d] === 'C' && s.q[d] === -1 && Array.from({ length: s.n }, (_, n) => n).some(n => s.z[n] === 'N' && ord(s, d, n) === 3));   // …and the carbon of cyanide
+  const lonePairs = (s, i) => Math.max(0, Math.floor((EL[s.z[i]].ve - used(s, i) - openV(s, i) - s.q[i]) / 2));
+  const G_PKA = 5.708;   // RT·ln10 in kJ/mol at 298 K
+  const STRONG = {};     // strong acids: key -> G(A⁻) (G(H⁺) = 0), used when the acid is written (aq) in a net reaction
+  const AQ = {};         // standard aqueous free energies ΔfG° (kJ/mol); key = composition ^ net charge ^ internal charge pattern (guards against isomers)
+  const aqKey = (f, q, pat) => parseFormula(f) + '^' + q + '^' + (pat || '');
+  const aqPut = (f, q, g, pat) => { AQ[aqKey(f, q, pat)] = g; };
+  const gOf = (f, q, pat) => AQ[aqKey(f, q, pat)];
+  [['H2O', 0, -237.13, ''], ['H', 1, 0, '1'], ['H3O', 1, -237.13, '1'], ['OH', -1, -157.24, '-1'],
+   ['Na', 1, -261.91, '1'], ['K', 1, -282.51, '1'], ['Li', 1, -293.31, '1'],
+   ['Mg', 2, -454.8, '2'], ['Ca', 2, -553.58, '2'], ['Ba', 2, -560.77, '2'], ['Al', 3, -485, '3'], ['Zn', 2, -147.06, '2'],
+   ['Fe', 2, -78.90, '2'], ['Fe', 3, -4.7, '3'], ['Cu', 2, 65.49, '2'], ['Cu', 1, 49.98, '1'], ['Ag', 1, 77.11, '1'], ['Pb', 2, -24.43, '2'],
+   ['F', -1, -278.79, '-1'], ['Cl', -1, -131.23, '-1'], ['Br', -1, -103.96, '-1'], ['I', -1, -51.57, '-1'],
+   ['NH3', 0, -26.50, ''], ['NH4', 1, -79.31, '1'],
+   ['NO3', -1, -111.25, '-1,-1,1'], ['NO2', -1, -32.2, '-1'], ['CO3', -2, -527.81, '-1,-1'], ['HCO3', -1, -586.77, '-1'],
+   ['HS', -1, 12.08, '-1'], ['S', -2, 85.8, '-2'], ['CN', -1, 172.4, '-1'], ['CH3COO', -1, -369.31, '-1'], ['CHO2', -1, -351.0, '-1'],
+   ['SO4', -2, -744.53, '-1,-1'], ['HSO4', -1, -755.91, '-1'], ['SO3', -2, -486.5, '-1,-1'], ['HSO3', -1, -527.73, '-1'],
+   ['PO4', -3, -1018.7, '-1,-1,-1'], ['HPO4', -2, -1089.15, '-1,-1'], ['H2PO4', -1, -1130.28, '-1']]
+    .forEach(([f, q, g, pat]) => aqPut(f, q, g, pat));
+  // acids as undissociated molecules: G(HA) = G(A⁻) + G(H⁺) − RT·ln10·pKa   (pattern = the conjugate base's pattern minus its own −1)
+  [['HCl', 'Cl', -6.3, '-1', ''], ['HBr', 'Br', -9, '-1', ''], ['HI', 'I', -10, '-1', ''], ['HF', 'F', 3.17, '-1', ''], ['HNO3', 'NO3', -1.4, '-1,-1,1', '-1,1'],
+   ['HCN', 'CN', 9.21, '-1', ''], ['H2S', 'HS', 7.0, '-1', ''], ['CH3COOH', 'CH3COO', 4.76, '-1', ''], ['HCOOH', 'CHO2', 3.75, '-1', ''], ['H2CO3', 'HCO3', 6.35, '-1', ''],
+   ['H2SO4', 'HSO4', -3, '-1', ''], ['H2SO3', 'HSO3', 1.85, '-1', ''], ['H3PO4', 'H2PO4', 2.15, '-1', ''], ['HNO2', 'NO2', 3.25, '-1', '']]
+    .forEach(([ha, a, pka, apat, pat]) => { aqPut(ha, 0, gOf(a, -1, apat) - G_PKA * pka, pat); if (pka < 0) STRONG[aqKey(ha, 0, pat)] = gOf(a, -1, apat); });
+  // alkali ion pairs (strong electrolytes: an ion pair in water costs nothing extra). Only anions whose bonded form is unambiguous.
+  ['Na', 'K', 'Li'].forEach(m => {
+    [['Cl', '-1', ''], ['Br', '-1', ''], ['I', '-1', ''], ['F', '-1', ''], ['OH', '-1', ''], ['CH3COO', '-1', ''], ['HCO3', '-1', ''], ['NO3', '-1,-1,1', '-1,1']]
+      .forEach(([x, apat, pat]) => aqPut(m + x, 0, gOf(m, 1, '1') + gOf(x, -1, apat), pat));
+  });
+  // precipitates: one cation + one anion bonded (solid). ΔG of the solid from tabulated ΔfG°(s); internal charge pattern stays on the polyatomic anion.
+  [['AgCl', -109.79, ''], ['AgBr', -96.90, ''], ['AgI', -66.19, ''], ['BaSO4', -1362.2, '-1,1'], ['CaSO4', -1322.0, '-1,1'],
+   ['BaCO3', -1134.4, '-1,1'], ['CaCO3', -1128.8, '-1,1'], ['MgCO3', -1012.1, '-1,1'], ['MgH2O2', -833.51, '']].forEach(([f, g, pat]) => aqPut(f, 0, g, pat));
+  aqPut('MgOH', 1, -626.8, '1');   // the intermediate on the way to Mg(OH)2
+  const patOf = (s, comp) => comp.map(i => s.q[i]).filter(v => v).sort((a, b) => a - b).join(',');
+  const aqG = (s, comp) => { let q = 0; comp.forEach(i => { q += s.q[i]; }); const g = AQ[parseFormula(formula(s, comp)) + '^' + q + '^' + patOf(s, comp)]; return g == null ? null : g; };
+  const born = (sym, q) => { if (sym === 'H' && q > 0) return 1090; const r = R_ION[sym]; if (!r) return null; return 694.5 * (1 - 1 / 78.4) / (r + (q > 0 ? 0.85 : 0.10)); };
+  function compEstimate(s, comp) {   // Born–Haber estimate: bond energies + atomic IE/EA − Born solvation; null when it can't be trusted
+    let e = 0;
+    for (let a = 0; a < comp.length; a++) for (let b = a + 1; b < comp.length; b++) {
+      const o = ord(s, comp[a], comp[b]); if (!o) continue;
+      const d = bondEnergy(s, comp[a], comp[b], o); if (d == null) return null; e -= d;
+    }
+    for (const i of comp) {
+      const q = s.q[i]; if (!q) continue; if (Math.abs(q) > 1) return null;
+      const sym = s.z[i], b = born(sym, q); if (b == null) return null;   // sign matters: cations get the larger Latimer shift
+      if (q < 0) { if (EA[sym] == null) return null; e += -EA[sym] - b; }
+      else { if (used(s, i) > 0 || IE[sym] == null) return null; e += IE[sym] - b; }   // bonded cations (onium) need a tabulated species
+    }
+    return e;
+  }
+  function polarDH(s, s2, atoms) {
+    const touch = (st) => components(st).filter(c => c.some(i => atoms.includes(i)));
+    const A = touch(s), B = touch(s2), sum = (x) => x.reduce((t, v) => t + v, 0);
+    const ga = A.map(c => aqG(s, c)), gb = B.map(c => aqG(s2, c));
+    if (ga.every(v => v != null) && gb.every(v => v != null)) return { dH: sum(gb) - sum(ga), basis: 'table' };
+    const fa = A.map(c => compEstimate(s, c)), fb = B.map(c => compEstimate(s2, c));
+    if (fa.some(v => v == null) || fb.some(v => v == null)) return null;
+    return { dH: sum(fb) - sum(fa), basis: 'estimate' };
+  }
+  function polarSteps(s, out) {
+    const lp = []; for (let i = 0; i < s.n; i++) lp[i] = lonePairs(s, i);
+    const ok = (st, atoms) => atoms.every(i => used(st, i) <= vMaxAt(st, i));
+    const add = (type, atoms, s2, ea, extra) => {
+      if (!ok(s2, atoms)) return;
+      const r = polarDH(s, s2, atoms); if (!r) return;
+      if (r.basis === 'estimate' && (type !== 'attack' || (extra && extra.proton))) return;   // Born–Haber estimates are only trusted for substitution/addition by an anion, never for proton transfer, pairing or heterolysis
+      out.push(Object.assign({ type, atoms, s2, dH: r.dH, ea: ea(r.dH), spinOK: true, coulomb: 0, polar: true, basis: r.basis }, extra || {}));
+    };
+    for (let i = 0; i < s.n; i++) for (let j = i + 1; j < s.n; j++) {
+      const o = ord(s, i, j); if (!o) continue;
+      [[i, j], [j, i]].forEach(([a, b]) => {   // electrons go to b
+        if (s.q[a] || s.q[b] || s.z[a] === 'H' || !HET.has(s.z[b]) || EL[s.z[b]].en <= EL[s.z[a]].en + 0.4) return;   // no bare H⁺ in water: protons move by transfer
+        const s2 = clone(s); setOrd(s2, a, b, o - 1); s2.q[a] = 1; s2.q[b] = -1;
+        add('heterolysis', [a, b], s2, dH => Math.max(dH, 0));
+      });
+    }
+    for (let d = 0; d < s.n; d++) {
+      if (lp[d] <= 0 || !canDonate(s, d)) continue;
+      for (let a = 0; a < s.n; a++) {
+        if (a === d || s.q[a] <= 0) continue;
+        const s2 = clone(s); setOrd(s2, d, a, ord(s, d, a) + 1); s2.q[d] += 1; s2.q[a] -= 1;
+        add('dative', [d, a], s2, dH => Math.max(dH, 0) + 5);
+      }
+      for (let x = 0; x < s.n; x++) for (let y = 0; y < s.n; y++) {
+        if (x === d || y === d || x === y) continue;
+        const o = ord(s, x, y); if (!o || !canLeave(s, y) || EL[s.z[y]].en <= EL[s.z[x]].en + 0.1) continue;
+        const s2 = clone(s); setOrd(s2, d, x, ord(s, d, x) + 1); setOrd(s2, x, y, o - 1); s2.q[d] += 1; s2.q[y] -= 1;
+        const proton = s.z[x] === 'H', e0 = o >= 2 ? 40 : 70;
+        add('attack', [d, x, y], s2, proton ? (dH => Math.max(dH, 0) + 5) : (dH => Math.max(e0 + (dH > 0 ? 0.5 : 0.3) * dH, Math.max(dH, 0))), { polarAttack: true, proton });
+      }
+    }
+  }
+
+  /* ---------- search: bottleneck Dijkstra ---------- */
+  const less = (a, b) => a[0] < b[0] - 1e-9 || (Math.abs(a[0] - b[0]) < 1e-9 && a[1] < b[1] - 1e-9);
+  function Heap() {
+    const h = [];
+    return {
+      get size() { return h.length; },
+      push(x) { h.push(x); let i = h.length - 1; while (i) { const p = (i - 1) >> 1; if (!less(h[i].c, h[p].c)) break; [h[i], h[p]] = [h[p], h[i]]; i = p; } },
+      pop() { const t = h[0], l = h.pop(); if (h.length) { h[0] = l; let i = 0; for (;;) { let m = i, a = 2 * i + 1, b = a + 1; if (a < h.length && less(h[a].c, h[m].c)) m = a; if (b < h.length && less(h[b].c, h[m].c)) m = b; if (m === i) break; [h[i], h[m]] = [h[m], h[i]]; i = m; } } return t; }
+    };
+  }
+
+  function fromSpecies(list) {   // [{atoms:['H','H'], bonds:[[0,1,1]]}, ...] -> one disjoint state
+    const z = [], qs = [], bonds = [];
+    list.forEach(sp => { const off = z.length; sp.atoms.forEach((a, k) => { if (!EL[a]) throw new Error('unsupported element ' + a + ' (supported: ' + Object.keys(EL).join(' ') + ')'); z.push(a); qs.push((sp.charges && sp.charges[k]) || 0); }); (sp.bonds || []).forEach(([i, j, o]) => bonds.push([i + off, j + off, o || 1])); });
+    const s = mk(z, Int8Array.from(qs)); bonds.forEach(([i, j, o]) => setOrd(s, i, j, o));
+    for (let i = 0; i < s.n; i++) if (used(s, i) > vMaxAt(s, i)) throw new Error('valence exceeded on atom ' + i + ' (' + s.z[i] + (s.q[i] ? ', charge ' + s.q[i] : '') + ')');
+    if (!isFinite(energy(s))) throw new Error('bond not in energy table');
+    return s;
+  }
+  const DISP = {};
+  [['OH', -1], ['NaOH', 0], ['KOH', 0], ['LiOH', 0], ['CH3COO', -1], ['CH3COOH', 0], ['CH3COONa', 0], ['HCO3', -1], ['NH4', 1], ['H3O', 1], ['HS', -1],
+   ['HNO3', 0], ['NH4Cl', 0], ['NH4OH', 0], ['NaHCO3', 0], ['H2CO3', 0], ['NO3', -1], ['CO3', -2], ['CN', -1], ['CH3OH', 0], ['CH3CH2OH', 0], ['CH3Br', 0], ['CH3Cl', 0], ['CH3I', 0],
+   ['CH3CH2Br', 0], ['CH3NH2', 0], ['HCOOH', 0], ['CH3CN', 0], ['HCN', 0], ['CH3COOCH3', 0], ['CH3CH2CH2OH', 0], ['C2H4', 0]].forEach(([f, q]) => { DISP[parseFormula(f) + '^' + q] = f; });
+  const dispFormula = (s, c) => { let q = 0; c.forEach(i => { q += s.q[i]; }); return DISP[parseFormula(formula(s, c)) + '^' + q] || formula(s, c); };
+  const describe = (s) => components(s).map(c => { let q = 0; c.forEach(i => { q += s.q[i]; }); return { formula: dispFormula(s, c), atoms: c, charge: q }; });
+
+
+  /* A step that closes a 3- or 4-membered ring is rejected (strained, and the renderer cannot embed such transient species),
+     unless the reactants themselves already contain small rings. */
+  function formsSmallRing(s0, st) {
+    const s2 = st.s2, at = st.atoms;
+    for (let a = 0; a < at.length; a++) for (let b = a + 1; b < at.length; b++) {
+      const i = at[a], j = at[b];
+      if (!(ord(s2, i, j) > 0 && ord(s0, i, j) === 0)) continue;           // only a newly made bond can close a ring
+      for (let k = 0; k < s2.n; k++) {
+        if (k === i || k === j) continue;
+        const ki = ord(s2, i, k), kj = ord(s2, j, k);
+        if (ki && kj) return true;                                          // triangle i-j-k
+        if (ki) for (let l = 0; l < s2.n; l++) { if (l === i || l === j || l === k) continue; if (ord(s2, j, l) && ord(s2, k, l)) return true; }   // square i-k-l-j
+      }
+    }
+    return false;
+  }
+  function hasSmallRing(s) {
+    for (let i = 0; i < s.n; i++) for (let j = i + 1; j < s.n; j++) {
+      if (!ord(s, i, j)) continue;
+      for (let k = 0; k < s.n; k++) {
+        if (k === i || k === j) continue;
+        if (ord(s, i, k) && ord(s, j, k)) return true;
+        if (ord(s, i, k)) for (let l = 0; l < s.n; l++) { if (l === i || l === j || l === k) continue; if (ord(s, j, l) && ord(s, k, l)) return true; }
+      }
+    }
+    return false;
+  }
+
+  function explore(start, opts) {
+    opts = opts || {};
+    const maxBarrier = opts.maxBarrier == null ? Infinity : opts.maxBarrier, maxNodes = opts.maxNodes || 40000, deadline = Date.now() + (opts.timeMs || 4000);
+    const best = new Map(), heap = Heap(), k0 = canonKey(start);
+    best.set(k0, { c: [0, 0], s: start, prev: null, step: null, key: k0, E: 0 });
+    heap.push({ c: [0, 0], key: k0 });
+    let popped = 0; best.truncated = false; const guardRings = !hasSmallRing(start);
+    while (heap.size) {
+      if (popped >= maxNodes || ((popped & 7) === 0 && Date.now() > deadline)) { best.truncated = true; break; }
+      const { c, key } = heap.pop(); const node = best.get(key);
+      if (less(node.c, c)) continue; popped++;
+      for (const st of steps(node.s, opts.polar, opts.concerted)) {
+        if (st.ea > maxBarrier || (opts.tableOnly && st.basis === 'estimate')) continue;
+        if (guardRings && formsSmallRing(node.s, st)) continue;
+        const k = canonKey(st.s2), nc = [Math.max(node.c[0], st.ea), node.c[1] + st.ea];
+        const old = best.get(k);
+        if (!old || less(nc, old.c)) { best.set(k, { c: nc, s: st.s2, prev: key, step: st, key: k, E: node.E + st.dH }); heap.push({ c: nc, key: k }); }
+      }
+    }
+    return best;
+  }
+  function pathTo(best, key) {
+    const seq = []; for (let n = best.get(key); n; n = n.prev ? best.get(n.prev) : null) seq.unshift(n);
+    const first = seq[0].s, est = new Set();
+    seq.forEach(n => { for (let i = 0; i < n.s.n; i++) for (let j = i + 1; j < n.s.n; j++) { const o = ord(n.s, i, j); if (o && isEstimate(n.s.z[i], n.s.z[j], o)) est.add(pairKey(n.s.z[i], n.s.z[j]) + ' (order ' + o + ')'); } });
+    return {
+      estimatedBonds: Array.from(est), truncated: !!best.truncated,
+      rateLimiting: seq[seq.length - 1].c[0], totalBarrier: seq[seq.length - 1].c[1],
+      deltaH: seq[seq.length - 1].E, polar: seq.some(n => n.step && n.step.polar),
+      stages: seq.map(n => ({ species: describe(n.s), state: n.s })),
+      steps: seq.slice(1).map(n => ({ type: n.step.type, atoms: n.step.atoms.map(i => n.s.z[i] + i), deltaH: Math.round(n.step.dH), barrier: Math.round(n.step.ea), spinAllowed: n.step.spinOK, coulomb: Math.round(n.step.coulomb), symbols: n.step.atoms.map(i => n.s.z[i]), diradical: !!n.step.diradical, polar: !!n.step.polar, basis: n.step.basis || 'bond-energy', proton: !!n.step.proton, polarAttack: !!n.step.polarAttack }))
+    };
+  }
+  function parseFormula(str) {   // 'H2O', 'NaCl', 'CH4' -> canonical composition key
+    const c = {}, re = /([A-Z][a-z]?)(\d*)/g; let m, used = 0;
+    while ((m = re.exec(str))) { c[m[1]] = (c[m[1]] || 0) + (m[2] ? +m[2] : 1); used += m[0].length; }
+    if (used !== str.length || !Object.keys(c).length) throw new Error('cannot read formula "' + str + '"');
+    return Object.keys(c).sort().map(k => k + c[k]).join('');
+  }
+  const compKey = (s, comp) => parseFormula(formula(s, comp));
+  // goal items are 'Comp' (neutral) or 'Comp^q' (an ion): an ion is never the same species as its neutral atom
+  const goalKey = (str) => { const i = str.indexOf('^'); return i < 0 ? parseFormula(str) + '^0' : parseFormula(str.slice(0, i)) + '^' + (+str.slice(i + 1)); };
+  const sameFormulas = (s, want) => components(s).map(c => { let q = 0; c.forEach(a => { q += s.q[a]; }); return compKey(s, c) + '^' + q; }).sort().join('|') === want.map(goalKey).sort().join('|');
+
+  /* find the lowest-bottleneck path to a stated product set, e.g. goal ['NO','NO'] */
+  function pathToProducts(reactants, goal, opts) {
+    opts = opts || {};
+    if (opts.polar && opts.tableOnly === undefined) {            // aqueous: prefer a route made only of tabulated free energies, then fall back to estimates
+      const r = pathToProducts(reactants, goal, Object.assign({}, opts, { tableOnly: true })); if (r) return r;
+      return pathToProducts(reactants, goal, Object.assign({}, opts, { tableOnly: false }));
+    }
+    const start = fromSpecies(reactants), best = explore(start, opts);
+    // several isomers can share the stated composition (e.g. O–C–O vs O=C=O): take the lowest-barrier match,
+    // then the most stable isomer reachable within `tol` kJ/mol of that barrier
+    const tol = opts.tol != null ? opts.tol : (opts.polar ? 60 : 200);
+    let hits = [], lo = null;
+    best.forEach(n => { if (sameFormulas(n.s, goal)) hits.push(n); });
+    const shut = (n) => { for (let i = 0; i < n.s.n; i++) if (openV(n.s, i) > 0) return false; return true; };
+    const closed = hits.filter(shut); if (closed.length) hits = closed;      // a finished molecule, not a radical isomer, unless the goal itself is a radical
+    hits.forEach(n => { if (lo == null || n.c[0] < lo) lo = n.c[0]; });
+    let pick = null, pe = Infinity;
+    hits.forEach(n => { if (n.c[0] > lo + tol + 1e-9) return; const e = n.E; if (e < pe - 1e-9 || (Math.abs(e - pe) < 1e-9 && less(n.c, pick.c))) { pick = n; pe = e; } });
+    return pick ? pathTo(best, pick.key) : null;
+  }
+  /* no goal: the most stable state reachable below a barrier budget (thermodynamic sink) */
+  function mostStable(reactants, opts) {
+    const start = fromSpecies(reactants), e0 = 0;
+    const search = (o) => { const best = explore(start, o); let pick = null;
+      best.forEach(n => { const e = n.E; if (!pick || e < pick.e - 1e-9 || (Math.abs(e - pick.e) < 1e-9 && less(n.c, pick.n.c))) pick = { e, n }; });
+      return { best, pick }; };
+    let o1 = Object.assign({}, opts); if (o1.polar) o1.tableOnly = true;   // without a stated goal, first follow only steps backed by tabulated free energies
+    let r = search(o1);
+    if (opts && opts.polar && !(r.pick && r.pick.e < e0 - 1e-9)) {         // nothing tabulated is downhill: allow Born–Haber estimates, but only for a clearly exergonic result
+      const r2 = search(Object.assign({}, opts, { tableOnly: false }));
+      if (r2.pick && r2.pick.e < -40) r = r2; }
+    return r.pick && r.pick.e < e0 - 1e-9 ? pathTo(r.best, r.pick.n.key) : null;   // null = nothing downhill is reachable
+  }
+
+
+  /* Which regime? Aqueous polar chemistry if any reactant is charged, contains an alkali metal, or is a tabulated acid/base; otherwise gas-phase radical. */
+  const POLAR_KEYS = new Set(['HCl', 'HBr', 'HI', 'HF', 'HNO3', 'HCN', 'H2S', 'CH3COOH', 'H2CO3', 'NH3', 'H2O', 'H2SO4', 'H3PO4', 'H2SO3', 'HNO2', 'HCOOH'].map(f => parseFormula(f) + '^0'));
+  function isPolarSystem(list) {
+    const s = fromSpecies(list);
+    if (Array.from(s.q).some(v => v)) return true;   // any ion: aqueous polar chemistry (salts arrive as separate ions)
+    const comps = components(s).map(c => compKey(s, c) + '^0');
+    // an acid alone with an organic or non-polar partner (HBr + ethene) is gas-phase chemistry; acid + base / water is aqueous
+    return comps.filter(k => POLAR_KEYS.has(k)).length >= 2 && !comps.every(k => k === parseFormula('H2O') + '^0');
+  }
+
+
+  /* ---------- stoichiometry ---------- */
+  const countsOf = (str) => { const c = {}, re = /([A-Z][a-z]?)(\d*)/g; let m; while ((m = re.exec(str))) c[m[1]] = (c[m[1]] || 0) + (m[2] ? +m[2] : 1); return c; };
+  const unitCounts = (unit) => { const c = {}; unit.forEach(sp => sp.atoms.forEach(a => { c[a] = (c[a] || 0) + 1; })); return c; };
+  /* R, P: [{counts, fixed|null}] -> smallest whole-number coefficients that balance every element, honouring fixed ones */
+  function balanceEquation(R, P, maxCoef) {
+    maxCoef = maxCoef || 6;
+    const items = R.map(r => ({ side: 1, r })).concat(P.map(r => ({ side: -1, r }))), els = new Set();
+    items.forEach(it => Object.keys(it.r.counts).forEach(e => els.add(e)));
+    let best = null; const co = new Array(items.length).fill(1);
+    (function rec(i) {
+      if (i === items.length) {
+        for (const e of els) { let net = 0; items.forEach((it, k) => { net += it.side * co[k] * (it.r.counts[e] || 0); }); if (net) return; }
+        const sum = co.reduce((a, b) => a + b, 0); if (!best || sum < best.sum) best = { sum, co: co.slice() }; return;
+      }
+      const it = items[i], lo = it.r.fixed || 1, hi = it.r.fixed || maxCoef;
+      for (let k = lo; k <= hi; k++) { co[i] = k; rec(i + 1); }
+    })(0);
+    return best ? { r: best.co.slice(0, R.length), p: best.co.slice(R.length) } : null;
+  }
+  /* groups: [{unit: [spec, ...], fixed|null}] -> try small ratios, keep the finished (closed-shell) reaction releasing the most energy per atom */
+  function bestStoichiometry(groups, opts) {
+    opts = opts || {};
+    const maxAtoms = opts.maxAtoms || Infinity, deadline = Date.now() + (opts.totalMs || 9000), maxC = opts.maxCoef || 3, combos = [];
+    const gcd = (a, b) => b ? gcd(b, a % b) : a;
+    (function rec(i, cur) { if (i === groups.length) { combos.push(cur.slice()); return; } const g = groups[i]; for (let k = (g.fixed || 1); k <= (g.fixed || maxC); k++) { cur.push(k); rec(i + 1, cur); cur.pop(); } })(0, []);
+    const size = (co) => co.reduce((t, k, i) => t + k * groups[i].unit.reduce((u, sp) => u + sp.atoms.length, 0), 0);
+    // in combustion mode a bare element (C, S …) is one atom of fuel: several of them would just bond to each other, so keep them single
+    const single = (co) => !opts.complete || co.every((k, i) => k === 1 || groups[i].unit.reduce((u, sp) => u + sp.atoms.length, 0) > 1);
+    const todo = combos.filter(co => size(co) <= maxAtoms && single(co) && (co.length < 2 || co.reduce(gcd) === 1 || groups.some(g => g.fixed))).sort((a, b) => size(a) - size(b));
+    const cands = [];
+    for (const co of todo) {
+      if (Date.now() > deadline) break;
+      const reactants = []; co.forEach((k, i) => { for (let t = 0; t < k; t++) groups[i].unit.forEach(sp => reactants.push(sp)); });
+      let p; try { p = mostStable(reactants, Object.assign({}, opts, { timeMs: opts.perMs || 2500 })); } catch (e) { continue; }
+      if (!p) continue;
+      const last = p.stages[p.stages.length - 1].state; let rad = 0; for (let i = 0; i < last.n; i++) rad += openV(last, i);
+      if (rad) continue;   // leftover radicals: not a finished reaction
+      cands.push({ score: Math.abs(p.deltaH) / size(co), size: size(co), path: p, reactants, coefs: co });
+    }
+    if (!cands.length) return null;
+    // with O2 the user means combustion: complete oxidation = the most energy per atom.
+    // Otherwise: the smallest ratio that gives a finished (closed-shell), downhill reaction — what a textbook equation shows.
+    const top = Math.max.apply(null, cands.map(c => c.score));
+    const pool = opts.complete ? cands.filter(c => c.score >= top - 1e-9) : cands.slice();
+    pool.sort((a, b) => a.size - b.size || b.score - a.score);
+    return pool[0];
+  }
+
+
+
+  /* ---------- net-reaction tier: standard formation enthalpies / free energies (298 K, kJ/mol) ----------
+     For reactions whose elementary mechanism is not modelled (metal combustion, redox, thermal decomposition, big combustions).
+     ΔrH = Σ ΔfH(products) − Σ ΔfH(reactants); the same for ΔG. Values: NBS / CRC standard tables. The first phase listed for a formula is its default. */
+  const TH = {}, THDEF = {};
+  const thPut = (f, ph, h, g) => { const c = parseFormula(f); TH[c + '|' + ph] = [h, g]; if (!THDEF[c]) THDEF[c] = ph; };
+  [['H2', 'g'], ['O2', 'g'], ['N2', 'g'], ['F2', 'g'], ['Cl2', 'g'], ['Br2', 'l'], ['I2', 's'], ['S', 's'], ['C', 's'], ['P', 's'], ['Na', 's'], ['K', 's'], ['Li', 's'],
+   ['Mg', 's'], ['Ca', 's'], ['Al', 's'], ['Zn', 's'], ['Fe', 's'], ['Cu', 's'], ['Ag', 's'], ['Pb', 's'], ['Ba', 's'], ['Si', 's']].forEach(([f, ph]) => thPut(f, ph, 0, 0));
+  [['H2O', 'l', -285.83, -237.13], ['H2O', 'g', -241.82, -228.57], ['H2O2', 'l', -187.78, -120.35],
+   ['CO', 'g', -110.53, -137.17], ['CO2', 'g', -393.51, -394.36], ['CH4', 'g', -74.81, -50.72], ['C2H6', 'g', -84.68, -32.82], ['C3H8', 'g', -103.85, -23.49],
+   ['C4H10', 'g', -126.15, -17.03], ['C8H18', 'l', -250.1, 6.4], ['C2H4', 'g', 52.26, 68.15], ['C2H2', 'g', 226.73, 209.20], ['C3H6', 'g', 20.0, 62.7], ['C6H6', 'l', 49.04, 124.5],
+   ['CH4O', 'l', -238.66, -166.27], ['CH4O', 'g', -200.66, -161.96], ['C2H6O', 'l', -277.69, -174.78], ['C2H6O', 'g', -235.1, -168.5],
+   ['C2H4O2', 'l', -484.5, -389.9], ['CH2O2', 'l', -424.72, -361.35], ['CH2O', 'g', -108.57, -102.53], ['C2H4O', 'g', -166.19, -128.86],
+   ['CCl4', 'l', -135.44, -65.21], ['CHCl3', 'l', -134.47, -73.66], ['C6H12O6', 's', -1273.3, -910.4], ['C12H22O11', 's', -2226.1, -1544.3],
+   ['NH3', 'g', -45.90, -16.45], ['NO', 'g', 90.25, 86.55], ['NO2', 'g', 33.18, 51.31], ['N2O', 'g', 82.05, 104.20], ['N2O4', 'g', 9.16, 97.89], ['HNO3', 'l', -174.10, -80.71],
+   ['N2H4', 'l', 50.63, 149.34], ['NH4Cl', 's', -314.43, -202.87], ['NH4NO3', 's', -365.56, -183.87], ['H8N2O4S', 's', -1180.85, -901.67], ['CHN', 'g', 135.1, 124.7],
+   ['HCl', 'g', -92.31, -95.30], ['HBr', 'g', -36.40, -53.45], ['HI', 'g', 26.48, 1.70], ['HF', 'g', -273.30, -275.40],
+   ['O3', 'g', 142.7, 163.2], ['SO2', 'g', -296.83, -300.19], ['SO3', 'g', -395.72, -371.06], ['H2S', 'g', -20.63, -33.56], ['H2O4S', 'l', -813.99, -690.00],
+   ['Na2O', 's', -414.2, -375.5], ['Li2O', 's', -597.9, -561.2], ['MgO', 's', -601.70, -569.43], ['CaO', 's', -635.09, -604.03], ['BaO', 's', -553.5, -525.1],
+   ['Al2O3', 's', -1675.7, -1582.3], ['Fe2O3', 's', -824.2, -742.2], ['Fe3O4', 's', -1118.4, -1015.4], ['FeO', 's', -272.0, -251.4], ['CuO', 's', -157.3, -129.7],
+   ['Cu2O', 's', -168.6, -146.0], ['ZnO', 's', -350.46, -320.48], ['Ag2O', 's', -31.05, -11.20], ['PbO', 's', -217.3, -187.9], ['PbO2', 's', -277.4, -217.3],
+   ['O2Si', 's', -910.94, -856.64], ['Na2O2', 's', -510.87, -447.7],
+   ['HNaO', 's', -425.61, -379.49], ['HKO', 's', -424.76, -379.08], ['HLiO', 's', -484.93, -438.95], ['CaH2O2', 's', -986.09, -898.49], ['MgH2O2', 's', -924.54, -833.51],
+   ['FeH3O3', 's', -823.0, -696.5], ['CuH2O2', 's', -449.8, -359.9], ['ZnH2O2', 's', -641.9, -553.5],
+   ['ClNa', 's', -411.15, -384.14], ['ClK', 's', -436.75, -409.14], ['ClLi', 's', -408.61, -384.37], ['Cl2Mg', 's', -641.32, -591.79], ['CaCl2', 's', -795.8, -748.1],
+   ['AlCl3', 's', -704.2, -628.8], ['Cl3Fe', 's', -399.49, -334.0], ['Cl2Fe', 's', -341.79, -302.30], ['Cl2Cu', 's', -220.1, -175.7], ['Cl2Zn', 's', -415.05, -369.43],
+   ['AgCl', 's', -127.07, -109.79], ['BaCl2', 's', -858.6, -810.4], ['Cl2Pb', 's', -359.41, -314.10],
+   ['BrNa', 's', -361.06, -348.98], ['BrK', 's', -393.80, -380.66], ['INa', 's', -287.78, -286.06], ['IK', 's', -327.90, -324.89], ['FNa', 's', -573.65, -543.5], ['CaF2', 's', -1219.6, -1167.3],
+   ['AgBr', 's', -100.37, -96.90], ['AgI', 's', -61.84, -66.19],
+   ['Na2O4S', 's', -1387.08, -1270.16], ['CaO4S', 's', -1434.1, -1321.8], ['BaO4S', 's', -1473.2, -1362.2], ['CuO4S', 's', -771.36, -661.8], ['O4SZn', 's', -982.8, -871.5],
+   ['MgO4S', 's', -1284.9, -1170.6], ['CNa2O3', 's', -1130.68, -1044.44], ['CHNaO3', 's', -950.81, -851.0], ['CCaO3', 's', -1206.92, -1128.79], ['CMgO3', 's', -1095.8, -1012.1],
+   ['BaCO3', 's', -1216.3, -1137.6], ['CK2O3', 's', -1151.0, -1063.5], ['NNaO3', 's', -467.85, -367.0], ['KNO3', 's', -494.63, -394.86], ['AgNO3', 's', -124.39, -33.41],
+   ['ClKO3', 's', -397.73, -296.25], ['C2Ca', 's', -59.8, -64.9], ['FeS', 's', -100.0, -100.4], ['SZn', 's', -206.0, -201.3], ['CS2', 'l', 89.0, 65.3], ['Cl4Si', 'l', -687.0, -619.8]].forEach(([f, ph, h, g]) => thPut(f, ph, h, g));
+  const NETPH = new Set(['g', 'l', 's', 'aq']);
+  /* species energy: {h, g, src} for one typed species. unit = list of specs (an ionic compound is its ions), phase = 'g'|'l'|'s'|'aq' or null */
+  function thermoOfUnit(unit, phase) {
+    const counts = unitCounts(unit), c = Object.keys(counts).sort().map(k => k + counts[k]).join(''), charged = unit.some(sp => (sp.charges || []).some(v => v));
+    const netq = unit.reduce((t, sp) => t + netCharge(sp), 0);
+    if (phase === 'aq' || netq !== 0) {   // dissolved species and single ions use the aqueous table (an ion is never its element)
+      let g = 0;
+      for (const sp of unit) { const st = fromSpecies([sp]); for (const comp of components(st)) { let q = 0; comp.forEach(i => { q += st.q[i]; }); const kk = parseFormula(formula(st, comp)) + '^' + q + '^' + patOf(st, comp); const v = STRONG[kk] != null ? STRONG[kk] : aqG(st, comp); if (v == null) return null; g += v; } }
+      return { h: null, g, src: 'aq' };
+    }
+    const ph = phase || THDEF[c]; if (!ph) return null;
+    const e = TH[c + '|' + ph]; if (!e) return null;
+    return { h: e[0], g: e[1], src: ph };
+  }
+  /* RG/PG: [{unit, n, explicit, phase}] -> balanced net reaction with ΔH (only if every species has it) and ΔG */
+  function netReaction(RG, PG, nopts) {
+    const bal = balanceEquation(RG.map(g => ({ counts: unitCounts(g.unit), fixed: g.explicit ? g.n : null })), PG.map(g => ({ counts: unitCounts(g.unit), fixed: g.explicit ? g.n : null })));
+    if (!bal) return { ok: false, why: 'unbalanced' };
+    let H = 0, G = 0, hasH = true, hasG = true; const missing = [];
+    const add = (g, k, sign) => { const t = thermoOfUnit(g.unit, g.phase); if (!t) { missing.push(g.label || compKeyOfUnit(g.unit)); return; }
+      if (t.h == null) hasH = false; else H += sign * k * t.h; if (t.g == null) hasG = false; else G += sign * k * t.g; };
+    RG.forEach((g, i) => add(g, bal.r[i], -1)); PG.forEach((g, i) => add(g, bal.p[i], 1));
+    if (missing.length) return (nopts && nopts.allowNoData) ? { ok: true, noData: true, missing, bal, dH: null, dG: null, dS: null } : { ok: false, why: 'nodata', missing, bal };
+    const T = 298.15;
+    return { ok: true, bal, dH: hasH ? H : null, dG: hasG ? G : null, dS: hasH && hasG ? (H - G) / T * 1000 : null };   // dS in J/(mol·K)
+  }
+  const compKeyOfUnit = (u) => { const c = unitCounts(u); return Object.keys(c).sort().map(k => k + (c[k] > 1 ? c[k] : '')).join(''); };
+
+  /* ---------- plan: resolve a typed equation into a route ----------
+     RG: reactants [{unit:[spec…], n, explicit}]            PG: products [{unit:[spec…], pair:'NaCl', ions:['Na','Cl'], isSalt, n, explicit}]
+     Returns { ok, path, reac, polar, bal, ratioNote, noReaction, why }. */
+  const sizeOf = (u) => u.reduce((t, sp) => t + sp.atoms.length, 0);
+  function plan(RG, PG, o) {
+    o = o || {};
+    const unitsOf = (G, co) => G.flatMap((g, i) => Array.from({ length: co ? co[i] : g.n }, () => g.unit)).flat();
+    const budget = (atoms) => Math.max(900, Math.min(o.timeMs || 4000, 4000 - 110 * Math.max(0, atoms - 10)));   // work budget (ms) instead of an atom cap: bigger systems get less search time, then fall back
+    if (PG.length) {
+      const bal = balanceEquation(RG.map(g => ({ counts: unitCounts(g.unit), fixed: g.explicit ? g.n : null })), PG.map(g => ({ counts: unitCounts(g.unit), fixed: g.explicit ? g.n : null })));
+      if (!bal) return { ok: false, why: 'unbalanced', msg: 'this equation cannot be balanced with these species' };
+      const reac = unitsOf(RG, bal.r), polar = isPolarSystem(reac), atoms = sizeOf(reac);
+      const pairOK = PG.map(g => g.isSalt && pairTabulated(g.pair)), salts = PG.map((g, i) => pairOK[i] ? i : -1).filter(i => i >= 0), masks = [];
+      for (let m = (1 << salts.length) - 1; m >= 0; m--) masks.push(m);       // every product salt: bonded pair (precipitate, NaCl) or dissolved ions; pairs first
+      masks.sort((a, b) => popcnt(b) - popcnt(a));
+      let trivial = null;
+      for (const m of masks) {
+        const goal = []; PG.forEach((g, i) => { const k = salts.indexOf(i), pair = k >= 0 && (m >> k & 1); for (let t = 0; t < bal.p[i]; t++) (g.isSalt && !pair ? g.ions : [g.pair]).forEach(c => goal.push(c)); });
+        let path; try { path = pathToProducts(reac, goal, { timeMs: budget(atoms), polar }); } catch (e) { path = null; }
+        if (!path && !polar) { try { path = pathToProducts(reac, goal, { timeMs: budget(atoms), polar, concerted: true }); } catch (e) { path = null; } }   // no radical route: allow four-centre steps
+        if (path && path.steps.length === 0) { trivial = trivial || { ok: true, noReaction: true, reac, polar, bal }; continue; }
+        if (path) return { ok: true, path, reac, polar, bal };
+      }
+      return trivial || { ok: false, why: 'noroute', reac, polar, bal, msg: 'those products are not reachable by the modelled mechanisms' };
+    }
+    const flat = unitsOf(RG), polar = isPolarSystem(flat);
+    if (RG.some(g => !g.explicit)) {
+      const combustion = RG.some(g => g.unit.some(sp => sp.atoms.length === 2 && sp.atoms[0] === 'O' && sp.atoms[1] === 'O'));
+      const sr = bestStoichiometry(RG.map(g => ({ unit: g.unit, fixed: g.explicit ? g.n : null })), { polar, complete: combustion, perMs: o.perMs || 2000, totalMs: o.totalMs || 9000 });
+      if (!sr) return { ok: false, why: 'nothing', polar, msg: polar ? 'no reaction found with the tabulated aqueous chemistry' : 'nothing downhill is reachable (endothermic, or needs polar/ionic steps)' };
+      return { ok: true, path: sr.path, reac: sr.reactants, polar, ratioNote: ' No ratio was given, so small ratios were tried and the finished reaction' + (combustion ? ' with complete oxidation' : '') + ' was chosen automatically (within the search budget).' };
+    }
+    const path = mostStable(flat, { timeMs: budget(sizeOf(flat)), polar });
+    return path ? { ok: true, path, reac: flat, polar } : { ok: false, why: 'nothing', polar, msg: polar ? 'no reaction found with the tabulated aqueous chemistry' : 'nothing downhill is reachable (endothermic, or needs polar/ionic steps)' };
+  }
+  const pairTabulated = (comp) => { const k = parseFormula(comp) + '^0^'; return Object.keys(AQ).some(x => x.startsWith(k)); };
+  const popcnt = (x) => { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; };
+
+  /* ---------- ions, salts and a few molecules the library lacks (Lewis structures with formal charges) ---------- */
+  const ion = (atoms, charges, bonds) => ({ atoms, bonds: bonds || [], charges });
+  const IONS = {   // explicit ion tokens: "Na+", "Mg2+", "OH-", "SO42-" …  (Lewis structures with formal charges)
+    'H+': ion(['H'], [1]), 'Li+': ion(['Li'], [1]), 'Na+': ion(['Na'], [1]), 'K+': ion(['K'], [1]),
+    'Mg2+': ion(['Mg'], [2]), 'Ca2+': ion(['Ca'], [2]), 'Ba2+': ion(['Ba'], [2]), 'Al3+': ion(['Al'], [3]), 'Zn2+': ion(['Zn'], [2]),
+    'Fe2+': ion(['Fe'], [2]), 'Fe3+': ion(['Fe'], [3]), 'Cu2+': ion(['Cu'], [2]), 'Cu+': ion(['Cu'], [1]), 'Ag+': ion(['Ag'], [1]), 'Pb2+': ion(['Pb'], [2]),
+    'NH4+': ion(['N', 'H', 'H', 'H', 'H'], [1, 0, 0, 0, 0], [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1]]),
+    'H3O+': ion(['O', 'H', 'H', 'H'], [1, 0, 0, 0], [[0, 1, 1], [0, 2, 1], [0, 3, 1]]),
+    'OH-': ion(['O', 'H'], [-1, 0], [[0, 1, 1]]), 'F-': ion(['F'], [-1]), 'Cl-': ion(['Cl'], [-1]), 'Br-': ion(['Br'], [-1]), 'I-': ion(['I'], [-1]),
+    'S2-': ion(['S'], [-2]), 'O2-': ion(['O'], [-2]), 'HS-': ion(['S', 'H'], [-1, 0], [[0, 1, 1]]), 'CN-': ion(['C', 'N'], [-1, 0], [[0, 1, 3]]),
+    'NO3-': ion(['N', 'O', 'O', 'O'], [1, 0, -1, -1], [[0, 1, 2], [0, 2, 1], [0, 3, 1]]),
+    'NO2-': ion(['N', 'O', 'O'], [0, 0, -1], [[0, 1, 2], [0, 2, 1]]),
+    'CO32-': ion(['C', 'O', 'O', 'O'], [0, 0, -1, -1], [[0, 1, 2], [0, 2, 1], [0, 3, 1]]),
+    'HCO3-': ion(['C', 'O', 'O', 'O', 'H'], [0, 0, -1, 0, 0], [[0, 1, 2], [0, 2, 1], [0, 3, 1], [3, 4, 1]]),
+    'HCOO-': ion(['C', 'H', 'O', 'O'], [0, 0, 0, -1], [[0, 1, 1], [0, 2, 2], [0, 3, 1]]),
+    'CH3COO-': ion(['C', 'H', 'H', 'H', 'C', 'O', 'O'], [0, 0, 0, 0, 0, 0, -1], [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1], [4, 5, 2], [4, 6, 1]]),
+    'SO42-': ion(['S', 'O', 'O', 'O', 'O'], [0, 0, 0, -1, -1], [[0, 1, 2], [0, 2, 2], [0, 3, 1], [0, 4, 1]]),
+    'HSO4-': ion(['S', 'O', 'O', 'O', 'O', 'H'], [0, 0, 0, 0, -1, 0], [[0, 1, 2], [0, 2, 2], [0, 3, 1], [0, 4, 1], [3, 5, 1]]),
+    'SO32-': ion(['S', 'O', 'O', 'O'], [0, 0, -1, -1], [[0, 1, 2], [0, 2, 1], [0, 3, 1]]),
+    'HSO3-': ion(['S', 'O', 'O', 'O', 'H'], [0, 0, 0, -1, 0], [[0, 1, 2], [0, 2, 1], [0, 3, 1], [2, 4, 1]]),
+    'PO43-': ion(['P', 'O', 'O', 'O', 'O'], [0, 0, -1, -1, -1], [[0, 1, 2], [0, 2, 1], [0, 3, 1], [0, 4, 1]]),
+    'HPO42-': ion(['P', 'O', 'O', 'O', 'O', 'H'], [0, 0, 0, -1, -1, 0], [[0, 1, 2], [0, 2, 1], [0, 3, 1], [0, 4, 1], [2, 5, 1]]),
+    'H2PO4-': ion(['P', 'O', 'O', 'O', 'O', 'H', 'H'], [0, 0, 0, 0, -1, 0, 0], [[0, 1, 2], [0, 2, 1], [0, 3, 1], [0, 4, 1], [2, 5, 1], [3, 6, 1]])
+  };
+  const CATF = { Na: ['Na+'], K: ['K+'], Li: ['Li+'], NH4: ['NH4+'], Mg: ['Mg2+'], Ca: ['Ca2+'], Ba: ['Ba2+'], Al: ['Al3+'], Zn: ['Zn2+'], Ag: ['Ag+'], Pb: ['Pb2+'],
+    Fe: ['Fe2+', 'Fe3+'], Cu: ['Cu2+', 'Cu+'] };   // formula symbol -> possible ions (variable-charge metals are decided by the written counts)
+  const ANIF = { OH: 'OH-', F: 'F-', Cl: 'Cl-', Br: 'Br-', I: 'I-', HS: 'HS-', S: 'S2-', O: 'O2-', CN: 'CN-', NO3: 'NO3-', NO2: 'NO2-', CO3: 'CO32-', HCO3: 'HCO3-',
+    CH3COO: 'CH3COO-', HCOO: 'HCOO-', SO4: 'SO42-', HSO4: 'HSO4-', SO3: 'SO32-', HSO3: 'HSO3-', PO4: 'PO43-', HPO4: 'HPO42-', H2PO4: 'H2PO4-' };
+  const MOLS = {   // neutral molecules written with formal charges where the octet rule needs them
+    H2: ion(['H', 'H'], null, [[0, 1, 1]]), O2: ion(['O', 'O'], null, [[0, 1, 2]]), N2: ion(['N', 'N'], null, [[0, 1, 3]]), F2: ion(['F', 'F'], null, [[0, 1, 1]]),
+    Cl2: ion(['Cl', 'Cl'], null, [[0, 1, 1]]), Br2: ion(['Br', 'Br'], null, [[0, 1, 1]]), I2: ion(['I', 'I'], null, [[0, 1, 1]]),
+    CO: ion(['C', 'O'], null, [[0, 1, 3]]), CO2: ion(['O', 'C', 'O'], null, [[0, 1, 2], [1, 2, 2]]), NO: ion(['N', 'O'], null, [[0, 1, 2]]),
+    NO2: ion(['N', 'O', 'O'], null, [[0, 1, 2], [0, 2, 1]]), N2O: ion(['N', 'N', 'O'], [0, 1, -1], [[0, 1, 3], [1, 2, 1]]), O3: ion(['O', 'O', 'O'], [0, 1, -1], [[0, 1, 2], [1, 2, 1]]),
+    SO2: ion(['O', 'S', 'O'], null, [[0, 1, 2], [1, 2, 2]]), SO3: ion(['S', 'O', 'O', 'O'], null, [[0, 1, 2], [0, 2, 2], [0, 3, 2]]), SiO2: ion(['O', 'Si', 'O'], null, [[0, 1, 2], [1, 2, 2]]),
+    HNO3: ion(['N', 'O', 'O', 'O', 'H'], [1, 0, -1, 0, 0], [[0, 1, 2], [0, 2, 1], [0, 3, 1], [3, 4, 1]]),
+    HNO2: ion(['H', 'O', 'N', 'O'], null, [[0, 1, 1], [1, 2, 1], [2, 3, 2]]), HClO: ion(['H', 'O', 'Cl'], null, [[0, 1, 1], [1, 2, 1]]),
+    H2CO3: ion(['C', 'O', 'O', 'O', 'H', 'H'], null, [[0, 1, 2], [0, 2, 1], [0, 3, 1], [2, 4, 1], [3, 5, 1]]),
+    H2SO4: ion(['S', 'O', 'O', 'O', 'O', 'H', 'H'], null, [[0, 1, 2], [0, 2, 2], [0, 3, 1], [0, 4, 1], [3, 5, 1], [4, 6, 1]]),
+    H2SO3: ion(['S', 'O', 'O', 'O', 'H', 'H'], null, [[0, 1, 2], [0, 2, 1], [0, 3, 1], [2, 4, 1], [3, 5, 1]]),
+    H3PO4: ion(['P', 'O', 'O', 'O', 'O', 'H', 'H', 'H'], null, [[0, 1, 2], [0, 2, 1], [0, 3, 1], [0, 4, 1], [2, 5, 1], [3, 6, 1], [4, 7, 1]]),
+    NH3: ion(['N', 'H', 'H', 'H'], null, [[0, 1, 1], [0, 2, 1], [0, 3, 1]]), H2O: ion(['O', 'H', 'H'], null, [[0, 1, 1], [0, 2, 1]]), H2S: ion(['S', 'H', 'H'], null, [[0, 1, 1], [0, 2, 1]]),
+    HCl: ion(['H', 'Cl'], null, [[0, 1, 1]]), HBr: ion(['H', 'Br'], null, [[0, 1, 1]]), HI: ion(['H', 'I'], null, [[0, 1, 1]]), HF: ion(['H', 'F'], null, [[0, 1, 1]]),
+    C6H12O6: ion(['C', 'C', 'C', 'C', 'C', 'C', 'O', 'O', 'O', 'O', 'O', 'O', 'H', 'H', 'H', 'H', 'H', 'H', 'H', 'H', 'H', 'H', 'H', 'H'], null,   // open-chain D-glucose (the ring form cannot be drawn by the embedder)
+      [[0, 1, 1], [1, 2, 1], [2, 3, 1], [3, 4, 1], [4, 5, 1], [0, 6, 2], [1, 7, 1], [2, 8, 1], [3, 9, 1], [4, 10, 1], [5, 11, 1],
+       [0, 12, 1], [1, 13, 1], [2, 14, 1], [3, 15, 1], [4, 16, 1], [5, 17, 1], [5, 18, 1], [7, 19, 1], [8, 20, 1], [9, 21, 1], [10, 22, 1], [11, 23, 1]]),
+    CS2: ion(['S', 'C', 'S'], null, [[0, 1, 2], [1, 2, 2]]), N2O4: ion(['N', 'N', 'O', 'O', 'O', 'O'], [1, 1, 0, -1, 0, -1], [[0, 1, 1], [0, 2, 2], [0, 3, 1], [1, 4, 2], [1, 5, 1]]),
+    HCN: ion(['H', 'C', 'N'], null, [[0, 1, 1], [1, 2, 3]]), PH3: ion(['P', 'H', 'H', 'H'], null, [[0, 1, 1], [0, 2, 1], [0, 3, 1]])
+  };
+  MOLS.NO2.atoms = ['N', 'O', 'O'];
+  const MOLNAMES = {   // common names -> formula text
+    'water': 'H2O', 'hydrogen peroxide': 'H2O2', 'ammonia': 'NH3', 'hydrochloric acid': 'HCl', 'hydrobromic acid': 'HBr', 'hydroiodic acid': 'HI', 'hydrofluoric acid': 'HF',
+    'hydrogen chloride': 'HCl', 'hydrogen bromide': 'HBr', 'hydrogen iodide': 'HI', 'hydrogen fluoride': 'HF', 'hydrogen sulfide': 'H2S', 'hydrogen cyanide': 'HCN',
+    'sulfuric acid': 'H2SO4', 'sulfurous acid': 'H2SO3', 'phosphoric acid': 'H3PO4', 'nitric acid': 'HNO3', 'nitrous acid': 'HNO2', 'carbonic acid': 'H2CO3',
+    'acetic acid': 'CH3COOH', 'formic acid': 'HCOOH', 'sulfur dioxide': 'SO2', 'sulfur trioxide': 'SO3', 'carbon dioxide': 'CO2', 'carbon monoxide': 'CO',
+    'nitrogen dioxide': 'NO2', 'nitric oxide': 'NO', 'nitrous oxide': 'N2O', 'ozone': 'O3', 'silicon dioxide': 'SiO2', 'silica': 'SiO2', 'phosphine': 'PH3',
+    'hydrazine': 'N2H4', 'methane': 'CH4', 'ethane': 'CH3CH3', 'propane': 'CH3CH2CH3', 'butane': 'CH3CH2CH2CH3', 'ethene': 'CH2=CH2', 'ethylene': 'CH2=CH2',
+    'propene': 'CH2=CHCH3', 'ethyne': 'CH#CH', 'acetylene': 'CH#CH', 'methanol': 'CH3OH', 'ethanol': 'CH3CH2OH', 'propanol': 'CH3CH2CH2OH', 'acetone': '(CH3)2CO',
+    'acetaldehyde': 'CH3CHO', 'formaldehyde': 'HCHO', 'methylamine': 'CH3NH2', 'bromomethane': 'CH3Br', 'methyl bromide': 'CH3Br', 'chloromethane': 'CH3Cl',
+    'methyl chloride': 'CH3Cl', 'iodomethane': 'CH3I', 'bromoethane': 'CH3CH2Br', 'chloroethane': 'CH3CH2Cl', 'hydrogen': 'H2', 'oxygen': 'O2', 'nitrogen': 'N2',
+    glucose: 'C6H12O6', 'd-glucose': 'C6H12O6', dextrose: 'C6H12O6',
+    'chlorine': 'Cl2', 'bromine': 'Br2', 'iodine': 'I2', 'fluorine': 'F2'
+  };
+  const CNAME = { sodium: 'Na+', potassium: 'K+', lithium: 'Li+', ammonium: 'NH4+', magnesium: 'Mg2+', calcium: 'Ca2+', barium: 'Ba2+', aluminium: 'Al3+', aluminum: 'Al3+', zinc: 'Zn2+',
+    silver: 'Ag+', lead: 'Pb2+', 'lead(ii)': 'Pb2+', 'iron(ii)': 'Fe2+', 'iron(iii)': 'Fe3+', ferrous: 'Fe2+', ferric: 'Fe3+', 'copper(ii)': 'Cu2+', 'copper(i)': 'Cu+', copper: 'Cu2+', cupric: 'Cu2+', cuprous: 'Cu+' };
+  const ANAME = { chloride: 'Cl-', bromide: 'Br-', iodide: 'I-', fluoride: 'F-', hydroxide: 'OH-', nitrate: 'NO3-', nitrite: 'NO2-', sulfate: 'SO42-', sulphate: 'SO42-', sulfite: 'SO32-',
+    carbonate: 'CO32-', bicarbonate: 'HCO3-', 'hydrogen carbonate': 'HCO3-', hydrogencarbonate: 'HCO3-', acetate: 'CH3COO-', phosphate: 'PO43-', 'hydrogen phosphate': 'HPO42-',
+    'dihydrogen phosphate': 'H2PO4-', sulfide: 'S2-', 'hydrogen sulfate': 'HSO4-', bisulfate: 'HSO4-', 'hydrogen sulfite': 'HSO3-', hydrosulfide: 'HS-', cyanide: 'CN-', oxide: 'O2-' };
+  const unsub = (t) => t.replace(/[₀-₉]/g, c => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).replace(/\s+/g, '');
+  const netCharge = (sp) => (sp.charges || []).reduce((a, b) => a + b, 0);
+
+  /* condensed organic formulas -> bond graph, e.g. CH3COOH, CH3CH2Br, (CH3)2CO, CH2=CH2, HC#CH, CH3CN. Closed-shell results only. */
+  function condensed(text) {
+    const t = unsub(text); if (!t || !/^[A-Za-z0-9()=#≡]+$/.test(t)) return null;
+    const toks = t.match(/\(|\)|=|#|≡|\d+|COOH|COO|CHO|CO|CN|[A-Z][a-z]?H?\d*/g); if (!toks || toks.join('') !== t) return null;
+    const atoms = [], bonds = [];
+    const addAtom = (e) => { atoms.push(e); return atoms.length - 1; };
+    const addH = (a, n) => { for (let k = 0; k < n; k++) bonds.push([a, addAtom('H'), 1]); };
+    let bad = false;
+    function seq(list, base) {   // returns tail atom
+      let prev = base, pend = 1; const queued = [];   // branches written before the atom they hang on, as in (CH3)2CO
+      for (let i = 0; i < list.length && !bad; i++) {
+        const k = list[i];
+        if (k === '=') { pend = 2; continue; } if (k === '#' || k === '≡') { pend = 3; continue; }
+        if (k === '(') {
+          let d = 1, j = i + 1; while (j < list.length && d) { if (list[j] === '(') d++; else if (list[j] === ')') d--; j++; }
+          if (d) { bad = true; break; }
+          const sub = list.slice(i + 1, j - 1); let cnt = 1; if (/^\d+$/.test(list[j] || '')) { cnt = +list[j]; j++; }
+          if (prev == null) queued.push([sub, cnt]); else for (let r = 0; r < cnt; r++) seq(sub, prev);
+          i = j - 1; continue;
+        }
+        if (/^\d+$/.test(k) || k === ')') { bad = true; break; }
+        let head, tail;
+        if (k === 'COOH') { head = tail = addAtom('C'); bonds.push([head, addAtom('O'), 2]); const o = addAtom('O'); bonds.push([head, o, 1]); addH(o, 1); }
+        else if (k === 'COO') { head = addAtom('C'); bonds.push([head, addAtom('O'), 2]); tail = addAtom('O'); bonds.push([head, tail, 1]); }
+        else if (k === 'CHO') { head = tail = addAtom('C'); bonds.push([head, addAtom('O'), 2]); addH(head, 1); }
+        else if (k === 'CO') { head = tail = addAtom('C'); bonds.push([head, addAtom('O'), 2]); }
+        else if (k === 'CN') { head = addAtom('C'); tail = addAtom('N'); bonds.push([head, tail, 3]); }
+        else if (/^(F|Cl|Br|I)\d+$/.test(k)) { if (prev == null) { bad = true; break; } const h2 = /^[A-Za-z]+/.exec(k)[0], cnt = +/\d+$/.exec(k)[0]; for (let r2 = 0; r2 < cnt; r2++) bonds.push([prev, addAtom(h2), 1]); pend = 1; continue; }
+        else { const m = /^([A-Z][a-z]?)(?:H(\d*))?$/.exec(k); if (!m || !EL[m[1]]) { bad = true; break; } head = tail = addAtom(m[1]); if (m[0].indexOf('H') > m[1].length - 1 && m[0].length > m[1].length) addH(head, m[2] ? +m[2] : 1); }
+        if (prev != null) bonds.push([prev, head, pend]); pend = 1; prev = tail;
+        while (queued.length) { const [sub, cnt] = queued.pop(); for (let r = 0; r < cnt; r++) seq(sub, head); }
+      }
+      return prev;
+    }
+    seq(toks, null);
+    if (bad || !atoms.length) return null;
+    try { const st = fromSpecies([{ atoms, bonds }]); for (let i = 0; i < st.n; i++) if (openV(st, i) !== 0) return null; } catch (e) { return null; }
+    return { atoms, bonds };
+  }
+
+  /* molecular formula -> the common isomer, for families where it is unambiguous in practice: alkanes, 1-alkenes, 1-alkynes,
+     primary haloalkanes, primary alcohols, carboxylic acids, primary amines, plus H2O2 and N2H4. Everything else: not guessed. */
+  function fromMolecularFormula(text) {
+    const t = unsub(text), c = {}, re = /([A-Z][a-z]?)(\d*)/g; let m, used = 0;
+    while ((m = re.exec(t))) { c[m[1]] = (c[m[1]] || 0) + (m[2] ? +m[2] : 1); used += m[0].length; }
+    if (t === 'H2O2') return condensed('HOOH');
+    if (t === 'N2H4') return condensed('NH2NH2');
+    if (used !== t.length || !c.C) return null;
+    const n = c.C, h = c.H || 0, o = c.O || 0, nn = c.N || 0, hal = ['F', 'Cl', 'Br', 'I'].filter(x => c[x]);
+    const rep = (str, k) => str.repeat(Math.max(0, k)), R = (k) => 'CH3' + rep('CH2', k - 1);   // k-carbon primary alkyl
+    let f = null;
+    if (!o && !nn && !hal.length) {
+      if (h === 2 * n + 2) f = n === 1 ? 'CH4' : 'CH3' + rep('CH2', n - 2) + 'CH3';
+      else if (h === 2 * n && n >= 2) f = n === 2 ? 'CH2=CH2' : 'CH2=CH' + rep('CH2', n - 3) + 'CH3';
+      else if (h === 2 * n - 2 && n >= 2) f = n === 2 ? 'CH#CH' : 'CH#C' + rep('CH2', n - 3) + 'CH3';
+    } else if (!o && !nn && hal.length === 1 && c[hal[0]] === 1 && h === 2 * n + 1) f = R(n) + hal[0];
+    else if (o === 1 && !nn && !hal.length && h === 2 * n + 2) f = R(n) + 'OH';
+    else if (o === 2 && !nn && !hal.length && h === 2 * n) f = n === 1 ? 'HCOOH' : 'CH3' + rep('CH2', n - 2) + 'COOH';
+    else if (nn === 1 && !o && !hal.length && h === 2 * n + 3) f = R(n) + 'NH2';
+    return f ? condensed(f) : null;
+  }
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const balanced = (cTok, aTok) => {   // smallest neutral combination of one cation and one anion
+    const qc = netCharge(IONS[cTok]), qa = -netCharge(IONS[aTok]), L = qc * qa / gcd(qc, qa), sp = [];
+    for (let k = 0; k < L / qc; k++) sp.push(IONS[cTok]); for (let k = 0; k < L / qa; k++) sp.push(IONS[aTok]);
+    return { species: sp, kind: 'salt' };
+  };
+  function saltFromName(low) {
+    if (low === 'iron(ii,iii) oxide' || low === 'magnetite') return parseSalt('Fe3O4');
+    const cats = Object.keys(CNAME).sort((a, b) => b.length - a.length);
+    for (const c of cats) {
+      if (!low.startsWith(c + ' ')) continue;
+      const an = ANAME[low.slice(c.length + 1).trim()]; if (!an) continue;
+      return balanced(CNAME[c], an);
+    }
+    return null;
+  }
+  function parseSalt(t) {   // NaOH, Na2SO4, Ca(OH)2, Al2(SO4)3, FeCl3, Cu2O, CH3COONa …
+    if (t === 'Fe3O4') return { species: [IONS['Fe2+'], IONS['Fe3+'], IONS['Fe3+'], IONS['O2-'], IONS['O2-'], IONS['O2-'], IONS['O2-']], kind: 'salt' };
+    const cats = Object.keys(CATF).sort((a, b) => b.length - a.length), anis = Object.keys(ANIF).sort((a, b) => b.length - a.length);
+    const pm = /^\(([A-Za-z0-9]+)\)(\d*)(.+)$/.exec(t);   // (NH4)2SO4: a parenthesised cation
+    const heads = pm && CATF[pm[1]] ? [{ c: pm[1], ncStr: pm[2], r: pm[3] }] : cats.filter(c => t.startsWith(c)).map(c => { const m = /^(\d*)(.*)$/.exec(t.slice(c.length)); return { c, ncStr: m[1], r: m[2] }; });
+    for (const { c, ncStr, r: rest } of heads) {
+      let r = rest, an = null, naStr = '';
+      const mp = /^\(([A-Za-z0-9]+)\)(\d*)$/.exec(r);
+      if (mp && ANIF[mp[1]]) { an = mp[1]; naStr = mp[2]; }
+      else for (const k of anis) { if (r === k) { an = k; break; } if (r.startsWith(k) && /^\d+$/.test(r.slice(k.length))) { an = k; naStr = r.slice(k.length); break; } }
+      if (!an) continue;
+      const qa = -netCharge(IONS[ANIF[an]]), explicit = !!(ncStr || naStr) || CATF[c].length > 1, nc = ncStr ? +ncStr : 1, na = naStr ? +naStr : 1;
+      for (const tok of CATF[c]) {
+        const qc = netCharge(IONS[tok]);
+        if (!explicit) return balanced(tok, ANIF[an]);        // NaOH, NaCl, MgCl: counts inferred from charge balance
+        if (nc * qc === na * qa) { const sp = []; for (let k = 0; k < nc; k++) sp.push(IONS[tok]); for (let k = 0; k < na; k++) sp.push(IONS[ANIF[an]]); return { species: sp, kind: 'salt' }; }
+      }
+    }
+    for (const k of anis) {   // anion-first spelling: CH3COONa, CH3COOK
+      if (!t.startsWith(k)) continue;
+      const m = /^([A-Z][a-z]?\d*)$/.exec(t.slice(k.length)), c = m && cats.find(x => m[1] === x); if (!c || CATF[c].length > 1) continue;
+      return balanced(CATF[c][0], ANIF[k]);
+    }
+    return null;
+  }
+  /* text -> { species: [spec, ...], kind: 'ion' | 'salt' | 'molecule' } or null.
+     Recognises ions (Na+, SO42-), salts (NaOH, Ca(OH)2, Al2(SO4)3, FeCl3), names ("iron(III) chloride", "sulfuric acid"), condensed formulas (CH3COOH),
+     small molecules (H2, CO2, SO3) and the common isomer of simple molecular formulas (C2H6, C2H5Br). */
+  function ionSpecies(text) {
+    let raw = String(text || '').trim(); if (!raw) return null;
+    const low = raw.toLowerCase().replace(/\s+/g, ' ');
+    if (MOLNAMES[low]) raw = MOLNAMES[low]; else { const sn = saltFromName(low); if (sn) return sn; }
+    const t = unsub(raw).replace(/\^/g, '').replace(/[⁺⁻²³]/g, c => ({ '⁺': '+', '⁻': '-', '²': '2', '³': '3' })[c]); if (!t) return null;
+    if (MOLS[t]) return { species: [MOLS[t]], kind: 'molecule' };
+    if (IONS[t]) return { species: [IONS[t]], kind: 'ion' };
+    const salt = parseSalt(t); if (salt) return salt;
+    const cm = condensed(t) || fromMolecularFormula(t); if (cm) return { species: [cm], kind: 'molecule' };
+    return null;
+  }
+
+  function selfTest() {
+    const RC = api, results = []; let fails = 0; const log = () => {};
+    const check = (name, ok, detail) => { results.push({ name, pass: !!ok, detail: detail == null ? '' : String(detail) }); if (!ok) fails++; };
+const sp = {
+  H2: { atoms: ['H', 'H'], bonds: [[0, 1, 1]] }, O2: { atoms: ['O', 'O'], bonds: [[0, 1, 2]] },
+  Cl2: { atoms: ['Cl', 'Cl'], bonds: [[0, 1, 1]] }, N2: { atoms: ['N', 'N'], bonds: [[0, 1, 3]] }
+};
+const fmt = (p) => p.steps.map(s => `${s.type}(${s.atoms.join(',')}) ΔH ${s.deltaH} Ea ${s.barrier}${s.spinAllowed ? '' : ' SPIN-FORBIDDEN'}`).join('\n      ');
+
+// 1. thermochemistry vs experiment
+let p = RC.pathToProducts([sp.H2, sp.Cl2], ['HCl', 'HCl']);
+log('\nH2 + Cl2 -> 2 HCl\n      ' + fmt(p));
+check('HCl ΔH within 10 kJ of experiment (-184.6)', p && Math.abs(p.deltaH + 184.6) < 10, p && p.deltaH.toFixed(1));
+
+p = RC.pathToProducts([sp.H2, sp.H2, sp.O2], ['H2O', 'H2O']);
+log('\n2 H2 + O2 -> 2 H2O\n      ' + (p ? fmt(p) : 'none'));
+check('water found', !!p);
+check('water ΔH within 10 kJ of experiment (-483.6)', p && Math.abs(p.deltaH + 483.6) < 10, p && p.deltaH.toFixed(1));
+
+// 2. unaided search must also find water as the most stable sink
+const sink = RC.mostStable([sp.H2, sp.H2, sp.O2]);
+check('mostStable(2H2+O2) is 2 H2O', sink && sink.stages[sink.stages.length - 1].species.map(c => c.formula).sort().join() === 'H2O,H2O');
+
+// 3. thermodynamics sanity: N2 + O2 is uphill, so no "free" product exists
+check('mostStable(N2+O2) = nothing downhill (endothermic)', RC.mostStable([sp.N2, sp.O2]) === null);
+p = RC.pathToProducts([sp.N2, sp.O2], ['NO', 'NO']);
+log('\nN2 + O2 -> 2 NO (goal given)\n      ' + (p ? fmt(p) : 'none'));
+check('NO reachable with goal; endothermic (ΔH > 0)', p && p.deltaH > 0, p && p.deltaH.toFixed(1));
+
+// 4. spin rule: same-spin radicals can't couple into a singlet
+check('spin: two doublets can make a singlet', RC.couple([1, 1]).has(0));
+check('spin: triplet + singlet cannot make a singlet', !RC.couple([2, 0]).has(0));
+
+// 5. electronegativity polarity: O is negative, H positive in water
+const w = RC.fromSpecies([{ atoms: ['O', 'H', 'H'], bonds: [[0, 1, 1], [0, 2, 1]] }]), q = RC.charges(w);
+check('H2O polarity: δ(O)<0, δ(H)>0', q[0] < 0 && q[1] > 0 && q[2] > 0, Array.from(q).map(x => x.toFixed(2)).join(' '));
+
+// concrete spin-forbidden case: triplet O2 + singlet H2 cannot concertedly give singlet HOOH
+const s0 = RC.fromSpecies([sp.O2, sp.H2]);
+const s1 = RC.fromSpecies([{ atoms: ['O', 'O', 'H', 'H'], bonds: [[0, 1, 1], [0, 2, 1], [1, 3, 1]] }]);
+check('spin: O2(triplet)+H2 -> HOOH(singlet) is forbidden', RC.spinAllowed(s0, s1, [0, 1, 2, 3]) === false);
+check('spin: H2 -> 2 H• (singlet -> two doublets) is allowed', RC.spinAllowed(RC.fromSpecies([sp.H2]), (() => { const s = RC.fromSpecies([sp.H2]); s.B.fill(0); return s; })(), [0, 1]) === true);
+
+// 7. breadth: other elements, estimated-bond flag, formula matching, search limits
+const atom = (s) => ({ atoms: [s], bonds: [] });
+p = RC.pathToProducts([atom('Na'), atom('Na'), sp.Cl2], ['NaCl', 'NaCl']);
+check('2Na + Cl2 -> 2NaCl exothermic, formula-order independent (NaCl == ClNa)', p && p.deltaH < -500 && RC.parseFormula('NaCl') === RC.parseFormula('ClNa'), p && p.deltaH);
+const H2s = [sp.H2, sp.H2, sp.H2, sp.N2];
+p = RC.pathToProducts(H2s, ['NH3', 'NH3']);
+check('Haber: 3H2 + N2 -> 2NH3 ΔH within 10 of -92', p && Math.abs(p.deltaH + 92) < 10, p && p.deltaH);
+const CH4 = { atoms: ['C', 'H', 'H', 'H', 'H'], bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1]] };
+p = RC.pathToProducts([CH4, sp.Cl2], ['CH3Cl', 'HCl']);
+check('CH4 + Cl2 -> CH3Cl + HCl ΔH within 10 of -101', p && Math.abs(p.deltaH + 101) < 10, p && p.deltaH);
+p = RC.pathToProducts([CH4, sp.O2, sp.O2], ['CO2', 'H2O', 'H2O'], { timeMs: 8000 });
+check('CH4 + 2 O2 picks the stable isomer (O=C=O, ΔH < -650), not a peroxide-like one', p && p.deltaH < -650, p && p.deltaH);
+const PH3 = { atoms: ['P', 'H', 'H', 'H'], bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1]] };
+p = RC.pathToProducts([PH3, sp.Cl2], ['PH2Cl', 'HCl']);
+check('uses an estimated bond (P–Cl not tabulated) and says so', p && p.estimatedBonds.some(b => b.startsWith('Cl-P')), p && p.estimatedBonds.join());
+check('search limit is reported (truncated flag)', (() => { const e = RC.explore(RC.fromSpecies([CH4, sp.O2, sp.O2]), { maxNodes: 20 }); return e.truncated === true; })());
+check('unsupported element is refused, not guessed', (() => { try { RC.fromSpecies([{ atoms: ['Xe'], bonds: [] }]); return false; } catch (e) { return /unsupported/.test(e.message); } })());
+
+// 8. O2 is a stable triplet diradical; CO is drawn C≡O with O at valence 3
+const CO = { atoms: ['C', 'O'], bonds: [[0, 1, 3]] };
+p = RC.pathToProducts([sp.H2, sp.H2, sp.O2], ['H2O', 'H2O']);
+check('water route starts with a direct diradical attack by O2 (barrier < 349, no π-cleavage first)', p && p.steps[0].diradical === true && p.steps[0].barrier < 349, p && JSON.stringify(p.steps[0]));
+p = RC.pathToProducts([CO, CO, sp.O2], ['CO2', 'CO2']);
+check('2 CO + O2 -> 2 CO2 accepted; ΔH within 15 of -566', p && Math.abs(p.deltaH + 566) < 15, p && p.deltaH);
+check('CO + O2 flags the spin-forbidden pairing (triplet O2 + singlet CO)', p && p.steps.some(s => !s.spinAllowed));
+p = RC.pathToProducts([CH4, sp.O2, sp.O2], ['CO2', 'H2O', 'H2O'], { timeMs: 8000 });
+check('methane combustion ΔH within 15 of -802', p && Math.abs(p.deltaH + 802) < 15, p && p.deltaH);
+
+// 9. no strained three-membered-ring intermediates on the CO + O2 route
+const hasTriangle = (st) => { const n = st.n, B = (i, j) => st.B[i * n + j]; for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) if (B(a, b)) for (let c = b + 1; c < n; c++) if (B(a, c) && B(b, c)) return true; return false; };
+p = RC.pathToProducts([CO, CO, sp.O2], ['CO2', 'CO2']);
+check('CO + O2 route has no strained 3-ring intermediate', p && p.stages.every(g => !hasTriangle(g.state)), p && p.stages.length + ' stages');
+check('ring strain makes cyclopropane-like rings cost energy', RC.energy(RC.fromSpecies([{ atoms: ['C', 'C', 'C', 'H', 'H', 'H', 'H', 'H', 'H'], bonds: [[0, 1, 1], [1, 2, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1], [1, 5, 1], [1, 6, 1], [2, 7, 1], [2, 8, 1]] }])) > -(3 * 346 + 6 * 413) + 100);
+
+// 10. polar / ionic layer (aqueous): thermodynamics from tabulated free energies, electronegativity rule, charge conservation
+const U = (x) => RC.ionSpecies(x).species;
+const HClm = { atoms: ['H', 'Cl'], bonds: [[0, 1, 1]] }, H2Om = { atoms: ['O', 'H', 'H'], bonds: [[0, 1, 1], [0, 2, 1]] }, NH3m = { atoms: ['N', 'H', 'H', 'H'], bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1]] };
+const AcOH = { atoms: ['C', 'H', 'H', 'H', 'C', 'O', 'O', 'H'], bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1], [4, 5, 2], [4, 6, 1], [6, 7, 1]] };
+const CH3Br = { atoms: ['C', 'H', 'H', 'H', 'Br'], bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1]] };
+const PO = { polar: true, timeMs: 6000 };
+p = RC.pathToProducts([...U('OH-'), HClm], ['H2O', 'Cl^-1'], PO);
+check('OH- + HCl -> H2O + Cl-: ΔG within 5 of -116 (tabulated)', p && Math.abs(p.deltaH + 115.9) < 5 && p.steps[0].basis === 'table', p && p.deltaH);
+p = RC.pathToProducts([...U('NaOH'), HClm], ['NaCl', 'H2O'], PO);
+check('NaOH + HCl -> NaCl + H2O: proton transfer then ion pairing, ΔG ≈ -116', p && p.steps.length === 2 && p.steps[0].proton === true && p.steps[1].type === 'dative' && Math.abs(p.deltaH + 115.9) < 5, p && p.steps.map(s => s.type).join());
+p = RC.pathToProducts([NH3m, HClm], ['NH4^1', 'Cl^-1'], PO);
+check('NH3 + HCl -> NH4+ + Cl-: ΔG within 5 of -89', p && Math.abs(p.deltaH + 88.8) < 5, p && p.deltaH);
+p = RC.pathToProducts([HClm, H2Om], ['H3O^1', 'Cl^-1'], PO);
+check('HCl + H2O -> H3O+ + Cl-: ΔG within 3 of -36', p && Math.abs(p.deltaH + 36) < 3, p && p.deltaH);
+p = RC.pathToProducts([AcOH, ...U('NaOH')], ['NaCH3COO', 'H2O'], PO);
+check('CH3COOH + NaOH: ΔG within 5 of -53, acetate has its charge on the hydroxyl O', p && Math.abs(p.deltaH + 52.7) < 5, p && p.deltaH);
+p = RC.mostStable([...U('KOH'), ...U('NH4Cl')], PO);
+check('KOH + NH4Cl: only the tabulated step is followed (ΔG ≈ -27), no invented chemistry', p && p.steps.length === 1 && Math.abs(p.deltaH + 27.1) < 3, p && p.steps.length + ' steps');
+p = RC.pathToProducts([CH3Br, ...U('OH-')], ['CH4O', 'Br^-1'], PO);
+check('SN2 CH3Br + OH-: exergonic and honestly flagged "estimate"', p && p.steps[0].basis === 'estimate' && p.deltaH < -60 && p.deltaH > -170, p && p.deltaH);
+check('routing: NaOH + HCl is polar, H2 + Cl2 is radical', RC.isPolarSystem([...U('NaOH'), HClm]) === true && RC.isPolarSystem([sp.H2, sp.Cl2]) === false);
+// electronegativity rule: in every explored polar state the electron pair left with a more electronegative atom, and charge is conserved
+(() => {
+  const start = RC.fromSpecies([...U('OH-'), HClm, ...U('NH4Cl'), H2Om]);
+  const ex = RC.explore(start, { polar: true, timeMs: 5000, maxNodes: 4000 });
+  const total = (st) => Array.from(st.q).reduce((a, b) => a + b, 0), t0 = total(start);
+  let badEN = 0, badQ = 0, steps = 0;
+  ex.forEach((n) => { if (!n.step) return; steps++; if (total(n.s) !== t0) badQ++;
+    const a = n.step.atoms, z = n.s.z; const leaving = n.step.type === 'attack' ? z[a[2]] : n.step.type === 'heterolysis' ? z[a[1]] : null;
+    if (leaving && !['N', 'O', 'F', 'Cl', 'Br', 'I', 'S'].includes(leaving)) badEN++; });
+  check('electronegativity rule: leaving group is always N/O/S/halogen (never C or H) over ' + steps + ' explored steps', steps > 5 && badEN === 0, 'violations ' + badEN);
+  check('net charge is conserved in every explored polar state', badQ === 0, 'violations ' + badQ);
+})();
+check('salt parser: Na2CO3 = 2 Na+ + CO3(2-), NaOH = 2 species, "sodium chloride" works, junk is refused', RC.ionSpecies('Na2CO3').species.length === 3 && RC.ionSpecies('NaOH').species.length === 2 && RC.ionSpecies('sodium chloride').species.length === 2 && RC.ionSpecies('Xyzzy') === null);
+check('ions respect valence: N+ may hold 4 bonds, O- only 1', (() => { try { RC.fromSpecies([{ atoms: ['O', 'H', 'H'], bonds: [[0, 1], [0, 2]], charges: [-1, 0, 0] }]); return false; } catch (e) { return /valence/.test(e.message); } })());
+
+// 11. condensed organic formulas -> closed-shell bond graphs (offline: no lookup needed)
+const counts = (x) => { const r = RC.ionSpecies(x); if (!r) return null; const c = {}; r.species[0].atoms.forEach(a => { c[a] = (c[a] || 0) + 1; }); return JSON.stringify(Object.keys(c).sort().map(k => [k, c[k]])); };
+const want = (o) => JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
+check('condensed: CH3COOH, CH3Br, (CH3)2CO, CH2=CH2, CH3CH(OH)CH3, HCOOH read to the right atoms',
+  counts('CH3COOH') === want({ C: 2, H: 4, O: 2 }) && counts('CH3Br') === want({ C: 1, H: 3, Br: 1 }) && counts('(CH3)2CO') === want({ C: 3, H: 6, O: 1 }) &&
+  counts('CH2=CH2') === want({ C: 2, H: 4 }) && counts('CH3CH(OH)CH3') === want({ C: 3, H: 8, O: 1 }) && counts('HCOOH') === want({ H: 2, C: 1, O: 2 }));
+check('condensed: radicals and nonsense are refused (CH3, CH3CH2, C6H6, Xyzzy)', ['CH3', 'CH3CH2', 'C6H6', 'Xyzzy'].every(x => RC.ionSpecies(x) === null));
+check('condensed: carbonyl is a C=O double bond, nitrile a C≡N triple bond', (() => { const a = RC.ionSpecies('(CH3)2CO').species[0], b = RC.ionSpecies('CH3CN').species[0]; return a.bonds.some(x => x[2] === 2) && b.bonds.some(x => x[2] === 3); })());
+// offline acid-base with a condensed-formula acid: acetic acid + hydroxide (no library, no PubChem)
+p = RC.pathToProducts([...RC.ionSpecies('CH3COOH').species, ...RC.ionSpecies('OH-').species], ['CH3COO^-1', 'H2O'], { polar: true });
+check('CH3COOH + OH- built from the condensed formula: ΔG within 5 of -53', p && Math.abs(p.deltaH + 52.7) < 5, p && p.deltaH);
+
+check('routing: Na + Cl2 (elements) stays gas-phase radical; CH3COOH + NH3 and HCl + H2O are aqueous polar', RC.isPolarSystem([{ atoms: ['Na'], bonds: [] }, sp.Cl2]) === false && RC.isPolarSystem([...RC.ionSpecies('CH3COOH').species, NH3m]) === true && RC.isPolarSystem([HClm, H2Om]) === true);
+check('CH3COOH + NH3 takes the single tabulated proton transfer (ΔG ≈ -25.6), not an isomer artefact', (() => { const q = RC.mostStable([...RC.ionSpecies('CH3COOH').species, NH3m], { polar: true }); return q && q.steps.length === 1 && Math.abs(q.deltaH + 25.6) < 2; })());
+check('estimates never invent chemistry: NaOH + NaOH and Na+ + Cl- give no reaction', RC.mostStable([...U('NaOH'), ...U('NaOH')], { polar: true }) === null && RC.mostStable([...U('Na+'), ...U('Cl-')], { polar: true }) === null);
+
+// 12. glucose, concerted four-centre steps, thermodynamic literature checks
+{
+  const glu = RC.ionSpecies('glucose'); const sc = (u) => u.species.reduce((n, x) => n + x.atoms.length, 0);
+  check('glucose resolves offline to a 24-atom ring (C6H12O6)', glu && sc(glu) === 24);
+  const net = (R, P) => RC.netReaction(R, P);
+  const mk = (raw, n, phase) => { const u = RC.ionSpecies(raw) ? RC.ionSpecies(raw).species : [{ atoms: [raw], bonds: [] }]; return { unit: u, n: n || 1, explicit: !!n, phase: phase || null, label: raw }; };
+  let r = net([mk('glucose'), mk('O2', 6)], [mk('CO2', 6), mk('H2O', 6)]);
+  check('glucose combustion ΔH within 5 of -2803 kJ/mol (tabulated)', r.ok && Math.abs(r.dH + 2803) < 5, r.ok && r.dH);
+  r = net([mk('CH4'), mk('O2', 2)], [mk('CO2'), mk('H2O', 2)]); check('methane combustion ΔH(l) within 3 of -890.3', r.ok && Math.abs(r.dH + 890.3) < 3, r.ok && r.dH);
+  r = net([mk('Al', 2), mk('Fe2O3')], [mk('Al2O3'), mk('Fe', 2)]); check('thermite ΔH within 3 of -851.5', r.ok && Math.abs(r.dH + 851.5) < 3, r.ok && r.dH);
+  r = net([mk('Zn'), mk('Cu2+', null, 'aq')], [mk('Zn2+', null, 'aq'), mk('Cu')]); check('Zn + Cu2+ ΔG within 1 of -212.55 (E° = 1.10 V)', r.ok && Math.abs(r.dG + 212.55) < 1, r.ok && r.dG);
+  const pl = (rs, ps) => { const R = rs.map(a => { const u = RC.ionSpecies(a[0]).species; return { unit: u, n: a[1] || 1, explicit: !!a[1] }; }); const P = ps.map(a => { const u = RC.ionSpecies(a[0]).species, ion = RC.ionSpecies(a[0]); const cq = (sp) => { const c = {}; let q = 0; sp.forEach(x => { x.atoms.forEach(y => { c[y] = (c[y] || 0) + 1; }); (x.charges || []).forEach(v => { q += v; }); }); return Object.keys(c).map(k => k + c[k]).join('') + (q ? '^' + q : ''); }; return { unit: u, n: a[1] || 1, explicit: !!a[1], isSalt: ion.kind === 'salt', pair: cq(ion.kind === 'salt' ? [{ atoms: u.flatMap(x => x.atoms) }] : u), ions: u.map(x => cq([x])) }; }); return RC.plan(R, P, { timeMs: 5000 }); };
+  let q = pl([['C2H4'], ['HBr']], [['CH3CH2Br']]);
+  check('HBr + ethene → bromoethane found (radical chain; ΔH within 30 of the bond-energy estimate −64)', q.ok && Math.abs(q.path.deltaH + 64) < 30, q.ok ? q.path.deltaH.toFixed(0) : q.why);
+  q = pl([['CH3COOH'], ['CH3OH']], [['CH3COOCH3'], ['H2O']]); check('esterification CH3COOH + CH3OH → methyl acetate + water found (ΔH within 40 of 0)', q.ok && Math.abs(q.path.deltaH) < 40, q.ok ? q.path.deltaH.toFixed(0) : q.why);
+  q = pl([['CH3CH2Br']], [['C2H4'], ['HBr']]); check('dehydrobromination of bromoethane → ethene + HBr found (ΔH within 40 of the tabulated +? bond-energy estimate +64)', q.ok && Math.abs(q.path.deltaH - 64) < 40, q.ok ? q.path.deltaH.toFixed(0) : q.why);
+  q = pl([['H2'], ['Cl2']], [['HCl', 2]]); check('H2 + Cl2 still uses the radical chain (not a four-centre shortcut)', q.ok && q.path.steps.length === 3 && q.path.steps.every(s => s.type !== 'concerted'));
+}
+
+    return { total: results.length, failed: fails, results };
+  }
+
+  const api = { selfTest, netReaction, thermoOfUnit, plan, balanceEquation, bestStoichiometry, countsOf, unitCounts, fromMolecularFormula, condensed, isPolarSystem, ionSpecies, parseFormula, unpaired: openV, fromSpecies, explore, pathTo, pathToProducts, mostStable, energy, charges, describe, spinAllowed, couple, D, EL };
+  return api;
+});
+
+</script>
 <script id="reaction-mode">
 /* =====================================================================
    REACTION PIPELINE — watch any reaction with the simulator's OWN atoms
@@ -19885,7 +20881,8 @@ const ReactionMode=(function(){
   function solvePath(){
     const G=sp=>{const g=geom(sp.k);return g.pts.map(p=>[0,1,2].map(d=>(p[d]-g.cen[d])/scale));};
     const dist=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]);
-    const RZ=a=>Math.max(...getEffectiveConfig(ATOM_Z[a]).map(o=>o.R))/scale;   // outer-orbital radius (the simulator's geometry is cloud-sized, not Å)
+    const rzMemo=new Map();   // one electron-configuration lookup per element, not one per call (hundreds of thousands of calls for large reactions)
+    const RZ=a=>{const Z=ATOM_Z[a];let r=rzMemo.get(Z);if(r===undefined){r=Math.max(...getEffectiveConfig(Z).map(o=>o.R))/scale;rzMemo.set(Z,r);}return r;};   // outer-orbital radius (the simulator's geometry is cloud-sized, not Å)
     const dmap=si=>{const m=new Map();STAGES[si].species.forEach(sp=>{const p=G(sp);for(let i=0;i<p.length;i++)for(let j=i+1;j<p.length;j++){const a=sp.a[i],b=sp.a[j];m.set(Math.min(a,b)*NA+Math.max(a,b),dist(p[i],p[j]));}});return m;};
     /* ORIENTATION: reactants are rigid bodies and must be placed so their reacting ends FACE each other (an N that starts
        behind its own O has to swing round it to reach the partner: forward, then back). Placement is therefore optimised:
@@ -19916,7 +20913,7 @@ const ReactionMode=(function(){
       sps.forEach((sp,j)=>sp.a.forEach((a,i)=>{const z=ATOM_Z[a];if(!slots.has(z))slots.set(z,[]);slots.get(z).push([j,i]);}));
       const groups=[...slots.values()].filter(g=>g.length>1);
       let combos=1;groups.forEach(g=>{for(let k=2;k<=g.length;k++)combos*=k;});
-      if(!groups.length||combos>60000)return;
+      if(!groups.length||combos>(SPEC.quick?3000:60000))return;
       const score=()=>{
         const nb=bondMap(si);let e=0;
         prev.forEach((o,k)=>{e+=Math.abs(o-(nb.get(k)||0));});nb.forEach((o,k)=>{if(!prev.has(k))e+=o;});
@@ -20003,7 +21000,7 @@ const ReactionMode=(function(){
        travel least over the WHOLE reaction wins. Deterministic. */
     const nsp=STAGES[0].species.length,ords=[],seenO=new Set(),keys0=STAGES[0].species.map(sp=>sp.k+':'+sp.a.map(a=>ATOM_Z[a]).join(','));
     const permute=(arr,pre)=>{if(!arr.length){const sig=pre.map(i=>keys0[i]).join('|');if(!seenO.has(sig)){seenO.add(sig);ords.push(pre);}return;}arr.forEach((v,i)=>permute(arr.filter((_,j)=>j!==i),pre.concat(v)));};
-    if(nsp<=5)permute([...Array(nsp).keys()],[]);else ords.push(null);
+    if(nsp<=(SPEC.maxOrd||5))permute([...Array(nsp).keys()],[]);else ords.push(null);
     const cand=[];ords.forEach(o=>cand.push([o,false]));
     if(nsp>=3&&nsp<=5){const seenR=new Set();   // ring arrangements, de-duplicated under rotation and reflection
       permute2:for(const o of ords){if(!o)continue;const sg=o.map(i=>keys0[i]),n=sg.length,forms=[];
@@ -20231,9 +21228,20 @@ const ReactionMode=(function(){
     const e=topEigvec4([[Sxx+Syy+Szz,Syz-Szy,Szx-Sxz,Sxy-Syx],[Syz-Szy,Sxx-Syy-Szz,Sxy+Syx,Szx+Sxz],[Szx-Sxz,Sxy+Syx,-Sxx+Syy-Szz,Syz+Szy],[Sxy-Syx,Szx+Sxz,Syz+Szy,-Sxx-Syy+Szz]]);
     return e[0]<0?q.set(-e[1],-e[2],-e[3],-e[0]):q.set(e[1],e[2],e[3],e[0]);
   }
+  /* species re-embedded by the Universal Compound Engine come out at an arbitrary angle; the simulator's own species lie on an axis
+     (a π bond's lobes are built around it). Put the first multiple bond on +x and the molecule's plane in xy, like the hand-authored ones. */
+  function alignEmbedded(k,pts){
+    const d=k==='atom'?null:speciesDef(SPEC,k);if(!d||!d.alignBond)return pts;
+    const [i,j]=d.alignBond,sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],nrm=v=>{const m=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/m,v[1]/m,v[2]/m];},
+      cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    const ex=nrm(sub(pts[j],pts[i]));let ref=null;
+    for(let t=0;t<pts.length&&!ref;t++){if(t===i||t===j)continue;const v=sub(pts[t],pts[i]),w=cross(ex,v);if(Math.hypot(w[0],w[1],w[2])>1e-3)ref=v;}
+    let ey,ez;if(ref){ez=nrm(cross(ex,ref));ey=cross(ez,ex);}else{ey=Math.abs(ex[0])<.9?[1,0,0]:[0,1,0];ez=nrm(cross(ex,ey));ey=cross(ez,ex);}
+    return pts.map(p=>{const v=sub(p,pts[i]);return[dot(v,ex),dot(v,ey),dot(v,ez)];});
+  }
   function geom(k){
     if(!geomCache[k]){
-      const pts=k==='atom'?[[0,0,0]]:resolveMoleculeAtoms(speciesMol(k)).map(a=>a.pos);
+      const pts=k==='atom'?[[0,0,0]]:alignEmbedded(k,resolveMoleculeAtoms(speciesMol(k)).map(a=>a.pos));
       geomCache[k]={pts,cen:pts.reduce((c,p)=>[c[0]+p[0]/pts.length,c[1]+p[1]/pts.length,c[2]+p[2]/pts.length],[0,0,0])};
     }
     return geomCache[k];
@@ -20307,7 +21315,7 @@ const ReactionMode=(function(){
 
   /* ================= MORPH ENGINE (default grainy clouds) ================= */
   const GLOW=0.9;
-  const capPts=()=>(typeof isMobile==='function'&&isMobile())?100000:260000;   // above the simulator's own per-atom totals: no decimation in normal cases
+  const capPts=()=>(SPEC&&SPEC.light)?(()=>{const mob=typeof isMobile==='function'&&isMobile(),na=Math.max(1,(SPEC.atoms||[]).length);return Math.max(2500,Math.min(mob?30000:45000,Math.floor((mob?200000:360000)/na)));})():((typeof isMobile==='function'&&isMobile())?100000:260000);   // light = auto-built heavy systems: fewer grains (brightness is compensated), so the page stays responsive   // above the simulator's own per-atom totals: no decimation in normal cases
   const sig=(si,g)=>{const sp=STAGES[si].species.find(x=>x.a.includes(g));return sp.k+':'+sp.a.join(',');};
   const changes=(m,g)=>sig(m,g)!==sig(m+1,g);
   function extract(sg,q){
@@ -20605,7 +21613,7 @@ const ReactionMode=(function(){
     };
     PLAY_ICON={play:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6L19.2 12z"/></svg>',pause:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.4"/><rect x="13.5" y="5" width="4" height="14" rx="1.4"/></svg>'};
     const old=document.getElementById('rx-style');if(old)old.remove();const css=document.createElement('style');css.id='rx-style';
-    css.textContent="@keyframes rxFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}\n@keyframes rxSettle{from{opacity:.5;transform:translateX(-50%) translateY(10px) scale(.985)}to{opacity:1;transform:translateX(-50%)}}\n#rx-panel{--rx-r:20px;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:60;width:min(560px,calc(100vw - 16px));max-height:min(62vh,660px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;box-sizing:border-box;padding:22px 14px 14px;border-radius:var(--rx-r);\n  background:linear-gradient(180deg,rgba(255,255,255,.07),transparent 42%),var(--glass-bg-hi,var(--bg-solid,#0e0804));border:1px solid var(--glass-border,rgba(255,255,255,.12));-webkit-backdrop-filter:var(--glass-blur,blur(20px));backdrop-filter:var(--glass-blur,blur(20px));box-shadow:var(--glass-shadow,0 8px 32px rgba(0,0,0,.45));\n  color:var(--hi,#fff);font:500 14px/1.4 var(--display,'Rajdhani'),system-ui,sans-serif;scrollbar-width:none;-webkit-tap-highlight-color:transparent;transition:opacity .22s ease,filter .22s ease}\n#rx-panel::-webkit-scrollbar{display:none}\n#rx-panel.rx-settle{animation:rxSettle .26s cubic-bezier(.2,.8,.2,1) backwards}\n#rx-panel::before{content:'';position:absolute;left:18px;right:18px;top:0;height:2px;border-radius:0 0 2px 2px;background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a))}\n#rx-panel::after{content:'';position:absolute;left:18px;top:0;height:2px;width:calc((100% - 36px) * var(--ppn,0));border-radius:0 0 2px 2px;background:var(--brand-grad,var(--cyan));opacity:0;transition:opacity .2s}\n#rx-panel.dim{opacity:.16;pointer-events:none;filter:saturate(.7)}\n#rx-panel .rx-row{display:flex;gap:8px;align-items:center;margin:0}\n#rx-panel .rx-top{margin-bottom:12px}#rx-panel .rx-ctl{margin-top:14px}\n#rx-panel button{box-sizing:border-box;height:42px;min-width:42px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font:600 15px var(--display,'Rajdhani'),system-ui,sans-serif;color:var(--hi,#fff);background:rgba(var(--cyan-rgb,255,85,0),.08);border:1px solid rgba(var(--cyan-rgb,255,85,0),.24);border-radius:12px;cursor:pointer;touch-action:manipulation;transition:background .15s,border-color .15s,transform .1s,filter .15s,box-shadow .15s}\n#rx-panel button svg{width:18px;height:18px;flex:none;display:block}\n#rx-panel button:hover{background:rgba(var(--cyan-rgb,255,85,0),.16);border-color:rgba(var(--cyan-rgb,255,85,0),.5)}#rx-panel button:active{transform:scale(.95)}\n#rx-panel button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}\n#rx-panel .rx-play,#rx-panel .rx-x{background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a));color:#fff;border:1px solid rgba(255,255,255,.3);box-shadow:0 3px 12px rgba(var(--cyan-rgb,255,85,0),.38),inset 0 1px 0 rgba(255,255,255,.25)}\n#rx-panel .rx-play:hover,#rx-panel .rx-x:hover{background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a));filter:brightness(1.08)}\n#rx-panel .rx-play{min-width:58px;height:44px;border-radius:14px}\n#rx-panel .rx-play svg{width:20px;height:20px}\n#rx-panel .rx-grab{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:76px;height:22px;min-width:0;padding:0;border:0;border-radius:11px;background:transparent;box-shadow:none;touch-action:none}\n#rx-panel .rx-grab:hover{background:transparent}#rx-panel .rx-grab:active{transform:translateX(-50%)}\n#rx-panel .rx-grab i{display:block;width:34px;height:4px;border-radius:2px;margin:9px auto 0;background:rgba(var(--cyan-rgb,255,85,0),.38);transition:background .15s,width .15s}\n#rx-panel .rx-grab:hover i{background:rgba(var(--cyan-rgb,255,85,0),.7);width:42px}\n#rx-panel .rx-sel{flex:1;min-width:0;justify-content:flex-start;text-align:left;font-size:16px;font-weight:700;padding:0 38px 0 14px;\n  background-image:linear-gradient(45deg,transparent 50%,var(--cyan) 50%),linear-gradient(135deg,var(--cyan) 50%,transparent 50%);background-position:calc(100% - 19px) 50%,calc(100% - 14px) 50%;background-size:5px 5px;background-repeat:no-repeat}\n#rx-panel .rx-sel[aria-expanded=true]{border-color:var(--cyan);background-color:rgba(var(--cyan-rgb,255,85,0),.16);box-shadow:0 0 0 3px rgba(var(--cyan-rgb,255,85,0),.16)}\n#rx-panel .rx-sel-t{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n#rx-panel .rx-min svg{transition:transform .22s cubic-bezier(.2,.8,.2,1)}#rx-panel.min .rx-min svg{transform:rotate(180deg)}\n#rx-panel .rx-dots{display:flex;gap:6px;margin:0 0 12px}#rx-panel .rx-dots i{flex:1;height:5px;border-radius:3px;background:rgba(var(--cyan-rgb,255,85,0),.18);cursor:pointer;position:relative;transition:background .25s}\n#rx-panel .rx-dots i::after{content:'';position:absolute;inset:-12px 0}\n#rx-panel .rx-dots i.done{background:rgba(var(--cyan-rgb,255,85,0),.58)}#rx-panel .rx-dots i.on{background:var(--brand-grad,var(--cyan));box-shadow:0 0 8px rgba(var(--cyan-rgb,255,85,0),.5)}\n#rx-panel .rx-meta{display:flex;align-items:baseline;justify-content:space-between;gap:10px}\n#rx-panel .rx-st{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}\n#rx-panel .rx-ct{flex:none;font:400 11px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.1em;color:var(--lo,rgba(255,255,255,.6))}\n#rx-panel .rx-eq{font:700 22px/1.2 var(--display,'Rajdhani'),sans-serif;margin:3px 0 5px;color:var(--hi,#fff)}\n#rx-panel .rx-tx{font:500 14px/1.45 var(--display,'Rajdhani'),sans-serif;color:var(--mid,rgba(255,255,255,.75))}\n#rx-panel .rx-pop{animation:rxFade .3s ease-out both}\n#rx-panel .rx-lb{flex:none;width:44px;font:400 11px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lo,rgba(255,255,255,.6))}\n#rx-panel .rx-spd{min-width:50px;padding:0 8px;font:400 13px var(--mono,'Share Tech Mono'),monospace}\n#rx-panel .rx-view{margin-top:14px;padding-top:12px;border-top:1px solid rgba(var(--cyan-rgb,255,85,0),.16)}\n#rx-panel .rx-more{margin-top:10px}#rx-panel .rx-more:first-child{margin-top:0}\n#rx-panel .rx-zo,#rx-panel .rx-zi{height:36px;min-width:36px;padding:0}\n#rx-panel input[type=range]{flex:1;min-width:60px;height:28px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;touch-action:none}\n#rx-panel input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--cyan) var(--p,0%),rgba(var(--cyan-rgb,255,85,0),.2) var(--p,0%))}\n#rx-panel input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:rgba(var(--cyan-rgb,255,85,0),.2)}#rx-panel input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--cyan)}\n#rx-panel input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:var(--brand-grad,var(--cyan));border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4)}\n#rx-panel input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--cyan);border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4)}\n#rx-panel .rx-focus{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);padding-right:22px}\n#rx-panel .rx-focus::-webkit-scrollbar{display:none}\n#rx-panel .rx-focus button{flex:none;height:34px;min-width:0;padding:0 14px;border-radius:99px;font-size:14px}\n#rx-panel .rx-focus button.on{background:var(--brand-grad,var(--cyan));color:#fff;border-color:rgba(255,255,255,.5);box-shadow:0 0 10px rgba(var(--cyan-rgb,255,85,0),.5)}\n#rx-panel.min{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;grid-template-areas:'play info exp x';align-items:center;column-gap:10px;padding:16px 12px 12px;max-height:none;overflow:visible}\n#rx-panel.min::after{opacity:1}#rx-panel.min::before{background:rgba(var(--cyan-rgb,255,85,0),.2)}\n#rx-panel.min .rx-top,#rx-panel.min .rx-ctl{display:contents}\n#rx-panel.min .rx-sel,#rx-panel.min .rx-dots,#rx-panel.min .rx-prev,#rx-panel.min .rx-next,#rx-panel.min .rx-scrub,#rx-panel.min .rx-spd,#rx-panel.min .rx-tx,#rx-panel.min .rx-view{display:none}\n#rx-panel.min .rx-play{grid-area:play}#rx-panel.min .rx-min{grid-area:exp}#rx-panel.min .rx-x{grid-area:x}\n#rx-panel.min .rx-info{grid-area:info;min-width:0;cursor:pointer;touch-action:none}\n#rx-panel.min .rx-eq{font-size:16px;margin:1px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\nbody.rx-on #botbar{visibility:hidden}\n@media (pointer:coarse){#rx-panel button{min-width:44px;height:44px}#rx-panel .rx-play{height:48px;min-width:62px}#rx-panel .rx-focus button{height:38px}#rx-panel .rx-zo,#rx-panel .rx-zi{height:40px;min-width:40px}}\n@media (max-width:380px){#rx-panel{padding-left:12px;padding-right:12px}#rx-panel .rx-eq{font-size:20px}}\n@media (prefers-reduced-motion:reduce){#rx-panel,#rx-panel *{animation:none!important;transition:none!important}}\n@keyframes rxMenu{from{opacity:0;transform:translateY(var(--rx-dy,6px)) scale(.98)}to{opacity:1;transform:none}}\n.rx-menu{--rx-bg:rgba(16,9,4,.94);--rx-line:rgba(255,255,255,.10);--rx-hover:rgba(var(--cyan-rgb,255,85,0),.12);position:fixed;z-index:70;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding:6px;border-radius:14px;outline:none;scrollbar-width:thin;scrollbar-color:rgba(var(--cyan-rgb,255,85,0),.4) transparent;\n  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent 36%),var(--rx-bg);border:1px solid var(--glass-border,var(--rx-line));-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);box-shadow:0 18px 48px rgba(0,0,0,.5),0 0 0 1px rgba(var(--cyan-rgb,255,85,0),.10),inset 0 1px 0 rgba(255,255,255,.06);\n  color:var(--hi,#fff);font:500 15px/1.3 var(--display,'Rajdhani'),system-ui,sans-serif;animation:rxMenu .16s cubic-bezier(.2,.8,.2,1) both}\n.rx-menu.rx-light{--rx-bg:rgba(255,255,255,.97);--rx-line:rgba(33,28,66,.12);box-shadow:0 18px 48px rgba(33,28,66,.22),0 0 0 1px rgba(var(--cyan-rgb,105,82,224),.14)}\n.rx-menu .rx-o{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px 8px 16px;border-radius:10px;cursor:pointer;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .12s}\n.rx-menu .rx-o+.rx-o{margin-top:2px}\n.rx-menu .rx-o.act{background:var(--rx-hover)}\n.rx-menu .rx-o[aria-selected=true]{background:rgba(var(--cyan-rgb,255,85,0),.16)}\n.rx-menu .rx-o[aria-selected=true]::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:2px;background:var(--brand-grad,var(--cyan))}\n.rx-menu .rx-oc{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}\n.rx-menu .rx-ot{font-weight:700;font-size:16px;line-height:1.25;letter-spacing:.005em}\n.rx-menu .rx-om{font:400 10.5px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lo,rgba(255,255,255,.6))}\n.rx-menu .rx-ok{flex:none;width:18px;height:18px;color:var(--cyan);opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s}\n.rx-menu .rx-o[aria-selected=true] .rx-ok{opacity:1;transform:none}\n@media (prefers-reduced-motion:reduce){.rx-menu,.rx-menu *{animation:none!important;transition:none!important}}\n";
+    css.textContent="@keyframes rxFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}\n@keyframes rxSettle{from{opacity:.5;transform:translateX(-50%) translateY(10px) scale(.985)}to{opacity:1;transform:translateX(-50%)}}\n#rx-panel{--rx-r:20px;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:60;width:min(560px,calc(100vw - 16px));max-height:min(62vh,660px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;box-sizing:border-box;padding:22px 14px 14px;border-radius:var(--rx-r);\n  background:linear-gradient(180deg,rgba(255,255,255,.07),transparent 42%),var(--glass-bg-hi,var(--bg-solid,#0e0804));border:1px solid var(--glass-border,rgba(255,255,255,.12));-webkit-backdrop-filter:var(--glass-blur,blur(20px));backdrop-filter:var(--glass-blur,blur(20px));box-shadow:var(--glass-shadow,0 8px 32px rgba(0,0,0,.45));\n  color:var(--hi,#fff);font:500 14px/1.4 var(--display,'Rajdhani'),system-ui,sans-serif;scrollbar-width:none;-webkit-tap-highlight-color:transparent;transition:opacity .22s ease,filter .22s ease}\n#rx-panel::-webkit-scrollbar{display:none}\n#rx-panel.rx-settle{animation:rxSettle .26s cubic-bezier(.2,.8,.2,1) backwards}\n#rx-panel::before{content:'';position:absolute;left:18px;right:18px;top:0;height:2px;border-radius:0 0 2px 2px;background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a))}\n#rx-panel::after{content:'';position:absolute;left:18px;top:0;height:2px;width:calc((100% - 36px) * var(--ppn,0));border-radius:0 0 2px 2px;background:var(--brand-grad,var(--cyan));opacity:0;transition:opacity .2s}\n#rx-panel.dim{opacity:.16;pointer-events:none;filter:saturate(.7)}\n#rx-panel .rx-row{display:flex;gap:8px;align-items:center;margin:0}\n#rx-panel .rx-top{margin-bottom:12px}#rx-panel .rx-ctl{margin-top:14px}\n#rx-panel button{box-sizing:border-box;height:42px;min-width:42px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font:600 15px var(--display,'Rajdhani'),system-ui,sans-serif;color:var(--hi,#fff);background:rgba(var(--cyan-rgb,255,85,0),.08);border:1px solid rgba(var(--cyan-rgb,255,85,0),.24);border-radius:12px;cursor:pointer;touch-action:manipulation;transition:background .15s,border-color .15s,transform .1s,filter .15s,box-shadow .15s}\n#rx-panel button svg{width:18px;height:18px;flex:none;display:block}\n#rx-panel button:hover{background:rgba(var(--cyan-rgb,255,85,0),.16);border-color:rgba(var(--cyan-rgb,255,85,0),.5)}#rx-panel button:active{transform:scale(.95)}\n#rx-panel button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}\n#rx-panel .rx-play,#rx-panel .rx-x{background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a));color:#fff;border:1px solid rgba(255,255,255,.3);box-shadow:0 3px 12px rgba(var(--cyan-rgb,255,85,0),.38),inset 0 1px 0 rgba(255,255,255,.25)}\n#rx-panel .rx-play:hover,#rx-panel .rx-x:hover{background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a));filter:brightness(1.08)}\n#rx-panel .rx-play{min-width:58px;height:44px;border-radius:14px}\n#rx-panel .rx-play svg{width:20px;height:20px}\n#rx-panel .rx-grab{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:76px;height:22px;min-width:0;padding:0;border:0;border-radius:11px;background:transparent;box-shadow:none;touch-action:none}\n#rx-panel .rx-grab:hover{background:transparent}#rx-panel .rx-grab:active{transform:translateX(-50%)}\n#rx-panel .rx-grab i{display:block;width:34px;height:4px;border-radius:2px;margin:9px auto 0;background:rgba(var(--cyan-rgb,255,85,0),.38);transition:background .15s,width .15s}\n#rx-panel .rx-grab:hover i{background:rgba(var(--cyan-rgb,255,85,0),.7);width:42px}\n#rx-panel .rx-sel{flex:1;min-width:0;justify-content:flex-start;text-align:left;font-size:16px;font-weight:700;padding:0 38px 0 14px;\n  background-image:linear-gradient(45deg,transparent 50%,var(--cyan) 50%),linear-gradient(135deg,var(--cyan) 50%,transparent 50%);background-position:calc(100% - 19px) 50%,calc(100% - 14px) 50%;background-size:5px 5px;background-repeat:no-repeat}\n#rx-panel .rx-sel[aria-expanded=true]{border-color:var(--cyan);background-color:rgba(var(--cyan-rgb,255,85,0),.16);box-shadow:0 0 0 3px rgba(var(--cyan-rgb,255,85,0),.16)}\n#rx-panel .rx-sel-t{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n#rx-panel .rx-min svg{transition:transform .22s cubic-bezier(.2,.8,.2,1)}#rx-panel.min .rx-min svg{transform:rotate(180deg)}\n#rx-panel .rx-dots{display:flex;gap:6px;margin:0 0 12px}#rx-panel .rx-dots i{flex:1;height:5px;border-radius:3px;background:rgba(var(--cyan-rgb,255,85,0),.18);cursor:pointer;position:relative;transition:background .25s}\n#rx-panel .rx-dots i::after{content:'';position:absolute;inset:-12px 0}\n#rx-panel .rx-dots i.done{background:rgba(var(--cyan-rgb,255,85,0),.58)}#rx-panel .rx-dots i.on{background:var(--brand-grad,var(--cyan));box-shadow:0 0 8px rgba(var(--cyan-rgb,255,85,0),.5)}\n#rx-panel .rx-meta{display:flex;align-items:baseline;justify-content:space-between;gap:10px}\n#rx-panel .rx-st{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}\n#rx-panel .rx-ct{flex:none;font:400 11px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.1em;color:var(--lo,rgba(255,255,255,.6))}\n#rx-panel .rx-eq{font:700 22px/1.2 var(--display,'Rajdhani'),sans-serif;margin:3px 0 5px;color:var(--hi,#fff)}\n#rx-panel .rx-tx{font:500 14px/1.45 var(--display,'Rajdhani'),sans-serif;color:var(--mid,rgba(255,255,255,.75))}\n#rx-panel .rx-pop{animation:rxFade .3s ease-out both}\n#rx-panel .rx-lb{flex:none;width:44px;font:400 11px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lo,rgba(255,255,255,.6))}\n#rx-panel .rx-spd{min-width:50px;padding:0 8px;font:400 13px var(--mono,'Share Tech Mono'),monospace}\n#rx-panel .rx-view{margin-top:14px;padding-top:12px;border-top:1px solid rgba(var(--cyan-rgb,255,85,0),.16)}\n#rx-panel .rx-more{margin-top:10px}#rx-panel .rx-more:first-child{margin-top:0}\n#rx-panel .rx-zo,#rx-panel .rx-zi{height:36px;min-width:36px;padding:0}\n#rx-panel input[type=range]{flex:1;min-width:60px;height:28px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;touch-action:none}\n#rx-panel input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--cyan) var(--p,0%),rgba(var(--cyan-rgb,255,85,0),.2) var(--p,0%))}\n#rx-panel input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:rgba(var(--cyan-rgb,255,85,0),.2)}#rx-panel input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--cyan)}\n#rx-panel input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:var(--brand-grad,var(--cyan));border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4)}\n#rx-panel input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--cyan);border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4)}\n#rx-panel .rx-focus{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);padding-right:22px}\n#rx-panel .rx-focus::-webkit-scrollbar{display:none}\n#rx-panel .rx-focus button{flex:none;height:34px;min-width:0;padding:0 14px;border-radius:99px;font-size:14px}\n#rx-panel .rx-focus button.on{background:var(--brand-grad,var(--cyan));color:#fff;border-color:rgba(255,255,255,.5);box-shadow:0 0 10px rgba(var(--cyan-rgb,255,85,0),.5)}\n#rx-panel.min{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;grid-template-areas:'play info exp x';align-items:center;column-gap:10px;padding:16px 12px 12px;max-height:none;overflow:visible}\n#rx-panel.min::after{opacity:1}#rx-panel.min::before{background:rgba(var(--cyan-rgb,255,85,0),.2)}\n#rx-panel.min .rx-top,#rx-panel.min .rx-ctl{display:contents}\n#rx-panel.min .rx-sel,#rx-panel.min .rx-dots,#rx-panel.min .rx-prev,#rx-panel.min .rx-next,#rx-panel.min .rx-scrub,#rx-panel.min .rx-spd,#rx-panel.min .rx-tx,#rx-panel.min .rx-view{display:none}\n#rx-panel.min .rx-play{grid-area:play}#rx-panel.min .rx-min{grid-area:exp}#rx-panel.min .rx-x{grid-area:x}\n#rx-panel.min .rx-info{grid-area:info;min-width:0;cursor:pointer;touch-action:none}\n#rx-panel.min .rx-eq{font-size:16px;margin:1px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\nbody.rx-on #botbar{visibility:hidden}\n@media (pointer:coarse){#rx-panel button{min-width:44px;height:44px}#rx-panel .rx-play{height:48px;min-width:62px}#rx-panel .rx-focus button{height:38px}#rx-panel .rx-zo,#rx-panel .rx-zi{height:40px;min-width:40px}}\n@media (max-width:380px){#rx-panel{padding-left:12px;padding-right:12px}#rx-panel .rx-eq{font-size:20px}}\n@media (prefers-reduced-motion:reduce){#rx-panel,#rx-panel *{animation:none!important;transition:none!important}}\n@keyframes rxMenu{from{opacity:0;transform:translateY(var(--rx-dy,6px)) scale(.98)}to{opacity:1;transform:none}}\n.rx-menu{--rx-bg:rgba(16,9,4,.94);--rx-line:rgba(255,255,255,.10);--rx-hover:rgba(var(--cyan-rgb,255,85,0),.12);position:fixed;z-index:70;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding:6px;border-radius:14px;outline:none;scrollbar-width:thin;scrollbar-color:rgba(var(--cyan-rgb,255,85,0),.4) transparent;\n  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent 36%),var(--rx-bg);border:1px solid var(--glass-border,var(--rx-line));-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);box-shadow:0 18px 48px rgba(0,0,0,.5),0 0 0 1px rgba(var(--cyan-rgb,255,85,0),.10),inset 0 1px 0 rgba(255,255,255,.06);\n  color:var(--hi,#fff);font:500 15px/1.3 var(--display,'Rajdhani'),system-ui,sans-serif;animation:rxMenu .16s cubic-bezier(.2,.8,.2,1) both}\n.rx-menu.rx-light{--rx-bg:rgba(255,255,255,.97);--rx-line:rgba(33,28,66,.12);box-shadow:0 18px 48px rgba(33,28,66,.22),0 0 0 1px rgba(var(--cyan-rgb,105,82,224),.14)}\n.rx-menu .rx-o{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px 8px 16px;border-radius:10px;cursor:pointer;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .12s}\n.rx-menu .rx-o+.rx-o{margin-top:2px}\n.rx-menu .rx-o.act{background:var(--rx-hover)}\n.rx-menu .rx-o[aria-selected=true]{background:rgba(var(--cyan-rgb,255,85,0),.16)}\n.rx-menu .rx-o[aria-selected=true]::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:2px;background:var(--brand-grad,var(--cyan))}\n.rx-menu .rx-oc{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}\n.rx-menu .rx-ot{font-weight:700;font-size:16px;line-height:1.25;letter-spacing:.005em}\n.rx-menu .rx-om{font:400 10.5px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lo,rgba(255,255,255,.6))}\n.rx-menu .rx-ok{flex:none;width:18px;height:18px;color:var(--cyan);opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s}\n.rx-menu .rx-o[aria-selected=true] .rx-ok{opacity:1;transform:none}\n@media (prefers-reduced-motion:reduce){.rx-menu,.rx-menu *{animation:none!important;transition:none!important}}\n\n.rx-menu{padding:0 6px 8px;scroll-padding-top:70px;max-width:calc(100vw - 16px)}\n.rx-menu .rx-sh{position:sticky;top:0;z-index:2;margin:0 -6px 4px;padding:10px 10px 8px;background:var(--rx-bg);border-bottom:1px solid var(--rx-line);border-radius:14px 14px 0 0}\n.rx-menu .rx-sbox{display:flex;align-items:center;gap:6px;height:44px;padding:0 5px 0 12px;border-radius:12px;background:rgba(128,128,128,.12);border:1px solid var(--rx-line);transition:border-color .15s,box-shadow .15s,background .15s}\n.rx-menu .rx-sbox:focus-within{border-color:var(--cyan);background:rgba(var(--cyan-rgb,255,85,0),.08);box-shadow:0 0 0 3px rgba(var(--cyan-rgb,255,85,0),.16)}\n.rx-menu .rx-sbox>svg{flex:none;width:18px;height:18px;opacity:.6}\n.rx-menu .rx-custom-in{flex:1;min-width:0;height:100%;padding:0;margin:0;border:0;outline:0;background:transparent;color:inherit;font:600 15px var(--display,'Rajdhani'),system-ui,sans-serif;letter-spacing:.01em;-webkit-appearance:none;appearance:none}\n.rx-menu .rx-custom-in::placeholder{color:inherit;opacity:.45;font-weight:500}\n.rx-menu .rx-clr{display:none;flex:none;width:28px;height:28px;padding:0;align-items:center;justify-content:center;border:0;border-radius:50%;background:rgba(128,128,128,.22);color:inherit;cursor:pointer}\n.rx-menu .rx-clr.on{display:inline-flex}.rx-menu .rx-clr svg{width:14px;height:14px}.rx-menu .rx-clr:hover{background:rgba(128,128,128,.36)}\n.rx-menu .rx-custom-go{flex:none;height:34px;min-width:56px;padding:0 14px;border:1px solid rgba(255,255,255,.3);border-radius:9px;background:var(--brand-grad,linear-gradient(135deg,var(--cyan),#ff7a1a));color:#fff;font:700 14px var(--display,'Rajdhani'),system-ui,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 2px 8px rgba(var(--cyan-rgb,255,85,0),.35);transition:filter .15s,transform .1s}\n.rx-menu .rx-custom-go:hover{filter:brightness(1.1)}.rx-menu .rx-custom-go:active{transform:scale(.96)}\n.rx-menu .rx-sh.busy .rx-custom-go{opacity:.7;pointer-events:none}\n.rx-menu .rx-hint{margin:7px 4px 0;min-height:15px;font:400 11px/1.35 var(--mono,'Share Tech Mono'),monospace;letter-spacing:.04em;color:var(--lo,rgba(255,255,255,.6))}\n.rx-menu .rx-hint b{color:var(--cyan);font-weight:400}.rx-menu .rx-hint.err{color:#ff8a7a}.rx-light.rx-menu .rx-hint.err{color:#c0392b}\n.rx-menu .rx-sec-h{display:flex;align-items:center;justify-content:space-between;padding:14px 12px 6px;font:400 11px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan)}\n.rx-menu .rx-n{font:400 10.5px var(--mono,'Share Tech Mono'),monospace;letter-spacing:.04em;padding:1px 8px;border-radius:99px;background:rgba(128,128,128,.18);color:var(--lo,rgba(255,255,255,.65))}\n.rx-menu [hidden]{display:none!important}\n.rx-menu .rx-cat{margin-top:2px}\n.rx-menu .rx-cat-h{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 12px;border-radius:10px;cursor:pointer;font-weight:700;font-size:15.5px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .12s}\n.rx-menu .rx-cat-h:hover{background:var(--rx-hover)}.rx-menu .rx-cat-h:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}\n.rx-menu .rx-cat-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.rx-menu .rx-chev{flex:none;width:18px;height:18px;opacity:.6;transition:transform .2s cubic-bezier(.2,.8,.2,1)}\n.rx-menu .rx-cat.open>.rx-cat-h .rx-chev{transform:rotate(180deg)}.rx-menu .rx-cat.open>.rx-cat-h{background:rgba(128,128,128,.10)}\n.rx-menu .rx-cat-b{margin:2px 0 6px 12px;padding-left:8px;border-left:2px solid rgba(var(--cyan-rgb,255,85,0),.28)}\n.rx-menu .rx-cat-b .rx-o{min-height:48px;padding:7px 10px 7px 12px}.rx-menu .rx-cat-b .rx-ot{font-size:15px}\n.rx-menu .rx-o .rx-om{text-transform:none;letter-spacing:.02em;font-size:11.5px;line-height:1.4;overflow-wrap:anywhere}\n.rx-menu .rx-tag{display:inline-block;margin-left:7px;padding:0 6px;border-radius:5px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;vertical-align:1px;color:var(--cyan);background:rgba(var(--cyan-rgb,255,85,0),.14)}\n.rx-menu .rx-o[role=option]:not([aria-selected=true]).act::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;background:rgba(var(--cyan-rgb,255,85,0),.55)}\n.rx-menu .rx-empty{padding:26px 16px 20px;text-align:center;font:500 14px/1.45 var(--display,'Rajdhani'),system-ui,sans-serif;color:var(--lo,rgba(255,255,255,.65))}\n.rx-menu .rx-sbox .rx-custom-in,.rx-menu .rx-sbox .rx-custom-in:focus,.rx-menu .rx-sbox .rx-custom-in:focus-visible{outline:none!important;box-shadow:none!important;border:0!important;background:transparent!important;border-radius:0}\n@media (pointer:coarse){.rx-menu .rx-custom-in{font-size:16px}.rx-menu .rx-sbox{height:48px}.rx-menu .rx-cat-h{min-height:48px}}\n\n";
     document.head.appendChild(css);
     const el=document.createElement('div');el.id='rx-panel';el.setAttribute('role','region');el.classList.toggle('rx-light',!!getComputedStyle(document.documentElement).getPropertyValue('--ink').trim());el.setAttribute('aria-label','Reaction player');
     el.innerHTML=`<button type="button" class="rx-grab" aria-label="Collapse controls" aria-expanded="true"><i></i></button>
@@ -20691,20 +21699,26 @@ const ReactionMode=(function(){
   /* ================= reaction picker: themed dropdown (replaces the OS-drawn <select> list) ================= */
   function makeDropdown(){
     const btn=ui.el.querySelector('.rx-sel'),lab=btn.querySelector('.rx-sel-t');
-    let menu=null,items=[],act=-1,curId=null,offs=[];
+    let menu=null,act=null,curId=null,offs=[];
     const ids=()=>[...REGISTRY.keys()];
-    const setAct=(i,scroll)=>{
-      if(!items.length)return;act=(i+items.length)%items.length;
-      items.forEach((o,k)=>o.classList.toggle('act',k===act));
-      menu.setAttribute('aria-activedescendant',items[act].id);
-      if(scroll!==false)items[act].scrollIntoView({block:'nearest'});
+    const CHECK='<svg class="rx-ok" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3.5 9.5l3.6 3.6L14.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const vis=()=>menu?[...menu.querySelectorAll('.rx-o')].filter(o=>!o.hidden&&o.offsetParent!==null):[];
+    const setAct=(o,scroll)=>{
+      if(!menu)return;
+      menu.querySelectorAll('.rx-o.act').forEach(x=>x.classList.remove('act'));
+      act=o||null;
+      if(!o){menu.removeAttribute('aria-activedescendant');return;}
+      o.classList.add('act');menu.setAttribute('aria-activedescendant',o.id);
+      if(scroll!==false){const hd=menu.querySelector('.rx-sh'),top=hd?hd.offsetHeight:0,r=o.getBoundingClientRect(),m=menu.getBoundingClientRect();
+        if(r.top<m.top+top)menu.scrollTop-=(m.top+top-r.top+6);else if(r.bottom>m.bottom)menu.scrollTop+=(r.bottom-m.bottom+6);}
     };
+    const step=d=>{const v=vis();if(!v.length)return;const i=v.indexOf(act);setAct(v[(i<0?(d>0?0:v.length-1):(i+d+v.length)%v.length)]);};
     const place=()=>{
       if(!menu)return;
       const r=btn.getBoundingClientRect(),pr=ui.el.getBoundingClientRect(),m=8,vw=innerWidth,vh=innerHeight;
-      const w=Math.min(Math.max(pr.width-4,260),vw-2*m),left=Math.max(m,Math.min(pr.left+2,vw-w-m));
+      const w=Math.min(Math.max(pr.width-4,280),vw-2*m),left=Math.max(m,Math.min(pr.left+2,vw-w-m));
       menu.style.maxHeight='';menu.style.width=w+'px';menu.style.left=left+'px';
-      const want=menu.scrollHeight+14,above=r.top-m-6,below=vh-r.bottom-m-6,up=above>=Math.min(want,below)||above>below;
+      const topGap=Math.min(70,vh*.1),want=menu.scrollHeight+14,above=r.top-topGap-6,below=vh-r.bottom-m-6,up=above>=Math.min(want,below)||above>below;
       const room=Math.max(120,up?above:below);
       menu.style.maxHeight=Math.min(want,room)+'px';
       menu.style.setProperty('--rx-dy',up?'6px':'-6px');
@@ -20712,7 +21726,7 @@ const ReactionMode=(function(){
     };
     const close=(refocus)=>{
       if(!menu)return;
-      offs.forEach(f=>f());offs=[];menu.remove();menu=null;items=[];act=-1;
+      offs.forEach(f=>f());offs=[];menu.remove();menu=null;act=null;
       btn.setAttribute('aria-expanded','false');if(refocus)btn.focus({preventScroll:true});
     };
     const choose=id=>{close(true);if(id&&id!==curId)load(id);};
@@ -20722,31 +21736,107 @@ const ReactionMode=(function(){
       menu.className='rx-menu'+(ui.el.classList.contains('rx-light')?' rx-light':'');
       menu.id='rx-menu';menu.tabIndex=-1;menu.setAttribute('role','listbox');menu.setAttribute('aria-label','Reaction');
       const CHECK='<svg class="rx-ok" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3.5 9.5l3.6 3.6L14.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      items=ids().map((id,k)=>{
-        const s=REGISTRY.get(id),o=document.createElement('div');
-        o.className='rx-o';o.id='rx-opt-'+k;o.setAttribute('role','option');o.setAttribute('aria-selected',id===curId?'true':'false');o.dataset.id=id;
-        const n=s.stages.length;
-        o.innerHTML='<span class="rx-oc"><span class="rx-ot"></span><span class="rx-om">'+n+' stages</span></span>'+CHECK;
+      const ICO_S='<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.8"/><path d="M13.2 13.2L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      const ICO_X='<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+      const ICO_C='<svg class="rx-chev" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const mk=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
+      let opts=[],libRows=[],cats=[],guidedRows=[];
+
+      /* ---- sticky search / type-a-reaction bar ---- */
+      const head=mk('div','rx-sh','<div class="rx-sbox">'+ICO_S+'<input class="rx-custom-in" type="text" inputmode="text" enterkeyhint="go" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search reactions or type your own" placeholder="Search or type a reaction…"><button type="button" class="rx-clr" aria-label="Clear" tabindex="-1">'+ICO_X+'</button><button type="button" class="rx-custom-go">Run</button></div><div class="rx-hint" role="status" aria-live="polite"></div>');
+      menu.appendChild(head);
+      const inp=head.querySelector('input'),goBtn=head.querySelector('.rx-custom-go'),clr=head.querySelector('.rx-clr'),hint=head.querySelector('.rx-hint');
+      const HINT0='Pick below, or type reactants and press <b>Enter</b>';
+      hint.innerHTML=HINT0;
+
+      /* ---- guided animations (hand-authored) ---- */
+      const gh=mk('div','rx-sec-h','<span>Guided animations</span><span class="rx-n">'+ids().length+'</span>');menu.appendChild(gh);
+      ids().forEach((id,k)=>{
+        const s=REGISTRY.get(id),o=mk('div','rx-o');
+        o.id='rx-opt-'+k;o.setAttribute('role','option');o.setAttribute('aria-selected',id===curId?'true':'false');o.dataset.id=id;
+        o.innerHTML='<span class="rx-oc"><span class="rx-ot"></span><span class="rx-om">'+s.stages.length+' stages</span></span>'+CHECK;
         o.querySelector('.rx-ot').textContent=s.title;
-        o.addEventListener('pointermove',()=>{if(act!==k)setAct(k,false);});
+        o.addEventListener('pointermove',()=>{if(act!==o)setAct(o,false);});
         o.addEventListener('click',()=>choose(id));
-        menu.appendChild(o);return o;
+        menu.appendChild(o);guidedRows.push({o,hay:(s.title+' '+id).toLowerCase(),isG:true});opts.push(o);
+      });
+
+      /* ---- reaction library: collapsible categories ---- */
+      const total=RXLIB.reduce((n,c)=>n+c[1].length,0);
+      const lh=mk('div','rx-sec-h','<span>Reaction library</span><span class="rx-n">'+total+'</span>');menu.appendChild(lh);
+      RXLIB.forEach(([cat,list],ci)=>{
+        const sec=mk('div','rx-cat'),h=mk('button','rx-cat-h',''),body=mk('div','rx-cat-b');
+        h.type='button';h.tabIndex=-1;h.setAttribute('aria-expanded','false');
+        h.innerHTML='<span class="rx-cat-t"></span><span class="rx-n">'+list.length+'</span>'+ICO_C;
+        h.querySelector('.rx-cat-t').textContent=cat;body.hidden=true;
+        list.forEach(([name,eq,tier,up],li)=>{
+          const o=mk('div','rx-o');o.id='rx-lib-'+ci+'-'+li;o.setAttribute('role','option');o.setAttribute('aria-selected','false');
+          o.innerHTML='<span class="rx-oc"><span class="rx-ot"></span><span class="rx-om"></span></span>';
+          o.querySelector('.rx-ot').textContent=name;
+          const m=o.querySelector('.rx-om');m.textContent=prettyEq(eq);
+          if(up||tier==='n'){const t=mk('span','rx-tag');t.textContent=(up?'needs energy':'')+(up&&tier==='n'?' · ':'')+(tier==='n'?'net':'');m.appendChild(t);}
+          o.addEventListener('pointermove',()=>{if(act!==o)setAct(o,false);});
+          o.addEventListener('click',()=>runEq(eq,{net:tier==='n'}));
+          body.appendChild(o);opts.push(o);libRows.push({o,body,sec,hay:(name+' '+cat+' '+eq).toLowerCase()});
+        });
+        h.addEventListener('click',()=>{const open=body.hidden;body.hidden=!open;h.setAttribute('aria-expanded',open);sec.classList.toggle('open',open);sec.dataset.keep=open?'1':'';place();});
+        sec.append(h,body);menu.appendChild(sec);cats.push({sec,h,body});
+      });
+      const empty=mk('div','rx-empty');empty.hidden=true;menu.appendChild(empty);
+
+      /* ---- filtering ---- */
+      const eqLike=v=>/→|->|=>|=|\+/.test(v);
+      const filterLib=q=>{
+        const words=q.trim().toLowerCase().split(/\s+/).filter(Boolean),filt=!!words.length;
+        const hit=r=>!filt||words.every(w=>r.hay.includes(w));
+        let g=0,l=0;
+        guidedRows.forEach(r=>{const ok=hit(r);r.o.hidden=!ok;if(ok)g++;});
+        gh.hidden=!g;
+        libRows.forEach(r=>{const ok=hit(r);r.o.hidden=!ok;if(ok)l++;});
+        cats.forEach(c=>{const any=[...c.body.children].some(x=>!x.hidden);c.sec.hidden=!any;
+          const open=filt?any:c.sec.dataset.keep==='1';c.body.hidden=!open;c.h.setAttribute('aria-expanded',open);c.sec.classList.toggle('open',open);});
+        lh.hidden=!l;
+        const v=q.trim();clr.classList.toggle('on',!!v);
+        empty.hidden=!!(g||l);
+        if(!g&&!l)empty.textContent=eqLike(v)?'Not in the library — press Enter to build it from your own equation.':'No reaction matches “'+v+'”. Try a formula such as NaOH + HCl.';
+        hint.innerHTML=eqLike(v)?'<b>Enter</b> builds this reaction from scratch':(filt?(g+l)+' match'+((g+l)===1?'':'es')+' — <b>Enter</b> opens the first':HINT0);
+        hint.classList.remove('err');
+        setAct(null,false);place();};
+      let busy=false;
+      async function runEq(v,o){
+        if(busy)return;busy=true;head.classList.add('busy');goBtn.textContent='…';hint.classList.remove('err');hint.textContent='Building the animation…';
+        let ok=false;try{ok=await auto(v,o);}finally{busy=false;}
+        if(!menu)return;
+        if(ok){close(false);return;}
+        head.classList.remove('busy');goBtn.textContent='Run';hint.classList.add('err');hint.textContent=lastAutoMsg||'Could not build that reaction.';place();}
+      const go=()=>{const v=inp.value.trim();if(!v)return;
+        if(!eqLike(v)){const first=(act&&!act.hidden&&act.offsetParent&&inp.dataset.nav==='1')?act:opts.find(o=>!o.hidden&&o.offsetParent!==null)||opts.find(o=>!o.hidden);if(first){first.click();return;}}
+        runEq(v);};
+      inp.addEventListener('input',()=>{inp.dataset.nav='';filterLib(inp.value);});
+      goBtn.addEventListener('click',go);
+      clr.addEventListener('click',()=>{inp.value='';filterLib('');inp.focus({preventScroll:true});});
+      inp.addEventListener('keydown',e=>{
+        e.stopPropagation();
+        if(e.key==='Enter'){e.preventDefault();go();}
+        else if(e.key==='Escape'){e.preventDefault();if(inp.value){inp.value='';filterLib('');}else close(true);}
+        else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();inp.dataset.nav='1';step(e.key==='ArrowDown'?1:-1);}
       });
       document.body.appendChild(menu);
       btn.setAttribute('aria-expanded','true');
-      place();setAct(Math.max(0,ids().indexOf(curId)));
-      menu.focus({preventScroll:true});
+      place();{const cur=menu.querySelector('.rx-o[aria-selected=true]');if(cur){setAct(cur,false);cur.scrollIntoView({block:'center'});}}
+      if(matchMedia('(pointer:coarse)').matches)menu.focus({preventScroll:true});else inp.focus({preventScroll:true});
       const onDoc=e=>{if(menu&&!menu.contains(e.target)&&!btn.contains(e.target))close(false);};
       const onKey=e=>{
         if(!menu)return;
+        if(e.target&&e.target.classList&&e.target.classList.contains('rx-custom-in'))return;   // typing a custom reaction: leave the keys alone
         const k=e.key;
         if(['Escape','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End','Enter',' ','Tab'].includes(k))e.stopPropagation();
         if(k==='Escape'){e.preventDefault();e.stopPropagation();close(true);}
-        else if(k==='ArrowDown'){e.preventDefault();setAct(act+1);}
-        else if(k==='ArrowUp'){e.preventDefault();setAct(act-1);}
-        else if(k==='Home'){e.preventDefault();setAct(0);}
-        else if(k==='End'){e.preventDefault();setAct(items.length-1);}
-        else if(k==='Enter'||k===' '){e.preventDefault();choose(items[act]&&items[act].dataset.id);}
+        else if(k==='ArrowDown'){e.preventDefault();step(1);}
+        else if(k==='ArrowUp'){e.preventDefault();step(-1);}
+        else if(k==='Home'){e.preventDefault();setAct(vis()[0]);}
+        else if(k==='End'){e.preventDefault();const v=vis();setAct(v[v.length-1]);}
+        else if(k==='Enter'||k===' '){e.preventDefault();if(act)act.click();}
         else if(k==='Tab'){close(false);}
       };
       const onSize=()=>place();
@@ -20756,7 +21846,7 @@ const ReactionMode=(function(){
     };
     btn.addEventListener('click',()=>menu?close(true):open());
     btn.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();e.stopPropagation();open();}});
-    ui.setSel=id=>{curId=id;const s=REGISTRY.get(id);lab.textContent=s?s.title:'';btn.title=s?s.title:'';if(menu)items.forEach(o=>o.setAttribute('aria-selected',o.dataset.id===id?'true':'false'));};
+    ui.setSel=id=>{curId=id;const s=REGISTRY.get(id);lab.textContent=s?s.title:'';btn.title=s?s.title:'';if(menu)menu.querySelectorAll('.rx-o[data-id]').forEach(o=>o.setAttribute('aria-selected',o.dataset.id===id?'true':'false'));};
     ui.closeMenu=close;
   }
   function makeChips(){
@@ -20814,8 +21904,241 @@ const ReactionMode=(function(){
     if(restore!==false&&saved)rebuildScene();
     saved=null;
   }
-  return{register,validate,toggle:()=>active?exit(true):enter(),enter,exit,load,list:()=>[...REGISTRY.keys()],
-    _test:{dbg:()=>({data,curP,simKF,pairs,STAGES,oriCache,KF}),compile,validate,weight,fwin,posAt,setSimKF:k=>{simKF=k;},get:()=>({KF,STAGES,TS,T_END,HALF}),REGISTRY}};
+
+  /* ================= AUTO: any reaction, found by ReactionCore =================
+     Type reactants (and optionally products): "2 H2 + O2", "NaOH + HCl", "CH3COOH + NaOH → CH3COONa + H2O", "CH3Br + OH-".
+     Each reactant is resolved through: the simulator's own library → ions/salts (Na+, OH-, NaOH, Na2CO3 …) → elements →
+     the app's own resolver (name parser, then PubChem when online). ReactionCore then searches mechanisms:
+       gas-phase radical chemistry (bond energies, spin rule) OR aqueous polar chemistry (lone-pair attack, proton transfer,
+       ion pairing; electronegativity decides where an electron pair goes; tabulated free energies / Born–Haber estimates).
+     Every stage is registered as an ordinary spec, so the existing placement search, orbital morph and player animate it. */
+  const SUBS='₀₁₂₃₄₅₆₇₈₉', toSub=f=>f.replace(/\d/g,d=>SUBS[+d]);
+  const plain=s=>s.replace(/[₀-₉]/g,c=>SUBS.indexOf(c));
+  const chargeSup=n=>n?((Math.abs(n)>1?({2:'²',3:'³'}[Math.abs(n)]||Math.abs(n)):'')+(n>0?'⁺':'⁻')):'';
+  const symOfZ=Z=>(ELS.find(e=>e.Z===Z)||{}).sym;
+  function libSpec(mol){
+    const A=mol.atoms||[];
+    const bonds=(mol.bonds||[]).map(b=>[b[0],b[1],b[2]!=null?b[2]:1]);
+    if(bonds.some(b=>b[2]%1))throw new Error((mol.formula||mol.name)+' has fractional (aromatic) bonds: not supported yet');
+    const sp={atoms:A.map(a=>a.sym||symOfZ(a.Z)),bonds,charges:A.map(a=>a.formalCharge||0)};
+    try{window.ReactionCore.fromSpecies([sp]);}catch(e){throw new Error((mol.formula||mol.name)+': '+e.message);}
+    return sp;
+  }
+  const RXLIB=[["Combustion",[["Hydrogen burning","2 H2 + O2 → 2 H2O","m",0],["Methane combustion","CH4 + 2 O2 → CO2 + 2 H2O","m",0],["Ethane combustion","2 C2H6 + 7 O2 → 4 CO2 + 6 H2O","n",0],["Propane combustion","C3H8 + 5 O2 → 3 CO2 + 4 H2O","n",0],["Butane combustion","2 C4H10 + 13 O2 → 8 CO2 + 10 H2O","n",0],["Ethene combustion","C2H4 + 3 O2 → 2 CO2 + 2 H2O","m",0],["Acetylene (ethyne) torch","2 C2H2 + 5 O2 → 4 CO2 + 2 H2O","n",0],["Methanol combustion","2 CH3OH + 3 O2 → 2 CO2 + 4 H2O","n",0],["Ethanol combustion","C2H5OH + 3 O2 → 2 CO2 + 3 H2O","n",0],["Carbon burning","C + O2 → CO2","m",0],["Incomplete carbon burning","2 C + O2 → 2 CO","m",0],["Carbon monoxide burning","2 CO + O2 → 2 CO2","m",0],["Sulfur burning","S + O2 → SO2","m",0],["Hydrogen sulfide burning","2 H2S + 3 O2 → 2 SO2 + 2 H2O","n",0],["Hydrazine rocket fuel","N2H4 + O2 → N2 + 2 H2O","m",0],["Ammonia burning (Ostwald step)","4 NH3 + 5 O2 → 4 NO + 6 H2O(g)","n",0],["Ammonia in oxygen","4 NH3 + 3 O2 → 2 N2 + 6 H2O","n",0],["Silicon burning","Si + O2 → SiO2","m",0],["Hydrogen in chlorine","H2 + Cl2 → 2 HCl","m",0],["Hydrogen in fluorine","H2 + F2 → 2 HF","m",0]]],["Metals and oxygen",[["Magnesium flare","2 Mg + O2 → 2 MgO","n",0],["Aluminium burning","4 Al + 3 O2 → 2 Al2O3","n",0],["Zinc oxidation","2 Zn + O2 → 2 ZnO","n",0],["Copper oxidation","2 Cu + O2 → 2 CuO","n",0],["Iron rusting","4 Fe + 3 O2 → 2 Fe2O3","n",0],["Iron burning (magnetite)","3 Fe + 2 O2 → Fe3O4","n",0],["Calcium oxidation","2 Ca + O2 → 2 CaO","n",0],["Sodium oxidation","4 Na + O2 → 2 Na2O","n",0],["Lithium oxidation","4 Li + O2 → 2 Li2O","n",0],["Barium oxidation","2 Ba + O2 → 2 BaO","n",0],["Lead oxidation","2 Pb + O2 → 2 PbO","n",0],["Silver oxide decomposition","2 Ag2O → 4 Ag + O2","n",1],["Copper(I) oxide to copper(II) oxide","2 Cu2O + O2 → 4 CuO","n",0],["Iron(II) oxide oxidation","4 FeO + O2 → 2 Fe2O3","n",0],["Magnetite oxidation","4 Fe3O4 + O2 → 6 Fe2O3","n",0]]],["Synthesis from elements",[["Haber process","N2 + 3 H2 → 2 NH3","m",0],["Hydrogen bromide","H2 + Br2 → 2 HBr","m",0],["Hydrogen iodide","H2 + I2 → 2 HI","m",1],["Hydrogen sulfide","H2 + S → H2S","m",0],["Table salt","2 Na + Cl2 → 2 NaCl","m",0],["Potassium chloride","2 K + Cl2 → 2 KCl","m",0],["Lithium fluoride","2 Li + F2 → 2 LiF","m",0],["Magnesium chloride","Mg + Cl2 → MgCl2","n",0],["Calcium chloride","Ca + Cl2 → CaCl2","n",0],["Aluminium chloride","2 Al + 3 Cl2 → 2 AlCl3","n",0],["Iron(III) chloride","2 Fe + 3 Cl2 → 2 FeCl3","n",0],["Copper(II) chloride","Cu + Cl2 → CuCl2","n",0],["Zinc chloride","Zn + Cl2 → ZnCl2","n",0],["Sodium bromide","2 Na + Br2 → 2 NaBr","m",0],["Sodium iodide","2 Na + I2 → 2 NaI","n",0],["Sodium fluoride","2 Na + F2 → 2 NaF","m",0],["Iron sulfide","Fe + S → FeS","n",0],["Zinc sulfide","Zn + S → ZnS","n",0],["Carbon disulfide","C + 2 S → CS2","m",1],["Silicon tetrachloride","Si + 2 Cl2 → SiCl4","n",0],["Methane from elements","C + 2 H2 → CH4","m",0],["Acetylene from elements","2 C + H2 → C2H2","m",1],["Ethene from elements","2 C + 2 H2 → C2H4","m",1],["Nitric oxide (lightning)","N2 + O2 → 2 NO","m",1],["Nitrogen dioxide","2 NO + O2 → 2 NO2","m",0],["Dinitrogen tetroxide","2 NO2 → N2O4","m",0],["Sulfur trioxide (contact process)","2 SO2 + O2 → 2 SO3","m",0],["Carbon monoxide to dioxide","CO + O2 → CO2","m",0],["Silver chloride from elements","2 Ag + Cl2 → 2 AgCl","n",0],["Lead(II) chloride","Pb + Cl2 → PbCl2","n",0],["Barium chloride","Ba + Cl2 → BaCl2","n",0],["Potassium bromide","2 K + Br2 → 2 KBr","m",0]]],["Decomposition",[["Water electrolysis","2 H2O → 2 H2 + O2","m",1],["Hydrogen peroxide decomposition","2 H2O2 → 2 H2O + O2","m",0],["Limestone calcination","CaCO3 → CaO + CO2","n",1],["Magnesite decomposition","MgCO3 → MgO + CO2","n",1],["Barium carbonate decomposition","BaCO3 → BaO + CO2","n",1],["Baking soda decomposition","2 NaHCO3 → Na2CO3 + CO2 + H2O","m",1],["Ammonium chloride sublimation","NH4Cl → NH3 + HCl","m",1],["Ammonium nitrate decomposition","NH4NO3 → N2O + 2 H2O","n",0],["Dinitrogen tetroxide dissociation","N2O4 → 2 NO2","n",1],["Sulfur trioxide dissociation","2 SO3 → 2 SO2 + O2","m",1],["Ammonia cracking","2 NH3 → N2 + 3 H2","n",1],["Hydrogen iodide dissociation","2 HI → H2 + I2","n",0],["Nitric acid decomposition","4 HNO3 → 4 NO2 + O2 + 2 H2O","n",1],["Copper(II) hydroxide dehydration","Cu(OH)2 → CuO + H2O","n",0],["Calcium hydroxide dehydration","Ca(OH)2 → CaO + H2O","n",1],["Magnesium hydroxide dehydration","Mg(OH)2 → MgO + H2O","n",1],["Zinc hydroxide dehydration","Zn(OH)2 → ZnO + H2O","n",0],["Iron(III) hydroxide dehydration","2 Fe(OH)3 → Fe2O3 + 3 H2O","n",0],["Ozone decay","2 O3 → 3 O2","n",0],["Nitrous oxide decomposition","2 N2O → 2 N2 + O2","n",0],["Nitric oxide decomposition","2 NO → N2 + O2","m",0],["Hydrazine decomposition","N2H4 → N2 + 2 H2","m",0],["Ethanol dehydration","C2H5OH → C2H4 + H2O","m",1],["Hydrogen chloride dissociation","2 HCl → H2 + Cl2","n",1],["Silver chloride photolysis","2 AgCl → 2 Ag + Cl2","n",1],["Methane pyrolysis","CH4 → C + 2 H2","m",1],["Water vapour splitting","2 H2O(g) → 2 H2 + O2","m",1]]],["Metal displacement and redox",[["Zinc in copper sulfate","Zn + CuSO4(aq) → ZnSO4(aq) + Cu","n",0],["Iron in copper sulfate","Fe + CuSO4(aq) → FeSO4(aq) + Cu","n",0],["Copper in silver nitrate","Cu + 2 AgNO3(aq) → Cu(NO3)2(aq) + 2 Ag","n",0],["Zinc in lead nitrate","Zn + Pb(NO3)2(aq) → Zn(NO3)2(aq) + Pb","n",0],["Magnesium in zinc sulfate","Mg + ZnSO4(aq) → MgSO4(aq) + Zn","n",0],["Zinc in iron(II) sulfate","Zn + FeSO4(aq) → ZnSO4(aq) + Fe","n",0],["Aluminium in copper chloride","2 Al + 3 CuCl2(aq) → 2 AlCl3(aq) + 3 Cu","n",0],["Zinc in hydrochloric acid","Zn + 2 HCl(aq) → ZnCl2(aq) + H2","n",0],["Magnesium in hydrochloric acid","Mg + 2 HCl(aq) → MgCl2(aq) + H2","n",0],["Iron in hydrochloric acid","Fe + 2 HCl(aq) → FeCl2(aq) + H2","n",0],["Aluminium in hydrochloric acid","2 Al + 6 HCl(aq) → 2 AlCl3(aq) + 3 H2","n",0],["Zinc in sulfuric acid","Zn + H2SO4(aq) → ZnSO4(aq) + H2","n",0],["Magnesium in sulfuric acid","Mg + H2SO4(aq) → MgSO4(aq) + H2","n",0],["Calcium in water","Ca + 2 H2O → Ca(OH)2 + H2","n",0],["Sodium in water","2 Na + 2 H2O → 2 NaOH + H2","n",0],["Potassium in water","2 K + 2 H2O → 2 KOH + H2","n",0],["Lithium in water","2 Li + 2 H2O → 2 LiOH + H2","n",0],["Chlorine displaces bromide","Cl2 + 2 NaBr(aq) → 2 NaCl(aq) + Br2","n",0],["Chlorine displaces iodide","Cl2 + 2 KI(aq) → 2 KCl(aq) + I2","n",0],["Bromine displaces iodide","Br2 + 2 KI(aq) → 2 KBr(aq) + I2","n",0],["Zinc in silver nitrate","Zn + 2 AgNO3(aq) → Zn(NO3)2(aq) + 2 Ag","n",0],["Iron in silver nitrate","Fe + 2 AgNO3(aq) → Fe(NO3)2(aq) + 2 Ag","n",0],["Magnesium in copper sulfate","Mg + CuSO4(aq) → MgSO4(aq) + Cu","n",0],["Aluminium in iron(III) oxide (thermite)","2 Al + Fe2O3 → Al2O3 + 2 Fe","n",0],["Aluminium in copper(II) oxide","2 Al + 3 CuO → Al2O3 + 3 Cu","n",0],["Magnesium in carbon dioxide","2 Mg + CO2 → 2 MgO + C","n",0],["Magnesium in steam","Mg + H2O(g) → MgO + H2","n",0],["Iron in steam","3 Fe + 4 H2O(g) → Fe3O4 + 4 H2","n",0],["Zinc and iron(III) chloride","Zn + 2 FeCl3(aq) → ZnCl2(aq) + 2 FeCl2(aq)","n",0],["Copper and iron(III) chloride","Cu + 2 FeCl3(aq) → CuCl2(aq) + 2 FeCl2(aq)","n",0],["Zinc and copper ions","Zn + Cu2+ → Zn2+ + Cu","n",0],["Iron and copper ions","Fe + Cu2+ → Fe2+ + Cu","n",0],["Zinc and acid protons","Zn + 2 H+ → Zn2+ + H2","n",0],["Magnesium and acid protons","Mg + 2 H+ → Mg2+ + H2","n",0],["Aluminium and acid protons","2 Al + 6 H+ → 2 Al3+ + 3 H2","n",0],["Iron(III) and zinc ions","2 Fe3+ + Zn → 2 Fe2+ + Zn2+","n",0]]],["Acid + base (neutralisation)",[["HCl + NaOH","HCl + NaOH → NaCl + H2O","m",0],["HCl + KOH","HCl + KOH → KCl + H2O","m",0],["HCl + LiOH","HCl + LiOH → LiCl + H2O","m",0],["HCl + Ca(OH)2","2 HCl + Ca(OH)2 → CaCl2 + 2 H2O","m",0],["HCl + Ba(OH)2","2 HCl + Ba(OH)2 → BaCl2 + 2 H2O","m",0],["HCl + ammonia","HCl + NH3 → NH4Cl","m",0],["HBr + NaOH","HBr + NaOH → NaBr + H2O","m",0],["HBr + KOH","HBr + KOH → KBr + H2O","m",0],["HI + NaOH","HI + NaOH → NaI + H2O","m",0],["HI + KOH","HI + KOH → KI + H2O","m",0],["HF + NaOH","HF + NaOH → NaF + H2O","m",0],["HF + KOH","HF + KOH → KF + H2O","m",0],["HNO3 + NaOH","HNO3 + NaOH → NaNO3 + H2O","m",0],["HNO3 + KOH","HNO3 + KOH → KNO3 + H2O","m",0],["HNO3 + Ca(OH)2","2 HNO3 + Ca(OH)2 → Ca(NO3)2 + 2 H2O","m",0],["HNO3 + Ba(OH)2","2 HNO3 + Ba(OH)2 → Ba(NO3)2 + 2 H2O","m",0],["HNO3 + ammonia","HNO3 + NH3 → NH4NO3","m",0],["H2SO4 + 2 NaOH","H2SO4 + 2 NaOH → Na2SO4 + 2 H2O","m",0],["H2SO4 + NaOH (1:1)","H2SO4 + NaOH → NaHSO4 + H2O","m",0],["H2SO4 + 2 KOH","H2SO4 + 2 KOH → K2SO4 + 2 H2O","m",0],["H2SO4 + Ca(OH)2","H2SO4 + Ca(OH)2 → CaSO4 + 2 H2O","m",0],["H2SO4 + Ba(OH)2","H2SO4 + Ba(OH)2 → BaSO4 + 2 H2O","m",0],["H2SO4 + 2 ammonia","H2SO4 + 2 NH3 → (NH4)2SO4","m",0],["H3PO4 + 3 NaOH","H3PO4 + 3 NaOH → Na3PO4 + 3 H2O","m",0],["H3PO4 + 2 NaOH","H3PO4 + 2 NaOH → Na2HPO4 + 2 H2O","m",0],["H3PO4 + NaOH","H3PO4 + NaOH → NaH2PO4 + H2O","m",0],["H3PO4 + 3 KOH","H3PO4 + 3 KOH → K3PO4 + 3 H2O","m",0],["Acetic acid + NaOH","CH3COOH + NaOH → CH3COONa + H2O","m",0],["Acetic acid + KOH","CH3COOH + KOH → CH3COOK + H2O","m",0],["Formic acid + NaOH","HCOOH + NaOH → HCOONa + H2O","m",0],["Carbonic acid + 2 NaOH","H2CO3 + 2 NaOH → Na2CO3 + 2 H2O","m",0],["Hydrogen sulfide + 2 NaOH","H2S + 2 NaOH → Na2S + 2 H2O","m",0],["Hydrogen sulfide + NaOH","H2S + NaOH → NaHS + H2O","m",0],["Hydrogen cyanide + NaOH","HCN + NaOH → NaCN + H2O","m",0],["Hydrogen cyanide + KOH","HCN + KOH → KCN + H2O","m",0],["Sulfurous acid + 2 NaOH","H2SO3 + 2 NaOH → Na2SO3 + 2 H2O","m",0],["Nitrous acid + NaOH","HNO2 + NaOH → NaNO2 + H2O","m",0],["Proton + hydroxide","H+ + OH- → H2O","m",0],["Hydronium + hydroxide","H3O+ + OH- → 2 H2O","m",0],["Hydronium + ammonia","H3O+ + NH3 → NH4+ + H2O","m",0],["Ammonium + hydroxide","NH4+ + OH- → NH3 + H2O","m",0]]],["Acid + carbonate / salt",[["Sodium carbonate + HCl","Na2CO3 + 2 HCl → 2 NaCl + H2CO3","m",0],["Sodium bicarbonate + HCl","NaHCO3 + HCl → NaCl + H2CO3","m",0],["Potassium carbonate + HCl","K2CO3 + 2 HCl → 2 KCl + H2CO3","m",0],["Sodium carbonate + acetic acid","Na2CO3 + 2 CH3COOH → 2 CH3COONa + H2CO3","m",0],["Sodium bicarbonate + acetic acid","NaHCO3 + CH3COOH → CH3COONa + H2CO3","m",0],["Sodium sulfide + HCl","Na2S + 2 HCl → 2 NaCl + H2S","m",0],["Sodium acetate + HCl","CH3COONa + HCl → CH3COOH + NaCl","m",0],["Sodium fluoride + HCl","NaF + HCl → NaCl + HF","m",0],["Sodium cyanide + HCl","NaCN + HCl → NaCl + HCN","m",0],["Ammonium chloride + NaOH","NH4Cl + NaOH → NaCl + NH3 + H2O","m",0],["Ammonium nitrate + KOH","NH4NO3 + KOH → KNO3 + NH3 + H2O","m",0],["Ammonium sulfate + 2 NaOH","(NH4)2SO4 + 2 NaOH → Na2SO4 + 2 NH3 + 2 H2O","m",0],["Sodium sulfite + 2 HCl","Na2SO3 + 2 HCl → 2 NaCl + H2SO3","m",0],["Sodium phosphate + 3 HCl","Na3PO4 + 3 HCl → 3 NaCl + H3PO4","m",0],["Limestone + hydrochloric acid","CaCO3 + 2 HCl(aq) → CaCl2(aq) + CO2 + H2O","m",0],["Marble + nitric acid","CaCO3 + 2 HNO3(aq) → Ca(NO3)2(aq) + CO2 + H2O","m",0],["Magnesium carbonate + HCl","MgCO3 + 2 HCl(aq) → MgCl2(aq) + CO2 + H2O","m",0],["Sodium hydroxide + CO2","2 NaOH + CO2 → Na2CO3 + H2O","m",0],["Calcium hydroxide + CO2 (limewater)","Ca(OH)2 + CO2 → CaCO3 + H2O","m",0],["Magnesium hydroxide + HCl (antacid)","Mg(OH)2 + 2 HCl → MgCl2 + 2 H2O","m",0],["Sodium bicarbonate + HCl (antacid)","NaHCO3 + HCl → NaCl + H2O + CO2","m",0]]],["Precipitation",[["Silver chloride","AgNO3 + NaCl → AgCl + NaNO3","m",0],["Silver chloride (KCl)","AgNO3 + KCl → AgCl + KNO3","m",0],["Silver bromide","AgNO3 + KBr → AgBr + KNO3","m",0],["Silver bromide (NaBr)","AgNO3 + NaBr → AgBr + NaNO3","m",0],["Silver iodide","AgNO3 + KI → AgI + KNO3","m",0],["Silver iodide (NaI)","AgNO3 + NaI → AgI + NaNO3","m",0],["Barium sulfate","BaCl2 + Na2SO4 → BaSO4 + 2 NaCl","m",0],["Barium sulfate (K)","BaCl2 + K2SO4 → BaSO4 + 2 KCl","m",0],["Barium sulfate (nitrate)","Ba(NO3)2 + Na2SO4 → BaSO4 + 2 NaNO3","m",0],["Calcium carbonate","CaCl2 + Na2CO3 → CaCO3 + 2 NaCl","m",0],["Calcium carbonate (K)","CaCl2 + K2CO3 → CaCO3 + 2 KCl","m",0],["Calcium carbonate (nitrate)","Ca(NO3)2 + Na2CO3 → CaCO3 + 2 NaNO3","m",0],["Barium carbonate","BaCl2 + Na2CO3 → BaCO3 + 2 NaCl","m",0],["Magnesium hydroxide","MgCl2 + 2 NaOH → Mg(OH)2 + 2 NaCl","m",0],["Magnesium hydroxide (KOH)","MgCl2 + 2 KOH → Mg(OH)2 + 2 KCl","m",0],["Magnesium hydroxide (sulfate)","MgSO4 + 2 NaOH → Mg(OH)2 + Na2SO4","m",0],["Calcium sulfate","CaCl2 + Na2SO4 → CaSO4 + 2 NaCl","m",0],["Magnesium carbonate","MgCl2 + Na2CO3 → MgCO3 + 2 NaCl","m",0],["Copper sulfate + barium chloride","CuSO4 + BaCl2 → CuCl2 + BaSO4","m",0],["Barium hydroxide + sulfuric acid","Ba(OH)2 + H2SO4 → BaSO4 + 2 H2O","m",0],["Zinc sulfate + barium nitrate","ZnSO4 + Ba(NO3)2 → Zn(NO3)2 + BaSO4","m",0],["Copper chloride + silver nitrate","CuCl2 + 2 AgNO3 → Cu(NO3)2 + 2 AgCl","m",0],["Iron(III) chloride + silver nitrate","FeCl3 + 3 AgNO3 → Fe(NO3)3 + 3 AgCl","m",0],["Magnesium chloride + silver nitrate","MgCl2 + 2 AgNO3 → Mg(NO3)2 + 2 AgCl","m",0],["Calcium chloride + silver nitrate","CaCl2 + 2 AgNO3 → Ca(NO3)2 + 2 AgCl","m",0],["Aluminium chloride + silver nitrate","AlCl3 + 3 AgNO3 → Al(NO3)3 + 3 AgCl","m",0],["Magnesium nitrate + NaOH","Mg(NO3)2 + 2 NaOH → Mg(OH)2 + 2 NaNO3","m",0]]],["Weak acids and bases in water",[["HCl dissolving","HCl + H2O → H3O+ + Cl-","m",0],["HBr dissolving","HBr + H2O → H3O+ + Br-","m",0],["HI dissolving","HI + H2O → H3O+ + I-","m",0],["HNO3 dissolving","HNO3 + H2O → H3O+ + NO3-","m",0],["Sulfuric acid, first proton","H2SO4 + H2O → H3O+ + HSO4-","m",0],["Bisulfate, second proton","HSO4- + H2O → H3O+ + SO42-","m",1],["Acetic acid in water","CH3COOH + H2O → H3O+ + CH3COO-","m",1],["HF in water","HF + H2O → H3O+ + F-","m",0],["Nitrous acid in water","HNO2 + H2O → H3O+ + NO2-","m",1],["Hydrogen sulfide in water","H2S + H2O → H3O+ + HS-","m",1],["Hydrogen cyanide in water","HCN + H2O → H3O+ + CN-","m",1],["Carbonic acid in water","H2CO3 + H2O → H3O+ + HCO3-","m",1],["Phosphoric acid in water","H3PO4 + H2O → H3O+ + H2PO4-","m",1],["Ammonia in water","NH3 + H2O → NH4+ + OH-","m",1],["Ammonium as an acid","NH4+ + H2O → NH3 + H3O+","m",1],["Acetate as a base","CH3COO- + H2O → CH3COOH + OH-","m",1],["Carbonate as a base","CO32- + H2O → HCO3- + OH-","m",1],["Bicarbonate as a base","HCO3- + H2O → H2CO3 + OH-","m",1],["Sulfide as a base","S2- + H2O → HS- + OH-","m",1],["Fluoride as a base","F- + H2O → HF + OH-","m",1],["Cyanide as a base","CN- + H2O → HCN + OH-","m",1],["Phosphate as a base","PO43- + H2O → HPO42- + OH-","m",1],["Water self-ionisation","2 H2O → H3O+ + OH-","n",1]]],["Organic: halogenation and addition",[["Chlorination of methane","CH4 + Cl2 → CH3Cl + HCl","m",0],["Bromination of methane","CH4 + Br2 → CH3Br + HBr","m",0],["Chlorination of chloromethane","CH3Cl + Cl2 → CH2Cl2 + HCl","m",0],["Chlorination of ethane","C2H6 + Cl2 → C2H5Cl + HCl","m",0],["Bromination of ethane","C2H6 + Br2 → C2H5Br + HBr","m",0],["Fluorination of methane","CH4 + F2 → CH3F + HF","m",0],["Hydrogenation of ethene","C2H4 + H2 → C2H6","m",0],["Hydrogenation of ethyne (partial)","C2H2 + H2 → C2H4","m",0],["Hydrogenation of ethyne (full)","C2H2 + 2 H2 → C2H6","m",0],["Hydrogenation of propene","C3H6 + H2 → C3H8","m",0],["Bromine adds to ethene","C2H4 + Br2 → BrCH2CH2Br","m",0],["Chlorine adds to ethene","C2H4 + Cl2 → ClCH2CH2Cl","m",0],["Iodine adds to ethene","C2H4 + I2 → ICH2CH2I","m",0],["HBr adds to ethene","C2H4 + HBr → CH3CH2Br","m",0],["HCl adds to ethene","C2H4 + HCl → CH3CH2Cl","m",0],["HI adds to ethene","C2H4 + HI → CH3CH2I","m",0],["Hydration of ethene","C2H4 + H2O → CH3CH2OH","m",0],["Bromine adds to ethyne","C2H2 + Br2 → BrCH=CHBr","m",0],["HCl adds to ethyne","C2H2 + HCl → CH2=CHCl","m",0],["Methane steam reforming","CH4 + H2O(g) → CO + 3 H2","m",1],["Water-gas shift","CO + H2O(g) → CO2 + H2","m",0],["Water gas","C + H2O(g) → CO + H2","m",1],["Methanol synthesis","CO + 2 H2 → CH3OH","m",0],["Methanation","CO + 3 H2 → CH4 + H2O(g)","m",0],["Cracking of ethane","C2H6 → C2H4 + H2","m",1],["Cracking of propane","C3H8 → C2H4 + CH4","m",1],["Dehydrogenation of ethanol","C2H5OH → CH3CHO + H2","m",1]]],["Organic: substitution (SN2)",[["CH3Br + hydroxide","CH3Br + OH- → CH3OH + Br-","m",0],["CH3Cl + hydroxide","CH3Cl + OH- → CH3OH + Cl-","m",0],["CH3I + hydroxide","CH3I + OH- → CH3OH + I-","m",0],["Bromoethane + hydroxide","CH3CH2Br + OH- → CH3CH2OH + Br-","m",0],["Chloroethane + hydroxide","CH3CH2Cl + OH- → CH3CH2OH + Cl-","m",0],["CH3Br + hydrosulfide","CH3Br + HS- → CH3SH + Br-","m",0]]],["Industrial and environmental",[["Quicklime slaking","CaO + H2O → Ca(OH)2","n",0],["Sodium oxide in water","Na2O + H2O → 2 NaOH","n",0],["Magnesium oxide in water","MgO + H2O → Mg(OH)2","n",0],["Lime and carbon dioxide","CaO + CO2 → CaCO3","n",0],["Sulfur trioxide in water (acid rain)","SO3 + H2O → H2SO4","m",0],["Iron ore reduction (CO)","Fe2O3 + 3 CO → 2 Fe + 3 CO2","n",0],["Magnetite reduction (CO)","Fe3O4 + 4 CO → 3 Fe + 4 CO2","n",0],["Copper(II) oxide + hydrogen","CuO + H2 → Cu + H2O","n",0],["Copper(II) oxide + carbon","2 CuO + C → 2 Cu + CO2","n",0],["Zinc oxide + carbon","ZnO + C → Zn + CO","n",1],["Lead(II) oxide + carbon","2 PbO + C → 2 Pb + CO2","n",0],["Silica + carbon (silicon)","SiO2 + 2 C → Si + 2 CO","m",1],["Iron ore + hydrogen","Fe2O3 + 3 H2 → 2 Fe + 3 H2O","n",1],["Haber–Bosch (hydrogen from methane)","CH4 + 2 H2O(g) → CO2 + 4 H2","n",1],["Ostwald: nitric acid","3 NO2 + H2O → 2 HNO3 + NO","m",1],["Lime from limestone and carbon","CaCO3 + C → CaO + 2 CO","n",1],["Sodium + chlorine (industrial)","2 NaCl → 2 Na + Cl2","n",1],["Aluminium smelting","2 Al2O3 → 4 Al + 3 O2","n",1],["Ammonia + hydrogen chloride (smoke)","NH3 + HCl → NH4Cl","m",0],["Ammonia + nitric acid (fertiliser)","NH3 + HNO3 → NH4NO3","m",0],["Nitrogen fixation (lightning)","N2 + 2 O2 → 2 NO2","m",1],["Ozone formation","3 O2 → 2 O3","m",1],["Ozone + nitric oxide","NO + O3 → NO2 + O2","n",0]]],["Organic: addition, elimination, esterification",[["HBr adds to ethyne","C2H2 + HBr → CH2=CHBr","m",0],["Dehydrobromination of bromoethane","CH3CH2Br → C2H4 + HBr","m",1],["Dehydrochlorination of chloroethane","CH3CH2Cl → C2H4 + HCl","m",1],["Dehydration of propanol","CH3CH2CH2OH → CH2=CHCH3 + H2O","m",1],["Methyl acetate (esterification)","CH3COOH + CH3OH → CH3COOCH3 + H2O","m",0],["Methyl formate (esterification)","HCOOH + CH3OH → HCOOCH3 + H2O","m",0],["Methyl acetate hydrolysis","CH3COOCH3 + H2O → CH3COOH + CH3OH","m",0],["Glucose combustion (respiration)","glucose + 6 O2 → 6 CO2 + 6 H2O","n",0],["Photosynthesis","6 CO2 + 6 H2O → glucose + 6 O2","n",1],["Alcoholic fermentation","glucose → 2 C2H5OH + 2 CO2","n",0]]]];   // verified reactions: [name, equation, tier m=mechanism n=net, uphill]
+  const SUPD='⁰¹²³⁴⁵⁶⁷⁸⁹';
+  function prettyEq(eq){   // 2 H2 + SO42- → ...  =>  2 H₂ + SO₄²⁻ → ...
+    return eq.split(' ').map(t=>{
+      if(/^\d+$/.test(t)||t==='+'||t==='→')return t;
+      let m=/^((?:SO4|CO3|HPO4|SO3|PO4)|[A-Z][a-z]?)(\d)([+-])$/.exec(t);
+      if(m)return toSub(m[1])+SUPD[+m[2]]+(m[3]==='+'?'⁺':'⁻');
+      m=/^(.*?)([+-])$/.exec(t);
+      if(m&&/[A-Za-z]/.test(m[1])&&!/\($/.test(m[1]))return m[1].replace(/([A-Za-z)])(\d+)/g,(a,b,c)=>b+toSub(c))+(m[2]==='+'?'⁺':'⁻');
+      return t.replace(/([A-Za-z)])(\d+)/g,(a,b,c)=>b+toSub(c));}).join(' ');
+  }
+  async function autoSpecies(tok){
+    const m=/^\s*(\d+(?:\.\d+)?(?:\/\d+)?)?\s*(.+?)\s*$/.exec(tok);if(!m)throw new Error('cannot read "'+tok+'"');
+    let raw=m[2],phase=null;const pm=/^(.*?)\s*\((g|l|s|aq)\)$/.exec(raw);if(pm){raw=pm[1];phase=pm[2];}   // optional state symbol: H2O(g), NaCl(aq)
+    const cv=m[1]&&m[1].includes('/')?(+m[1].split('/')[0])/(+m[1].split('/')[1]):+(m[1]||1),n=cv,f=plain(raw),RC=window.ReactionCore;let specs=null,kind='molecule';
+    const mol=MOLECULES.find(x=>x.formula&&plain(x.formula)===f)||MOLECULES.find(x=>x.name&&x.name.toLowerCase()===raw.toLowerCase());
+    const ion=RC.ionSpecies(raw);                                                     // ion, salt, name, condensed formula, small molecule
+    if(ion&&(ion.kind==='salt'||ion.kind==='ion')){specs=ion.species;kind=ion.kind;}   // an ionic compound in water is its ions, whatever the library draws
+    if(!specs&&mol&&!(mol.bonds||[]).some(b=>b[2]===0)){                              // covalent library molecule (keeps the hand-authored geometry)
+      try{specs=[libSpec(mol)];}catch(e){if(ion){specs=ion.species;kind=ion.kind;}else throw e;}}
+    if(!specs&&ion){specs=ion.species;kind=ion.kind;}
+    if(!specs&&/^[A-Z][a-z]?$/.test(f))specs=[{atoms:[f],bonds:[]}];                // bare element = free atom
+    if(!specs&&/^[a-z0-9()]{2,14}$/.test(raw)){                                      // lowercase formula: naoh → NaOH, co2 → CO2
+      const SYMS=new Set(ELS.map(e=>e.sym)),cands=[];
+      const rec=(i,acc)=>{if(cands.length>=40)return;if(i===raw.length){cands.push(acc);return;}const ch=raw[i];if(/[0-9()]/.test(ch)){rec(i+1,acc+ch);return;}
+        for(const len of [2,1]){const t=raw.slice(i,i+len);if(t.length<len)continue;const sym=t[0].toUpperCase()+t.slice(1);if(SYMS.has(sym))rec(i+len,acc+sym);}};
+      rec(0,'');
+      for(const cand of cands){if(RC.ionSpecies(cand)||MOLECULES.find(x=>x.formula&&plain(x.formula)===cand))return autoSpecies((m[1]||'')+cand+(phase?'('+phase+')':''));}
+    }
+    if(!specs){                                                                     // the app's own resolver: name parser, then PubChem
+      const r=await resolveMolecule(raw);
+      if(r.status==='element')specs=[{atoms:[symOfZ(r.Z)],bonds:[]}];
+      else if(r.status==='rendered')specs=[libSpec(r.mol)];
+      else throw new Error('"'+raw+'" was not found'+(r.reason==='offline'?' (offline: only the built-in library is available)':r.suggestion?' — did you mean '+r.suggestion+'?':''));
+    }
+    specs.forEach(sp=>{try{RC.fromSpecies([sp]);}catch(e){throw new Error(raw+': '+e.message);}});
+    return {unit:specs,n,explicit:!!m[1],raw,phase,kind,label:raw};
+  }
+  const compOf=specs=>{const c={};let q=0;specs.forEach(sp=>{sp.atoms.forEach(a=>{c[a]=(c[a]||0)+1;});(sp.charges||[]).forEach(v=>{q+=v;});});return Object.keys(c).map(k=>k+c[k]).join('')+(q?'^'+q:'');};   // 'Mg1^2' = the ion, never the neutral atom
+
+  /* "A + B → C + D". The arrow may be →, ->, -->, =>, ==>, ⟶, ⇒, ⇌, ⇄, or a bare "=" (NaOH + HCl = NaCl + H2O).
+     A "=" that sits inside a parseable condensed formula (CH2=CH2, CH3CH=CH2) is a double bond, not an arrow. */
+  function splitEquation(text){
+    let t=String(text||'').replace(/-{1,3}>|={1,3}>|⇒|⟹|⟶|⟼|⇌|⇄|→/g,'→');
+    let i=t.indexOf('→');
+    if(i<0){
+      const RC=window.ReactionCore;
+      for(let k=t.indexOf('=');k>=0;k=t.indexOf('=',k+1)){
+        let a=k,b=k+1;
+        while(a>0&&!/[\s+]/.test(t[a-1]))a--;
+        while(b<t.length&&!/[\s+]/.test(t[b]))b++;
+        const tok=t.slice(a,b);
+        if(RC&&tok.length>1&&/[A-Za-z0-9)]=[A-Za-z0-9(]/.test(tok)&&RC.ionSpecies(tok))continue;   // a real condensed formula: keep the double bond
+        i=k;break;
+      }
+    }
+    if(i<0)return[t,''];
+    return[t.slice(0,i),t.slice(i+1).replace(/^[=>\s]+/,'')];
+  }
+  let lastAutoMsg='';
+  async function auto(text,opt){
+    lastAutoMsg='';
+    try{
+      const RC=window.ReactionCore;if(!RC)throw new Error('ReactionCore is not loaded');
+      const sides=splitEquation(text),RG=[],PG=[];
+      const split=s=>s.split(/\s*\+\s*(?=[0-9A-Za-z(])/).filter(t=>t.trim());
+      for(const t of split(sides[0]))RG.push(await autoSpecies(t));
+      if(!RG.length)throw new Error('type reactants, e.g. 2 H2 + O2   or   NaOH + HCl');
+      for(const t of split(sides[1]||'')){const g=await autoSpecies(t);g.isSalt=g.kind==='salt';g.pair=compOf(g.isSalt?[{atoms:g.unit.flatMap(x=>x.atoms)}]:g.unit);g.ions=g.unit.map(x=>compOf([x]));PG.push(g);}
+      {const all=RG.concat(PG).filter(g=>g.explicit);let mult=1;
+        if(all.some(g=>Math.abs(g.n-Math.round(g.n))>1e-9)){for(let k=2;k<=24;k++){if(all.every(g=>Math.abs(g.n*k-Math.round(g.n*k))<1e-9)){mult=k;break;}}
+          if(mult===1)throw new Error('could not turn the fractional coefficients into whole numbers');
+          RG.concat(PG).forEach(g=>{if(g.explicit)g.n=Math.round(g.n*mult);});}
+        RG.concat(PG).forEach(g=>{g.n=Math.round(g.n)||1;});}
+      const net=PG.length?RC.netReaction(RG,PG):null,netAny=PG.length?RC.netReaction(RG,PG,{allowNoData:true}):null,pl=(opt&&opt.net)?{ok:false,why:'skipped',msg:'net reaction'}:RC.plan(RG,PG,{timeMs:5000}),netOk=!!(PG.length&&net&&net.ok);
+      // a radical route that rests on estimated (Pauling) bond energies is not trustworthy: the tabulated net reaction replaces it
+      const shaky=pl.ok&&!pl.noReaction&&!pl.polar&&pl.path&&pl.path.estimatedBonds.length>0,mech=pl.ok&&!pl.noReaction&&!(shaky&&netOk),useNet=!mech&&!!(netAny&&netAny.ok);
+      const say=m=>{lastAutoMsg=m;if(typeof showToast==='function')showToast(m);return false;};
+      if(!mech&&!useNet){
+        if(pl.noReaction)return say('ℹ️ No net reaction: the products are ions that are already in the solution (nothing precipitates, no gas or water forms)');
+        if(PG.length&&net&&net.why==='nodata')return say('⚠️ '+(pl.msg||'no route found')+', and there is no tabulated data for: '+net.missing.join(', '));
+        return say((pl.why==='nothing'?'ℹ️ ':'⚠️ ')+(pl.msg||'no route found'));
+      }
+      const ALK=new Set(['Li','Na','K']);
+      const key=(st,c,extra)=>{const loc=[],chg=c.map(i=>extra&&extra[i]!==undefined?extra[i]:st.q[i]);
+        for(let i=0;i<c.length;i++)for(let j=i+1;j<c.length;j++){const o=st.B[c[i]*st.n+c[j]];if(o)loc.push([i,j,o]);}
+        // an alkali–X bond is ionic: draw it as an ionic contact between M⁺ and X⁻, like the library's NaCl
+        loc.forEach(b=>{const a=st.z[c[b[0]]],d=st.z[c[b[1]]];if(ALK.has(a)||ALK.has(d)){const mi=ALK.has(a)?b[0]:b[1],xi=mi===b[0]?b[1]:b[0];b[2]=0;chg[mi]=1;chg[xi]=chg[xi]<0?chg[xi]:-1;}});
+        const sg=c.map(i=>st.z[i]).join(',')+'|'+loc.join(';')+'|'+chg.join(',');
+        if(!sig.has(sg)){const k='x'+sig.size,d0=RC.describe(st).find(d=>d.atoms[0]===c[0]),f=d0.formula;
+          const cov=loc.filter(b=>b[2]>=2);
+          SP[k]={formula:f,name:f,atoms:c.map((i,x)=>Object.assign({Z:symZ(st.z[i]),sym:st.z[i]},chg[x]?{formalCharge:chg[x]}:{},c.length===2&&!chg.some(v=>v)?{dir:x?[1,0,0]:[0,0,0]}:{})),bonds:loc,alignBond:(cov[0]||[]).slice(0,2)};
+          if(SP[k].alignBond.length<2||c.length===2)delete SP[k].alignBond;sig.set(sg,k);}
+        return sig.get(sg);};
+      const sig=new Map(),SP={};
+      /* reuse the simulator's OWN species whenever the bond graph matches (O₂ must lie on its axis for the π lobes, etc.);
+         only genuinely new species fall back to the Universal Compound Engine */
+      if(!auto._lib){auto._lib=[];
+        const add=(k,def)=>{const A=def.atoms||[];if(!A.length||def.strands||A.some(a=>a.formalCharge))return;
+          const B=(def.bonds||[]).map(b=>[b[0],b[1],b[2]!=null?b[2]:1]);if(B.some(b=>b[2]===0||b[2]%1))return;
+          auto._lib.push({k,Z:A.map(a=>a.Z),B});};
+        MOLECULES.forEach(m=>add(m.key,m));Object.keys(SPC).forEach(k=>add(k,SPC[k]));}
+      const isoMap=(L,cZ,cB)=>{const n=cZ.length,mk=B=>{const M=Array.from({length:n},()=>({}));B.forEach(([i,j,o])=>{M[i][j]=o;M[j][i]=o;});return M;};
+        const A=mk(L.B),C=mk(cB),wd=M=>M.map(r=>Object.values(r).reduce((s,x)=>s+x,0)),dA=wd(A),dC=wd(C),map=new Array(n).fill(-1),used=new Array(n).fill(false);
+        let calls=0;const rec=i=>{if(i===n)return true;if(++calls>200000)return false;for(let c=0;c<n;c++){if(used[c]||cZ[c]!==L.Z[i]||dC[c]!==dA[i])continue;
+          let ok=true;for(let j=0;j<i&&ok;j++)if((A[i][j]||0)!==(C[c][map[j]]||0))ok=false;if(!ok)continue;
+          map[i]=c;used[c]=true;if(rec(i+1))return true;used[c]=false;map[i]=-1;}return false;};
+        return rec(0)?map:null;};
+      const spOf=(st,c,extra)=>{
+        if(!c.some(i=>st.q[i])&&!c.some(i=>ALK.has(st.z[i]))&&!(extra&&c.some(i=>extra[i]))){
+          const cZ=c.map(i=>symZ(st.z[i])),cB=[];
+          for(let i=0;i<c.length;i++)for(let j=i+1;j<c.length;j++){const o=st.B[c[i]*st.n+c[j]];if(o)cB.push([i,j,o]);}
+          for(const L of auto._lib){if(L.Z.length!==c.length)continue;const m=isoMap(L,cZ,cB);if(m)return L.k+':'+m.map(ci=>c[ci]).join(',');}
+        }
+        return key(st,c,extra)+':'+c.join(',');};
+      /* ionic association of an alkali metal with a polyatomic anion (NaOH, CH3COONa) is drawn as separate ions side by side;
+         only simple halide pairs (NaCl …) keep the library's ionic-contact drawing, which the engine has radii for */
+      const CONTACT=new Set(['NaCl','KCl','LiF','NaF','KF','LiCl','NaBr','KBr']);
+      const pieces=(st,atoms)=>{
+        const bonded=atoms.filter(i=>ALK.has(st.z[i])&&atoms.some(j=>j!==i&&st.B[i*st.n+j]));
+        if(!bonded.length)return[{atoms,extra:{}}];
+        if(atoms.length===2){const m=bonded[0],x=atoms.find(j=>j!==m);if(ionicOK([{Z:symZ(st.z[m]),sym:st.z[m],formalCharge:1},{Z:symZ(st.z[x]),sym:st.z[x],formalCharge:-1}],[[0,1,0]]))return[{atoms,extra:{}}];}
+        const extra={},cut=new Set();
+        bonded.forEach(i=>atoms.forEach(j=>{if(j!==i&&st.B[i*st.n+j]){extra[i]=1;extra[j]=-1;cut.add(i+','+j);cut.add(j+','+i);}}));
+        const seen=new Set(),out=[];
+        atoms.forEach(i=>{if(seen.has(i))return;const comp=[],stk=[i];seen.add(i);
+          while(stk.length){const x=stk.pop();comp.push(x);atoms.forEach(y=>{if(!seen.has(y)&&st.B[x*st.n+y]&&!cut.has(x+','+y)){seen.add(y);stk.push(y);}});}
+          out.push({atoms:comp.sort((a,b)=>a-b),extra});});
+        return out;};
+      /* Ionic units. A solid made only of monatomic ions (MgO, Al2O3, CaF2, NaCl …) is drawn as one ionic unit with contacts between
+         cations and anions (each ion makes as many contacts as its charge), when the engine has radii for every ion; otherwise as separate ions. */
+      const ionicCache=new Map();
+      const ionicOK=(atoms,contacts)=>{const k=atoms.map(a=>a.Z+'@'+a.formalCharge).join(',')+'|'+contacts.join(';');if(ionicCache.has(k))return ionicCache.get(k);
+        let ok=true;try{resolveMoleculeAtoms({key:'rx_ionic_probe',geometry:'—',formula:'x',name:'x',atoms:atoms.map(a=>Object.assign({},a)),bonds:contacts});}catch(e){ok=false;}ionicCache.set(k,ok);return ok;};
+      const buildContacts=chg=>{const cat=[],an=[];chg.forEach((q,i)=>(q>0?cat:an).push(i));const cap=new Map(an.map(i=>[i,-chg[i]])),deg=new Map(),out=[];
+        cat.forEach(c=>{let need=Math.min(chg[c],an.length);const order=[...an].sort((a,b)=>cap.get(b)-cap.get(a)||(deg.get(a)||0)-(deg.get(b)||0));
+          for(const a of order){if(need<=0)break;out.push([c,a,0]);cap.set(a,cap.get(a)-1);deg.set(a,(deg.get(a)||0)+1);deg.set(c,(deg.get(c)||0)+1);need--;}});
+        an.forEach(a=>{if(!deg.get(a)&&cat.length){const c=cat.slice().sort((x,y)=>(deg.get(x)||0)-(deg.get(y)||0))[0];out.push([c,a,0]);deg.set(a,1);deg.set(c,(deg.get(c)||0)+1);}});
+        return out;};
+      const clusterDef=(st,atoms)=>{const chg=atoms.map(i=>st.q[i]);if(!chg.some(q=>q>0)||!chg.some(q=>q<0))return null;
+        const at=atoms.map((i,x)=>({Z:symZ(st.z[i]),sym:st.z[i],formalCharge:chg[x]})),bonds=buildContacts(chg);if(!ionicOK(at,bonds))return null;
+        const cnt=new Map();atoms.forEach((i,x)=>{const k=st.z[i];cnt.set(k,[(cnt.get(k)||[0,chg[x]>0?0:1])[0]+1,chg[x]>0?0:1]);});
+        const f=[...cnt].sort((a,b)=>a[1][1]-b[1][1]).map(([k,[n]])=>k+(n>1?n:'')).join('');
+        return {formula:f,atoms:at,bonds};};
+      const clustersOf=(G,counts)=>{const out=[];let off=0;G.forEach((g,i)=>{const n=g.unit.reduce((t,x)=>t+x.atoms.length,0);
+        for(let c=0;c<counts[i];c++){if(g.kind==='salt'&&g.phase!=='aq'&&g.unit.length>1&&g.unit.every(x=>x.atoms.length===1))out.push(Array.from({length:n},(_,k)=>off+k));off+=n;}});return out;};
+      const stageStr=(st,perm,clusters)=>{
+        const taken=new Set(),parts=[];
+        (clusters||[]).forEach(cl=>{const d=clusterDef(st,cl);if(!d)return;const sg='cluster|'+cl.map(i=>st.z[i]+st.q[i]).join(',');
+          if(!sig.has(sg)){const k='x'+sig.size;SP[k]={formula:d.formula,name:d.formula,atoms:d.atoms,bonds:d.bonds};sig.set(sg,k);}
+          parts.push(sig.get(sg)+':'+cl.join(','));cl.forEach(i=>taken.add(i));});
+        const rest=RC.describe(st).filter(d=>!d.atoms.every(i=>taken.has(i))).flatMap(d=>pieces(st,d.atoms)).map(pc=>pc.atoms.length===1&&!st.q[pc.atoms[0]]&&!pc.extra[pc.atoms[0]]?'atom:'+pc.atoms[0]:spOf(st,pc.atoms,pc.extra));
+        const s0=parts.concat(rest).join(' ');
+        return perm?s0.replace(/([A-Za-z0-9_]+):([0-9,]+)/g,(m,k,ids)=>k+':'+ids.split(',').map(x=>perm[+x]).join(',')):s0;};
+      const eqOf=(st,noDots,clusters)=>{const cnt=new Map(),taken=new Set();
+        (clusters||[]).forEach(cl=>{const d=clusterDef(st,cl);if(!d)return;cl.forEach(i=>taken.add(i));cnt.set(toSub(d.formula),(cnt.get(toSub(d.formula))||0)+1);});
+        RC.describe(st).filter(d=>!d.atoms.every(i=>taken.has(i))).forEach(d=>{const rad=!noDots&&!d.charge&&d.atoms.some(i=>RC.unpaired(st,i)>0)&&d.formula!=='O2'?'•':'';const f=toSub(d.formula)+chargeSup(d.charge)+rad;cnt.set(f,(cnt.get(f)||0)+1);});
+        return[...cnt].map(([f,n])=>(n>1?n+' ':'')+f).join(' + ');};
+      const f1=v=>(v>0?'+':'')+(Math.round(v*10)/10);
+      const netText=nr=>nr.noData?'No tabulated energetics for: '+nr.missing.join(', ')+'. The reaction is shown as its net change (balanced, with the structures that resolve).':'Net '+(nr.dH!=null?'ΔH° = '+f1(nr.dH)+' kJ/mol ('+(nr.dH<0?'exothermic':'endothermic')+')':'')+(nr.dG!=null?(nr.dH!=null?', ':'')+'ΔG° = '+f1(nr.dG)+' kJ/mol ('+(nr.dG<0?'spontaneous':'not spontaneous')+' at 25 °C)':'')+', per mole of reaction as written, from tabulated standard formation values.';
+      let steps,z,title;
+      if(mech){
+        const path=pl.path,polar=pl.polar,kJ=v=>(v>0?'+':'')+v+' kJ/mol',unit=polar?'ΔG':'ΔH';
+        const basisNote=s=>s.basis==='table'?' (tabulated aqueous free energies)':s.basis==='estimate'?' (estimated by Born–Haber: indicative only)':'';
+        z=path.stages[0].state.z;
+        steps=path.stages.map((g,i)=>{
+          const st=g.state,spStr=stageStr(st,null);
+          let label,txt;
+          if(i===0){label='Reactants';txt=polar?'Aqueous solution: strong electrolytes are shown as ions. The route minimises the highest barrier, then the number of steps; an electron pair always leaves with the more electronegative atom.':'The reactants as the simulator draws them. The route below minimises the highest barrier (rate-limiting step), then the number of steps.';}
+          else{
+            const s=path.steps[i-1],[a,b,c]=s.symbols,spin=s.spinAllowed?'':' Spin-forbidden: total spin cannot be conserved here, so an intersystem-crossing penalty is added.';
+            const pol=Math.abs(s.coulomb)>=3?' Opposite partial charges (from electronegativity) attract and lower the barrier by about '+Math.abs(s.coulomb)+' kJ/mol.':'';
+            const dg=' ('+unit+' '+kJ(s.deltaH)+', barrier '+s.barrier+')'+basisNote(s);
+            if(s.type==='homolysis'){label='Step '+i+' · Bond cleavage';txt=a+'–'+b+' breaks, each atom keeping one electron'+dg+'. The weakest link on the path sets the pace.'+spin;}
+            else if(s.type==='coupling'){label='Step '+i+' · Radical pairing';txt='Two unpaired electrons of opposite spin pair into a new '+a+'–'+b+' bond'+dg+'.'+pol+spin;}
+            else if(s.type==='heterolysis'){label='Step '+i+' · Heterolysis';txt=a+'–'+b+' breaks unevenly: both electrons go to the more electronegative '+b+', leaving '+a+'⁺ and '+b+'⁻'+dg+'.';}
+            else if(s.type==='dative'){label='Step '+i+' · Ion pairing';txt='A lone pair on '+a+' bonds to the positive '+b+': opposite charges attract and the ions combine'+dg+'.';}
+            else if(s.polarAttack&&s.proton){label='Step '+i+' · Proton transfer';txt=a+' uses a lone pair to take the hydrogen from '+c+'; the H–'+c+' bond breaks and '+c+', being more electronegative, keeps the electron pair'+dg+'.';}
+            else if(s.polarAttack){label='Step '+i+' · Nucleophilic attack';txt=a+' uses a lone pair to attack '+b+'; the '+b+'–'+c+' bond breaks and '+c+', being more electronegative, leaves with the electron pair'+dg+'.';}
+            else if(s.diradical){const x=s.symbols[2],y=s.symbols[3];label='Step '+i+' · Diradical attack';txt=a+b+' is a triplet diradical (two unpaired π* electrons), so it attacks the '+x+'–'+y+' bond directly: '+a+'–'+x+' forms while '+x+'–'+y+' breaks'+dg+'.'+pol+spin;}
+            else if(s.type==='concerted'){label='Step '+i+' · Four-centre step';txt='Two bonds break and two form at once among '+s.symbols.join(', ')+dg+'. This kind of step is formally forbidden thermally and usually needs an acid or a catalyst, so its barrier is a rough estimate.'+spin;}
+            else{label='Step '+i+' · Radical attack';txt=a+'• attacks the '+b+'–'+c+' bond: '+a+'–'+b+' forms while '+b+'–'+c+' weakens, leaving '+c+' with the freed electron'+dg+'.'+pol+spin;}
+          }
+          if(i===path.stages.length-1){label=i?'Products':label;
+            const own=unit+' ≈ '+kJ(Math.round(path.deltaH)),bar='Rate-limiting barrier ≈ '+Math.round(path.rateLimiting)+' kJ/mol.';
+            txt=(net&&net.ok?netText(net)+' The route\'s own '+own+(polar?'':' comes from average bond enthalpies measured from free gas-phase atoms (so it differs for solid elements), with errors of tens of kJ/mol')+'. ':'Net '+own+(polar?' (aqueous, 25 °C)':' (average bond enthalpies; errors of tens of kJ/mol)')+'. ')+bar+(path.estimatedBonds.length&&!polar?' Estimated (Pauling) bond energies were used for: '+path.estimatedBonds.join(', ')+'.':'')+(path.truncated?' The search hit its limit, so this route may not be optimal.':'');}
+          return[spStr,label,eqOf(st),txt];});
+        if(pl.ratioNote)steps[0][3]+=pl.ratioNote;
+        title='⚙ '+eqOf(path.stages[0].state)+' → '+eqOf(path.stages[path.stages.length-1].state);
+      }else{
+        /* net reaction: the elementary mechanism is not modelled, so show the reactants becoming the products with tabulated energetics */
+        const reacSpecs=RG.flatMap((g,i)=>Array.from({length:netAny.bal.r[i]},()=>g.unit)).flat(),prodSpecs=PG.flatMap((g,i)=>Array.from({length:netAny.bal.p[i]},()=>g.unit)).flat();
+        if(reacSpecs.reduce((t,x)=>t+x.atoms.length,0)>40)say('⏳ Large reaction: building the animation…');
+        const st0=RC.fromSpecies(reacSpecs),st1=RC.fromSpecies(prodSpecs),owner=[];
+        const cl0=clustersOf(RG,netAny.bal.r),cl1p=clustersOf(PG,netAny.bal.p);
+        reacSpecs.forEach((sp,k)=>sp.atoms.forEach(()=>owner.push(k)));
+        const taken=new Array(st0.n).fill(false),perm=new Array(st1.n).fill(-1);let off=0;
+        prodSpecs.forEach(sp=>{let last=-1;sp.atoms.forEach((e,a)=>{let pick=-1;                        // element-preserving; stay with one reactant molecule where possible
+          for(let i=0;i<st0.n&&pick<0;i++)if(!taken[i]&&st0.z[i]===e&&owner[i]===last)pick=i;
+          for(let i=0;i<st0.n&&pick<0;i++)if(!taken[i]&&st0.z[i]===e)pick=i;
+          if(pick<0)throw new Error('atoms do not balance');perm[off+a]=pick;taken[pick]=true;last=owner[pick];});off+=sp.atoms.length;});
+        z=st0.z;
+        steps=[[stageStr(st0,null,cl0),'Reactants',eqOf(st0,true,cl0),'The reactants. The elementary mechanism of this reaction is not modelled, so it is shown as a net change; its energetics come from tabulated standard formation enthalpies and free energies.'],
+               [stageStr(st1,perm,cl1p),'Products',eqOf(st1,true,cl1p),netText(netAny)+(netAny.dG!=null&&netAny.dG>0?' The reverse reaction is the favourable direction.':'')]];
+        title='⚙ '+eqOf(st0,true,cl0)+' → '+eqOf(st1,true,cl1p);
+      }
+      R('custom',title,z.slice(),steps,Object.assign({},SPC,SP));
+      {const sc=REGISTRY.get('custom');sc.fixed=!!mech;sc.quick=!mech;sc.maxOrd=z.length>10?3:5;sc.light=!mech||z.length>20||z.reduce((t,e)=>t+symZ(e),0)>100;}   // a mechanism pins its own atom labelling; a net reaction caps the permutation search
+      if(active)load('custom');else enter('custom');
+      return true;
+    }catch(err){console.warn('[Reaction] auto:',err);lastAutoMsg='⚠️ '+err.message;if(typeof showToast==='function')showToast('⚠️ '+err.message);return false;}
+  }
+  window.runReactionSelfTest=()=>window.ReactionCore.selfTest();   // built-in checks of the reaction engine (≈50 checks)
+  return{register,validate,auto,toggle:()=>active?exit(true):enter(),enter,exit,load,isActive:()=>active,list:()=>[...REGISTRY.keys()],
+    _test:{dbg:()=>({data,curP,simKF,pairs,STAGES,oriCache,KF}),geom,compile,validate,weight,fwin,posAt,setSimKF:k=>{simKF=k;},get:()=>({KF,STAGES,TS,T_END,HALF}),REGISTRY}};
 })();
 
 </script>
