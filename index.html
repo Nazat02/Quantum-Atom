@@ -4,77 +4,184 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Quantum Atom</title>
+<meta name="description" content="Quantum Atom, built by Md. Shaikhul Hadis Nazat. See real orbitals, molecules and nuclei in 3D, free in your browser.">
+<meta name="color-scheme" content="dark light">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Quantum Atom">
+<meta property="og:description" content="See the invisible. All 118 elements, free in your browser.">
+<meta property="og:image" content="https://nazat02.github.io/Quantum-Atom/images/preview.png">
+<meta name="twitter:card" content="summary_large_image">
 <!-- No-JS fallback: skip the splash and open the dark landing page. -->
 <noscript><meta http-equiv="refresh" content="0; url=index_dark.html"></noscript>
 <script>
-/* Resolve theme BEFORE first paint so there is no light/dark flash.
-   Same key the rest of the site uses; falls back to dark like before. */
+/* Resolve the theme BEFORE first paint so there is no light/dark flash.
+   Same key as the rest of the site (qas-theme); falls back to dark like the
+   other entry points. Also sets the browser chrome colour, the favicon and
+   loads only the one brand font this theme needs. */
 (function () {
   var t = 'dark';
   try { var s = localStorage.getItem('qas-theme'); if (s === 'light' || s === 'dark') t = s; } catch (e) {}
-  document.documentElement.setAttribute('data-theme', t);
-  var m = document.createElement('meta');
-  m.name = 'theme-color'; m.content = t === 'light' ? '#eef1ff' : '#090605';
-  document.head.appendChild(m);
+  var d = document, root = d.documentElement, light = t === 'light';
+  root.setAttribute('data-theme', t);
+  root.style.colorScheme = t;
+
+  function add(tag, attrs) {
+    var el = d.createElement(tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    d.head.appendChild(el); return el;
+  }
+  add('meta', { name: 'theme-color', content: light ? '#eef1ff' : '#090605' });
+
+  var c = light ? '%236952e0' : '%23ff5b14';
+  add('link', { rel: 'icon', type: 'image/svg+xml', href:
+    "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='" + c + "'/>" +
+    "<g fill='none' stroke='white' stroke-width='2.4' stroke-opacity='.85'><ellipse cx='45' cy='45' rx='34' ry='12'/>" +
+    "<ellipse cx='45' cy='45' rx='34' ry='12' transform='rotate(60 45 45)'/><ellipse cx='45' cy='45' rx='34' ry='12' transform='rotate(-60 45 45)'/></g>" +
+    "<circle cx='45' cy='45' r='10' fill='white'/></svg>" });
+
+  add('link', { rel: 'stylesheet', href: light
+    ? 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500..700&display=swap'
+    : 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&display=swap' });
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Space+Grotesk:wght@500..700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+/* ───────── Brand tokens (mirror index_dark.html / index_light.html) ───────── */
 :root{
-  --bg:radial-gradient(ellipse 75% 65% at 50% 58%,#3a0c09 0%,#130d0b 48%,#090605 100%);
-  --text:#f6ebe2;--muted:#bba89b;--accent:#ff5b14;
-  --face:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --bg:radial-gradient(ellipse 75% 65% at 50% 55%,#3a0c09 0%,#130d0b 48%,#090605 100%);
+  --bg-solid:#090605;
+  --text:#f6ebe2;--muted:#bba89b;--faint:#8b7a6e;
+  --accent:#ff5b14;--accent-2:#ffb21f;
+  --ring:rgba(255,178,120,.9);--ring-op:.10;
+  --face:'Bricolage Grotesque','Segoe UI',system-ui,-apple-system,sans-serif;
+  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);
 }
 :root[data-theme=light]{
   --bg:radial-gradient(800px 600px at 8% -5%,rgba(105,82,224,.30),transparent 60%),
        radial-gradient(800px 700px at 100% 10%,rgba(56,189,248,.26),transparent 55%),
        radial-gradient(900px 800px at 30% 95%,rgba(244,114,182,.22),transparent 55%),
        linear-gradient(160deg,#eef1ff 0%,#e3f6fb 55%,#fdf1f8 100%);
-  --text:#211c42;--muted:rgba(33,28,66,.62);--accent:#6952e0;
-  --face:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  --bg-solid:#eef1ff;
+  --text:#211c42;--muted:rgba(33,28,66,.66);--faint:rgba(33,28,66,.5);
+  --accent:#6952e0;--accent-2:#38bdf8;
+  --ring:rgba(105,82,224,.9);--ring-op:.13;
+  --face:'Space Grotesk','Segoe UI',system-ui,-apple-system,sans-serif;
 }
-html,body{height:100%;overflow:hidden}
-body{background:var(--bg);background-color:#090605;color:var(--text);font-family:var(--face);
-  transition:opacity .45s ease;-webkit-tap-highlight-color:transparent}
-:root[data-theme=light] body{background-color:#eef1ff}
+
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{background:var(--bg);background-color:var(--bg-solid);color:var(--text);font-family:var(--face);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  transition:opacity .5s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body.leaving{opacity:0}
-#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.tag{position:fixed;left:0;right:0;bottom:calc(52px + env(safe-area-inset-bottom,0px));text-align:center;
-  font-size:.95rem;font-weight:500;letter-spacing:.01em;color:var(--muted);opacity:0;transition:opacity .8s ease}
-.tag.on{opacity:1}
-.by{position:fixed;left:0;right:0;text-align:center;font-size:clamp(.95rem,2.4vw,1.2rem);font-weight:500;
-  letter-spacing:.01em;color:var(--muted);opacity:0;transform:translateY(6px);transition:opacity .9s ease,transform .9s ease;pointer-events:none}
-.by.on{opacity:1;transform:none}
-.bar{position:fixed;left:0;right:0;bottom:0;height:3px;background:var(--accent);transform-origin:0 50%;transform:scaleX(0);
-  padding-bottom:env(safe-area-inset-bottom,0px)}
-.skip{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));
-  font:500 .85rem var(--face);color:var(--muted);background:none;border:1px solid transparent;border-radius:8px;padding:8px 12px;cursor:pointer}
-.skip:hover{color:var(--text)}
-.skip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Orbit motif: the logo's three ellipses, enlarged and barely there */
+.orbits{position:fixed;left:50%;top:50%;width:max(120vmin,560px);height:auto;aspect-ratio:1;
+  transform:translate(-50%,-50%);color:var(--ring);opacity:0;pointer-events:none;
+  -webkit-mask-image:radial-gradient(closest-side,#000 35%,transparent 100%);
+          mask-image:radial-gradient(closest-side,#000 35%,transparent 100%);
+  transition:opacity 1.6s ease .1s}
+.orbits.on{opacity:var(--ring-op)}
+.orbits svg{width:100%;height:100%;display:block;animation:spin 120s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+/* Text layers are positioned by JS from one measured layout so spacing
+   scales with the type on every screen. */
+.badge,.by,.tag{position:fixed;left:0;right:0;margin-inline:auto;text-align:center;pointer-events:none;
+  opacity:0;transform:translateY(8px);transition:opacity .9s ease,transform .9s ease}
+.badge{width:64px;height:64px;filter:drop-shadow(0 6px 22px var(--glow,rgba(255,91,20,.45)))}
+:root[data-theme=light] .badge{--glow:rgba(105,82,224,.38)}
+.badge svg{width:100%;height:100%;display:block;overflow:visible}
+.by,.tag{padding-inline:calc(16px + var(--safe-l)) calc(16px + var(--safe-r));font-weight:500;letter-spacing:.01em;
+  line-height:1.3;color:var(--muted);text-wrap:balance}
+.by.on,.tag.on,.badge.on{opacity:1;transform:none}
+.tag{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.7em;row-gap:.15em}
+.tag b{font-weight:700;color:var(--text);letter-spacing:-.005em}
+.tag i{font-style:normal;color:var(--accent)}
+.tag span{white-space:nowrap}
+
+/* Progress: brand gradient, safe-area aware */
+.bar{position:fixed;left:0;right:0;bottom:0;height:calc(3px + var(--safe-b));
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  transform-origin:0 50%;transform:scaleX(0);opacity:.9}
+
+.skip{position:fixed;right:calc(14px + var(--safe-r));bottom:calc(16px + var(--safe-b));
+  min-height:44px;min-width:44px;padding:0 16px;font:500 .9rem var(--face);color:var(--muted);
+  background:none;border:1px solid transparent;border-radius:10px;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s}
+.skip:hover{color:var(--text);border-color:color-mix(in srgb,var(--text) 18%,transparent)}
+.skip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;color:var(--text)}
+
+.nojs{position:fixed;inset:auto 0 24px;text-align:center;font-size:1rem}
+.nojs a{color:var(--accent)}
+
+@media (prefers-reduced-motion:reduce){
+  .orbits svg{animation:none}
+  .badge,.by,.tag,.orbits{transition-duration:.01s}
+}
 </style>
 </head>
 <body>
-<h1 class="sr">Built by Md. Shaikhul Hadis Nazat</h1>
-<div class="sr" role="status">Loading Quantum Atom</div>
+<h1 class="sr">Quantum Atom, built by Md. Shaikhul Hadis Nazat</h1>
+<div class="sr" role="status" aria-live="polite">Loading Quantum Atom</div>
+
+<div class="orbits" id="orbits" aria-hidden="true">
+  <svg viewBox="-100 -100 200 200" fill="none" stroke="currentColor" stroke-width=".7">
+    <ellipse rx="92" ry="32"/><ellipse rx="92" ry="32" transform="rotate(60)"/><ellipse rx="92" ry="32" transform="rotate(-60)"/>
+  </svg>
+</div>
 <canvas id="stage" aria-hidden="true"></canvas>
+
+<!-- Brand mark: same atom as the site's nav badge, themed per mode -->
+<div class="badge" id="badge" aria-hidden="true">
+  <svg viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="sp-nuc" cx="35%" cy="30%" r="65%">
+        <stop offset="0%" stop-color="#fff"/>
+        <stop id="sp-n1" offset="40%" stop-color="#ffcc88"/>
+        <stop id="sp-n2" offset="100%" stop-color="#ff8833"/>
+      </radialGradient>
+      <filter id="sp-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="sp-soft"><feGaussianBlur stdDeviation="1"/></filter>
+    </defs>
+    <rect id="sp-tile" width="90" height="90" rx="18" fill="#ff5b14"/>
+    <rect width="90" height="45" rx="18" fill="rgba(255,255,255,.06)"/>
+    <ellipse cx="45" cy="45" rx="34" ry="12" stroke="#fff" stroke-width="2.2" stroke-opacity=".85"/>
+    <ellipse cx="45" cy="45" rx="34" ry="12" stroke="#fff" stroke-width="2.2" stroke-opacity=".75" transform="rotate(60 45 45)"/>
+    <ellipse cx="45" cy="45" rx="34" ry="12" stroke="#fff" stroke-width="2.2" stroke-opacity=".7" transform="rotate(-60 45 45)"/>
+    <circle cx="45" cy="45" r="15" fill="#fff" filter="url(#sp-soft)" opacity=".25"/>
+    <circle cx="45" cy="45" r="10" fill="url(#sp-nuc)" filter="url(#sp-glow)"><animate attributeName="r" values="9;11;9.5;10.5;9" dur="2.2s" repeatCount="indefinite"/></circle>
+    <circle cx="41" cy="41" r="3" fill="rgba(255,255,255,.7)"/>
+    <circle cx="79" cy="45" r="4.5" fill="#fff" filter="url(#sp-glow)"><animateTransform attributeName="transform" type="rotate" from="0 45 45" to="360 45 45" dur="2.2s" repeatCount="indefinite"/></circle>
+    <circle id="sp-e2" cx="79" cy="45" r="3.8" fill="rgba(255,220,180,.95)" filter="url(#sp-glow)" transform="rotate(60 45 45)"><animateTransform attributeName="transform" type="rotate" from="60 45 45" to="420 45 45" dur="3.1s" repeatCount="indefinite"/></circle>
+    <circle id="sp-e3" cx="79" cy="45" r="3.8" fill="rgba(255,210,160,.9)" filter="url(#sp-glow)" transform="rotate(-60 45 45)"><animateTransform attributeName="transform" type="rotate" from="-60 45 45" to="300 45 45" dur="3.8s" repeatCount="indefinite"/></circle>
+  </svg>
+</div>
+
 <p class="by" id="by">Built by</p>
-<p class="tag" id="tag">Quantum Atom</p>
+<p class="tag" id="tag"><b>Quantum Atom</b><span><i aria-hidden="true">·</i>&nbsp; See the invisible</span></p>
+
 <div class="bar" id="bar"></div>
-<button class="skip" id="skip" type="button">Skip</button>
+<button class="skip" id="skip" type="button" aria-label="Skip intro">Skip</button>
+<noscript><p class="nojs"><a href="index_dark.html">Continue to Quantum Atom</a></p></noscript>
 
 <script>
 (function () {
   'use strict';
 
   /* ───────── Config ───────── */
-  var NAME_WIDE   = ['Md. Shaikhul Hadis Nazat'];
-  var NAME_NARROW = ['Md. Shaikhul', 'Hadis Nazat'];          // phones: two lines
+  var NAME = 'Md. Shaikhul Hadis Nazat';
+  var NAME_SPLIT = ['Md. Shaikhul', 'Hadis Nazat'];            // two-line form for narrow/portrait screens
   var T = { start: 250, formEnd: 2700, crisp0: 2350, crisp1: 3150, leave: 3700 }; // ms
-  var WATCHDOG_MS = 9000;                                       // never trap a visitor
+  var WATCHDOG_MS = 9000;                                        // never trap a visitor
+  var IGNORE_TAP_MS = 500;                                       // a stray first touch must not skip the intro
 
   var THEMES = {
     dark:  { rgb: ['255,91,20', '255,178,31', '226,39,26', '255,122,58'], blend: 'lighter',
@@ -91,15 +198,27 @@ body.leaving{opacity:0}
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce) T = { start: 0, formEnd: 1, crisp0: 0, crisp1: 500, leave: 1500 };
 
-  var canvas = document.getElementById('stage'), ctx = canvas.getContext('2d');
-  var tagEl = document.getElementById('tag'), byEl = document.getElementById('by'), barEl = document.getElementById('bar');
+  var $ = function (id) { return document.getElementById(id); };
+  var canvas = $('stage'), ctx = canvas.getContext('2d');
+  var badgeEl = $('badge'), byEl = $('by'), tagEl = $('tag'), barEl = $('bar'), orbitsEl = $('orbits');
+
+  // Theme the logo mark exactly like the site's nav badge in each mode.
+  if (theme === 'light') {
+    $('sp-tile').setAttribute('fill', '#6952e0');
+    $('sp-n1').setAttribute('stop-color', '#c4b5fd'); $('sp-n2').setAttribute('stop-color', '#9b8afb');
+    $('sp-e2').setAttribute('fill', 'rgba(196,181,253,.95)'); $('sp-e3').setAttribute('fill', 'rgba(186,230,253,.9)');
+  }
+  if (reduce) { // freeze the logo too
+    Array.prototype.slice.call(badgeEl.querySelectorAll('animate,animateTransform')).forEach(function (n) { n.parentNode.removeChild(n); });
+  }
+
   // Build the destination safely: location.href can be an invalid base
   // (about:srcdoc, blob:, data:, sandboxed previews), which makes `new URL` throw.
   var file = 'index_' + theme + '.html', destHref = file;
   try { destHref = new URL(file, location.href).href; } catch (e) {}
   try { if (/^https?:|^file:/.test(destHref)) destHref += location.search + location.hash; } catch (e) {}
 
-  var gone = false, leaving = false;
+  var gone = false, leaving = false, bornAt = Date.now();
   function go() {
     if (gone) return; gone = true;
     try { location.replace(destHref); } catch (e) { try { location.href = destHref; } catch (e2) {} }
@@ -107,11 +226,11 @@ body.leaving{opacity:0}
   function leave() {
     if (leaving) return; leaving = true;
     document.body.classList.add('leaving');
-    setTimeout(go, 450);
+    setTimeout(go, 480);
   }
   setTimeout(go, WATCHDOG_MS);
-  document.getElementById('skip').addEventListener('click', function (e) { e.stopPropagation(); leave(); });
-  document.addEventListener('click', leave);
+  $('skip').addEventListener('click', function (e) { e.stopPropagation(); leave(); });
+  document.addEventListener('click', function () { if (Date.now() - bornAt > IGNORE_TAP_MS) leave(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') leave(); });
 
   // Warm the cache so the landing page appears instantly after the splash.
@@ -125,77 +244,156 @@ body.leaving{opacity:0}
     g.fillStyle = r; g.fillRect(0, 0, 64, 64); return s;
   });
 
-  /* ───────── Layout: sample the name's letterforms into target points ───────── */
-  var W, H, dpr, lines, fontPx, lineH, step, parts = [], bgClouds = [];
+  /* ───────── Layout ─────────
+     One pass decides line-breaking, type size and every gap from the viewport,
+     so phones, tablets, laptops, ultrawide and landscape phones all keep the
+     same proportions. The name's real ink bounds (not font metrics) drive the
+     spacing, so the optical gaps above and below the name are equal. */
+  var W, H, dpr, lines, fontPx, lineH, nameCy, parts = [], bgClouds = [], coarse = false;
+  var clamp = function (x, a, b) { return x < a ? a : x > b ? b : x; };
   function rand(a, b) { return a + Math.random() * (b - a); }
+  var faceAt = function (s) { return P.face.replace('{s}', s); };
+  var meas = document.createElement('canvas').getContext('2d');
+
+  function textWidth(t) { meas.font = faceAt(100); return meas.measureText(t).width; }
+
+  // Render the name on a small canvas, return ink bounds + sampled points (relative to block centre).
+  function sampleName(px, lh, ls, step) {
+    var w = Math.ceil(Math.max.apply(null, ls.map(function (t) { return textWidth(t) * px / 100; })) + px * .6),
+        h = Math.ceil(lh * ls.length + px * .6), pad = 2;
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var o = c.getContext('2d', { willReadFrequently: true });
+    o.font = faceAt(px); o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#000';
+    ls.forEach(function (t, i) { o.fillText(t, w / 2, h / 2 + (i - (ls.length - 1) / 2) * lh); });
+    var d = o.getImageData(0, 0, w, h).data, pts = [], minY = h, maxY = 0;
+    for (var y = pad; y < h - pad; y += step) for (var x = pad; x < w - pad; x += step)
+      if (d[(y * w + x) * 4 + 3] > 120) {
+        pts.push([x - w / 2 + rand(-1, 1), y - h / 2 + rand(-1, 1)]);
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    return { pts: pts, top: minY - h / 2, bottom: maxY - h / 2 + step };
+  }
 
   function layout() {
     W = innerWidth; H = innerHeight; dpr = Math.min(window.devicePixelRatio || 1, 2);
+    coarse = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches) || W < 700;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var narrow = W < 700;
-    lines = narrow ? NAME_NARROW : NAME_WIDE;
 
-    var m = document.createElement('canvas').getContext('2d');
-    m.font = P.face.replace('{s}', 100);
-    var widest = Math.max.apply(null, lines.map(function (t) { return m.measureText(t).width; }));
-    fontPx = Math.min((W * (narrow ? .86 : .8)) / widest * 100, narrow ? 120 : 112);
-    lineH = fontPx * 1.15; step = narrow ? 4 : 5;
+    var cs = getComputedStyle(document.documentElement);
+    var px = function (v) { return parseFloat(v) || 0; };
+    var safeT = px(cs.getPropertyValue('--safe-t')), safeB = px(cs.getPropertyValue('--safe-b'));
+    var margin = clamp(W * .06, 16, 120);
+    var usableW = W - 2 * margin;
 
-    var off = document.createElement('canvas'); off.width = W; off.height = H;
-    var o = off.getContext('2d');
-    o.font = P.face.replace('{s}', fontPx); o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#000';
-    lines.forEach(function (t, i) { o.fillText(t, W / 2, H / 2 + (i - (lines.length - 1) / 2) * lineH); });
-    var data = o.getImageData(0, 0, W, H).data, targets = [];
-    for (var y = 0; y < H; y += step) for (var x = 0; x < W; x += step)
-      if (data[(y * W + x) * 4 + 3] > 120) targets.push([x + rand(-1, 1), y + rand(-1, 1)]);
+    // 1) line breaking: one line when it is comfortably large, else two (always two on portrait tablets/phones)
+    var w1 = textWidth(NAME), px1 = usableW / w1 * 100;
+    var portrait = W / H < .9 && W < 900;
+    var two = portrait || px1 < 44;
+    lines = two ? NAME_SPLIT : [NAME];
+    var widest = Math.max.apply(null, lines.map(textWidth));
+    var maxPx = two ? Math.min(usableW * .78 / widest * 100, H * .072, 150)
+                    : Math.min(usableW / widest * 100, H * .13, W * .065);
+    fontPx = Math.max(maxPx, 18);
 
-    byEl.style.top = (H / 2 - (lines.length * lineH) / 2 - (narrow ? 34 : 44)) + 'px';
+    // 2) fit the whole stack (badge, "Built by", name, tagline) into the safe height
+    var topR = Math.max(20, safeT + 12), botR = Math.max(72, safeB + 64);
+    var avail = H - topR - botR, m, total;
+    for (var i = 0; i < 12; i++) {
+      m = metrics(fontPx, two);
+      total = m.badge + m.g1 + m.byH + m.g2 + m.inkEst + m.g3 + m.tagH;
+      if (total <= avail) break;
+      fontPx *= .92;
+    }
+    lineH = fontPx * 1.12;
+    m = metrics(fontPx, two);
+
+    // 3) adaptive particle density (keeps low-end phones smooth)
+    var maxParts = coarse ? 2600 : 6500, step = coarse ? 4 : 5, s;
+    for (var k = 0; k < 4; k++) {
+      s = sampleName(fontPx, lineH, lines, step);
+      if (s.pts.length <= maxParts) break;
+      step = Math.ceil(step * Math.sqrt(s.pts.length / maxParts));
+    }
+
+    // 4) place the stack: optically centred, slightly above the midline
+    var inkH = s.bottom - s.top;
+    total = m.badge + m.g1 + m.byH + m.g2 + inkH + m.g3 + m.tagH;
+    var top = topR + Math.max(0, (avail - total) / 2) - H * .012;
+    var byTop = top + m.badge + m.g1, inkTop = byTop + m.byH + m.g2, tagTop = inkTop + inkH + m.g3;
+    nameCy = inkTop - s.top;                         // block centre that puts the ink at inkTop
+
+    badgeEl.style.cssText = 'top:' + top + 'px;width:' + m.badge + 'px;height:' + m.badge + 'px';
+    byEl.style.cssText = 'top:' + byTop + 'px;font-size:' + m.byFs + 'px';
+    tagEl.style.cssText = 'top:' + tagTop + 'px;font-size:' + m.tagFs + 'px';
+    orbitsEl.style.top = (nameCy / H * 100) + '%';
 
     var r = step * 1.55;
-    parts = targets.map(function (p) {
-      return { tx: p[0], ty: p[1], sx: rand(-.1 * W, 1.1 * W), sy: rand(-.1 * H, 1.1 * H),
-               d: rand(0, .3) + .2 * (p[0] / W), s0: r * rand(5, 13), r: r * rand(.85, 1.15),
+    parts = s.pts.map(function (p) {
+      var tx = W / 2 + p[0], ty = nameCy + p[1];
+      return { tx: tx, ty: ty, sx: rand(-.1 * W, 1.1 * W), sy: rand(-.1 * H, 1.1 * H),
+               d: rand(0, .3) + .2 * (tx / W), s0: r * rand(3.5, 9), r: r * rand(.85, 1.15),
                ph: rand(0, 6.28), sp: rand(.4, 1), wob: rand(14, 46), c: (Math.random() * sprites.length) | 0 };
     });
+    var cr = Math.min(W, H);
     bgClouds = [];
-    for (var i = 0; i < 12; i++) bgClouds.push({ x: rand(0, W), y: rand(0, H), r: rand(140, 300) * (W < 700 ? .6 : 1),
+    for (var j = 0; j < (coarse ? 9 : 12); j++) bgClouds.push({ x: rand(0, W), y: rand(0, H), r: rand(.18, .34) * Math.max(cr, W * .5),
       v: rand(6, 16), c: (Math.random() * sprites.length) | 0 });
+  }
+
+  // Type-proportional sizes/gaps for the stack (single source of truth for spacing)
+  function metrics(f, two) {
+    var u = clamp(f, 22, 120);
+    var byFs = clamp(u * .36, 15, 22), tagFs = clamp(u * .36, 15, 22);
+    return {
+      badge: clamp(u * 1.15, 52, 96), g1: clamp(u * .42, 16, 40),
+      byFs: byFs, byH: byFs * 1.3, g2: clamp(byFs * .75, 10, 24),
+      inkEst: f * (two ? .72 + 1.12 : .72), g3: clamp(f * .5, 20, 56),
+      tagFs: tagFs, tagH: tagFs * 1.3 * (W < 420 ? 2 : 1)
+    };
   }
 
   /* ───────── Render ───────── */
   var ease = function (x) { return 1 - Math.pow(1 - x, 3); };
-  var clamp = function (x) { return x < 0 ? 0 : x > 1 ? 1 : x; };
-  var smooth = function (x) { x = clamp(x); return x * x * (3 - 2 * x); };
-  var t0 = 0;
+  var clamp01 = function (x) { return x < 0 ? 0 : x > 1 ? 1 : x; };
+  var smooth = function (x) { x = clamp01(x); return x * x * (3 - 2 * x); };
+  var t0 = 0, last = 0, slow = 0, thinned = 0;
 
   function drawText(alpha) {
     if (alpha <= 0) return;
     ctx.save();
     ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'source-over';
-    ctx.font = P.face.replace('{s}', fontPx); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = P.text; ctx.shadowColor = P.glow; ctx.shadowBlur = 22;
-    lines.forEach(function (t, i) { ctx.fillText(t, W / 2, H / 2 + (i - (lines.length - 1) / 2) * lineH); });
+    ctx.font = faceAt(fontPx); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = P.text; ctx.shadowColor = P.glow; ctx.shadowBlur = clamp(fontPx * .2, 8, 26);
+    lines.forEach(function (t, i) { ctx.fillText(t, W / 2, nameCy + (i - (lines.length - 1) / 2) * lineH); });
     ctx.restore();
   }
 
   function frame(now) {
     if (gone) return;
-    var t = now - t0, form = clamp((t - T.start) / (T.formEnd - T.start)), appear = smooth(t / 700);
+    var dt = Math.min(now - (last || now), 64); last = now;
+    var t = now - t0, form = clamp01((t - T.start) / (T.formEnd - T.start)), appear = smooth(t / 700);
+
+    // If the device struggles, thin the cloud once or twice instead of dropping frames.
+    if (t > 300 && t < 1800 && thinned < 2) {
+      slow = dt > 30 ? slow + 1 : Math.max(0, slow - 1);
+      if (slow > 8) { parts = parts.filter(function (_, i) { return i % 2 === 0; }); parts.forEach(function (p) { p.r *= 1.35; }); thinned++; slow = 0; }
+    }
+
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = P.blend;
 
     // slow background clouds, dissolving as the name forms
     var bgA = P.alpha * .6 * appear * (1 - smooth(form * 1.2));
     if (bgA > .005) bgClouds.forEach(function (c) {
-      c.x += c.v / 60; if (c.x - c.r > W) c.x = -c.r;
+      c.x += c.v * dt / 1000; if (c.x - c.r > W) c.x = -c.r;
       ctx.globalAlpha = bgA; ctx.drawImage(sprites[c.c], c.x - c.r, c.y - c.r, c.r * 2, c.r * 2);
     });
 
     // particle clouds coalescing into letterforms
     var settle = 1 - smooth((t - T.crisp0) / (T.crisp1 - T.crisp0)) * .55;
     for (var i = 0; i < parts.length; i++) {
-      var p = parts[i], q = ease(clamp((form - p.d) / .5)), w = (1 - q) * p.wob, k = t * .001 * p.sp + p.ph;
+      var p = parts[i], q = ease(clamp01((form - p.d) / .5)), w = (1 - q) * p.wob, k = t * .001 * p.sp + p.ph;
       var x = p.sx + (p.tx - p.sx) * q + Math.sin(k) * w, y = p.sy + (p.ty - p.sy) * q + Math.cos(k * 1.3) * w;
       var s = p.s0 + (p.r - p.s0) * q;
       ctx.globalAlpha = P.alpha * (.35 + .65 * q) * appear * settle;
@@ -203,9 +401,10 @@ body.leaving{opacity:0}
     }
 
     drawText(smooth((t - T.crisp0) / (T.crisp1 - T.crisp0)));
-    if (t > 350) byEl.classList.add('on');
+    if (t > 100) { badgeEl.classList.add('on'); orbitsEl.classList.add('on'); }
+    if (t > 450) byEl.classList.add('on');
     if (t > T.crisp1 - 200) tagEl.classList.add('on');
-    barEl.style.transform = 'scaleX(' + clamp(t / T.leave) + ')';
+    barEl.style.transform = 'scaleX(' + clamp01(t / T.leave) + ')';
     if (t >= T.leave) leave();
     requestAnimationFrame(frame);
   }
@@ -213,10 +412,10 @@ body.leaving{opacity:0}
   /* ───────── Boot: wait (briefly) for the brand font, then play ───────── */
   function start() {
     try { layout(); } catch (e) { return go(); }
-    var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(layout, 150); });
+    var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { try { layout(); } catch (e) {} }, 150); });
     t0 = performance.now(); requestAnimationFrame(frame);
   }
-  var fontReady = (document.fonts && document.fonts.load) ? document.fonts.load(P.font, 'Md. Shaikhul Hadis Nazat') : Promise.resolve();
+  var fontReady = (document.fonts && document.fonts.load) ? document.fonts.load(P.font, NAME) : Promise.resolve();
   Promise.race([fontReady, new Promise(function (r) { setTimeout(r, 1000); })]).then(start, start);
 })();
 </script>
