@@ -433,7 +433,7 @@ canvas { position:fixed; inset:0; z-index:0; }
   position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
   opacity: .4; pointer-events:none;
 }
-#el-search, #build-input {
+#el-search, #hy-search, #build-input {
   width: 100%;
   background: rgba(var(--cyan-rgb),.05);
   border: 1px solid rgba(var(--cyan-rgb),.20);
@@ -446,8 +446,8 @@ canvas { position:fixed; inset:0; z-index:0; }
   transition: border-color .18s;
   letter-spacing: .01em;
 }
-#el-search::placeholder, #build-input::placeholder { color: var(--lo); }
-#el-search:focus, #build-input:focus { border-color: var(--cyan-40); background: var(--cyan-10); }
+#el-search::placeholder, #hy-search::placeholder, #build-input::placeholder { color: var(--lo); }
+#el-search:focus, #hy-search:focus, #build-input:focus { border-color: var(--cyan-40); background: var(--cyan-10); }
 
 .ptitle {
   font-size: .7rem;
@@ -472,6 +472,34 @@ canvas { position:fixed; inset:0; z-index:0; }
 .mode-btn:hover { background:var(--cyan-10); border-color:var(--cyan-40); color:var(--hi); }
 .mode-btn.on { background:var(--cyan-10); border-color:var(--cyan); color:var(--hi); box-shadow:0 0 10px rgba(var(--cyan-rgb),.2); }
 .hidden-view { display:none; }
+/* Hypothetical mode: hide every control that only makes sense for the 118 known elements,
+   molecules, or renderers that cannot draw g/h orbitals faithfully. */
+body.hypo-mode :is(#annbtn,#reactbtn,#comparebtn,#lessonbtn,#recentsbtn,#surprisebtn,#analysisbtn,#databtn,#colorblindbtn,#excitedbtn,#smoothbtn,#ultrabtn,#hyperbtn),
+body.hypo-mode a[href*="nucleus_explorer"]{display:none !important;}
+
+/* ── Hypothetical elements (Z = 119–300) ── */
+.mode-switch{flex-wrap:wrap;}
+#mode-hypo{flex:1 1 100%;}
+.hypo-warn{margin:10px 0 4px;padding:10px 12px;border:1px solid var(--cyan-40,rgba(128,128,128,.4));border-radius:10px;font-size:.78rem;line-height:1.45;color:var(--mid,inherit);}
+.hypo-warn b{display:block;margin-bottom:3px;color:var(--hi);letter-spacing:.08em;font-size:.72rem;}
+#hypo-view .egrid{padding-top:6px;}
+.hypo-note{margin:10px 0;font-size:.78rem;color:var(--lo);text-align:center;}
+.hypo-card{margin:14px 0 4px;padding:12px;border:1px solid var(--cyan-40,rgba(128,128,128,.4));border-radius:12px;background:var(--cyan-10,rgba(128,128,128,.08));font-size:.8rem;line-height:1.45;}
+.hypo-card[hidden],.hypo-note[hidden]{display:none;}
+.hypo-card .hc-name{font-size:1.05rem;font-weight:700;color:var(--hi);}
+.hypo-card .hc-tier{display:inline-block;margin:4px 0 2px;padding:1px 8px;border-radius:99px;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--cyan-40,rgba(128,128,128,.4));color:var(--hi);}
+.hypo-card dl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;margin:8px 0 0;}
+.hypo-card dt{color:var(--lo);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;padding-top:2px;}
+.hypo-card dd{margin:0;color:var(--hi);overflow-wrap:anywhere;}
+.hypo-card .hc-note{margin-top:8px;padding-top:8px;border-top:1px solid var(--cyan-40,rgba(128,128,128,.3));color:var(--mid,inherit);font-size:.74rem;}
+.hypo-card .hc-src{margin-top:8px;color:var(--lo);font-size:.66rem;}
+.ebtn.hy[data-blk=s]{box-shadow:inset 0 -2px 0 #ff9944aa;}
+.ebtn.hy[data-blk=g]{box-shadow:inset 0 -2px 0 #ff8a5caa;}
+.ebtn.hy[data-blk=f]{box-shadow:inset 0 -2px 0 #3fb6e8aa;}
+.ebtn.hy[data-blk=d]{box-shadow:inset 0 -2px 0 #e0b020aa;}
+.ebtn.hy[data-blk=p]{box-shadow:inset 0 -2px 0 #44cc88aa;}
+.ebtn.hy[data-blk=h]{box-shadow:inset 0 -2px 0 #c58bffaa;}
+
 
 /* Molecule cards */
 .mgrid { display:flex; flex-direction:column; gap:6px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -1227,7 +1255,7 @@ input[type=range]::-moz-range-thumb {
    are left untouched, this only adds the frost.
 ════════════════════════════════ */
 #esym-badge,
-#el-search,
+#el-search, #hy-search,
 #build-input,
 .panel-close,
 #realbtn, #gridbtn, #smoothbtn, #ultrabtn, #hyperbtn, #excitedbtn, #antibtn, #sphericalbtn,
@@ -1586,6 +1614,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
         <button class="mode-btn on" id="mode-elements" onclick="setLeftMode('elements')">ATOMS</button>
         <button class="mode-btn" id="mode-molecules" onclick="setLeftMode('molecules')">MOLECULES</button>
         <button class="mode-btn" id="mode-build" onclick="setLeftMode('build')">BUILD</button>
+        <button class="mode-btn" id="mode-hypo" onclick="setLeftMode('hypo')" title="Hypothetical elements 119–300">HYPOTHETICAL</button>
       </div>
       <div id="elements-view">
         <div class="search-wrap">
@@ -1599,6 +1628,21 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
         <div id="no-results">No elements found</div>
         <div class="ptitle">Orbital Filling</div>
         <div class="oleg" id="oleg"></div>
+      </div>
+      <div id="hypo-view" class="hidden-view">
+        <div class="hypo-warn"><b>HYPOTHETICAL ELEMENTS · Z 119–300</b>None of these exist or have been observed. Every value is predicted from an equation or a published shell-filling order; each element card states how far to trust it.</div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="hy-search" placeholder="Search name, symbol or Z..." autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="egrid" id="hgrid"></div>
+        <div id="hy-noresults" class="hypo-note" hidden>No elements found</div>
+        <div id="hypo-card" class="hypo-card" hidden></div>
+        <div class="ptitle">Orbital Filling</div>
+        <div class="oleg" id="oleg-h"></div>
       </div>
       <div id="molecules-view" class="hidden-view">
         <div class="mgrid" id="mgrid"></div>
@@ -3378,6 +3422,8 @@ const SUB_HEX_MATTER={
   1:['#ff8866','#66ffaa','#aaaaff'],
   2:['#ff4499','#ff7733','#ffaa00','#aadd00','#ff22cc'],
   3:['#8855dd','#dd5599','#4488ff','#dd8822','#22aa88','#bbaa22','#9955bb'],
+  4:['#ab412a','#ab972a','#69ab2a','#2aab41','#2aab97','#2a69ab','#412aab','#972aab','#ab2a69'],
+  5:['#ab412a','#ab882a','#88ab2a','#42ab2a','#2aab59','#2aab9f','#2a71ab','#2a2bab','#702aab','#ab2a9f','#ab2a59'],
 };
 const SUB_HEX_ANTI=Object.fromEntries(
   Object.entries(SUB_HEX_MATTER).map(([l,arr])=>[l,arr.map(toAntiHex)])
@@ -12021,6 +12067,8 @@ const SUB_LABELS = {
   1: ['px','py','pz'],
   2: ['dz²','dxy','dxz','dyz','dx²-y²'],
   3: ['fz³','fxz²','fyz²','fxyz','fz(x²-y²)','fx(x²-3y²)','fy(3x²-y²)'],
+  4: ['m0','m1c','m1s','m2c','m2s','m3c','m3s','m4c','m4s'],                       // g (generic real harmonics)
+  5: ['m0','m1c','m1s','m2c','m2s','m3c','m3s','m4c','m4s','m5c','m5s'],           // h
 };
 function numSubs(l){ return SUB_LABELS[l].length; }
 function subLabel(l,i){ return SUB_LABELS[l][i]; }
@@ -12032,7 +12080,323 @@ function fillHund(l,e){
   return occ;
 }
 
+// ══════════════════════════════════════════════
+// HYPOTHETICAL ELEMENTS (Z = 119–300) — predictive model
+// ══════════════════════════════════════════════
+// Nothing here is measured: every value is computed from an equation or a
+// published shell-filling order, and each result carries a confidence tier.
+//
+//  NAMES       IUPAC systematic nomenclature (Z=119 → Ununennium, Uue).
+//  CONFIG      Z ≤ 172 : neutral-atom filling order from Fricke–Greiner–Waber
+//              (1971) Dirac–Slater and Pyykkö (2011) Dirac–Fock:
+//              8s < 8p1/2 < 5g < 6f < 7d < 9s < 9p1/2 < 8p3/2.
+//              Z > 172 : no published ab-initio configurations exist, so the
+//              Madelung (n+l, then n) rule is extrapolated. Flagged
+//              "extrapolated" — illustrative, not a prediction to trust.
+//  NUCLEUS     A from the liquid-drop β-stability line
+//              Z = A / (2 + 0.015·A^(2/3)); fissility from Bohr–Wheeler
+//              x = (Z²/A) / [50.883·(1 − 1.7826·I²)], I = (N−Z)/A;
+//              radius R = 1.2·A^(1/3) fm. No shell corrections are included,
+//              so the island of stability is NOT captured (only noted).
+//  1s LEVEL    Radial Dirac equation for a uniformly charged sphere, solved
+//              numerically (RK4 in ln r + shooting). The 1s level reaches
+//              −mc² at Z_cr ≈ 171 in this model (published: 170–173 depending
+//              on the nuclear charge model); past it the vacuum is unstable
+//              (spontaneous e⁺e⁻ emission). The point-nucleus formula
+//              E = mc²·√(1−(Zα)²) fails at Zα = 1 (Z ≈ 137) and is shown
+//              only for comparison.
+//  RENDER SIZE Orbital radii use the same visual scale as ORBS (not physical
+//              Å): the next member of an l-family is ρ = 3.5× the last, the
+//              mean n→n+1 growth of the existing table; the first g / h
+//              orbital continues the 2p→3d→4f contraction chain.
+const HYPO = (function(){
+  const Z_MIN = 119, Z_MAX = 300, Z_LIT_MAX = 172;
+  const ALPHA = 1/137.035999084;
+  const LAMBDA_C_FM = 386.15926796;     // ħ/(m_e c), fm
+  const MEC2_KEV = 510.99895;           // m_e c², keV
+
+  // ── IUPAC systematic names ─────────────────────────────────────────
+  const ROOTS = ['nil','un','bi','tri','quad','pent','hex','sept','oct','enn'];
+  function systematic(Z){
+    const d = String(Z).split('').map(Number);
+    let name = d.map(x=>ROOTS[x]).join('');
+    name += (name.endsWith('i') ? 'um' : 'ium');          // bi+ium → bium, tri+ium → trium
+    const sym = d.map(x=>ROOTS[x][0]).join('');
+    return { name: name[0].toUpperCase()+name.slice(1), sym: sym[0].toUpperCase()+sym.slice(1) };
+  }
+
+  // ── Shell-filling sequence after Og (7p⁶ closed at Z = 118) ─────────
+  // Each slot is [orbital, electrons]; 8p and 9p appear twice because the
+  // j = 1/2 and j = 3/2 halves fill at very different Z (spin–orbit splitting).
+  const SLOTS_LIT = [['8s',2],['8p',2],['5g',18],['6f',14],['7d',10],['9s',2],['9p',2],['8p',4]];  // Z 119–172
+  const SLOTS_EXT = [['6g',18],['7f',14],['8d',10],['9p',4],['10s',2],
+                     ['6h',22],['7g',18],['8f',14],['9d',10],['10p',6],['11s',2],
+                     ['7h',22]];                                                                // Z 173–314
+  const L_OF = {s:0,p:1,d:2,f:3,g:4,h:5};
+  const parseOrb = nm => ({ n: parseInt(nm,10), l: L_OF[nm.replace(/\d+/,'')] });
+
+  // ── Visual orbital radii (same scale as ORBS) ──────────────────────
+  const RHO = 3.5;
+  const R_REF = { s:[9,340000], p:[9,820000], d:[6,6000], f:[5,2800] };
+  const R_G1 = 750*(750/143), R_H1 = R_G1*(R_G1/750);       // first g (5g), first h (6h)
+  function visualR(n,l){
+    if(l===4) return R_G1*Math.pow(RHO,n-5);
+    if(l===5) return R_H1*Math.pow(RHO,n-6);
+    const ref = R_REF['spdf'[l]];
+    return ref[1]*Math.pow(RHO,n-ref[0]);
+  }
+  const BASE_HEX = { '5g':'#ff8a5c','6f':'#5cd6ff','7d':'#ffd45c','6g':'#c58bff','7f':'#5cffb0',
+                     '8d':'#ff5c9d','10s':'#9dff5c','6h':'#ff6f6f','7g':'#6fa8ff','8f':'#e2ff5c',
+                     '9d':'#5cffee','10p':'#ff9d5c','11s':'#b0b0ff','7h':'#ffb0e8' };
+  function orbitalDef(name){
+    const hit = ORBS.find(o=>o.name===name);
+    if(hit) return {...hit};                      // existing 8s/8p/9s/9p keep their colours
+    const {n,l} = parseOrb(name);
+    const hex = antimatterMode ? toAntiHex(BASE_HEX[name]) : BASE_HEX[name];
+    return { name, n, l, max:2*(2*l+1), R:visualR(n,l), hex, rgb:hexToRgbTriplet(hex) };
+  }
+
+  // ── Electron configuration ─────────────────────────────────────────
+  let _coreCache = null;
+  function core118(){
+    if(!_coreCache) _coreCache = getConfig(118).map(o=>[o.name,o.e]);
+    return _coreCache;
+  }
+  function configPairs(Z){
+    const pairs = core118().map(p=>[p[0],p[1]]);
+    let rem = Z-118;
+    const put = (nm,e)=>{ const q=pairs.find(p=>p[0]===nm); if(q) q[1]+=e; else pairs.push([nm,e]); };
+    for(const [nm,cap] of SLOTS_LIT.concat(SLOTS_EXT)){
+      if(rem<=0) break;
+      const e = Math.min(rem,cap); put(nm,e); rem -= e;
+    }
+    return pairs;
+  }
+  function getConfig_(Z){
+    return configPairs(Z).map(([nm,e])=>{
+      const o=orbitalDef(nm); o.e=e;
+      o.occ=fillHund(o.l,e).map((c,i)=>({sub:i,label:subLabel(o.l,i),e:c,excited:false}));   // per-sub-orbital filling, as getConfig()
+      return o;
+    });
+  }
+  function configString(Z){
+    return configPairs(Z).map(([nm,e])=>nm+toSuperscript(e)).join(' ');
+  }
+
+  // ── Placement (idealised Madelung/Janet periods) ───────────────────
+  // Period lengths 50, 50, 72, 72 → 119–168, 169–218, 219–290, 291–. The
+  // 165–172 overlap (9s/9p1/2 before 8p3/2) is a relativistic anomaly of the
+  // *configuration*, not of this idealised placement.
+  const PERIODS = [
+    {p:8,  start:119, blocks:[['s',2,1],['g',18],['f',14],['d',10],['p',6]]},
+    {p:9,  start:169, blocks:[['s',2],['g',18],['f',14],['d',10],['p',6]]},
+    {p:10, start:219, blocks:[['s',2],['h',22],['g',18],['f',14],['d',10],['p',6]]},
+    {p:11, start:291, blocks:[['s',2],['h',22],['g',18],['f',14],['d',10],['p',6]]},
+  ];
+  function place(Z){
+    const per = PERIODS.filter(x=>Z>=x.start).pop();
+    let k = Z-per.start;
+    for(const [blk,len] of per.blocks){
+      if(k<len){
+        let g = null;
+        if(blk==='s') g = k+1;
+        else if(blk==='d') g = k+3;
+        else if(blk==='p') g = k+13;
+        return { period:per.p, block:blk, group:g };
+      }
+      k -= len;
+    }
+    return { period:per.p, block:'h', group:null };
+  }
+
+  // ── Nucleus (liquid-drop) ──────────────────────────────────────────
+  function betaStableA(Z){
+    let lo=Z, hi=6*Z+10;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(mid/(2+0.015*Math.pow(mid,2/3)) < Z) lo=mid; else hi=mid;
+    }
+    return Math.round((lo+hi)/2);
+  }
+  function nucleus(Z){
+    const A = betaStableA(Z), N = A-Z, I = (N-Z)/A;
+    const xcrit = 50.883*(1-1.7826*I*I);
+    const x = (Z*Z/A)/xcrit;
+    const R = 1.2*Math.cbrt(A);
+    let verdict;
+    if(x<0.9) verdict='liquid-drop fission barrier present';
+    else if(x<1) verdict='liquid-drop barrier nearly gone — only shell effects could stabilise it';
+    else if(x<1.5) verdict='no liquid-drop fission barrier — any lifetime would be purely shell-effect';
+    else verdict='far past the liquid-drop limit — Coulomb repulsion ≫ surface tension';
+    return { A, N, I, x, R, verdict };
+  }
+
+  // ── Dirac 1s level, uniformly charged nucleus ──────────────────────
+  // Natural units ħ = c = m = 1 (lengths in ħ/mc). Radial functions G=r·g,
+  // F=r·f for κ = −1:  G' = −κG/r + (E+1−V)F ,  F' = κF/r − (E−1−V)G.
+  function dirac1s(Z, A){
+    const R = 1.2*Math.cbrt(A)/LAMBDA_C_FM;
+    const V = r => r>=R ? -Z*ALPHA/r : -Z*ALPHA*(3-(r/R)*(r/R))/(2*R);
+    const kappa = -1;
+    // Integrates outward and returns the number of nodes of G(r). The 1s state
+    // is nodeless; every extra node means a lower level already lies below E.
+    function nodes(E){
+      const r0 = R*1e-3, V0 = V(r0);
+      let G = r0, F = (1+V0-E)/3*r0*r0;
+      const kd = Math.sqrt(Math.max(1-E*E,1e-12));
+      const rmax = Math.max(R*5, 60/kd, 40*Z*ALPHA);
+      const steps = Math.ceil(Math.log(rmax/r0)/0.004);
+      const dx = Math.log(rmax/r0)/steps;
+      let x = Math.log(r0), count = 0;
+      const f = (xx,g,ff)=>{ const r=Math.exp(xx), v=V(r);
+        return [ r*(-kappa/r*g+(E+1-v)*ff), r*(kappa/r*ff-(E-1-v)*g) ]; };
+      for(let i=0;i<steps;i++){
+        const k1=f(x,G,F);
+        const k2=f(x+dx/2,G+dx/2*k1[0],F+dx/2*k1[1]);
+        const k3=f(x+dx/2,G+dx/2*k2[0],F+dx/2*k2[1]);
+        const k4=f(x+dx,G+dx*k3[0],F+dx*k3[1]);
+        const Gn = G+dx/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+        F+=dx/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+        if((Gn<0) !== (G<0)) count++;
+        G=Gn; x+=dx;
+      }
+      return count;
+    }
+    let lo = -1+1e-6;
+    if(nodes(lo) >= 1) return null;                   // 1s already below −mc² → supercritical
+    let hi = lo, step = 0.05, found = false;
+    for(let E=lo+step; E<1; E+=step){
+      if(nodes(E) >= 1){ hi = E; found = true; break; }
+      lo = E;
+    }
+    if(!found) return null;
+    for(let i=0;i<40;i++){
+      const mid=(lo+hi)/2;
+      if(nodes(mid) === 0) lo=mid; else hi=mid;
+    }
+    return (lo+hi)/2;
+  }
+  const _dCache = {};
+  function relativistic(Z){
+    if(_dCache[Z]) return _dCache[Z];
+    const nuc = nucleus(Z);
+    const E = dirac1s(Z, nuc.A);
+    const point = Z*ALPHA < 1 ? Math.sqrt(1-(Z*ALPHA)*(Z*ALPHA)) : null;
+    return _dCache[Z] = {
+      E1s: E,                                          // total energy in mc², null if supercritical
+      bindingKeV: E===null ? null : (1-E)*MEC2_KEV,
+      supercritical: E===null,
+      pointE: point,
+      zAlpha: Z*ALPHA,
+    };
+  }
+
+  // ── Element records (ELS-compatible) ───────────────────────────────
+  const _els = {};
+  function el(Z){
+    if(Z<Z_MIN || Z>Z_MAX) return null;
+    if(_els[Z]) return _els[Z];
+    const nm = systematic(Z), pl = place(Z), nuc = nucleus(Z);
+    return _els[Z] = { Z, name:nm.name, sym:nm.sym, p:pl.period, g:pl.group, n:nuc.N,
+                       block:pl.block, hypothetical:true,
+                       tier: Z<=Z_LIT_MAX ? 'literature' : 'extrapolated' };
+  }
+  function all(){ const a=[]; for(let z=Z_MIN; z<=Z_MAX; z++) a.push(el(z)); return a; }
+
+  // Single-atom render cost grows with the number of filled orbitals, so the
+  // point budget is thinned for the heaviest hypothetical atoms.
+  function pointScale(Z){ return Z<=172 ? 0.6 : 0.35; }
+
+  return { Z_MIN, Z_MAX, Z_LIT_MAX, systematic, getConfig:getConfig_, configString, place,
+           nucleus, relativistic, el, all, pointScale, visualR, SLOTS_LIT, SLOTS_EXT };
+})();
+
+// ── Generic real spherical harmonics (l = 4, 5: g and h orbitals) ────
+// Same approach as fAngular(): sample the true angular wavefunction instead
+// of hand-drawing lobes. sub 0 → m=0; sub 2k−1 → m=k (cos φ); sub 2k → m=k (sin φ).
+function legendreAssoc(l,m,x){
+  let pmm=1; const s=Math.sqrt(Math.max(0,1-x*x));
+  for(let i=1;i<=m;i++) pmm*=(2*i-1)*s;
+  if(l===m) return pmm;
+  let pmmp1=x*(2*m+1)*pmm;
+  if(l===m+1) return pmmp1;
+  let pll=0;
+  for(let ll=m+2;ll<=l;ll++){ pll=((2*ll-1)*x*pmmp1-(ll+m-1)*pmm)/(ll-m); pmm=pmmp1; pmmp1=pll; }
+  return pll;
+}
+function lmAngular(l,sub,x,y,z){
+  const m=(sub+1)>>1, P=legendreAssoc(l,m,z);
+  if(m===0) return P;
+  const phi=Math.atan2(y,x);
+  return P*(sub&1 ? Math.cos(m*phi) : Math.sin(m*phi));
+}
+const _lmMaxCache={};
+function lmAngularMax(l,sub){
+  const key=l*100+sub; if(_lmMaxCache[key]!=null) return _lmMaxCache[key];
+  let mx=0;
+  for(let i=0;i<30000;i++){
+    const z=Math.random()*2-1, phi=Math.random()*2*Math.PI, s=Math.sqrt(1-z*z);
+    const v=Math.abs(lmAngular(l,sub,s*Math.cos(phi),s*Math.sin(phi),z));
+    if(v>mx) mx=v;
+  }
+  return _lmMaxCache[key]=mx*1.08;
+}
+const _lmPeakCache={};
+function lmPeakDirections(l,sub){
+  const key=l*100+sub; if(_lmPeakCache[key]) return _lmPeakCache[key];
+  // Deterministic local-maxima search of |Y| on a θ–φ grid (lobe tips).
+  const NT=72, NP=144, grid=[];
+  const mx=lmAngularMax(l,sub)/1.08;
+  for(let i=0;i<=NT;i++){
+    const th=Math.PI*i/NT, z=Math.cos(th), sn=Math.sin(th), row=[];
+    for(let j=0;j<NP;j++){
+      const ph=2*Math.PI*j/NP;
+      row.push(Math.abs(lmAngular(l,sub,sn*Math.cos(ph),sn*Math.sin(ph),z)));
+    }
+    grid.push(row);
+  }
+  const found=[];
+  for(let i=1;i<NT;i++) for(let j=0;j<NP;j++){
+    const v=grid[i][j]; if(v<0.3*mx) continue;
+    let top=true;
+    for(let di=-1;di<=1&&top;di++) for(let dj=-1;dj<=1;dj++){
+      if(!di&&!dj) continue;
+      if(grid[i+di][(j+dj+NP)%NP]>v){top=false;break;}
+    }
+    if(top){ const th=Math.PI*i/NT, ph=2*Math.PI*j/NP;
+      found.push({x:Math.sin(th)*Math.cos(ph),y:Math.sin(th)*Math.sin(ph),z:Math.cos(th),v}); }
+  }
+  for(const sg of [1,-1]){ const v=Math.abs(lmAngular(l,sub,0,0,sg)); if(v>0.3*mx) found.push({x:0,y:0,z:sg,v}); }
+  found.sort((a,b)=>b.v-a.v);
+  const picked=[], minDot=Math.cos(20*Math.PI/180);
+  for(const c of found){
+    if(picked.length>=28) break;
+    if(!picked.some(q=>(q.x*c.x+q.y*c.y+q.z*c.z)>minDot)) picked.push(c);
+  }
+  if(!picked.length) picked.push({x:0,y:0,z:1});
+  return _lmPeakCache[key]=picked.map(q=>[q.x,q.y,q.z]);
+}
+function sampleLmSub(R,l,sub){
+  if(sphericalMode){
+    const dirs=lmPeakDirections(l,sub);
+    const d=dirs[Math.floor(Math.random()*dirs.length)];
+    return sampleHemisphereDir(R,d[0],d[1],d[2],R*0.22);
+  }
+  const maxV=lmAngularMax(l,sub);
+  let x,y,z,val,tries=0;
+  do{
+    const zc=Math.random()*2-1, phi=Math.random()*2*Math.PI, s=Math.sqrt(1-zc*zc);
+    x=s*Math.cos(phi); y=s*Math.sin(phi); z=zc;
+    val=lmAngular(l,sub,x,y,z); tries++;
+  }while(Math.random()>(val*val)/(maxV*maxV) && tries<80);
+  const t=Math.random();
+  const r=R*(0.40+t*0.85), a=0.40+t*0.5;
+  return {x:x*r,y:y*r,z:z*r,a};
+}
+const diffuseSignLm = (l,sub) => (x,y,z) => lmAngular(l,sub,x,y,z);
+
 function getConfig(Z){
+  if(Z>118) return HYPO.getConfig(Z);   // hypothetical elements (see HYPO)
   let cfg;
   if(SPECIAL_CFG_COMPACT[Z]){
     cfg=SPECIAL_CFG_COMPACT[Z].map(([name,e])=>{
@@ -12080,7 +12444,7 @@ function categoryForElement(Z,p,g){
   if(g>=3 && g<=12) return 'Transition Metal';
   return 'Nonmetal'; // remaining p-block (C, N, O, P, S, Se) + unclassified superheavy
 }
-function elementByZ(Z){ return ELS.find(e=>e.Z===Z); }
+function elementByZ(Z){ return ELS.find(e=>e.Z===Z)||HYPO.el(Z); }
 function compareRow(Z){
   const el=elementByZ(Z);
   if(!el) return null;
@@ -12886,7 +13250,7 @@ function getExcitedConfig(Z,level){
 let excitedLevel=0; // 0 = ground state, 1..MAX_EXCITED_PHASES = number of electrons excited
 
 function getEffectiveConfig(Z){
-  return excitedLevel>0 ? getExcitedConfig(Z,excitedLevel).cfg : getConfig(Z);
+  return (excitedLevel>0&&Z<=118) ? getExcitedConfig(Z,excitedLevel).cfg : getConfig(Z);
 }
 
 // Electron configuration for an ION, not a free neutral atom — used only
@@ -13900,6 +14264,7 @@ function getSharedSmoothMaterial(){
 }
 
 function buildUltraCloud(orb){
+  if(orb.l>=4) return buildCloud(orb,orb.e); // g/h (hypothetical): point-cloud only
   const grp = new THREE.Group();
   const lobeMeshFn = sphericalMode ? makeHemisphereLobeMesh : makeLobeMesh;
   let [cr, cg, cb] = realMode ? realColor(orb.R) : orb.rgb;
@@ -14129,6 +14494,7 @@ function smoothDensity(x,y,z,l,sub,R){
 }
 
 function buildSmoothCloud(orb){
+  if(orb.l>=4) return buildCloud(orb,orb.e); // g/h (hypothetical): point-cloud only
   const grp=new THREE.Group();
   let[r,g,b]=realMode?realColor(orb.R):orb.rgb;
   const GOLD=[1.0,0.72,0.05];
@@ -14368,7 +14734,7 @@ function buildCloud(orb,electrons){
       if(s.excited) dRGB=goldBlend(dRGB);
       grp.add(makePointCloud(perSub,()=>sampleDSub(orb.R,sub),dRGB));
     });
-  }else{
+  }else if(orb.l===3){
     const perSub=Math.round(13000*radiusBoost*moleculePointScale);
     const F_TINTS=[[1,.2,.6],[.6,.2,1],[.2,.6,1],[1,.6,.2],[.2,1,.6],[.85,.85,.2],[.7,.2,.7]];
     (orb.occ||[]).forEach((s,sub)=>{
@@ -14377,6 +14743,17 @@ function buildCloud(orb,electrons){
       let fRGB=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
       if(s.excited) fRGB=goldBlend(fRGB);
       grp.add(makePointCloud(perSub,()=>sampleFSub(orb.R,sub),fRGB));
+    });
+  }else{
+    // g/h orbitals (hypothetical elements): real spherical harmonics, any l
+    const perSub=Math.round(8000*radiusBoost*moleculePointScale);
+    (orb.occ||[]).forEach((s,sub)=>{
+      if(s.e===0) return;
+      const hue=(sub/numSubs(orb.l));
+      const tint=[.55+.45*Math.cos(6.283*hue),.55+.45*Math.cos(6.283*(hue+.33)),.55+.45*Math.cos(6.283*(hue+.67))];
+      let gRGB=realMode?[r,g,b]:[r*0.6+tint[0]*0.4,g*0.6+tint[1]*0.4,b*0.6+tint[2]*0.4];
+      if(s.excited) gRGB=goldBlend(gRGB);
+      grp.add(makePointCloud(perSub,()=>sampleLmSub(orb.R,orb.l,sub),gRGB));
     });
   }
   return grp;
@@ -14404,7 +14781,8 @@ function buildAtom(Z){
   aromaticRingGroup=[]; // single atoms never have a ring
   atomGrp=new THREE.Group();
   pivot.add(atomGrp);
-  const elData = ELS.find(e=>e.Z===Z);
+  const elData = ELS.find(e=>e.Z===Z) || HYPO.el(Z);
+  if(Z>118) moleculePointScale=HYPO.pointScale(Z); // thinner clouds for the very many orbitals of hypothetical atoms
   atomGrp.add(makeNucleus(Z, elData ? elData.n : 0));
   const cfg=getEffectiveConfig(Z);
   for(const orb of cfg) atomGrp.add(ultraMode ? buildUltraCloud(orb) : smoothMode ? buildSmoothCloud(orb) : buildCloud(orb,orb.e));
@@ -16272,10 +16650,10 @@ function updateUI(Z){
   document.getElementById('sz').previousElementSibling.textContent='ATOMIC №';
   document.getElementById('sper').previousElementSibling.textContent='PERIOD';
   document.getElementById('sgrp').previousElementSibling.textContent='GROUP';
-  document.getElementById('excitedbtn').style.display='';
+  document.getElementById('excitedbtn').style.display=Z>118?'none':'';
 
-  const el=ELS.find(e=>e.Z===Z);
-  const excited=excitedLevel>0?getExcitedConfig(Z,excitedLevel):null;
+  const el=ELS.find(e=>e.Z===Z)||HYPO.el(Z);
+  const excited=(excitedLevel>0&&Z<=118)?getExcitedConfig(Z,excitedLevel):null;
   const cfg=excited?excited.cfg:getConfig(Z);
   const confStr=cfg.map(o=>o.excited
     ? `<span class="excited-orb">${o.name}${sup(o.e)}*</span>`
@@ -16285,7 +16663,7 @@ function updateUI(Z){
 
   const particleWord=antimatterMode?'POSITRON':'ELECTRON';
   document.getElementById('ename').textContent=(antimatterMode?'ANTI-':'')+el.name.toUpperCase();
-  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ${particleWord}${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g}${stateStr}`;
+  document.getElementById('emeta').textContent=`Z=${Z} · A=${Z+el.n} · ${Z} ${particleWord}${Z!==1?'S':''} · PERIOD ${el.p} · GROUP ${el.g==null?'—':el.g}${el.hypothetical?' · HYPOTHETICAL':''}${stateStr}`;
   document.getElementById('econf').innerHTML=confStr;
   document.getElementById('econf-right').innerHTML=confStr;
   document.getElementById('badge-z').textContent=Z;
@@ -16296,7 +16674,7 @@ function updateUI(Z){
   document.getElementById('sp').textContent=Z;
   document.getElementById('sn').textContent=el.n;
   document.getElementById('sper').textContent=el.p;
-  document.getElementById('sgrp').textContent=el.g;
+  document.getElementById('sgrp').textContent=el.g==null?'—':el.g;
   document.getElementById('sp').previousElementSibling.textContent=antimatterMode?'ANTIPROTONS':'PROTONS';
   document.getElementById('sn').previousElementSibling.textContent=antimatterMode?'ANTINEUTRONS':'NEUTRONS';
   document.getElementById('se').previousElementSibling.textContent=antimatterMode?'POSITRONS':'ELECTRONS';
@@ -16308,7 +16686,7 @@ function updateUI(Z){
     const hexArr=SUB_HEX[o.l];
     o.occ.forEach((s,i)=>{
       if(s.e===0) return; // this specific sub-orbital is unoccupied — don't show/render it
-      const fullLabel = o.l===3 ? `${o.n}f${s.label}` : `${o.n}${s.label}`;
+      const fullLabel = o.l>=4 ? `${o.n}${'spdfgh'[o.l]}(${s.label})` : o.l===3 ? `${o.n}f${s.label}` : `${o.n}${s.label}`;
       const color = hexArr[i];
       leg.innerHTML+=`<div class="orow${s.excited?' excited-row':''}">
         <div class="odot" style="background:${color};box-shadow:0 0 5px ${color}88;"></div>
@@ -16317,6 +16695,8 @@ function updateUI(Z){
       </div>`;
     });
   });
+
+  { const lh=document.getElementById('oleg-h'); if(lh) lh.innerHTML=leg.innerHTML; renderHypoCard(Z); }
 
   const transRow=document.getElementById('excited-trans-row');
   if(transRow){
@@ -16399,7 +16779,7 @@ eg.addEventListener('click', (e) => {
 document.getElementById('el-search').addEventListener('input', function(){
   const q=this.value.trim().toLowerCase();
   let visible=0;
-  document.querySelectorAll('.ebtn').forEach(b=>{
+  document.querySelectorAll('#egrid .ebtn').forEach(b=>{
     const name=b.dataset.name;
     const sym=b.querySelector('.s').textContent.toLowerCase();
     const z=b.dataset.z;
@@ -16410,16 +16790,105 @@ document.getElementById('el-search').addEventListener('input', function(){
   document.getElementById('no-results').style.display=visible===0?'block':'none';
 });
 
+// ══════════════════════════════════════════════
+// HYPOTHETICAL ELEMENTS — tile grid, search, prediction card
+// ══════════════════════════════════════════════
+const hgrid=document.getElementById('hgrid');
+HYPO.all().forEach(el=>{
+  const b=document.createElement('button');
+  b.className='ebtn hy';
+  b.dataset.z=el.Z; b.dataset.blk=el.block;
+  b.dataset.name=(el.name+' '+el.sym).toLowerCase();
+  b.innerHTML=`<span class="s">${el.sym}</span><span class="z">${el.Z}</span>`;
+  b.title=el.name+' (hypothetical)';
+  b.setAttribute('aria-label',`${el.name} (Z=${el.Z}, hypothetical)`);
+  hgrid.appendChild(b);
+});
+hgrid.addEventListener('touchend',e=>{
+  const btn=e.target.closest('.ebtn'); if(!btn) return;
+  const Z=parseInt(btn.dataset.z,10);
+  if(Z){ lastTouchZ=Z; tapElement(btn); e.preventDefault(); }
+},{passive:false});
+hgrid.addEventListener('click',e=>{
+  const btn=e.target.closest('.ebtn'); if(!btn) return;
+  const Z=parseInt(btn.dataset.z,10);
+  if(Z&&Z!==lastTouchZ) tapElement(btn);
+  lastTouchZ=0;
+});
+document.getElementById('hy-search').addEventListener('input',function(){
+  const q=this.value.trim().toLowerCase();
+  let visible=0;
+  hgrid.querySelectorAll('.ebtn').forEach(b=>{
+    const match=!q||b.dataset.name.includes(q)||b.dataset.z===q||(q.length===1&&b.dataset.blk===q);
+    b.classList.toggle('hidden-el',!match);
+    if(match) visible++;
+  });
+  document.getElementById('hy-noresults').hidden=visible!==0;
+});
+
+function renderHypoCard(Z){
+  const box=document.getElementById('hypo-card');
+  if(!box) return;
+  if(!(Z>118)){ box.hidden=true; return; }
+  const el=HYPO.el(Z), nuc=HYPO.nucleus(Z), rel=HYPO.relativistic(Z);
+  const coreStr=HYPO.configString(118);
+  const full=HYPO.configString(Z);
+  const cfg='[Og] '+(full.startsWith(coreStr)?full.slice(coreStr.length).trim():full);
+  const lit=el.tier==='literature';
+  const row=(k,v)=>`<dt>${k}</dt><dd>${v}</dd>`;
+  const oneS = rel.supercritical
+    ? '<b>SUPERCRITICAL</b> — the 1s level has dived below −mc²'
+    : `${rel.bindingKeV.toFixed(0)} keV binding (E = ${rel.E1s.toFixed(4)} mc²)`;
+  const pointS = rel.pointE===null ? 'undefined (Zα ≥ 1, i.e. Z ≳ 137)' : `E = ${rel.pointE.toFixed(4)} mc²`;
+  const notes=[];
+  if(Z<=130) notes.push('Shell models predict an island of stability near N = 184 (A ≈ Z + 184). The liquid-drop A above ignores shell effects, so it is not the isotope you would try to make.');
+  if(Z>=121&&Z<=164) notes.push('5g, 6f, 7d and 8p₁/₂ lie very close in energy here; published calculations disagree on the exact occupancy of individual atoms.');
+  if(!lit) notes.push('No published ab-initio configurations exist beyond Z = 172. This configuration extrapolates the Madelung (n+l, n) rule and is illustrative only.');
+  if(rel.supercritical) notes.push('Past the critical charge (≈171 in this model; published values ≈170–173) the vacuum is unstable: it spontaneously creates e⁺e⁻ pairs and the 1s level fills from the vacuum. A neutral atom drawn with all Z electrons is not a stable ground state.');
+  box.innerHTML=
+    `<div class="hc-name">${el.name} (${el.sym}) · Z = ${Z}</div>`+
+    `<span class="hc-tier">${lit?'Configuration: literature order (Z ≤ 172)':'Configuration: extrapolated (Z > 172)'}</span>`+
+    `<dl>`+
+      row('Placement',`Period ${el.p} · ${el.block}-block${el.g==null?'':' · group '+el.g} <span style="opacity:.7">(idealised Madelung)</span>`)+
+      row('Config',cfg)+
+      row('Nucleus',`A = ${nuc.A}, N = ${nuc.N} (liquid-drop β-stability line) · R ≈ ${nuc.R.toFixed(1)} fm`)+
+      row('Fissility',`x = ${nuc.x.toFixed(2)} — ${nuc.verdict}`)+
+      row('1s (Dirac)',oneS)+
+      row('Point nucleus',pointS)+
+    `</dl>`+
+    notes.map(t=>`<div class="hc-note">${t}</div>`).join('')+
+    `<div class="hc-src">Models: Fricke–Greiner–Waber 1971 and Pyykkö 2011 (shell order); Bohr–Wheeler liquid drop (nucleus); radial Dirac equation, uniform-sphere nucleus (1s). Orbital sizes on screen use the app’s visual scale, not physical units.</div>`;
+  box.hidden=false;
+}
+
+// ── Hypothetical mode controller ─────────────────────────────────────
+// Entering: stop modes that cannot apply, show a hypothetical element.
+// Leaving: return to a known element (nothing else understands Z > 118).
+const HypoUI={
+  enter(){
+    try{ if(typeof ReactionMode!=='undefined'&&ReactionMode.isActive()) ReactionMode.exit(true); }catch(e){}
+    try{ if(typeof AnnihilationMode!=='undefined'&&AnnihilationMode.isActive()) AnnihilationMode.exit(true); }catch(e){}
+    if(smoothMode) smoothbtn.onclick();
+    if(ultraMode) ultrabtn.onclick();
+    if(typeof hyperMode!=='undefined'&&hyperMode&&typeof setHyperMode==='function') setHyperMode(false);
+    if(moleculeMode||curZ<HYPO.Z_MIN||curZ>HYPO.Z_MAX) select(HYPO.Z_MIN);
+  },
+  leave(){
+    if(curZ>118) select(118);
+  }
+};
+
 function select(Z){
   moleculeMode=false;
   curZ=Z;
+  if(Z>118) excitedLevel=0; // excited-state model only covers the 118 known elements
   buildAtom(Z);
   updateUI(Z);
   syncExcitedButton(Z);
   document.querySelectorAll('.mcard').forEach(c=>c.classList.remove('on'));
   const hint=document.getElementById('cycle-hint');
   if(hint) hint.textContent='←→: CYCLE ELEMENTS';
-  recordRecent('atom', Z);
+  if(Z<=118) recordRecent('atom', Z);   // recents only hold known elements
   // Don't auto-close on mobile — user may want to keep browsing elements
   // They can close manually via X button or backdrop tap
 }
@@ -17857,14 +18326,20 @@ window.runBuildSelfTest=function(){
 
 
 function setLeftMode(mode){
-  const isEl=mode==='elements', isMol=mode==='molecules', isBuild=mode==='build';
+  const isEl=mode==='elements', isMol=mode==='molecules', isBuild=mode==='build', isHypo=mode==='hypo';
+  const wasHypo=document.body.classList.contains('hypo-mode');
+  document.body.classList.toggle('hypo-mode',isHypo);
   document.getElementById('mode-elements').classList.toggle('on',isEl);
   document.getElementById('mode-molecules').classList.toggle('on',isMol);
   document.getElementById('mode-build').classList.toggle('on',isBuild);
+  document.getElementById('mode-hypo').classList.toggle('on',isHypo);
   document.getElementById('elements-view').classList.toggle('hidden-view',!isEl);
   document.getElementById('molecules-view').classList.toggle('hidden-view',!isMol);
   document.getElementById('build-view').classList.toggle('hidden-view',!isBuild);
-  document.getElementById('left-panel-title').textContent=isEl?'Select Element':isMol?'Select Molecule':'Build Anything';
+  document.getElementById('hypo-view').classList.toggle('hidden-view',!isHypo);
+  document.getElementById('left-panel-title').textContent=isEl?'Select Element':isMol?'Select Molecule':isHypo?'Hypothetical Elements':'Build Anything';
+  if(isHypo&&!wasHypo) HypoUI.enter();
+  if(!isHypo&&wasHypo) HypoUI.leave();
 }
 
 // Molecule cards
@@ -18229,6 +18704,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='1'){ setLeftMode('elements'); return; }
   if(e.key==='2'){ setLeftMode('molecules'); return; }
   if(e.key==='3'){ setLeftMode('build'); return; }
+  if(e.key==='4'){ setLeftMode('hypo'); return; }
   if(moleculeMode){
     const idx=MOLECULES.findIndex(m=>m.key===curMoleculeKey);
     if(e.key==='ArrowRight'||e.key==='ArrowUp'){
@@ -18243,9 +18719,9 @@ window.addEventListener('keydown',e=>{
     return;
   }
   if(e.key==='ArrowRight'||e.key==='ArrowUp'){
-    select(Math.min(curZ+1,ELS[ELS.length-1].Z));
+    select(Math.min(curZ+1,document.body.classList.contains('hypo-mode')?HYPO.Z_MAX:ELS[ELS.length-1].Z));
   }else if(e.key==='ArrowLeft'||e.key==='ArrowDown'){
-    select(Math.max(curZ-1,1));
+    select(Math.max(curZ-1,document.body.classList.contains('hypo-mode')?HYPO.Z_MIN:1));
   }else if(e.key==='r'||e.key==='R'){
     document.getElementById('rbtn').onclick();
   }else if(e.key==='Escape'){

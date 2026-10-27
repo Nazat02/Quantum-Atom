@@ -112,6 +112,7 @@ The landing page walks through history: **Democritus** guessing in 400 BCE, **Da
 
 ### Explore it
 - 🧪 **All 118 elements**, hydrogen to oganesson, with live search and arrow-key cycling.
+- 🔮 **Hypothetical elements (Z = 119–300)**, in their own tab (key `4`): predicted configurations, liquid-drop nuclei, fissility and a Dirac 1s level that goes supercritical near Z ≈ 171. Z ≤ 172 follows published shell-filling orders; Z > 172 is an extrapolation and is labelled as such. Nothing there has been observed. In this tab only the controls that make sense for it are shown (view modes, antimatter, grid, reset); molecule, reaction, compare, lessons, Data Lab, Nucleus Explorer, excited-state, Smooth and Ultra controls are hidden.
 - 🧬 **52 molecules**, plus **Build mode** for anything else (online lookup via PubChem).
 - ⚡ **Excited State.** Promote electrons to higher orbitals and watch the transition.
 - 🎲 **Surprise Me** and 🕘 **Recently Viewed.**
