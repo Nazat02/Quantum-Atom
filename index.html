@@ -1,25 +1,224 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quantum Atom Simulator</title>
-<!-- No-JS / slow-JS fallback: defaults to dark. JS below overrides this with the visitor's saved theme, if any. -->
-<noscript><meta http-equiv="refresh" content="0; url=https://nazat02.github.io/Quantum-Atom/index_dark.html"></noscript>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Quantum Atom</title>
+<!-- No-JS fallback: skip the splash and open the dark landing page. -->
+<noscript><meta http-equiv="refresh" content="0; url=index_dark.html"></noscript>
 <script>
-// Respect a theme the visitor previously chose (set by the toggle on either
-// landing page or either simulator page via localStorage['qas-theme']).
-// Falls back to dark if nothing is saved or storage is unavailable
-// (e.g. private browsing), so this never throws and always redirects.
-var theme = 'dark';
-try {
-  var saved = localStorage.getItem('qas-theme');
-  if (saved === 'light' || saved === 'dark') theme = saved;
-} catch (e) {
-  // localStorage inaccessible — keep default
-}
-window.location.replace('https://nazat02.github.io/Quantum-Atom/index_' + theme + '.html');
+/* Resolve theme BEFORE first paint so there is no light/dark flash.
+   Same key the rest of the site uses; falls back to dark like before. */
+(function () {
+  var t = 'dark';
+  try { var s = localStorage.getItem('qas-theme'); if (s === 'light' || s === 'dark') t = s; } catch (e) {}
+  document.documentElement.setAttribute('data-theme', t);
+  var m = document.createElement('meta');
+  m.name = 'theme-color'; m.content = t === 'light' ? '#eef1ff' : '#090605';
+  document.head.appendChild(m);
+})();
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Space+Grotesk:wght@500..700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:radial-gradient(ellipse 75% 65% at 50% 58%,#3a0c09 0%,#130d0b 48%,#090605 100%);
+  --text:#f6ebe2;--muted:#bba89b;--accent:#ff5b14;
+  --face:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+}
+:root[data-theme=light]{
+  --bg:radial-gradient(800px 600px at 8% -5%,rgba(105,82,224,.30),transparent 60%),
+       radial-gradient(800px 700px at 100% 10%,rgba(56,189,248,.26),transparent 55%),
+       radial-gradient(900px 800px at 30% 95%,rgba(244,114,182,.22),transparent 55%),
+       linear-gradient(160deg,#eef1ff 0%,#e3f6fb 55%,#fdf1f8 100%);
+  --text:#211c42;--muted:rgba(33,28,66,.62);--accent:#6952e0;
+  --face:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);background-color:#090605;color:var(--text);font-family:var(--face);
+  transition:opacity .45s ease;-webkit-tap-highlight-color:transparent}
+:root[data-theme=light] body{background-color:#eef1ff}
+body.leaving{opacity:0}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.tag{position:fixed;left:0;right:0;bottom:calc(52px + env(safe-area-inset-bottom,0px));text-align:center;
+  font-size:.95rem;font-weight:500;letter-spacing:.01em;color:var(--muted);opacity:0;transition:opacity .8s ease}
+.tag.on{opacity:1}
+.by{position:fixed;left:0;right:0;text-align:center;font-size:clamp(.95rem,2.4vw,1.2rem);font-weight:500;
+  letter-spacing:.01em;color:var(--muted);opacity:0;transform:translateY(6px);transition:opacity .9s ease,transform .9s ease;pointer-events:none}
+.by.on{opacity:1;transform:none}
+.bar{position:fixed;left:0;right:0;bottom:0;height:3px;background:var(--accent);transform-origin:0 50%;transform:scaleX(0);
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+.skip{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));
+  font:500 .85rem var(--face);color:var(--muted);background:none;border:1px solid transparent;border-radius:8px;padding:8px 12px;cursor:pointer}
+.skip:hover{color:var(--text)}
+.skip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
 </head>
-<body></body>
+<body>
+<h1 class="sr">Built by Md. Shaikhul Hadis Nazat</h1>
+<div class="sr" role="status">Loading Quantum Atom</div>
+<canvas id="stage" aria-hidden="true"></canvas>
+<p class="by" id="by">Built by</p>
+<p class="tag" id="tag">Quantum Atom</p>
+<div class="bar" id="bar"></div>
+<button class="skip" id="skip" type="button">Skip</button>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ───────── Config ───────── */
+  var NAME_WIDE   = ['Md. Shaikhul Hadis Nazat'];
+  var NAME_NARROW = ['Md. Shaikhul', 'Hadis Nazat'];          // phones: two lines
+  var T = { start: 250, formEnd: 2700, crisp0: 2350, crisp1: 3150, leave: 3700 }; // ms
+  var WATCHDOG_MS = 9000;                                       // never trap a visitor
+
+  var THEMES = {
+    dark:  { rgb: ['255,91,20', '255,178,31', '226,39,26', '255,122,58'], blend: 'lighter',
+             alpha: .55, text: '#f6ebe2', glow: 'rgba(255,91,20,.55)',
+             font: '800 100px "Bricolage Grotesque"', face: '800 {s}px "Bricolage Grotesque","Segoe UI",system-ui,sans-serif' },
+    light: { rgb: ['105,82,224', '155,138,251', '56,189,248', '244,114,182'], blend: 'source-over',
+             alpha: .34, text: '#211c42', glow: 'rgba(105,82,224,.25)',
+             font: '700 100px "Space Grotesk"', face: '700 {s}px "Space Grotesk","Segoe UI",system-ui,sans-serif' }
+  };
+
+  /* ───────── Setup ───────── */
+  var theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  var P = THEMES[theme];
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) T = { start: 0, formEnd: 1, crisp0: 0, crisp1: 500, leave: 1500 };
+
+  var canvas = document.getElementById('stage'), ctx = canvas.getContext('2d');
+  var tagEl = document.getElementById('tag'), byEl = document.getElementById('by'), barEl = document.getElementById('bar');
+  // Build the destination safely: location.href can be an invalid base
+  // (about:srcdoc, blob:, data:, sandboxed previews), which makes `new URL` throw.
+  var file = 'index_' + theme + '.html', destHref = file;
+  try { destHref = new URL(file, location.href).href; } catch (e) {}
+  try { if (/^https?:|^file:/.test(destHref)) destHref += location.search + location.hash; } catch (e) {}
+
+  var gone = false, leaving = false;
+  function go() {
+    if (gone) return; gone = true;
+    try { location.replace(destHref); } catch (e) { try { location.href = destHref; } catch (e2) {} }
+  }
+  function leave() {
+    if (leaving) return; leaving = true;
+    document.body.classList.add('leaving');
+    setTimeout(go, 450);
+  }
+  setTimeout(go, WATCHDOG_MS);
+  document.getElementById('skip').addEventListener('click', function (e) { e.stopPropagation(); leave(); });
+  document.addEventListener('click', leave);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') leave(); });
+
+  // Warm the cache so the landing page appears instantly after the splash.
+  try { var l = document.createElement('link'); l.rel = 'prefetch'; l.href = destHref; document.head.appendChild(l); } catch (e) {}
+
+  /* ───────── Cloud sprites (one soft puff per brand colour) ───────── */
+  var sprites = P.rgb.map(function (c) {
+    var s = document.createElement('canvas'); s.width = s.height = 64;
+    var g = s.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, 'rgba(' + c + ',1)'); r.addColorStop(.4, 'rgba(' + c + ',.55)'); r.addColorStop(1, 'rgba(' + c + ',0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64); return s;
+  });
+
+  /* ───────── Layout: sample the name's letterforms into target points ───────── */
+  var W, H, dpr, lines, fontPx, lineH, step, parts = [], bgClouds = [];
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function layout() {
+    W = innerWidth; H = innerHeight; dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var narrow = W < 700;
+    lines = narrow ? NAME_NARROW : NAME_WIDE;
+
+    var m = document.createElement('canvas').getContext('2d');
+    m.font = P.face.replace('{s}', 100);
+    var widest = Math.max.apply(null, lines.map(function (t) { return m.measureText(t).width; }));
+    fontPx = Math.min((W * (narrow ? .86 : .8)) / widest * 100, narrow ? 120 : 112);
+    lineH = fontPx * 1.15; step = narrow ? 4 : 5;
+
+    var off = document.createElement('canvas'); off.width = W; off.height = H;
+    var o = off.getContext('2d');
+    o.font = P.face.replace('{s}', fontPx); o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#000';
+    lines.forEach(function (t, i) { o.fillText(t, W / 2, H / 2 + (i - (lines.length - 1) / 2) * lineH); });
+    var data = o.getImageData(0, 0, W, H).data, targets = [];
+    for (var y = 0; y < H; y += step) for (var x = 0; x < W; x += step)
+      if (data[(y * W + x) * 4 + 3] > 120) targets.push([x + rand(-1, 1), y + rand(-1, 1)]);
+
+    byEl.style.top = (H / 2 - (lines.length * lineH) / 2 - (narrow ? 34 : 44)) + 'px';
+
+    var r = step * 1.55;
+    parts = targets.map(function (p) {
+      return { tx: p[0], ty: p[1], sx: rand(-.1 * W, 1.1 * W), sy: rand(-.1 * H, 1.1 * H),
+               d: rand(0, .3) + .2 * (p[0] / W), s0: r * rand(5, 13), r: r * rand(.85, 1.15),
+               ph: rand(0, 6.28), sp: rand(.4, 1), wob: rand(14, 46), c: (Math.random() * sprites.length) | 0 };
+    });
+    bgClouds = [];
+    for (var i = 0; i < 12; i++) bgClouds.push({ x: rand(0, W), y: rand(0, H), r: rand(140, 300) * (W < 700 ? .6 : 1),
+      v: rand(6, 16), c: (Math.random() * sprites.length) | 0 });
+  }
+
+  /* ───────── Render ───────── */
+  var ease = function (x) { return 1 - Math.pow(1 - x, 3); };
+  var clamp = function (x) { return x < 0 ? 0 : x > 1 ? 1 : x; };
+  var smooth = function (x) { x = clamp(x); return x * x * (3 - 2 * x); };
+  var t0 = 0;
+
+  function drawText(alpha) {
+    if (alpha <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'source-over';
+    ctx.font = P.face.replace('{s}', fontPx); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = P.text; ctx.shadowColor = P.glow; ctx.shadowBlur = 22;
+    lines.forEach(function (t, i) { ctx.fillText(t, W / 2, H / 2 + (i - (lines.length - 1) / 2) * lineH); });
+    ctx.restore();
+  }
+
+  function frame(now) {
+    if (gone) return;
+    var t = now - t0, form = clamp((t - T.start) / (T.formEnd - T.start)), appear = smooth(t / 700);
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = P.blend;
+
+    // slow background clouds, dissolving as the name forms
+    var bgA = P.alpha * .6 * appear * (1 - smooth(form * 1.2));
+    if (bgA > .005) bgClouds.forEach(function (c) {
+      c.x += c.v / 60; if (c.x - c.r > W) c.x = -c.r;
+      ctx.globalAlpha = bgA; ctx.drawImage(sprites[c.c], c.x - c.r, c.y - c.r, c.r * 2, c.r * 2);
+    });
+
+    // particle clouds coalescing into letterforms
+    var settle = 1 - smooth((t - T.crisp0) / (T.crisp1 - T.crisp0)) * .55;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i], q = ease(clamp((form - p.d) / .5)), w = (1 - q) * p.wob, k = t * .001 * p.sp + p.ph;
+      var x = p.sx + (p.tx - p.sx) * q + Math.sin(k) * w, y = p.sy + (p.ty - p.sy) * q + Math.cos(k * 1.3) * w;
+      var s = p.s0 + (p.r - p.s0) * q;
+      ctx.globalAlpha = P.alpha * (.35 + .65 * q) * appear * settle;
+      ctx.drawImage(sprites[p.c], x - s, y - s, s * 2, s * 2);
+    }
+
+    drawText(smooth((t - T.crisp0) / (T.crisp1 - T.crisp0)));
+    if (t > 350) byEl.classList.add('on');
+    if (t > T.crisp1 - 200) tagEl.classList.add('on');
+    barEl.style.transform = 'scaleX(' + clamp(t / T.leave) + ')';
+    if (t >= T.leave) leave();
+    requestAnimationFrame(frame);
+  }
+
+  /* ───────── Boot: wait (briefly) for the brand font, then play ───────── */
+  function start() {
+    try { layout(); } catch (e) { return go(); }
+    var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(layout, 150); });
+    t0 = performance.now(); requestAnimationFrame(frame);
+  }
+  var fontReady = (document.fonts && document.fonts.load) ? document.fonts.load(P.font, 'Md. Shaikhul Hadis Nazat') : Promise.resolve();
+  Promise.race([fontReady, new Promise(function (r) { setTimeout(r, 1000); })]).then(start, start);
+})();
+</script>
+</body>
 </html>
