@@ -223,6 +223,23 @@ open index_dark.html      # or index_light.html
 
 ---
 
+## 🌐 Languages
+
+Pick a language with the globe button (top bar / landing page). The choice is remembered and applies to every page, instantly, with no reload. Chemistry symbols, formulas, equations and units never change; only the words do.
+
+| Language | Status |
+|---|---|
+| English | Stable |
+| العربية (Arabic, right-to-left) | **Beta** — AI translation and review (Claude) |
+| বাংলা (Bengali) | **Beta** — AI translation and review (Claude) |
+| 简体中文 (Chinese, Simplified) | **Beta** — AI translation and review (Claude) |
+| 한국어 (Korean) | **Beta** — AI translation and review (Claude) |
+| 日本語 (Japanese) | **Beta** — AI translation and review (Claude) |
+
+Adding a language means adding one file. See [`i18n/README.md`](i18n/README.md).
+
+---
+
 ## 🧱 Under the hood
 
 - **three.js r128** for 3D rendering
