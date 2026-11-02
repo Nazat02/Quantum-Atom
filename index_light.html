@@ -19432,6 +19432,18 @@ html[data-qa-lang="ru"] .hero-copy{min-width:0;max-width:100%;}
 html[data-qa-lang="ru"] .hero-eyebrow{display:flex;flex-wrap:wrap;max-width:100%;}
 .hero-title .line2{display:block;background:linear-gradient(100deg,var(--v1) 0%,var(--c1) 50%,var(--p1) 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+/* Gradient text is only painted inside its own box. With line-height < 1 the box is shorter than the glyphs, so
+   descenders/matras (e.g. Bengali "ণু", "ু") get clipped. Pad the box and cancel the padding with a negative
+   margin so layout is unchanged. */
+.hero-title .line2{padding-block:.04em .22em;margin-block:-.04em -.22em;}
+/* Indic/SE-Asian scripts: negative tracking breaks conjunct shaping and the tight line-height clips stacked marks. */
+.hero-title:lang(bn),.hero-title:lang(hi),.hero-title:lang(mr),.hero-title:lang(ne),.hero-title:lang(gu),.hero-title:lang(pa),
+.hero-title:lang(ta),.hero-title:lang(te),.hero-title:lang(kn),.hero-title:lang(ml),.hero-title:lang(si),
+.hero-title:lang(th),.hero-title:lang(my),.hero-title:lang(km),.hero-title:lang(lo){letter-spacing:0;line-height:1.25;}
+.hero-title:lang(bn) .line2,.hero-title:lang(hi) .line2,.hero-title:lang(mr) .line2,.hero-title:lang(ne) .line2,
+.hero-title:lang(gu) .line2,.hero-title:lang(pa) .line2,.hero-title:lang(ta) .line2,.hero-title:lang(te) .line2,
+.hero-title:lang(kn) .line2,.hero-title:lang(ml) .line2,.hero-title:lang(si) .line2,.hero-title:lang(th) .line2,
+.hero-title:lang(my) .line2,.hero-title:lang(km) .line2,.hero-title:lang(lo) .line2{padding-block:.06em .18em;margin-block:-.06em -.18em;}
 .hero-sub{font-size:1.05rem;color:var(--mid);max-width:560px;line-height:1.75;font-weight:400;
   margin:0 auto 44px;animation:fadeUp .7s .2s ease both;}
 .hero-sub em{color:var(--v1);font-style:normal;font-weight:600;}
