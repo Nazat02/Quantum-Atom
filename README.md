@@ -235,6 +235,7 @@ Pick a language with the globe button (top bar / landing page). The choice is re
 | 简体中文 (Chinese, Simplified) | **Beta** — awaiting native-speaker review |
 | 한국어 (Korean) | **Beta** — awaiting native-speaker review |
 | 日本語 (Japanese) | **Beta** — awaiting native-speaker review |
+| Italiano (Italian) | **Beta** — awaiting native-speaker review |
 
 Adding a language means adding one file. See [`i18n/README.md`](i18n/README.md).
 
