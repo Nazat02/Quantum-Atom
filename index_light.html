@@ -474,6 +474,21 @@
     });
   };
 
+  // After the user picks a language from the menu, reload the page so every string (including text that page scripts
+  // build at runtime, canvas labels and cached data) is rendered from scratch in that language.
+  // Only the picker calls this, so programmatic setLang() and cross-tab sync can never cause a reload loop.
+  QA.reloadForLang = function (code) {
+    try {
+      writeStore(code);                                   // make sure the choice is persisted before reloading
+      var u = new root.URL(root.location.href);
+      if (u.searchParams.has('lang')) {                   // an explicit ?lang= would otherwise override the new choice
+        u.searchParams.set('lang', code);
+        root.history.replaceState(null, '', u.toString());
+      }
+    } catch (e) {}
+    try { root.location.reload(); } catch (e) {}
+  };
+
   // Called by the inline boot snippet (synchronously, before first paint).
   QA.boot = function (code) {
     active = QA.has(code) ? code : 'en';
@@ -638,7 +653,7 @@
     m.list.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('.qa-menu-opt') : null; if (!b) return;
       var code = b.getAttribute('data-code'); closeMenu(true);
-      if (code !== active) QA.setLang(code);
+      if (code !== active) QA.setLang(code).then(function (applied) { if (applied === code) QA.reloadForLang(code); });
     });
     m.onResize = function () { if (menu === m) placeMenu(m); };
     m.onScroll = function (e) { if (menu === m && !m.panel.contains(e.target)) placeMenu(m); };
@@ -19419,17 +19434,16 @@ nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;heig
 /* ═══ HERO ═══ */
 #hero{position:relative;z-index:1;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;padding:120px 24px 80px;text-align:center;overflow:hidden;}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:.78rem;font-weight:600;
+.hero-eyebrow{display:inline-block;max-width:100%;box-sizing:border-box;text-align:center;line-height:1.5;font-size:.78rem;font-weight:600;
   color:var(--v1);border:1px solid var(--border);border-radius:999px;
   padding:8px 18px;background:var(--glass);backdrop-filter:blur(var(--blur));margin-bottom:32px;animation:fadeUp .7s ease both;
   box-shadow:var(--shadow);}
-.eyebrow-dot{width:7px;height:7px;border-radius:50%;background:var(--p1);box-shadow:0 0 10px var(--p1);animation:pulse 1.8s ease-in-out infinite;}
+.eyebrow-dot{display:inline-block;vertical-align:middle;margin-inline-end:9px;position:relative;top:-1px;width:7px;height:7px;border-radius:50%;background:var(--p1);box-shadow:0 0 10px var(--p1);animation:pulse 1.8s ease-in-out infinite;}
 .hero-title{font-family:var(--display);font-weight:600;font-size:clamp(3rem,9vw,7.4rem);
   line-height:.94;letter-spacing:-.03em;margin-bottom:20px;animation:fadeUp .7s .1s ease both;}
 .hero-title .line1{display:block;color:var(--hi);}
 html[data-qa-lang="ru"] .hero-title{font-size:clamp(2.8rem,6.6vw,6.6rem);}
 html[data-qa-lang="ru"] .hero-copy{min-width:0;max-width:100%;}
-html[data-qa-lang="ru"] .hero-eyebrow{display:flex;flex-wrap:wrap;max-width:100%;}
 .hero-title .line2{display:block;background:linear-gradient(100deg,var(--v1) 0%,var(--c1) 50%,var(--p1) 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 /* Gradient text is only painted inside its own box. With line-height < 1 the box is shorter than the glyphs, so

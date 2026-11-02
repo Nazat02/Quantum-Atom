@@ -474,6 +474,21 @@
     });
   };
 
+  // After the user picks a language from the menu, reload the page so every string (including text that page scripts
+  // build at runtime, canvas labels and cached data) is rendered from scratch in that language.
+  // Only the picker calls this, so programmatic setLang() and cross-tab sync can never cause a reload loop.
+  QA.reloadForLang = function (code) {
+    try {
+      writeStore(code);                                   // make sure the choice is persisted before reloading
+      var u = new root.URL(root.location.href);
+      if (u.searchParams.has('lang')) {                   // an explicit ?lang= would otherwise override the new choice
+        u.searchParams.set('lang', code);
+        root.history.replaceState(null, '', u.toString());
+      }
+    } catch (e) {}
+    try { root.location.reload(); } catch (e) {}
+  };
+
   // Called by the inline boot snippet (synchronously, before first paint).
   QA.boot = function (code) {
     active = QA.has(code) ? code : 'en';
@@ -638,7 +653,7 @@
     m.list.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('.qa-menu-opt') : null; if (!b) return;
       var code = b.getAttribute('data-code'); closeMenu(true);
-      if (code !== active) QA.setLang(code);
+      if (code !== active) QA.setLang(code).then(function (applied) { if (applied === code) QA.reloadForLang(code); });
     });
     m.onResize = function () { if (menu === m) placeMenu(m); };
     m.onScroll = function (e) { if (menu === m && !m.panel.contains(e.target)) placeMenu(m); };
