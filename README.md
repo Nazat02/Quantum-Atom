@@ -10,18 +10,18 @@
 
 <br>
 
-<img src="images/preview1.png" alt="Quantum Atom — main preview" width="100%">
+<img src="images/preview1.png" alt="Quantum Atom landing page in dark mode: hero heading, a glowing 3D orbital cloud and stats for 118 elements" width="100%">
 
 <table>
 <tr>
-<td><img src="images/preview2.png" alt="Preview 2"></td>
-<td><img src="images/preview3.png" alt="Preview 3"></td>
-<td><img src="images/preview4.png" alt="Preview 4"></td>
+<td><img src="images/preview2.png" alt="Hydrogen 1s orbital shown as a glowing spherical probability cloud in the Quantum Atom simulator"></td>
+<td><img src="images/preview3.png" alt="Water molecule H₂O in 3D with its bent 104.5° geometry and orbital clouds"></td>
+<td><img src="images/preview4.png" alt="Ammonia molecule NH₃ in 3D showing its trigonal pyramidal shape"></td>
 </tr>
 <tr>
-<td><img src="images/preview5.png" alt="Preview 5"></td>
-<td><img src="images/preview6.png" alt="Preview 6"></td>
-<td><img src="images/preview7.png" alt="Preview 7"></td>
+<td><img src="images/preview5.png" alt="Benzene C₆H₆ in 3D as a planar hexagonal ring of electron density"></td>
+<td><img src="images/preview6.png" alt="Quantum Atom landing page in light mode with the Launch Simulator button"></td>
+<td><img src="images/preview7.png" alt="Phosphorus atom in light mode with colour-coded p and d orbital lobes over a Cartesian grid"></td>
 </tr>
 </table>
 
@@ -260,6 +260,8 @@ Quantum-Atom/
 ├── simulator_light.html
 ├── nucleus_explorer.html       # nucleus → nucleons → quarks
 ├── nucleus_explorer_light.html
+├── sitemap.xml · robots.txt · 404.html · site.webmanifest · llms.txt   # search & sharing (generated)
+├── tools/seo/                  # SEO config, generator and validator — see tools/seo/README.md
 └── images/
 ```
 

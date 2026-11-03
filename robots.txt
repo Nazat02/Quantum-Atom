@@ -1,0 +1,7 @@
+# Quantum Atom — crawl policy.  NOTE: crawlers only read robots.txt at the HOST root. On a GitHub
+# Pages *project* site this file is not discovered; submit sitemap.xml in Search Console / Bing
+# Webmaster Tools instead, or serve the site from a custom domain root.
+User-agent: *
+Allow: /
+
+Sitemap: https://nazat02.github.io/Quantum-Atom/sitemap.xml

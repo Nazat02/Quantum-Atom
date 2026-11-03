@@ -1,0 +1,11 @@
+# Quantum Atom
+
+> Free, browser-based 3D simulator of atomic orbitals, molecules and nuclei. All 118 elements, real probability-cloud orbitals, VSEPR molecule geometry, antimatter mode and a Nucleus Explorer that zooms from the nucleus to quarks. No install, no account. Built by Md. Shaikhul Hadis Nazat.
+
+## Pages
+- [Home](https://nazat02.github.io/Quantum-Atom/index_dark.html): the story of the atom, from Democritus to quantum mechanics, and what the simulator shows.
+- [Simulator](https://nazat02.github.io/Quantum-Atom/simulator_dark.html): atoms, molecules, build mode, lessons, compare, excited states, antimatter.
+- [Nucleus Explorer](https://nazat02.github.io/Quantum-Atom/nucleus_explorer.html): continuous zoom from nucleus to quarks with pion exchange and gluon overlays.
+
+## Source
+- [GitHub repository](https://github.com/nazat02/Quantum-Atom): README with controls, languages and project structure.
