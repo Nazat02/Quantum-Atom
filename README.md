@@ -6,7 +6,7 @@
 
 **All 118 elements in one browser tab, free.**<br>See real orbitals, real molecules and real nuclei in 3D, with no install and no account.
 
-[**▶ Launch the Simulator**](https://nazat02.github.io/Quantum-Atom/) &nbsp;·&nbsp; [The Story](#-the-story) &nbsp;·&nbsp; [Features](#-what-you-can-do) &nbsp;·&nbsp; [Run It](#-run-it-in-30-seconds) &nbsp;·&nbsp; [Languages](#-languages) &nbsp;·&nbsp; [**Support the Project**](#-support-the-project)
+[**▶ Launch the Simulator**](https://nazat02.github.io/Quantum-Atom/) &nbsp;·&nbsp; [The Story](#-the-story) &nbsp;·&nbsp; [Features](#-what-you-can-do) &nbsp;·&nbsp; [Run It](#-run-it-in-30-seconds) &nbsp;·&nbsp; [**Support the Project**](#-support-the-project)
 
 <br>
 
@@ -113,9 +113,7 @@ The landing page walks through history: **Democritus** guessing in 400 BCE, **Da
 ### Explore it
 - 🧪 **All 118 elements**, hydrogen to oganesson, with live search and arrow-key cycling.
 - 🔮 **Hypothetical elements (Z = 119–300)**, in their own tab (key `4`): predicted configurations, liquid-drop nuclei, fissility and a Dirac 1s level that goes supercritical near Z ≈ 171. Z ≤ 172 follows published shell-filling orders; Z > 172 is an extrapolation and is labelled as such. Nothing there has been observed. In this tab only the controls that make sense for it are shown (view modes, antimatter, grid, reset); molecule, reaction, compare, lessons, Data Lab, Nucleus Explorer, excited-state, Smooth and Ultra controls are hidden.
-- 🧬 **140+ curated molecules**, including a full B-form **DNA double helix** (10 base pairs, 588 atoms), with real VSEPR geometry and sigma/pi bond rendering.
-- 🔤 **Build mode** for anything else: type any element or compound name. Straight and singly-branched alkanes, monocyclic cycloalkanes and simple alcohol, amine or ether substitutions are computed offline in the browser; everything else is fetched live from PubChem as real 3D coordinates. Misspell a name and Build suggests the closest match.
-- ⚗️ **Reactions.** A reaction library with energetics (ΔH, activation barrier), searchable by formula or equation.
+- 🧬 **52 molecules**, plus **Build mode** for anything else (online lookup via PubChem).
 - ⚡ **Excited State.** Promote electrons to higher orbitals and watch the transition.
 - 🎲 **Surprise Me** and 🕘 **Recently Viewed.**
 
@@ -124,7 +122,6 @@ The landing page walks through history: **Democritus** guessing in 400 BCE, **Da
 - 🎨 Colorblind-safe palette
 - 🔮 Real Image · Ultra · Smooth · Spherical · Cartesian Grid
 - 🪞 Antimatter mode, for atoms *and* molecules
-- 🌐 **11 interface languages**, switchable live with no reload (see [Languages](#-languages))
 
 ### Go all the way down
 - 🔭 **Nucleus Explorer.** Continuous zoom from nucleus to quarks, with toggleable **pion exchange** and **gluon field** overlays, a color legend, and element-by-element navigation.
@@ -205,7 +202,6 @@ open index_dark.html      # or index_light.html
 | Atomic data | **DATA** panel |
 | Reset view | **RESET** |
 | Toggle modes | **ANTIMATTER · REAL IMAGE · CARTESIAN GRID · SMOOTH ORBITALS · ULTRA MODE · SPHERICAL MODE · EXCITED STATE** |
-| Change language | Globe button (top bar / landing page) |
 | Lessons · Compare · Recents · Surprise · Analysis · Colorblind | Toolbar icons (top right) |
 | Open Nucleus Explorer | Nucleus icon in the toolbar |
 
@@ -229,60 +225,21 @@ open index_dark.html      # or index_light.html
 
 ## 🌐 Languages
 
-Quantum Atom speaks **11 languages**. Pick one with the globe button (top bar / landing page). The choice is remembered and applies to every page, instantly, with no reload. Chemistry symbols, formulas, equations and units never change; only the words do. Numbers and dates are formatted for the selected language.
+Pick a language with the globe button (top bar / landing page). The choice is remembered and applies to every page, instantly, with no reload. Chemistry symbols, formulas, equations and units never change; only the words do.
 
-| Language | Native name | Code | Direction | Status | Dictionary version |
-|---|---|:---:|:---:|---|:---:|
-| English | English | `en` | LTR | **Stable** (source language) | 1 |
-| Arabic | العربية | `ar` | **RTL** | Beta, awaiting native-speaker review | 1 |
-| Bengali | বাংলা | `bn` | LTR | Beta, awaiting native-speaker review | 2 |
-| Chinese (Simplified) | 简体中文 | `zh` | LTR | Beta, awaiting native-speaker review | 2 |
-| German | Deutsch | `de` | LTR | Beta, awaiting native-speaker review | 1 |
-| Hindi | हिन्दी | `hi` | LTR | Beta, awaiting native-speaker review | 2 |
-| Italian | Italiano | `it` | LTR | Beta, automated check and fixes applied 2026-11-02; awaiting native-speaker review | 1 |
-| Japanese | 日本語 | `ja` | LTR | Beta, awaiting native-speaker review | 2 |
-| Korean | 한국어 | `ko` | LTR | Beta, awaiting native-speaker review | 1 |
-| Russian | Русский | `ru` | LTR | Beta, awaiting native-speaker review | 1 |
-| Spanish | Español | `es` | LTR | Beta, awaiting native-speaker review | 2 |
-
-Every language covers all **1,852 English interface strings** (Arabic and Russian also carry a few extra language-specific keys), and each language's dictionary is identical across all seven pages. **Beta** means the translation is complete but has not yet been signed off by a native speaker. If you spot a mistake, please open an issue or pull request.
-
-### How translations are stored
-
-There is no separate `i18n/` folder. Each language is a dictionary registered inside the page itself, so every tool stays a single self-contained HTML file with no build step:
-
-```js
-QA_I18N.add("it", {
-  "landing.bc_title.the_core_idea": "L'idea di fondo",
-  "sim.zsl.zoom": "Zoom",
-  // ...1,852 keys, same as English
-}, { "name": "Italian", "native": "Italiano", "dir": "ltr", "status": "beta",
-     "reviewer": "Awaiting native-speaker review", "version": 1,
-     "date": "2026-11-02", "numerals": "latn", "lang": "it" });
-```
-
-Keys are namespaced by page (`landing.*`, `sim.*`, `nucleus.*`), plus shared `name.element.*`, `name.molecule.*` and `ui.*`. English (`en`) is the source of truth, and a key missing from a language falls back to the English string.
-
-| Meta field | Purpose |
+| Language | Status |
 |---|---|
-| `name` / `native` | English and native display names in the picker |
-| `dir` | `ltr` or `rtl` (Arabic is RTL and mirrors the layout) |
-| `status`, `reviewer` | `stable` or `beta`, and who reviewed it |
-| `version`, `date` | Dictionary revision and last-updated date |
-| `numerals`, `lang` | Digit system (`latn`) and the HTML `lang` / `Intl` locale code |
-| `fontFamily`, `fontHref`, `noItalic`, `tracking`, `textWrap` | Optional per-script typography (Noto Sans families for Arabic, Bengali, Devanagari, Japanese, Korean, Chinese, Russian) |
+| English | Stable |
+| العربية (Arabic, right-to-left) | **Beta** — awaiting native-speaker review |
+| বাংলা (Bengali) | **Beta** — awaiting native-speaker review |
+| 简体中文 (Chinese, Simplified) | **Beta** — awaiting native-speaker review |
+| 한국어 (Korean) | **Beta** — awaiting native-speaker review |
+| 日本語 (Japanese) | **Beta** — awaiting native-speaker review |
+| Italiano (Italian) | **Beta** — awaiting native-speaker review |
+| Français (French) | **Beta** — awaiting native-speaker review |
+| Ελληνικά (Greek) | **Beta** — awaiting native-speaker review |
 
-The runtime lives in `QA_I18N` (`add`, `setLang`, `applyDom`, `mountPicker`, `live`, `n`, `date`) and fires a `qa:langchange` event when the language switches. Elements are translated through `data-i18n*` attributes in the HTML and `qaT("key", {params})` calls in the scripts.
-
-### Adding or improving a language
-
-Because the dictionaries are embedded, **adding a language means adding one `QA_I18N.add(...)` block to each of the seven HTML files**: `index_dark.html`, `index_light.html`, `simulator_dark.html`, `simulator_light.html`, `nucleus_explorer.html` and `nucleus_explorer_light.html` (`index.html` is the redirect page and carries it too). Keep the dictionary identical in all files.
-
-1. Copy the `en` block and translate every value. Keep `{placeholders}` (`{p1}`, `{length}`, `{Z}`) and HTML tags (`<em>`, `<br>`, `<span>`) exactly as they are.
-2. Leave formulas, symbols, equations and units untouched.
-3. Avoid grammar that depends on a count (`item(s)`, suffix placeholders such as `{p1}` used for English plurals); reword it so it reads correctly for 1 and for many.
-4. Set the meta block (`status: "beta"` until a native speaker signs off) and add a `fontFamily`/`fontHref` if the script needs one.
-5. Check that the language has all 1,852 keys, no placeholder or tag mismatches, and loads on every page.
+Adding a language means adding one file. See [`i18n/README.md`](i18n/README.md).
 
 ---
 
@@ -292,7 +249,6 @@ Because the dictionaries are embedded, **adding a language means adding one `QA_
 - **Custom GLSL shaders** for point-cloud orbitals (additive blending, per-point sizing) and Fresnel-shaded meshes in Ultra Mode
 - **Vanilla JavaScript**, one self-contained HTML file per tool
 - **PubChem** REST API for Build mode
-- **Built-in i18n runtime** (`QA_I18N`), 11 languages, live switching, RTL support, `Intl` number and date formatting
 - **Zero build step**
 
 ```
@@ -300,16 +256,12 @@ Quantum-Atom/
 ├── index.html                  # theme-aware redirect to the landing page
 ├── index_dark.html             # landing page: story, history, Bohr vs Quantum
 ├── index_light.html
-├── simulator_dark.html         # atoms · molecules · build · reactions · lessons · compare · analysis
+├── simulator_dark.html         # atoms · molecules · build · lessons · compare · analysis
 ├── simulator_light.html
 ├── nucleus_explorer.html       # nucleus → nucleons → quarks
 ├── nucleus_explorer_light.html
-├── images/                     # README previews
-├── LICENSE
-└── README.md
+└── images/
 ```
-
-Each HTML file is self-contained, including its copy of all 11 language dictionaries.
 
 ---
 
