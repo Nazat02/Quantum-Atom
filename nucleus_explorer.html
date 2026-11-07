@@ -25382,6 +25382,9 @@ html[data-glass="off"] #statcard:not(.collapsed) #stattoggle{border-bottom-color
 .qai-meta{display:flex;align-items:center;gap:12px;padding:0 6px;min-height:22px;font-family:var(--q-mono);font-size:.68rem;color:var(--q-ink3)}
 .qai-time{font-variant-numeric:tabular-nums}
 .qai-day{align-self:center;max-width:100%;padding:3px 12px;border-radius:999px;background:var(--q-raise);border:1px solid var(--q-line);font-family:var(--q-mono);font-size:.7rem;color:var(--q-ink3);text-align:center}
+.qai-hero{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--q-grad);color:#fff;box-shadow:0 2px 8px rgba(var(--q-acc-rgb,255,85,0),.28)}
+.qai-hero .qai-ico{width:14px;height:14px}
+.qai-msg.bot:has(.qai-caret) .qai-hero .qai-spin{animation:qaiSpin 4s linear infinite}
 .qai-who{display:flex;align-items:center;gap:8px;margin-bottom:2px;font-family:var(--q-mono);font-size:.74rem;color:var(--q-ink3)}
 .qai-mark{--pc:#888;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex:none;font-family:var(--q-mono);font-size:.66rem;font-weight:600;letter-spacing:-.02em;
   color:var(--q-ink);border:1px solid color-mix(in srgb,var(--pc) 60%,transparent);background:color-mix(in srgb,var(--pc) 20%,transparent)}
@@ -25488,7 +25491,7 @@ html[data-glass="off"] #statcard:not(.collapsed) #stattoggle{border-bottom-color
 @media (prefers-reduced-motion:reduce){
   .qai-panel,.qai-panel.is-open{transition:none}.qai-caret::after{animation:none}
 }
-.qai-fab{display:grid;place-items:center;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:var(--q-grad);color:#fff;cursor:pointer;
+.qai-fab{display:grid;place-items:center;border-radius:50%;border:0;background:var(--q-grad);color:#fff;cursor:pointer;
   box-shadow:0 6px 20px rgba(var(--q-acc-rgb),.4),inset 0 1px 0 rgba(255,255,255,.22);transition:filter .15s,transform .15s}
 .qai-fab:hover{filter:brightness(1.1)}.qai-fab:active{transform:scale(.95)}
 .qai-root [hidden]{display:none !important}
@@ -25633,8 +25636,8 @@ html[data-glass="off"] #statcard:not(.collapsed) #stattoggle{border-bottom-color
 .qai-launch:hover .qai-spin,.qai-launch.is-busy .qai-spin{animation:qaiSpin 7s linear infinite}
 .qai-launch .qai-ico{filter:drop-shadow(0 0 3px rgba(var(--q-acc-rgb,255,85,0),.0))}
 .qai-fab .qai-ico{width:24px;height:24px}
-.qai-root[data-theme="dark"] .qai-fab{box-shadow:0 0 0 1px rgba(var(--q-acc-rgb),.3),0 6px 24px rgba(var(--q-acc-rgb),.5),inset 0 1px 0 rgba(255,255,255,.26)}
-.qai-root[data-theme="light"] .qai-fab{box-shadow:0 8px 22px rgba(76,60,160,.34),inset 0 1px 0 rgba(255,255,255,.4)}
+.qai-root[data-theme="dark"] .qai-fab{box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.qai-root[data-theme="light"] .qai-fab{box-shadow:0 4px 14px rgba(76,60,160,.28)}
 .qai-fab{width:48px;height:48px}
 @media (prefers-reduced-motion:reduce){.qai-spin,.qai-spark{animation:none !important}}
 
@@ -28837,13 +28840,9 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   /* ───────────── helpers ───────────── */
   /* Brand mark: an atom (two tilted orbits, two electrons) with an AI spark as its nucleus. One path set drawn in currentColor, so
      the same mark works on the dark and light themes, on gradient buttons and on plain tinted ones. */
-  function brandMark(size, cls) {
+  function brandMark(size, cls) { // a single four-point spark; the round themed button behind it is the circle (orange in dark, blue in light)
     return '<svg class="qai-ico' + (cls ? ' ' + cls : '') + '" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">' +
-      '<g class="qai-spin" stroke="currentColor" stroke-width="1.5">' +
-      '<ellipse cx="12" cy="12" rx="10.5" ry="4.6" transform="rotate(-30 12 12)"/>' +
-      '<ellipse cx="12" cy="12" rx="10.5" ry="4.6" transform="rotate(30 12 12)" opacity=".6"/>' +
-      '<circle cx="21.1" cy="6.75" r="1.6" fill="currentColor" stroke="none"/><circle cx="2.9" cy="6.75" r="1.3" fill="currentColor" stroke="none" opacity=".8"/>' +
-      '</g><path class="qai-spark" d="M12 8c.5 2.7 1.3 3.5 4 4-2.7.5-3.5 1.3-4 4-.5-2.7-1.3-3.5-4-4 2.7-.5 3.5-1.3 4-4Z" fill="currentColor"/></svg>';
+      '<g class="qai-spin"><path fill="currentColor" d="M12 4.5C12.51 9.1 14.9 11.49 19.5 12C14.9 12.51 12.51 14.9 12 19.5C11.49 14.9 9.1 12.51 4.5 12C9.1 11.49 11.49 9.1 12 4.5Z"/></g></svg>';
   }
   var ICON = {
     launch: brandMark(20),
@@ -31033,7 +31032,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var p = QAI.provider(ui.sel.providerId);
     var d = new Date(); dayDivider(d);
     var webLine = h('div', { class: 'qai-web-line', hidden: true }), prose = h('div', { class: 'qai-prose qai-caret' }), bubble = h('div', { class: 'qai-bubble' }, webLine, prose), meta = h('div', { class: 'qai-meta' }, timeEl(d));
-    var node = h('div', { class: 'qai-msg bot' }, h('div', { class: 'qai-who' }, mark(p), h('span', { text: p.name + ' · ' + modelName(ui.sel) })), bubble, meta);
+    var node = h('div', { class: 'qai-msg bot' }, h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(14) }), mark(p), h('span', { text: p.name + ' · ' + modelName(ui.sel) })), bubble, meta);
     node._prose = prose; node._bubble = bubble; node._meta = meta; node._web = webLine; node._src = []; node._notes = []; el.log.appendChild(node); return node;
   }
   /* Errors are always shown as: a short title, what happened, and buttons for the next step. Never raw provider text. */
