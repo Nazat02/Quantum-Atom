@@ -29954,6 +29954,27 @@ html[data-glass="off"] #statcard:not(.collapsed) #stattoggle{border-bottom-color
   .qai-log{padding:14px 12px 18px}
 }
 @media (prefers-reduced-motion:reduce){.qai-sugg button,.qai-sugg button::after,.qai-fab,.qai-iconbtn{transition:none}.qai-sugg button:hover{transform:none}}
+/* ═══ Glass OFF (html[data-glass="off"]): flat AI panel — black surfaces, solid orange, no gradients / glow / translucency ═══ */
+html[data-glass="off"] .qai-root{--q-grad:var(--q-acc);--q-surface:#000;--q-raise:#000;--q-raise2:#1a0800;--q-line:rgba(var(--q-acc-rgb),.4);--q-line2:rgba(var(--q-acc-rgb),.5);--q-shadow:none;--q-ontint:transparent}
+html[data-glass="off"] .qai-root :is(.qai-panel,.qai-picker){background:#000;box-shadow:none;border-color:var(--q-acc)}
+html[data-glass="off"] .qai-root .qai-head{background:#000;border-bottom-color:var(--q-acc)}
+html[data-glass="off"] .qai-root .qai-head::after{background:var(--q-acc);background-size:auto;animation:none !important}
+html[data-glass="off"] .qai-root :is(.qai-hero,.qai-orb,.qai-fab,.qai-send:not(:disabled),.qai-btn:not(.ghost),.qai-iconbtn,.qai-msg.user .qai-bubble,.qai-choice.is-picked,.qai-dots i){
+  background:var(--q-acc);background-image:none;box-shadow:none;border:0;text-shadow:none}
+html[data-glass="off"] .qai-root .qai-title::before{background:var(--q-spark) center/16px no-repeat,var(--q-acc);box-shadow:none}
+html[data-glass="off"] .qai-root :is(.qai-iconbtn:hover,.qai-btn:hover:not(:disabled),.qai-fab:hover){background:#ff7a1a;filter:none;box-shadow:none}
+html[data-glass="off"] .qai-root .qai-iconbtn[aria-pressed="true"]{background:#000;color:var(--q-acc);box-shadow:none;border:2px solid var(--q-acc)}
+html[data-glass="off"] .qai-root .qai-send:disabled{background:#000;border:1px solid var(--q-line2);box-shadow:none}
+html[data-glass="off"] .qai-root .qai-btn.ghost{background:#000;border:1px solid var(--q-acc);box-shadow:none}
+html[data-glass="off"] .qai-root :is(.qai-msg.bot .qai-bubble,.qai-seeing,.qai-box,.qai-sugg button,.qai-model,.qai-web,.qai-card,.qai-key,.qai-inp,.qai-file,.qai-day,.qai-pbtn,.qai-prm-play,.qai-code,.qai-plot,.qai-tw,.qai-error){background:#000;box-shadow:none}
+html[data-glass="off"] .qai-root :is(.qai-msg.bot.is-thinking .qai-bubble,.qai-msg.bot.is-streaming .qai-bubble){border-color:var(--q-acc);box-shadow:none}
+html[data-glass="off"] .qai-root :is(.qai-sugg button:hover,.qai-rowbtn:hover,.qai-opt:hover,.qai-opt:focus-visible,.qai-link:hover){background:#1a0800}
+html[data-glass="off"] .qai-root :is(.qai-box:focus-within,.qai-inp:focus-within){box-shadow:none;border-color:var(--q-acc)}
+html[data-glass="off"] .qai-root :is(.qai-tw th,.qai-chip,.qai-web.is-on,.qai-pbtn[aria-pressed="true"],.qai-rbadge,.qai-gnum,.qai-file-ic,.qai-choice:not(.is-picked),.qai-prose code){background:#1a0800;box-shadow:none}
+html[data-glass="off"] .qai-root .qai-tw tbody tr:nth-child(even) td{background:#0d0400}
+html[data-glass="off"] .qai-root :is(.qai-seeing i,.qai-orb,.qai-hero,.qai-title::before){box-shadow:none}
+html[data-glass="off"] .qai-root :is(.qai-hero,.qai-orb,.qai-send,.qai-launch){animation:none !important}
+html[data-glass="off"] .qai-root .qai-fab{box-shadow:none;border:1px solid var(--q-acc)}
 </style>
 
 <!-- qa-ai:end -->
