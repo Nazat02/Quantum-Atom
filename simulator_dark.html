@@ -26436,6 +26436,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:2px solid rgba
 .cmp-header h3,#lesson-player-title,.dl-sh-head b,.bsel-head b{font-size:.86rem;}
 .cmp-close{width:36px;height:36px;border-radius:50%;}
 .cmp-row,.an-row{padding:11px 0;}
+.cmp-row{padding:12px 14px;gap:12px;line-height:1.5;}
+.cmp-val{overflow-wrap:anywhere;}
 .cmp-label,.an-key{color:rgba(255,255,255,.72);}
 .cmp-val,.an-val{color:rgba(255,255,255,.92);}
 .lesson-item{padding:14px 16px;border-radius:12px;}
@@ -26470,7 +26472,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:2px solid rgba
   .rbtn{min-height:44px;}
   .compare-card{width:94vw;max-height:88dvh;padding:20px 16px 24px;border-radius:20px;}
   .cmp-pickers{grid-template-columns:1fr;}
-  .cmp-row{grid-template-columns:1fr 1fr 1fr;gap:6px;}
+  .cmp-row{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);gap:10px;padding:13px 14px !important;}
+  .cmp-label{letter-spacing:.02em;overflow-wrap:anywhere;}
   .topbar-text{min-width:0;}
   .dl-sheet,.bsel-panel{border-radius:22px 22px 0 0;}
 }
