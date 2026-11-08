@@ -25279,7 +25279,6 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 .qai-day{align-self:center;max-width:100%;padding:3px 12px;border-radius:999px;background:var(--q-raise);border:1px solid var(--q-line);font-family:var(--q-mono);font-size:.7rem;color:var(--q-ink3);text-align:center}
 .qai-hero{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--q-grad);color:#fff;box-shadow:0 2px 8px rgba(var(--q-acc-rgb,255,85,0),.28)}
 .qai-hero .qai-ico{width:14px;height:14px}
-.qai-msg.bot:has(.qai-caret) .qai-hero .qai-spin{animation:qaiSpin 4s linear infinite}
 .qai-who{display:flex;align-items:center;gap:8px;margin-bottom:2px;font-family:var(--q-mono);font-size:.74rem;color:var(--q-ink3)}
 .qai-mark{--pc:#888;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex:none;font-family:var(--q-mono);font-size:.66rem;font-weight:600;letter-spacing:-.02em;
   color:var(--q-ink);border:1px solid color-mix(in srgb,var(--pc) 60%,transparent);background:color-mix(in srgb,var(--pc) 20%,transparent)}
@@ -25299,8 +25298,44 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 .qai-tw tbody tr:nth-child(even) td{background:var(--q-raise)}
 .qai-tw .qai-c{text-align:center}.qai-tw .qai-r{text-align:right}
 .qai-prose em{font-style:italic}
-.qai-caret::after{content:"";display:inline-block;width:.5em;height:1em;margin-left:2px;vertical-align:-.15em;background:var(--q-acc);border-radius:2px;animation:qai-blink 1s steps(2) infinite}
-@keyframes qai-blink{50%{opacity:0}}
+/* ── Chat polish: typing indicator, streaming states, entrance, branded accents ── */
+.qai-msg{animation:qaiRise .34s cubic-bezier(.2,.8,.2,1) both}
+@keyframes qaiRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.qai-msg.bot .qai-bubble{background:linear-gradient(180deg,rgba(var(--q-acc-rgb),.07),rgba(var(--q-acc-rgb),0) 72%),var(--q-raise);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 3px rgba(0,0,0,.14);transition:border-color .35s,box-shadow .35s}
+.qai-msg.bot.is-thinking .qai-bubble,.qai-msg.bot.is-streaming .qai-bubble{border-color:rgba(var(--q-acc-rgb),.38);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 3px rgba(var(--q-acc-rgb),.07),0 6px 22px rgba(var(--q-acc-rgb),.10)}
+.qai-who>span:last-child{color:var(--q-ink2);font-weight:600;letter-spacing:.01em}
+.qai-typing{display:inline-flex;align-items:center;gap:10px;min-height:22px}
+.qai-msg.bot:not(.is-thinking) .qai-typing{display:none}
+.qai-msg.bot.is-thinking .qai-prose{display:none}
+.qai-msg.bot.is-thinking .qai-bubble{display:inline-flex;flex-direction:column;align-items:flex-start;gap:8px;width:auto;padding:12px 18px;border-radius:6px 20px 20px 20px}
+.qai-msg.bot.is-thinking .qai-web-line{margin:0}
+.qai-dots{display:inline-flex;align-items:center;gap:5px;height:16px}
+.qai-dots i{width:8px;height:8px;border-radius:50%;background:var(--q-grad);box-shadow:0 0 10px rgba(var(--q-acc-rgb),.55);opacity:.5;animation:qaiDot 1.25s cubic-bezier(.45,0,.25,1) infinite}
+.qai-dots i:nth-child(2){animation-delay:.16s}.qai-dots i:nth-child(3){animation-delay:.32s}
+@keyframes qaiDot{0%,60%,100%{transform:translateY(0) scale(.82);opacity:.5}30%{transform:translateY(-5px) scale(1.05);opacity:1}}
+.qai-typing-l{font-family:var(--q-mono);font-size:.74rem;color:var(--q-ink3);opacity:0;animation:qaiFade .5s ease 3.5s forwards}
+@keyframes qaiFade{to{opacity:1}}
+.qai-msg.bot.is-thinking .qai-hero .qai-spin,.qai-msg.bot.is-streaming .qai-hero .qai-spin{animation:qaiSpin 4s linear infinite}
+.qai-msg.bot.is-thinking .qai-hero,.qai-msg.bot.is-streaming .qai-hero{animation:qaiPulse 1.8s ease-out infinite}
+@keyframes qaiPulse{0%{box-shadow:0 0 0 0 rgba(var(--q-acc-rgb),.5)}70%,100%{box-shadow:0 0 0 9px rgba(var(--q-acc-rgb),0)}}
+.qai-head{position:relative}
+.qai-head::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;pointer-events:none;opacity:0;transition:opacity .3s;
+  background:linear-gradient(90deg,transparent,var(--q-acc),transparent) no-repeat;background-size:40% 100%}
+.qai-panel.is-busy .qai-head::after{opacity:.9;animation:qaiSweep 1.4s ease-in-out infinite}
+@keyframes qaiSweep{0%{background-position:-60% 0}100%{background-position:160% 0}}
+.qai-panel.is-busy .qai-send{animation:qaiPulse 1.8s ease-out infinite}
+.qai-log{scrollbar-width:thin;scrollbar-color:rgba(var(--q-acc-rgb),.35) transparent}
+.qai-log::-webkit-scrollbar{width:8px}.qai-log::-webkit-scrollbar-thumb{background:rgba(var(--q-acc-rgb),.3);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+.qai-orb{width:46px;height:46px;margin-bottom:14px;box-shadow:0 6px 24px rgba(var(--q-acc-rgb),.38)}
+.qai-orb .qai-ico{width:23px;height:23px}
+.qai-orb .qai-spin{animation:qaiSpin 14s linear infinite}
+@media (prefers-reduced-motion:reduce){
+  .qai-msg{animation:none}
+  .qai-dots i{animation:qaiDotCalm 1.6s ease-in-out infinite;transform:none}
+  .qai-head::after,.qai-hero,.qai-send{animation:none !important}
+}
+@keyframes qaiDotCalm{0%,100%{opacity:.3}50%{opacity:1}}
 .qai-chip{display:inline-flex;align-items:center;gap:6px;margin:2px 2px;padding:3px 11px;border-radius:999px;cursor:pointer;vertical-align:baseline;
   background:rgba(var(--q-acc-rgb),.14);border:1px solid rgba(var(--q-acc-rgb),.5);color:var(--q-ink);font-size:.9rem;font-weight:600;transition:background .15s}
 .qai-chip:hover{background:rgba(var(--q-acc-rgb),.28)}
@@ -28744,7 +28779,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
   var S = {
     getKey: 'Get a new key', openAccount: 'Open your account', pickModel: 'Choose another model', openProviders: 'Open Providers',
     title: 'Ask AI', moveHint: 'Drag to move · Shift+arrows nudge · Shift+Home resets', newChat: 'New chat', providers: 'Providers', close: 'Close',
-    seeing: 'Seeing', emptyTitle: 'Ask about what is on screen', emptyBody: 'Your AI sees the atom, molecule or nucleus you are viewing and answers in context.',
+    seeing: 'Seeing', thinking: 'Thinking…', emptyTitle: 'Ask about what is on screen', emptyBody: 'Your AI sees the atom, molecule or nucleus you are viewing and answers in context.',
     send: 'Send', stop: 'Stop', copy: 'Copy', copied: 'Copied', retry: 'Try again', updateKey: 'Update key',
     connectTitle: 'Connect an AI', providersTitle: 'Providers',
     connectBody: 'Bring your own key. It stays in this browser and is sent only to the provider you choose.',
@@ -30952,7 +30987,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
   function renderEmpty() {
     el.log.textContent = ''; ui.lastDay = '';
     var s = snap(), pg = page(), sugg = pg && pg.suggestions ? pg.suggestions(s) : [];
-    var box = h('div', { class: 'qai-empty' }, h('h3', { text: t('emptyTitle') }), h('p', { text: t('emptyBody') }));
+    var box = h('div', { class: 'qai-empty' }, h('span', { class: 'qai-hero qai-orb', 'aria-hidden': 'true', html: brandMark(23) }), h('h3', { text: t('emptyTitle') }), h('p', { text: t('emptyBody') }));
     if (sugg.length) {
       var wrap = h('div', { class: 'qai-sugg' });
       sugg.forEach(function (q) { wrap.appendChild(h('button', { type: 'button', text: q, onclick: function () { send(q); } })); });
@@ -30987,9 +31022,9 @@ html body #excrow .exc-chip.on span{opacity:.85}
     clearEmpty();
     var p = QAI.provider(ui.sel.providerId);
     var d = new Date(); dayDivider(d);
-    var webLine = h('div', { class: 'qai-web-line', hidden: true }), prose = h('div', { class: 'qai-prose qai-caret' }), bubble = h('div', { class: 'qai-bubble' }, webLine, prose), meta = h('div', { class: 'qai-meta' }, timeEl(d));
-    var node = h('div', { class: 'qai-msg bot' }, h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(14) }), mark(p), h('span', { text: p.name + ' · ' + modelName(ui.sel) })), bubble, meta);
-    node._prose = prose; node._bubble = bubble; node._meta = meta; node._web = webLine; node._src = []; node._notes = []; el.log.appendChild(node); return node;
+    var webLine = h('div', { class: 'qai-web-line', hidden: true }), prose = h('div', { class: 'qai-prose' }), typing = h('div', { class: 'qai-typing', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'qai-dots', 'aria-hidden': 'true' }, h('i', {}), h('i', {}), h('i', {})), h('span', { class: 'qai-typing-l', text: t('thinking') })), bubble = h('div', { class: 'qai-bubble' }, webLine, typing, prose), meta = h('div', { class: 'qai-meta' }, timeEl(d));
+    var node = h('div', { class: 'qai-msg bot is-thinking' }, h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(14) }), mark(p), h('span', { text: p.name + ' · ' + modelName(ui.sel) })), bubble, meta);
+    node._prose = prose; node._typing = typing; node._typingL = typing.lastChild; node._bubble = bubble; node._meta = meta; node._web = webLine; node._src = []; node._notes = []; el.log.appendChild(node); return node;
   }
   /* Errors are always shown as: a short title, what happened, and buttons for the next step. Never raw provider text. */
   function showError(node, err) {
@@ -31070,9 +31105,11 @@ html body #excrow .exc-chip.on span{opacity:.85}
       if (d.url && httpOnly(d.url) && node._src.length < 12 && !node._src.some(function (s) { return s.url === d.url; })) node._src.push({ title: String(d.title || '').slice(0, 160), url: String(d.url) });
     } else if (d.ev === 'note' && d.key) node._notes.push(t(d.key));
   }
+  function endTyping(node) { node.classList.remove('is-thinking', 'is-streaming'); if (node._typing) { node._typing.remove(); node._typing = null; node._typingL = null; } }
+  function setTypingLabel(node, text) { if (!node._typingL) return; node._typingL.textContent = text; node._typingL.style.animationDelay = '0s'; }
   function markWide(node) { node._bubble.classList.toggle('is-wide', !!node._prose.querySelector('.qai-plot,.qai-code,.qai-tw,.qai-math-d,h1,h2,table')); }
   function finishNode(node, raw) {
-    node._prose.classList.remove('qai-caret');
+    endTyping(node);
     node._prose.innerHTML = md(raw, false); markWide(node); hydratePlots(node._prose, md.plots);
     if (node._searched || node._src.length) {
       node._web.hidden = false; node._web.className = 'qai-web-line'; node._web.textContent = '';
@@ -31102,20 +31139,36 @@ html body #excrow .exc-chip.on span{opacity:.85}
     ui.stick = true; addUser(text); toBottom(true);
     var node = addAssistant(), acc = '';
     ui.abort = new AbortController(); setStreaming(true);
-    var paint = function () { raf = 0; node._prose.innerHTML = md(acc, true); markWide(node); toBottom(); };
+    /* Smooth reveal: text is released at a steady, comfortable pace (faster when a backlog builds up) instead of arriving in bursts. */
+    var shown = 0, ended = false, drained = null, calm = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var paint = function () {
+      raf = 0;
+      var back = acc.length - shown;
+      if (back > 0) {
+        shown = Math.min(acc.length, shown + (calm ? back : Math.max(2, Math.ceil(back * (ended ? 0.22 : 0.1)))));
+        var cc = acc.charCodeAt(shown - 1); if (cc >= 0xD800 && cc <= 0xDBFF && shown < acc.length) shown++;
+        if (node.classList.contains('is-thinking')) { node.classList.remove('is-thinking'); node.classList.add('is-streaming'); }
+        node._prose.innerHTML = md(acc.slice(0, shown), true); markWide(node); toBottom();
+      }
+      if (acc.length > shown) raf = requestAnimationFrame(paint);
+      else if (ended && drained) { var rs = drained; drained = null; rs(); }
+    };
     try {
       for await (var d of chat.send(text, ui.sel, ui.abort.signal, { web: ui.web })) {
         if (typeof d === 'string') { acc += d; if (!raf) raf = requestAnimationFrame(paint); }
-        else if (d && d.ev === 'replace') { acc = ''; node._prose.textContent = ''; }
-        else if (d && d.ev === 'status') { if (!acc) { node._prose.textContent = t(d.key === 'fixing' ? 'fixing' : 'drawingGraph'); node._prose.classList.add('qai-caret'); } }
+        else if (d && d.ev === 'replace') { acc = ''; shown = 0; node._prose.textContent = ''; node.classList.remove('is-streaming'); node.classList.add('is-thinking'); }
+        else if (d && d.ev === 'status') { if (!acc) setTypingLabel(node, t(d.key === 'fixing' ? 'fixing' : 'drawingGraph')); }
         else if (d) { onEvent(node, d); toBottom(); }
       }
+      ended = true;
+      if (ui.abort.signal.aborted) { acc = acc.slice(0, shown); }
+      else if (acc.length > shown) { if (!raf) raf = requestAnimationFrame(paint); await new Promise(function (rs) { drained = rs; }); }
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       if (acc) { ui.keyError = null; finishNode(node, acc); addActions(node, acc); } else if (!ui.abort.signal.aborted) throw QAI.errMsg('empty', 'Empty reply', 'The model finished without writing anything. Try again, rephrase, or choose another model.');
       else node.remove();
     } catch (e) {
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
-      node._prose.classList.remove('qai-caret');
+      endTyping(node);
       if (acc) finishNode(node, acc); else { node._bubble.remove(); node._meta.remove(); }
       showError(node, QAI.explain(e, ui.sel && QAI.provider(ui.sel.providerId), { partial: !!acc }));
     } finally { setStreaming(false); ui.abort = null; toBottom(); if (ui.open && ui.view === 'chat') el.input.focus(); }
