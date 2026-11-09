@@ -31496,8 +31496,8 @@ html[data-glass="off"] :is(#ol-badge,.ol-stat,.ol-stp button,#ol-chev){backgroun
 /* Cloud Studio — built from the app's own pieces (.ptitle headings, .data-section cards, .srow rows,
    brand buttons via the shared button rules), so it follows each theme, the antimatter retint and Glass off.
    This sheet only does layout; golden-ratio spacing (5 / 8 / 13 px). */
-#dtune{margin-top:13px}
-#dtune[hidden]{display:none}
+#dtune{margin-top:13px;display:flex;flex-direction:column;gap:10px}
+#dtune[hidden]{display:none !important}
 #dtune .dt-title{display:flex;align-items:center;justify-content:space-between;gap:8px}
 #dtune .dt-btn{font-family:'Share Tech Mono',monospace;font-size:.66rem;letter-spacing:.06em;padding:8px 4px;border-radius:var(--radius);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;touch-action:manipulation}
 #dtune .dt-reset{flex:none;padding:5px 13px;font-size:.62rem}
@@ -31508,10 +31508,13 @@ html[data-glass="off"] :is(#ol-badge,.ol-stat,.ol-stp button,#ol-chev){backgroun
 #dtune .dt-seg{grid-template-columns:repeat(3,1fr)}
 #dtune .dt-row{display:grid;grid-template-columns:minmax(100px,42%) minmax(0,1fr) 34px;align-items:center;gap:8px;cursor:pointer}
 #dtune .dt-row .sk{white-space:normal;line-height:1.25;overflow-wrap:normal;word-break:normal;min-width:0}
-#dtune>.ptitle:not(.dt-title){margin-top:13px}
+#dtune>.ptitle:not(.dt-title){margin-top:8px}
+#dtune>.ptitle{margin-bottom:0}
 #dtune .dt-row input{width:100%;min-width:0;margin:0}
 #dtune .dt-row .sv{text-align:end;font-size:.9rem}
 @media (pointer:coarse){#dtune .dt-btn{padding-top:10px;padding-bottom:10px}#dtune .dt-row{min-height:42px}}
+/* Keep scrolled content (Diffuse button + Cloud Studio) from butting into / being sliced by the header divider */
+#right-inner{scroll-padding-top:18px;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 16px);mask-image:linear-gradient(to bottom,transparent 0,#000 16px)}
 </style>
 </head>
 <body>
