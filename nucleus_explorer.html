@@ -32099,6 +32099,55 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   if (root.QuantumAI) return;
   var QAI = (root.QuantumAI = { version: '1.0.0' });
 
+  /* ───────────── reply format repair ─────────────
+     Models (Qwen, Llama, Gemini…) often put the tappable-question JSON in ```text / ```json, use an alias tag
+     (```choice, ```buttons) or leave it bare. Everything that reads a reply runs it through this first, so all of
+     those become a proper ```choices block. */
+  QAI.fixFences = function (src, streaming) {
+    var s = String(src == null ? '' : src);
+    var ALIAS = /^(choice|choices|option|options|buttons?|quick[-_]?repl(?:y|ies)|suggestions?|follow[-_]?ups?)$/;
+    var LOOSE = /^(|text|txt|plain|plaintext|md|markdown|json|json5|jsonc|js|javascript)$/;
+    var START = /^\s*\{\s*"(?:question|options)"/;
+    function obj(b) {
+      b = String(b).trim(); if (b.charAt(0) !== '{') return null;
+      try { return JSON.parse(b); } catch (e) {}
+      try { return JSON.parse(b.replace(/[\u201c\u201d]/g, '"').replace(/,\s*([}\]])/g, '$1')); } catch (e) { return null; }
+    }
+    function isChoice(o) {
+      return !!o && typeof o === 'object' && !Array.isArray(o) && Array.isArray(o.options) && o.options.length > 0 &&
+        o.options.every(function (x) { return typeof x === 'string' || typeof x === 'number'; });
+    }
+    // 1. closed fences with an alias tag, or a loose tag around choice JSON
+    s = s.replace(/(^|\n)([ \t]{0,3})(`{3,}|~{3,})[ \t]*([A-Za-z0-9_+.#-]*)[^\n`]*\n([\s\S]*?)\n[ \t]{0,3}\3[`~]*[ \t]*(?=\n|$)/g,
+      function (all, pre, ind, fence, lang, body) {
+        var l = lang.toLowerCase();
+        if (l === 'choices') return all;
+        if (ALIAS.test(l) || (LOOSE.test(l) && isChoice(obj(body)))) return pre + ind + fence + 'choices\n' + body.trim() + '\n' + fence;
+        return all;
+      });
+    // 2. an unclosed fence at the end (still streaming, or cut off) whose body is choice JSON
+    s = s.replace(/(^|\n)([ \t]{0,3})(`{3,}|~{3,})[ \t]*([A-Za-z0-9_+.#-]*)[^\n`]*\n([\s\S]*)$/, function (all, pre, ind, fence, lang, body) {
+      var l = lang.toLowerCase();
+      if (new RegExp('(^|\\n)[ \\t]{0,3}' + (fence.charAt(0) === '`' ? '`' : '~') + '{' + fence.length + ',}[ \\t]*(\\n|$)').test(body)) return all; // it is closed
+      if (l !== 'choices' && (ALIAS.test(l) || (LOOSE.test(l) && START.test(body)))) return pre + ind + fence + 'choices\n' + body;
+      return all;
+    });
+    // 3. bare choice JSON in the prose (outside any fence)
+    var parts = s.split(/((?:^|\n)[ \t]{0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n[ \t]{0,3}\2[`~]*[ \t]*(?=\n|$)|$))/);
+    for (var i = 0; i < parts.length; i += 3) {
+      var seg = parts[i]; if (!seg || seg.indexOf('"options"') < 0 && !(streaming && START.test(seg.split('\n').pop() || ''))) continue;
+      seg = seg.replace(/(^|\n)[ \t]*(\{[\s\S]*?"options"[\s\S]*?\})[ \t]*(?=\n|$)/g, function (all, pre, j) {
+        return isChoice(obj(j)) ? pre + '```choices\n' + j.trim() + '\n```' : all;
+      });
+      if (i === parts.length - 1) seg = seg.replace(/(^|\n)[ \t]*(\{\s*"(?:question|options)"[^`]*)$/, function (all, pre, j) {
+        return isChoice(obj(j)) ? all : pre + '```choices\n' + j; // half-written: show the pending placeholder, not raw JSON
+      });
+      parts[i] = seg;
+    }
+    var out = ''; for (var k = 0; k < parts.length; k++) if (k % 3 !== 2) out += parts[k];
+    return out;
+  };
+
   /* ───────────── errors ───────────── */
   function QAIError(code, message, extra) {
     var e = new Error(message);
@@ -32564,7 +32613,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         gen++; messages.length = 0; pending = null;
         (list || []).forEach(function (m) { if (m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') messages.push({ role: m.role, content: m.content }); });
         scope = messages.length ? 'in' : '';
-        var last = messages.length && messages[messages.length - 1].role === 'assistant' ? messages[messages.length - 1].content : '';
+        var last = messages.length && messages[messages.length - 1].role === 'assistant' ? QAI.fixFences(messages[messages.length - 1].content) : '';
         pending = last ? { choices: /```(?:choices|options)/i.test(last), visual: !!(QAI.guard && QAI.guard.mentionsVisual && QAI.guard.mentionsVisual(last)) } : null;
       },
       send: async function* (text, sel, signal, flags) {
@@ -32650,6 +32699,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         }
         if (g !== gen) return; // chat was reset while this reply streamed
         if (!acc.trim()) { messages.pop(); throw msg('empty', qaiL('empty_t', null) || 'Empty reply', qaiL('empty_b', null) || 'The model finished without writing anything. Try again, rephrase, or choose another model.'); }
+        acc = QAI.fixFences(acc); // history keeps the proper format, so the model copies it next turn
         messages.push({ role: 'assistant', content: acc });
         scope = closed ? 'out' : (gate.why === 'unclear' ? scope : 'in');
         pending = { choices: /```(?:choices|options)/i.test(acc), visual: !!G && (vis || G.mentionsVisual(acc)) };
@@ -33075,7 +33125,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
 
   function sanitize(text) {
-    return String(text || '')
+    return QAI.fixFences(String(text || ''))
       .replace(/(```|~~~)[ \t]*(?:plot(?:3d)?|choices|options)[^\n]*\n[\s\S]*?\1/gi, '')
       .replace(/(```|~~~)[ \t]*(?:plot(?:3d)?|choices|options)[\s\S]*$/gi, '')
       .replace(/\[\[[a-z_]+:[^\]]*\]\]/gi, '')
@@ -33148,7 +33198,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
 
   function inspect(reply) {
-    var r = String(reply || ''), plots = [], choices = 0, m;
+    var r = QAI.fixFences(String(reply || '')), plots = [], choices = 0, m;
     FENCE_CLOSED.lastIndex = 0;
     while ((m = FENCE_CLOSED.exec(r))) {
       var lang = (m[3] || '').toLowerCase();
@@ -33701,6 +33751,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     '```choices\n{"question":"Which graph would you like?","options":["Radial probability P(r) for hydrogen 1s, 2s, 2p","Energy levels E_n for n = 1 to 6","Binding energy per nucleon vs mass number"]}\n```',
     '- After the person answers or confirms, your reply must contain the plot block(s). Never describe a graph without drawing it, never ask a second clarifying question about the same graph, and fill in any remaining detail with a sensible default that you state in one line.',
     '- If they ask for a visual that a plot cannot be (a picture, an animation, a video, a 3D rendering of the atom like the app\'s), say you don\'t have the ability to make that, point to where the app shows it if it does, and offer the closest graph.',
+    '- The choices block is ALWAYS fenced exactly as ```choices with the JSON inside. Never use ```text, ```json or any other tag for it, and never write the JSON bare. Do not repeat the question in prose when the block asks it.',
     '- Put the choices block alone at the end of the message, after at most one short sentence. Options are plain text (no LaTeX), each under 80 characters. Use choices only for genuine ambiguity, never for yes/no padding.',
     '',
     'PERSONALITY',
@@ -35834,9 +35885,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   /* ───────────── safe Markdown (everything is escaped first; only whitelisted tags are emitted) ───────────── */
   var curPlots = [];
   var safeUrl = function (u) { u = String(u).replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim(); return /^(https?:\/\/|mailto:)[^\s<>"']+$/i.test(u) ? u : null; };
-  function emph(s) {
-    return s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/(^|[\s(>])\*([^*\s][^*]*?)\*(?=[\s).,;:!?<]|$)/g, '$1<em>$2</em>')
+  function emph(s) { // bold first, and let it contain *italics*: **it's an *s* orbital**
+    return s.replace(/\*\*\*(?=\S)([\s\S]*?\S)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^A-Za-z0-9_])__(?=\S)([\s\S]*?\S)__(?![A-Za-z0-9_])/g, '$1<strong>$2</strong>')
+      .replace(/(^|[\s(>;\u2014\u2013-])\*([^*\s][^*]*?)\*(?=[\s).,;:!?<&\u2014\u2013-]|$)/g, '$1<em>$2</em>')
+      .replace(/(^|[\s(>;])_([^_\s][^_]*?)_(?=[\s).,;:!?<&]|$)/g, '$1<em>$2</em>')
       .replace(/~~([^~]+)~~/g, '<del>$1</del>');
   }
   function inline(s) {
@@ -35944,7 +35998,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
 
   function md(src, streaming) {
-    src = String(src).replace(/[\u0000-\u0004]/g, '').replace(/<think>[\s\S]*?<\/think>\s*/gi, '').replace(/<think>[\s\S]*$/i, ''); // reasoning models (DeepSeek-R1, Qwen) via Ollama
+    src = QAI.fixFences(String(src).replace(/[\u0000-\u0004]/g, '').replace(/<think>[\s\S]*?<\/think>\s*/gi, '').replace(/<think>[\s\S]*$/i, ''), streaming); // reasoning models (DeepSeek-R1, Qwen) via Ollama
     if (streaming) {
       src = src.replace(/\[\[[^\]]*$/, '');
       if ((src.split('$$').length - 1) % 2) src = src.slice(0, src.lastIndexOf('$$')); // an equation shows once it is complete
