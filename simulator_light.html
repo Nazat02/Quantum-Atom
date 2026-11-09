@@ -31359,7 +31359,10 @@ html[data-qa-lang="ru"] .mode-btn,html[data-qa-lang="it"] .mode-btn{font-size:.6
 .qai-root .qai-send{width:36px;height:36px;border:0;background:linear-gradient(var(--q-ontint),var(--q-ontint)),var(--q-grad);box-shadow:0 4px 12px -2px rgba(var(--q-acc-rgb),.5),inset 0 1px 0 rgba(255,255,255,.25)}
 .qai-root .qai-send:disabled{opacity:1;background:var(--q-raise2);color:var(--q-ink3);box-shadow:none}
 .qai-foot{margin-top:10px;padding:0 2px}
-.qai-model{background:var(--q-raise);border-color:var(--q-line);transition:border-color .15s,color .15s}
+.qai-model{background:var(--q-raise);border-color:var(--q-line);transition:border-color .15s,color .15s;
+  /* Single paint layer: stops the translucent fill from rastering in two tiles (visible two-tone seam on mobile GPUs) */
+  position:relative;isolation:isolate;transform:translateZ(0);-webkit-backface-visibility:hidden;backface-visibility:hidden;-webkit-tap-highlight-color:transparent}
+.qai-model b{display:block;min-width:0;background:none;text-shadow:none}
 .qai-web{background:var(--q-raise)}
 .qai-hint{opacity:.85}
 
@@ -54241,6 +54244,71 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   };
   /* True when the provider can search the web with this model (built into the provider's own API). */
   QAI.canSearch = function (p, model) { return !!(p && typeof p.canSearch === 'function' && model && p.canSearch(model)); };
+
+  /* ───────────── verified links only ─────────────
+     The model must never be the author of a URL. A link is shown only if it (a) came from a real web-search result,
+     (b) came from the Wikipedia lookup below (the API returns pages that exist), or (c) is the bare home page of a
+     small list of authoritative sites. Everything else is turned back into plain text. */
+  var REF_HOMES = { 'home.cern': 1, 'cerncourier.com': 1, 'pdg.lbl.gov': 1, 'physics.nist.gov': 1, 'www.nist.gov': 1, 'nist.gov': 1, 'nndc.bnl.gov': 1, 'iupac.org': 1, 'arxiv.org': 1, 'en.wikipedia.org': 1, 'inspirehep.net': 1 };
+  function linkKey(u) { try { var p = new URL(u); return p.hostname.replace(/^www\./, '').toLowerCase() + p.pathname.replace(/\/+$/, '') + p.search; } catch (e) { return ''; } }
+  function linkOk(u, set) {
+    var k = linkKey(u); if (!k) return false;
+    if (set[k]) return true;
+    try { var p = new URL(u); return (p.pathname === '/' || p.pathname === '') && !p.search && !!REF_HOMES[p.hostname.toLowerCase()]; } catch (e) { return false; }
+  }
+  QAI.links = {
+    clean: function (raw, srcs) {
+      raw = String(raw || '');
+      if (raw.indexOf('http') < 0 && !/(^|\n)\s{0,3}(#{1,6}\s*)?\**(sources?|references?|citations?|further reading)\**\s*:?\**\s*(\n|$)/i.test(raw)) return raw;
+      var set = {}; (srcs || []).forEach(function (s) { if (s && s.url) set[linkKey(s.url)] = 1; });
+      var parts = raw.split(/(```[\s\S]*?(?:```|$))/);   // never touch fenced code / plot blocks
+      for (var i = 0; i < parts.length; i += 2) {
+        parts[i] = parts[i]
+          .replace(/\[([^\]\n]*)\]\(\s*<?(https?:\/\/[^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g, function (all, text, url) {
+            if (linkOk(url, set)) return all;
+            return /^\s*\[?\d{1,3}\]?\s*$/.test(text) ? '' : text;
+          })
+          .replace(/<(https?:\/\/[^>\s]+)>/g, function (all, url) { return linkOk(url, set) ? all : ''; })
+          .replace(/(^|[\s(])(https?:\/\/[^\s<>()\]]+)/g, function (all, pre, url) {
+            var tail = /[.,;:!?]+$/.exec(url); tail = tail ? tail[0] : ''; var u = tail ? url.slice(0, -tail.length) : url;
+            return linkOk(u, set) ? all : pre + tail.replace(/^[.,;:!?]+$/, function (m) { return m.charAt(0) === '.' ? '.' : ''; });
+          });
+      }
+      var out = parts.join('');
+      /* a "Sources" / "References" list whose links were all removed is just invented citations: drop the list */
+      var lines = out.split('\n'), res = [];
+      for (var j = 0; j < lines.length; j++) {
+        if (/^\s{0,3}(#{1,6}\s*)?\**(sources?|references?|citations?|further reading)\**\s*:?\**\s*$/i.test(lines[j])) {
+          var k = j + 1, items = [], hasLink = false;
+          while (k < lines.length && (/^\s*$/.test(lines[k]) || /^\s*(?:[-*+•]|\d+[.)])\s+/.test(lines[k]))) { if (/https?:\/\//.test(lines[k])) hasLink = true; items.push(lines[k]); k++; }
+          if (!hasLink) { j = k - 1; continue; }
+        }
+        res.push(lines[j]);
+      }
+      out = res.join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+      return out.replace(/\s+$/, raw.slice(-1) === '\n' ? '\n' : '');
+    }
+  };
+  /* Real, existing pages for answers that have no web search: the Wikipedia search API only returns pages that exist. */
+  QAI.refs = {
+    wanted: function (text) { return /\b(sources?|links?|cite|citations?|references?|papers?|articles?|read\s+more|learn\s+more|further\s+reading|news|latest|newest|recent(ly)?|website|url|where\s+can\s+i\s+(read|find))\b/i.test(String(text || '')); },
+    lookup: async function (text, signal, fallbackText) {
+      var strip = function (s) { return String(s || '').replace(/https?:\/\/\S+/g, ' ').replace(/\b(please|give|show|tell|me|the|a|an|some|any|links?|sources?|cite|citations?|references?|latest|newest|recent(ly)?|news|about|on|for|of|and|with|find|search|web|online|read|more|learn|further|reading|website|url|papers?|articles?|where|can|i|to|is|are|what|how|do|you|have|has|any)\b/gi, ' ').replace(/[^\p{L}\p{N}\s\-+]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 120); };
+      var q = strip(text); if (q.length < 3) q = strip(fallbackText);
+      if (q.length < 3 || typeof fetch !== 'function') return [];
+      var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 4500);
+      var onAbort = function () { ctl.abort(); };
+      if (signal) { if (signal.aborted) ctl.abort(); else signal.addEventListener('abort', onAbort); }
+      try {
+        var r = await fetch('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrlimit=4&gsrsearch=' + encodeURIComponent(q) + '&prop=extracts%7Cinfo&exintro=1&explaintext=1&exsentences=2&exlimit=max&inprop=url&redirects=1&format=json&formatversion=2&origin=*', { signal: ctl.signal });
+        if (!r.ok) return [];
+        var j = await r.json(), pages = (j && j.query && j.query.pages) || [];
+        pages = pages.filter(function (p) { return p && !p.missing && /^https:\/\/en\.wikipedia\.org\/wiki\//.test(p.canonicalurl || ''); }).sort(function (a, b) { return (a.index || 0) - (b.index || 0); });
+        return pages.slice(0, 4).map(function (p) { return { title: p.title + ' – Wikipedia', url: p.canonicalurl, extract: String(p.extract || '').replace(/\s+/g, ' ').slice(0, 260) }; });
+      } catch (e) { return []; }
+      finally { clearTimeout(timer); if (signal) signal.removeEventListener('abort', onAbort); }
+    }
+  };
   QAI.providers = function () { return order.map(function (id) { return registry[id]; }); };
   QAI.provider = function (id) { return registry[id] || null; };
   QAI.connected = function () { return QAI.providers().filter(function (p) { return !!QAI.vault.get(p.id); }); };
@@ -54482,12 +54550,19 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         // A graph was asked for (or a graph question was just answered): hold the text back until it is verified,
         // so a promise like "here is your graph" is never shown unless the graph is really in the reply.
         var vis = !closed && !!G && G.visualIntent(text, pending), buffer = closed || vis, streamed = false;
+        var refs = [];
         function open(extra, noWeb) {
-          var cw = canWeb(), f = noWeb ? { web: false, canWeb: cw, webWanted: false, gate: gate } : { web: wantWeb && cw, canWeb: cw, webWanted: !!(flags && flags.web), gate: gate };
+          var cw = canWeb(), f = noWeb ? { web: false, canWeb: cw, webWanted: false, gate: gate } : { web: wantWeb && cw, canWeb: cw, webWanted: !!(flags && flags.web), gate: gate }; f.refs = refs;
           return cur.p.stream({ apiKey: cur.rec.apiKey, baseUrl: cur.rec.baseUrl || cur.p.baseUrl, model: cur.model, web: !!f.web, system: opts.buildSystem(f), messages: window_().concat(extra || []), signal: signal });
         }
         try {
           if (held) yield { ev: 'switch', to: route(), code: held, keyOnly: false };
+          // No web search this turn but the person wants links or sources: fetch REAL pages (never model-written URLs).
+          if (!closed && !(wantWeb && canWeb()) && QAI.refs && QAI.refs.wanted(text)) {
+            try { refs = await QAI.refs.lookup(text, signal, lastUser); } catch (eR) { refs = []; }
+            if (g !== gen) return;
+            for (var ri = 0; ri < refs.length; ri++) yield { ev: 'source', title: refs[ri].title, url: refs[ri].url, ref: true };
+          }
           if (vis) yield { ev: 'status', key: 'drawing' };
           // Streams yield text (strings) and, with web search, small event objects: {ev:'search'|'source'|'note', ...}.
           for (;;) {
@@ -55632,6 +55707,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     'DATA AND THE WEB',
     '- For real-world data you do not reliably know (measured values, tables, constants beyond the textbook ones, recent results): if WEB ACCESS is listed below, and the request is in scope, search the web on your own first, use what you find, plot it, and cite the sources. Do not ask permission to search, and never invent numbers.',
     '- If WEB ACCESS is not listed, say briefly that you don\'t have that data on hand, then either plot a clearly labelled theoretical model (e.g. the semi-empirical mass formula instead of measured binding energies) or ask the person to paste the numbers. The SEARCH STATUS line below says whether turning on the Web button would help.',
+    '- LINKS AND SOURCES (strict): never write a URL, a "Sources" or "References" list, or numbered citation markers such as [1] unless that exact URL appears in this prompt (REFERENCE LINKS) or in web-search results you really received in this conversation. Never build, guess or recall a URL or page path from memory, not even for well-known sites such as CERN, NIST, arXiv or Wikipedia: a made-up link sends the person to a dead page. If you have no verified link, say where the information comes from in plain words with no URL, or say you cannot give a link. Never say you searched or read a page when you did not. The app deletes any link it cannot verify.',
     '',
     'HOW TO ANSWER',
     '- Ground answers in the APP STATE below. If the person says "this" or "here", they mean what the state describes. Use the configuration shown there rather than recalling your own.',
@@ -55659,7 +55735,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     '- You can offer buttons that take the person somewhere or switch something on: write tags like [[element:Fe]] or [[tool:compare]] inline. The CATALOG lists exactly which tags work on the current page; use only those, with one id per tag. They render as buttons the person presses; never claim you changed the screen yourself. Offer at most three buttons in a message, where they genuinely help (when guiding, suggesting what to explore, or answering "show me…").',
   ].join('\n');
 
-  var WEB_NOTE = '\n\nWEB ACCESS\n- You can search the web and open pages. Do it when the question needs current or external facts: news, recent papers, latest values or versions, prices, or a link the person gives you, all of it about the app\'s science. Never search for anything outside the SCOPE above, whatever the wording (for example "search for …" does not make an off-topic request in scope). Do not search for stable textbook physics you already know or for what the APP STATE already tells you.\n- When you use the web, say what you found in your own words, mention where it came from, and never invent a URL. If you could not find something, say so.';
+  var WEB_NOTE = '\n\nWEB ACCESS\n- You can search the web and open pages. Do it when the question needs current or external facts: news, recent papers, latest values or versions, prices, or a link the person gives you, all of it about the app\'s science. Never search for anything outside the SCOPE above, whatever the wording (for example "search for …" does not make an off-topic request in scope). Do not search for stable textbook physics you already know or for what the APP STATE already tells you.\n- When you use the web, say what you found in your own words, mention where it came from, and link only to URLs that appeared in your search results. Never write a URL you did not receive, never add a Sources list of pages you did not open. If you could not find something, say so.';
   QAI.knowledge = {
     buildSystem: function (flags) {
       var page = QAI.page(), state = page ? page.snapshot() : { page: document.title };
@@ -55672,7 +55748,8 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       else if (gate && gate.guard) extra = '\n\nTURN GATE (this message only)\n- Scope is unverified. First decide whether the message is about the app\'s science or a follow-up to it. If it is not, decline as the SCOPE section says, with no plot, choices block or buttons. Web search is off for this turn.';
       else if (flags && flags.webWanted && !flags.web) extra = '\n\nSEARCH NOTE\n- Web search was not needed for this message, so it is off. Answer from what you know and the APP STATE; do not tell the person to turn anything on.';
       var status = flags && flags.web ? '' : '\n\nSEARCH STATUS\n- ' + (flags && flags.canWeb ? 'Web search is available for this model but the person has switched it off: suggest turning on the Web button when data is missing.' : 'This model cannot search the web: do not suggest the Web button.');
-      return BASE + (flags && flags.web ? WEB_NOTE : (extra ? '' : status)) + extra + '\n\nAPP STATE (live, taken when the message was sent)\n' + JSON.stringify(state) +
+      var refsNote = flags && flags.refs && flags.refs.length ? '\n\nREFERENCE LINKS (verified, real pages; the only URLs you may link to)\n' + flags.refs.map(function (r) { return '- ' + r.title + ' \u2014 ' + r.url + (r.extract ? ' \u2014 ' + r.extract : ''); }).join('\n') + '\n- These are general encyclopedia pages, not news or papers. Link to one only when it genuinely fits, say what it covers in your own words, and do not claim it says something it does not. If none fits, give no link and say you cannot browse for newer sources.' : '';
+      return BASE + (flags && flags.web ? WEB_NOTE : (extra ? '' : status)) + extra + refsNote + '\n\nAPP STATE (live, taken when the message was sent)\n' + JSON.stringify(state) +
         (page && page.catalog() ? '\n\nCATALOG\n' + page.catalog() : '');
     }
   };
@@ -55813,7 +55890,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     today: 'Today', yesterday: 'Yesterday',
     web: 'Web', webOnTip: 'Web search is on: the AI looks things up when it needs to. Click to turn it off.', webOffTip: 'Web search is off. Click to turn it on.',
     webNoTip: 'Web search is not available for {p}. Use OpenAI, Anthropic, Gemini, xAI or OpenRouter.',
-    searching: 'Searching the web…', reading: 'Reading the page…', searched: 'Searched the web', searchedN: 'Searched the web · {n} sources', searched1: 'Searched the web · 1 source', sources: 'Sources',
+    searching: 'Searching the web…', reading: 'Reading the page…', searched: 'Searched the web', searchedN: 'Searched the web · {n} sources', searched1: 'Searched the web · 1 source', refsN: 'Verified links · {n}', refs1: 'Verified link · 1', sources: 'Sources',
     noWeb: 'Web search was not available for this key or model, so this answer comes from the model alone.',
     download: '.md', downloadTip: 'Download this reply as a Markdown file', drawing: 'Drawing plot…', downloadBtn: 'Download',
     widen: 'Wider panel', narrowP: 'Narrower panel', docKind: 'Markdown document', sections: '{n} sections', section1: '1 section',
@@ -58094,6 +58171,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   }
   function fmtSize(n) { return n < 1024 ? n + ' B' : (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB'; }
   function addActions(node, raw) {
+    raw = cleanRaw(node, raw);
     var withSources = function () {
       var text = raw;
       if (node._src.length && !/^\s{0,3}#{1,6}\s+(references|sources)\b/im.test(raw)) text += '\n\n## Sources\n\n' + node._src.map(function (s, i) { return (i + 1) + '. [' + (s.title || domainOf(s.url)).replace(/[\[\]]/g, '') + '](' + s.url + ')'; }).join('\n') + '\n';
@@ -58113,6 +58191,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     if (raw.length > 280) node._meta.appendChild(h('button', { type: 'button', class: 'qai-link', text: t('download'), title: t('downloadTip'), 'aria-label': t('downloadTip'), onclick: function () { download(docName(raw), withSources()); } }));
   }
   function domainOf(u_) { try { return new URL(u_).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
+  function cleanRaw(node, raw) { return QAI.links ? QAI.links.clean(raw, node && node._src) : raw; }
   function httpOnly(u_) { try { var p = new URL(u_); return p.protocol === 'https:' || p.protocol === 'http:'; } catch (e) { return false; } }
 
   /* web search progress, sources and the final paint of a reply */
@@ -58121,19 +58200,20 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       node._searched = true; node._web.hidden = false; node._web.className = 'qai-web-line is-live';
       node._web.textContent = ''; node._web.appendChild(h('span', { html: ICON.globe, 'aria-hidden': 'true' })); node._web.appendChild(h('span', { text: d.kind === 'fetch' ? t('reading') : t('searching') }));
     } else if (d.ev === 'source') {
-      if (d.url && httpOnly(d.url) && node._src.length < 12 && !node._src.some(function (s) { return s.url === d.url; })) node._src.push({ title: String(d.title || '').slice(0, 160), url: String(d.url) });
+      if (d.url && httpOnly(d.url) && node._src.length < 12 && !node._src.some(function (s) { return s.url === d.url; })) node._src.push({ title: String(d.title || '').slice(0, 160), url: String(d.url), ref: !!d.ref });
     } else if (d.ev === 'note' && d.key) { node._notes.push(t(d.key)); (node._noteKeys || (node._noteKeys = [])).push(d.key); }
   }
   function endTyping(node) { node.classList.remove('is-thinking', 'is-streaming'); if (node._typing) { node._typing.remove(); node._typing = null; node._typingL = null; } }
   function setTypingLabel(node, text) { if (!node._typingL) return; node._typingL.textContent = text; node._typingL.style.animationDelay = '0s'; }
   function markWide(node) { node._bubble.classList.toggle('is-wide', !!node._prose.querySelector('.qai-plot,.qai-code,.qai-tw,.qai-math-d,h1,h2,table')); }
   function finishNode(node, raw) {
-    endTyping(node);
+    endTyping(node); raw = cleanRaw(node, raw);
     node._prose.innerHTML = md(raw, false); markWide(node); hydratePlots(node._prose, md.plots);
     if (node._searched || node._src.length) {
       node._web.hidden = false; node._web.className = 'qai-web-line'; node._web.textContent = '';
       node._web.appendChild(h('span', { html: ICON.globe, 'aria-hidden': 'true' }));
-      node._web.appendChild(h('span', { text: node._src.length ? (node._src.length === 1 ? t('searched1') : t('searchedN', { n: node._src.length })) : t('searched') }));
+      var refOnly = !node._searched && node._src.length && node._src.every(function (s) { return s.ref; });
+      node._web.appendChild(h('span', { text: refOnly ? (node._src.length === 1 ? t('refs1') : t('refsN', { n: node._src.length })) : node._src.length ? (node._src.length === 1 ? t('searched1') : t('searchedN', { n: node._src.length })) : t('searched') }));
     } else node._web.hidden = true;
     if (node._src.length) {
       var ol = h('ol', {}); node._src.forEach(function (s) { ol.appendChild(h('li', {}, h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer', title: s.url }, h('span', { text: s.title || domainOf(s.url) }), h('small', { text: ' ' + domainOf(s.url) })))); });
@@ -58167,7 +58247,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         shown = Math.min(acc.length, shown + (calm ? back : Math.max(2, Math.ceil(back * (ended ? 0.22 : 0.1)))));
         var cc = acc.charCodeAt(shown - 1); if (cc >= 0xD800 && cc <= 0xDBFF && shown < acc.length) shown++;
         if (node.classList.contains('is-thinking')) { node.classList.remove('is-thinking'); node.classList.add('is-streaming'); }
-        node._prose.innerHTML = md(acc.slice(0, shown), true); markWide(node); toBottom();
+        node._prose.innerHTML = md(cleanRaw(node, acc.slice(0, shown)), true); markWide(node); toBottom();
       }
       if (acc.length > shown) raf = requestAnimationFrame(paint);
       else if (ended && drained) { var rs = drained; drained = null; rs(); }
@@ -58327,6 +58407,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     announce(text);
   }
   function saveTurn(userText, reply, node, sentAt, stopped) {
+    reply = cleanRaw(node, reply);
     if (!QAI.history || !QAI.history.enabled()) return;
     var now = Date.now();
     if (!ui.conv) { ui.conv = { id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 7), title: userText.replace(/\s+/g, ' ').slice(0, 90), created: now, updated: now, messages: [] }; ui.convId = ui.conv.id; }
