@@ -31518,5 +31518,72 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   sync();
 })();
 </script>
+<style id="golden-system">
+/* ════════════════════════════════════════════════════════════════
+   GOLDEN SYSTEM · landing (index_dark / index_light)
+   Spacing = Fibonacci (φ in whole px) · Type = √φ steps from 16px
+   Layout splits = 61.8 / 38.2 · loaded last so it wins the cascade
+   ════════════════════════════════════════════════════════════════ */
+:root{
+  --phi:1.618;
+  --g1:3px;--g2:5px;--g3:8px;--g4:13px;--g5:21px;--g6:34px;--g7:55px;--g8:89px;--g9:144px;
+  --t-xs:.786rem;   /* 12.6 */
+  --t-sm:.887rem;   /* 14.2 */
+  --t-md:1rem;      /* 16   */
+  --t-lg:1.272rem;  /* 20.4 */
+  --t-xl:1.618rem;  /* 25.9 */
+  --t-2xl:2.058rem; /* 32.9 */
+  --t-3xl:2.618rem; /* 41.9 */
+  --t-4xl:3.33rem;  /* 53.3 */
+  --t-5xl:4.236rem; /* 67.8 */
+  --r-sm:5px;--r-md:8px;--r-lg:13px;--r-xl:21px;
+  --wrap:1320px;--gutter:55px;--nav-h:65px;
+  --lh-body:1.618;--lh-tight:1.05;
+}
+@media(max-width:1100px){:root{--gutter:34px}}
+@media(max-width:600px){:root{--gutter:21px}}
+
+/* light landing has its own centred layout and pill nav; only the
+   component system (cards, gaps, type) is normalised here */
+html .prose-p,html .bc-body,html .qn-body,html .prob-body,html .why-body,html .feat-body,
+html .step-body,html .tl-body,html .orb-desc-text,html .ct-b-body,html .fact-desc{line-height:var(--lh-body)}
+/* ── card grids: one gap ── */
+html .why-grid,html .features-grid,html .problems-grid,html .quotes-grid,
+html .compare-grid{gap:var(--g5)}
+html .bohr-layout,html .two-col{gap:var(--g6)}
+html .ct-layout{gap:var(--g7);margin-top:var(--g7)}
+html .orb-deep-grid{gap:var(--g5)}
+html .fact-strip{gap:var(--g5);margin-top:var(--g7);border-top:0}
+
+/* ── cards: one radius, one padding, bottom-aligned tags ── */
+html .feat-card,html .why-card,html .prob-card,html .quote-card,html .step,
+html .fact-cell,html .bohr-card,html .tl-content,html .ct-b-item{
+  padding:var(--g6);border-radius:var(--r-lg)}
+html .bohr-card,html .ct-b-item{padding:var(--g5) var(--g6)}
+html .feat-card,html .why-card,html .prob-card,html .quote-card{display:flex;flex-direction:column;gap:0}
+html .feat-tag,html .prob-solved{margin-top:auto}
+html .feat-body+.feat-tag,html .prob-body+.prob-solved{margin-top:auto}
+html .feat-card>.feat-body,html .prob-card>.prob-body{margin-bottom:var(--g5)}
+html .feat-icon,html .why-icon{width:42px;height:42px;border-radius:var(--r-md);margin-bottom:var(--g5)}
+html .bc-icon{border-radius:var(--r-sm)}
+html .feat-title,html .why-title,html .prob-title,html .bc-title,html .tl-title-t,html .step-title{
+  font-size:var(--t-lg);line-height:1.272;margin-bottom:var(--g3)}
+html .feat-tag,html .tl-tag{font-size:var(--t-xs);padding:var(--g1) var(--g4);margin-top:var(--g4)}
+html .orb-deep-card,html .compare-col,html .hero-stage,html .atom-diagram+*{border-radius:var(--r-lg)}
+html .orb-head,html .orb-body-section{padding:var(--g5) var(--g6)}
+html .orb-head{gap:var(--g5)}
+html .orb-props{gap:var(--g3)}
+html .orb-prop{padding:var(--g3) var(--g4);border-radius:var(--r-md)}
+html .compare-head{padding:var(--g6) var(--g6) var(--g5)}
+html .compare-row{padding:var(--g4) var(--g6)}
+
+html .feat-tag,html .tl-tag,html .prob-solved,html .feat-icon,html .why-icon{align-self:flex-start}
+@media(max-width:600px){
+  html .feat-card,html .why-card,html .prob-card,html .quote-card,html .step,
+  html .fact-cell,html .tl-content,html .bohr-card,html .ct-b-item{padding:var(--g5)}
+  html .orb-head,html .orb-body-section,html .compare-head{padding:var(--g5)}
+}
+
+</style>
 </body>
 </html>
