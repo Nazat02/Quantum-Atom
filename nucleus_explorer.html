@@ -32796,15 +32796,17 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           if (closed) { acc = QAI.intent.sanitize(acc); if (acc) yield acc; }
           else if (G && acc.trim()) {
             // Delivery guard: check, silently repair up to twice, then fall back to an honest message. Never ship a broken promise.
-            var v = G.check(acc, { expectPlot: vis }), tries = 0;
+            var v = G.check(acc, { expectPlot: vis, ask: text }), tries = 0;
             while (!v.ok && tries < 2 && g === gen) {
               tries++;
               if (streamed) { yield { ev: 'replace' }; streamed = false; }
               yield { ev: 'status', key: 'fixing' };
               var bad = acc, fixed = '';
               for await (var d2 of open([{ role: 'assistant', content: bad }, { role: 'user', content: G.repairPrompt(v, tries) }], true)) { if (typeof d2 === 'string') fixed += d2; }
-              acc = fixed || bad; v = G.check(acc, { expectPlot: vis || v.reason === 'no_plot' });
+              var wasSoft = !!v.soft; acc = fixed || bad; v = G.check(acc, { expectPlot: vis || v.reason === 'no_plot', ask: text });
+              if (!v.ok && v.soft && !wasSoft) v = G.check(acc, { expectPlot: vis }); // a requested kind is tried once more; a plain, honest alternative is fine
             }
+            if (!v.ok && v.soft) v = { ok: true }; // the person named a kind and the model drew a valid alternative without claiming the named one: keep it
             if (!v.ok) acc = G.degrade(acc, v, opts.text ? opts.text('guardFail') : G.failText());
             if (!streamed && acc) yield acc;
           } else if (buffer && acc) yield acc;
@@ -33164,7 +33166,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   if (!QAI || QAI.intent) return;
 
   var ELEMENTS = 'hydrogen helium lithium beryllium boron carbon nitrogen oxygen fluorine neon sodium magnesium aluminium aluminum silicon phosphorus sulfur sulphur chlorine argon potassium calcium scandium titanium vanadium chromium manganese iron cobalt nickel copper zinc gallium germanium arsenic selenium bromine krypton rubidium strontium yttrium zirconium niobium molybdenum technetium ruthenium rhodium palladium silver cadmium indium tin antimony tellurium iodine xenon caesium cesium barium lanthanum cerium praseodymium neodymium promethium samarium europium gadolinium terbium dysprosium holmium erbium thulium ytterbium lutetium hafnium tantalum tungsten rhenium osmium iridium platinum gold mercury thallium lead bismuth polonium astatine radon francium radium actinium thorium protactinium uranium neptunium plutonium americium curium berkelium californium einsteinium fermium mendelevium nobelium lawrencium rutherfordium dubnium seaborgium bohrium hassium meitnerium darmstadtium roentgenium copernicium nihonium flerovium moscovium livermorium tennessine oganesson';
-  var DOMAIN = new RegExp('\\b(' + ELEMENTS.replace(/ /g, '|') + '|atoms?|atomic|electrons?|protons?|neutrons?|nucle(?:us|i|ar|ons?)|nuclides?|quarks?|gluons?|pions?|bosons?|fermions?|leptons?|hadrons?|mesons?|muons?|neutrinos?|photons?|orbitals?|subshells?|shells?|valence|ions?|ionic|ionis\\w*|ioniz\\w*|isotopes?|elements?|periodic|molecul\\w*|bonds?|bonding|covalent|vsepr|hybridi[sz]\\w*|quantum|schr[oö]dinger|heisenberg|bohr|rutherford|rydberg|balmer|lyman|pauli|hund|aufbau|planck|einstein|wave\\s?functions?|psi|probability|spin|angular momentum|energy levels?|spectr\\w*|emission|absorption|electronegativ\\w*|radioactiv\\w*|decay|half-?life|fission|fusion|binding energy|mass number|liquid drop|woods|saxon|antimatter|antiparticles?|positrons?|annihilation|physics|physical|chemistry|chemical|compounds?|reactions?|acids?|equations?|plot|graphs?|integrals?|derivatives?|functions?|sin|cos|tan|exp|ln|log|polynomials?|hermite|laguerre|legendre|bessel|harmonic|oscillator|particles?|relativity|dirac|feynman|standard model|higgs|simulator|explorer|panel|toolbar|zoom|toggle|button|theme|language|lesson|compare|hypothetical|supercritical|water|ammonia|methane|benzene|ethanol|ethylene|acetylene|graphite|diamond|crystal|lattice|magnet\\w*|charge|coulomb|force|energy|mass|momentum|wavelength|frequency|interference|diffraction|uncertainty|tunnell?ing|entanglement|superposition|lagrangian|hamiltonian|eigen\\w*|matrix|vector|tensor|calculus|maths?|mathematics|statistics)\\b', 'i');
+  var DOMAIN = new RegExp('\\b(' + ELEMENTS.replace(/ /g, '|') + '|atoms?|atomic|electrons?|protons?|neutrons?|nucle(?:us|i|ar|ons?)|nuclides?|quarks?|gluons?|pions?|bosons?|fermions?|leptons?|hadrons?|mesons?|muons?|neutrinos?|photons?|orbitals?|subshells?|shells?|valence|ions?|ionic|ionis\\w*|ioniz\\w*|isotopes?|elements?|periodic|molecul\\w*|bonds?|bonding|covalent|vsepr|hybridi[sz]\\w*|quantum|schr[oö]dinger|heisenberg|bohr|rutherford|rydberg|balmer|lyman|pauli|hund|aufbau|planck|einstein|wave\\s?functions?|psi|probability|spin|angular momentum|energy levels?|spectr\\w*|emission|absorption|electronegativ\\w*|radioactiv\\w*|decay|half-?life|fission|fusion|binding energy|mass number|liquid drop|woods|saxon|antimatter|antiparticles?|positrons?|annihilation|physics|physical|chemistry|chemical|compounds?|reactions?|acids?|equations?|plot|graphs?|integrals?|derivatives?|functions?|sin|cos|tan|exp|ln|log|polynomials?|hermite|laguerre|legendre|bessel|harmonic|oscillator|particles?|relativity|dirac|feynman|standard model|higgs|simulator|explorer|panel|toolbar|zoom|toggle|button|theme|language|lesson|compare|hypothetical|supercritical|water|ammonia|methane|benzene|ethanol|ethylene|acetylene|graphite|diamond|crystal|lattice|magnet\\w*|charge|coulomb|force|energy|mass|momentum|wavelength|frequency|interference|diffraction|uncertainty|tunnell?ing|entanglement|superposition|lagrangian|hamiltonian|eigen\\w*|matrix|vector|tensor|calculus|maths?|mathematics|statistics|fields?|stream\\s?lines?|stream\\s?plots?|field\\s+lines?|slope\\s+fields?|direction\\s+fields?|ode|odes|differential|trajector\\w*|phase\\s+portraits?|attractors?|lorenz|pendulum|oscillat\\w*|surfaces?|isosurfaces?|contours?|heat\\s?maps?|histograms?|parametric|polar|helix|torus|spheres?|curl|divergence|gradient|flux|vortex|complex|domain\\s+colou?ring|revolution|slices?|animat\\w*|wave\\w*|3d|2d)\\b', 'i');
   var FORMULA = /\b(?:[A-Z][a-z]?\d*){2,}\b|\b[A-Z][a-z]?\d+\b/;
   var META = /^\s*(hi|hello|hey|hola|thanks?|thank you|ok(ay)?|cool|nice|great|yes|no|help|what can you do|who are you|what are you|how (do|does) (you|this|it) work|how to use|what is this|explain this|continue|go on|more|why|how|what|and|so)\b/i;
 
@@ -33276,11 +33278,83 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   var QAI = root.QuantumAI;
   if (!QAI || QAI.guard) return;
 
-  var VIS_EN = /\b(plot(?:ted|ting)?|graphs?|graphing|charts?|draw|sketch|visuali[sz]e|diagrams?|curves?|heat\s?maps?|contours?|isosurfaces?|surface\s+plot|radial\s+(?:probability|distribution)|probability\s+(?:density|distribution))\b/i;
+  /* ───── plot kind catalog: one list shared by the guard (claims must match what is drawn) and the AI's prompt ─────
+     id: what the plot engine reports in data-kinds · words: how people name it · type: how the AI asks for it */
+  QAI.plotCatalog = [
+    { id: 'function', dim: '2D', type: '{"eq":"y = …"} or {"y":"…"}', words: 'function graph, line graph' },
+    { id: 'implicit', dim: '2D', type: '{"eq":"x^2 + y^2 = 4"}', words: 'implicit curve' },
+    { id: 'region', dim: '2D', type: '{"eq":"y < sin(x)"}', words: 'shaded region, inequality' },
+    { id: 'polar', dim: '2D', type: '{"eq":"r = 1 + cos(theta)"}', words: 'polar plot' },
+    { id: 'parametric', dim: '2D', type: '{"x":"…","y":"…","t":[a,b]}', words: 'parametric curve' },
+    { id: 'scatter', dim: '2D', type: '{"xs":[…],"ys":[…],"style":"points"}', words: 'scatter plot, data points, error bars' },
+    { id: 'bar', dim: '2D', type: '"type":"bar"', words: 'bar chart' },
+    { id: 'hist', dim: '2D', type: '"type":"hist"', words: 'histogram' },
+    { id: 'heatmap', dim: '2D', type: '"type":"heatmap"', words: 'heat map, density map' },
+    { id: 'contour', dim: '2D', type: '"type":"contour"', words: 'contour plot, level curves' },
+    { id: 'vector', dim: '2D', type: '{"fx":"…","fy":"…"}', words: 'vector field, quiver plot' },
+    { id: 'streamplot', dim: '2D', type: '"type":"streamplot" with "fx","fy"', words: 'streamlines, stream plot, field lines, flow lines' },
+    { id: 'slopefield', dim: '2D', type: '"type":"slopefield" with "dydx"', words: 'slope field, direction field' },
+    { id: 'complex', dim: '2D', type: '"type":"complex" with "f" of z', words: 'domain colouring, complex function plot, phase portrait of f(z)' },
+    { id: 'ode', dim: '2D/3D', type: '"type":"ode" with "system" and "init"', words: 'ODE solution, trajectory, phase portrait, orbit of an ODE, Lorenz attractor' },
+    { id: 'particles', dim: '2D/3D', type: '"type":"particles" with "fx","fy"(,"fz")', words: 'flowing particles, particle flow animation' },
+    { id: 'movingpoint', dim: '2D/3D', type: '{"point":["cos(t)","sin(t)"],"trail":true} with "animate"', words: 'moving point, point with a trail' },
+    { id: 'animation', dim: '2D/3D', type: '"animate":{"param":"t",…} (or an ODE / particles)', words: 'animation, animated graph' },
+    { id: 'surface', dim: '3D', type: '"type":"surface" with "z" of x, y', words: '3D surface plot' },
+    { id: 'paramsurface', dim: '3D', type: '{"x","y","z" of u, v}', words: 'parametric surface' },
+    { id: 'contourproj', dim: '3D', type: 'surface item with "project": 10', words: 'surface with contour projection' },
+    { id: 'isosurface', dim: '3D', type: '"type":"isosurface" or {"eq":"… = …"} with z', words: 'isosurface, implicit surface, orbital boundary surface' },
+    { id: 'spherical', dim: '3D', type: '"type":"spherical" with "r"', words: 'spherical plot, angular shape' },
+    { id: 'cylindrical', dim: '3D', type: '"type":"cylindrical" with "rho"', words: 'cylindrical surface' },
+    { id: 'density', dim: '3D', type: '"type":"density"', words: 'probability cloud, density cloud, electron cloud' },
+    { id: 'vector3d', dim: '3D', type: '"type":"vector3d" with "fx","fy","fz"', words: '3D vector field' },
+    { id: 'streamlines3d', dim: '3D', type: '"type":"streamlines" with "fx","fy","fz"', words: '3D streamlines, 3D field lines' },
+    { id: 'slice', dim: '3D', type: '"type":"slice" with "f" and "planes"', words: 'slice planes, cross-sections of f(x,y,z)' },
+    { id: 'revolution', dim: '3D', type: '"type":"revolution" with "profile"', words: 'surface of revolution' },
+    { id: 'tube', dim: '3D', type: '3D curve with "tube": radius', words: 'tube' },
+    { id: 'ribbon', dim: '3D', type: '3D curve with "ribbon": width', words: 'ribbon' },
+    { id: 'complexsurface', dim: '3D', type: '"type":"complexsurface" with "f"', words: 'complex surface, modulus surface |f(z)|' },
+    { id: 'curve3d', dim: '3D', type: '{"x","y","z" of t}', words: '3D curve, helix, space curve' },
+    { id: 'scatter3d', dim: '3D', type: '{"xs","ys","zs"}', words: '3D scatter plot, point cloud' },
+    { id: 'bar3d', dim: '3D', type: '"type":"bar3d"', words: '3D bar chart' }
+  ];
+  var SURF3 = ['surface', 'paramsurface', 'isosurface', 'spherical', 'cylindrical', 'slice', 'revolution', 'tube', 'ribbon', 'complexsurface', 'contourproj'];
+  var ALL3 = SURF3.concat(['density', 'vector3d', 'streamlines3d', 'curve3d', 'scatter3d', 'bar3d', 'movingpoint', 'ode', 'particles']);
+  /* named graph kinds: a claim or a request that names one must be backed by a plot that draws one of these ids */
+  var KIND_WORDS = [
+    { re: /\bstream\s?(?:lines?|plots?)\b|\bfield[-\s]lines?\b|\bflow[-\s]lines?\b|stromlinie|feldlinie|ligne[s]? de (?:courant|champ)|l[ií]neas? de (?:corriente|campo)|linee di (?:flusso|campo)|линии (?:тока|поля)|流线|流線|力线|電気力線|유선|স্ট্রিমলাইন|প্রবাহ\s?রেখা|ক্ষেত্র\s?রেখা|धारा\s?रेखा|क्षेत्र\s?रेखा/i, ids: ['streamplot', 'streamlines3d'], ask: 'streamlines ("type":"streamplot" with "fx","fy" in 2D, or "type":"streamlines" with "fx","fy","fz" in 3D)' },
+    { re: /\bslope\s+fields?\b|\bdirection\s+fields?\b|richtungsfeld|champ de directions|campo de direcciones|поле направлений|方向场|方向場|ঢাল\s?ক্ষেত্র|দিক\s?ক্ষেত্র/i, ids: ['slopefield'], ask: 'a slope field ("type":"slopefield" with "dydx")' },
+    { re: /\bdomain\s+colou?ring\b|\bcomplex\s+(?:function\s+)?(?:plot|graph|map)s?\b/i, ids: ['complex', 'complexsurface'], ask: 'a complex plot ("type":"complex" with "f" of z)' },
+    { re: /\bvector\s+fields?\b|\bquiver\s+plots?\b|vektorfeld|champ vectoriel|campo vectorial|campo vettoriale|векторное поле|向量场|向量場|ベクトル場|벡터장|ভেক্টর\s?ক্ষেত্র|सदिश क्षेत्र/i, ids: ['vector', 'vector3d', 'streamplot', 'streamlines3d', 'particles'], ask: 'a vector field ({"fx","fy"} in 2D or "type":"vector3d" in 3D)' },
+    { re: /\bphase\s+(?:portraits?|planes?|space\s+plots?)\b/i, ids: ['ode', 'streamplot', 'vector', 'slopefield', 'particles', 'complex'], ask: 'a phase portrait ("type":"ode" with "system" and several "init" points, or "type":"streamplot")' },
+    { re: /\bisosurfaces?\b|\bboundary\s+surfaces?\b|\bimplicit\s+surfaces?\b/i, ids: ['isosurface'], ask: 'an isosurface ("type":"isosurface")' },
+    { re: /\b(?:probability|density|electron)\s+clouds?\b/i, ids: ['density', 'scatter3d'], ask: 'a density cloud ("type":"density")' },
+    { re: /\bheat\s?maps?\b/i, ids: ['heatmap', 'complex'], ask: 'a heat map ("type":"heatmap")' },
+    { re: /\bcontour\s+(?:plots?|lines?|maps?)\b|\blevel\s+curves?\b/i, ids: ['contour', 'heatmap', 'contourproj'], ask: 'contour lines ("type":"contour", or "contours" on a heatmap)' },
+    { re: /\bhistograms?\b/i, ids: ['hist'], ask: 'a histogram ("type":"hist")' },
+    { re: /\bbar\s+(?:charts?|graphs?|plots?)\b/i, ids: ['bar', 'hist', 'bar3d'], ask: 'a bar chart ("type":"bar")' },
+    { re: /\bpolar\s+(?:plots?|graphs?|curves?)\b/i, ids: ['polar'], ask: 'a polar plot ({"eq":"r = …"})' },
+    { re: /\bscatter\s?(?:plots?|graphs?|charts?)\b/i, ids: ['scatter', 'data', 'scatter3d'], ask: 'a scatter plot ({"xs","ys","style":"points"})' },
+    { re: /\bslice\s+planes?\b|\bslices?\s+(?:plots?|through)\b|\bcross[-\s]sections?\b/i, ids: ['slice', 'contour', 'heatmap'], ask: 'slice planes ("type":"slice" with "f" and "planes")' },
+    { re: /\bsurfaces?\s+of\s+revolution\b|\brevolution\s+surfaces?\b/i, ids: ['revolution'], ask: 'a surface of revolution ("type":"revolution" with "profile")' },
+    { re: /\btube\s+(?:plots?|around)\b|\bas\s+a\s+tube\b/i, ids: ['tube'], ask: 'a tube (a 3D curve with "tube": radius)' },
+    { re: /\bribbons?\b/i, ids: ['ribbon'], ask: 'a ribbon (a 3D curve with "ribbon": width)' },
+    { re: /\b[Ss]urface\s+[Pp]lots?\b|\b3D\s+[Ss]urfaces?\b/, ids: SURF3, ask: 'a 3D surface ("type":"surface")' },
+    { re: /\b3D\s+(?:plots?|graphs?|charts?|figures?|visuali[sz]ations?)\b|\bthree[-\s]dimensional\s+(?:plots?|graphs?)\b/i, ids: ALL3, ask: 'a 3D plot' },
+    { re: /\banimat(?:ed|ion|ions|e|ing)\b|অ্যানিমেশন|এনিমেশন|animación|animazione|анимаци|动画|動畫|アニメーション|애니메이션|एनिमेशन/i, ids: ['animation', 'ode', 'particles', 'movingpoint'], ask: 'an animation ("animate": {"param":"t","from":…,"to":…} on the plot, or an ODE / particles plot)' },
+    { re: /\bparticles?\s+(?:flow|animation|simulation|tracers?)\b|\bflowing\s+particles\b|\btracer\s+particles\b/i, ids: ['particles'], ask: 'flowing particles ("type":"particles" with "fx","fy")' },
+    { re: /\b(?:ode|differential\s+equations?)\s+(?:solutions?|plots?|trajector(?:y|ies))\b|\blorenz\s+attractor\b/i, ids: ['ode'], ask: 'an ODE solution ("type":"ode" with "system" and "init")' },
+    { re: /\bmoving\s+(?:point|dot|particle)\b/i, ids: ['movingpoint', 'ode', 'particles'], ask: 'a moving point ({"point":["…","…"],"trail":true} with "animate")' }
+  ];
+  function kindsNamed(text) { var out = []; KIND_WORDS.forEach(function (k) { if (k.re.test(text)) out.push(k); }); return out; }
+  /* the part of a sentence that makes the claim: stop at "but", "you could", "next", "instead" … so offers are not taken as claims */
+  function claimPart(sent) { var m = /\b(?:but|however|although|though|instead|could|can|can't|cannot|might|try|next|also\s+(?:try|make|draw)|if\s+you|would\s+you|want|later|or\s+i)\b/i.exec(sent); return m ? sent.slice(0, m.index) : sent; }
+
+
+  var VIS_EN = /\b(plot(?:ted|ting)?|graphs?|graphing|charts?|draw|sketch|visuali[sz]e|diagrams?|curves?|heat\s?maps?|contours?|isosurfaces?|surface\s+plot|radial\s+(?:probability|distribution)|probability\s+(?:density|distribution)|stream\s?(?:lines?|plots?)|field\s+lines?|flow\s+lines?|vector\s+fields?|slope\s+fields?|direction\s+fields?|phase\s+portraits?|domain\s+colou?ring|slice\s+planes?|surfaces?\s+of\s+revolution|lorenz\s+attractor|quiver\s+plots?)\b/i;
   var VIS_I18N = /(gr[aá]fic[oa]s?|graphique|graphe|diagramme|zeichne|diagramm|grafik|график|диаграмм|图表|圖表|曲线|曲線|绘制|繪製|グラフ|プロット|그래프|رسم|بياني|disegna|grafico|tracer|dibuja|plotta|çiz|grafiek|wykres|ग्राफ|গ্রাফ|চিত্র)/i;
   /* a visual is promised: "here is / I've plotted / below is the graph", "the plot below", "see the chart" */
-  var CLAIM_A = /\b(here(?:\s+is|\s+are|['\u2019]s)|below\s+(?:is|are)|i(?:['\u2019]ve|\s+have)\s+(?:drawn|plotted|made|created|generated|attached|added|included)|i\s+(?:drew|plotted|made|created|generated|attached|added|included)|attached\s+(?:is|are)|see\s+(?:the|this)|as\s+(?:shown|you\s+can\s+see)\s+(?:in|on)|now\s+(?:showing|plotting))\b[^.!?\n]{0,70}?\b(graphs?|plots?|charts?|figures?|diagrams?|curves?|surfaces?|visuali[sz]ations?|heat\s?maps?|contours?)\b/i;
-  var CLAIM_B = /\b(graphs?|plots?|charts?|figures?|diagrams?|curves?|surfaces?)\s+(?:is\s+|are\s+|has\s+been\s+|have\s+been\s+)?(?:attached|below|above|ready|shown\s+below|drawn\s+below|plotted\s+below)\b/i;
+  var CLAIM_A = /\b(here(?:\s+is|\s+are|['\u2019]s)|below\s+(?:is|are)|i(?:['\u2019]ve|\s+have)\s+(?:drawn|plotted|made|created|generated|attached|added|included)|i\s+(?:drew|plotted|made|created|generated|attached|added|included)|attached\s+(?:is|are)|see\s+(?:the|this)|as\s+(?:shown|you\s+can\s+see)\s+(?:in|on)|now\s+(?:showing|plotting))\b[^.!?\n]{0,70}?\b(graphs?|plots?|charts?|figures?|diagrams?|curves?|surfaces?|visuali[sz]ations?|heat\s?maps?|contours?|stream\s?lines?|stream\s?plots?|field\s+lines?|flow\s+lines?|vector\s+fields?|slope\s+fields?|direction\s+fields?|phase\s+portraits?|isosurfaces?|animations?|animated|moving|trajector(?:y|ies)|slices?|tubes?|ribbons?|clouds?|histograms?|domain\s+colou?ring)\b/i;
+  var CLAIM_B = /\b(graphs?|plots?|charts?|figures?|diagrams?|curves?|surfaces?|stream\s?lines?|field\s+lines?|vector\s+fields?|slope\s+fields?|animations?|isosurfaces?)\s+(?:is\s+|are\s+|has\s+been\s+|have\s+been\s+)?(?:attached|below|above|ready|shown\s+below|drawn\s+below|plotted\s+below)\b/i;
   var CLAIM_BTN = /\b(?:tap|click|press|use)\s+(?:the\s+|this\s+|a\s+)?(?:button|buttons|chip|chips)\b|\b(?:button|buttons)\s+(?:below|above)\b/i;
   var TAG = /\[\[(element|molecule|panel|tool|go|state|zoom|toggle):([A-Za-z0-9_\-]{1,32})\]\]/g;
 
@@ -33308,7 +33382,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       QAI.drawPlot(fig, src, lang === 'plot3d');
       var err = fig.querySelector('.qai-plot-err');
       if (err) return { ok: false, err: String(err.textContent || '').replace(/^Could not draw this plot:\s*/, '').slice(0, 200) };
-      return { ok: true };
+      return { ok: true, kinds: String(fig.getAttribute('data-kinds') || '').split(/\s+/).filter(Boolean) };
     } catch (e) { return { ok: false, err: e && e.message ? String(e.message).slice(0, 200) : 'unknown error' }; }
     finally { try { fig.remove(); } catch (e) {} }
   }
@@ -33327,9 +33401,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     TAG.lastIndex = 0;
     while ((t = TAG.exec(prose))) { var ok = pg && pg.resolve ? !!pg.resolve(t[1], t[2]) : true; if (ok) tags++; }
     var visible = prose.replace(TAG, '').trim();
+    var claimed = []; // graph kinds that a delivery sentence names ("Here is the streamline plot")
+    visible.split(/(?<=[.!?\u3002\uff01\uff1f])\s+|\n+/).forEach(function (sent) { if (CLAIM_A.test(sent) || CLAIM_B.test(sent)) kindsNamed(claimPart(sent)).forEach(function (k) { if (claimed.indexOf(k) < 0) claimed.push(k); }); });
     var dangling = /[:\uff1a]\s*$/.test(visible) && !plots.length && !choices && !tags;
     return {
-      plots: plots, choices: choices, tags: tags, prose: prose, dangling: dangling, truncated: truncated,
+      plots: plots, choices: choices, tags: tags, prose: prose, dangling: dangling, truncated: truncated, claimed: claimed,
       claimPlot: CLAIM_A.test(prose) || CLAIM_B.test(prose), claimButton: CLAIM_BTN.test(prose)
     };
   }
@@ -33338,17 +33414,26 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     o = o || {};
     var i = inspect(reply);
     if (i.truncated) return { ok: false, reason: 'truncated', detail: 'the reply was cut off inside a plot or choices block', claimed: true };
-    var bad = null, valid = 0;
+    var bad = null, valid = 0, drawn = {};
     for (var k = 0; k < i.plots.length; k++) {
       var r = renderTest(i.plots[k].src, i.plots[k].lang);
-      if (r.ok) valid++; else if (!bad) bad = r.err;
+      if (r.ok) { valid++; (r.kinds || []).forEach(function (q) { drawn[q] = 1; }); if (r.unverified) drawn['*'] = 1; } else if (!bad) bad = r.err;
     }
+    var has = function (k) { return drawn['*'] || k.ids.some(function (q) { return drawn[q]; }); };
     if (bad) return { ok: false, reason: 'invalid_plot', detail: bad, claimed: true };
     var needPlot = !!o.expectPlot || i.claimPlot;
     if (needPlot && !valid && !(i.choices && !i.claimPlot)) return { ok: false, reason: 'no_plot', detail: 'no plot block was delivered', claimed: i.claimPlot };
     if (i.claimButton && !i.tags && !i.choices) return { ok: false, reason: 'no_button', detail: 'buttons were mentioned but none were delivered', claimed: true };
     if (i.dangling) return { ok: false, reason: 'dangling', detail: 'the reply ends with a lead-in and nothing after it', claimed: true };
-    return { ok: true, plots: valid, choices: i.choices, tags: i.tags };
+    if (valid) {
+      // A promise names a kind ("Here is the streamline graph"): a plot of that kind must really be in the reply.
+      var missC = i.claimed.filter(function (k) { return !has(k); });
+      if (missC.length) return { ok: false, reason: 'wrong_kind', detail: 'the reply says it shows ' + missC.map(function (k) { return k.ask; }).join(' and ') + ', but the plot block draws ' + (Object.keys(drawn).join(', ') || 'something else'), missing: missC, claimed: true };
+      // The person asked for a kind by name: try to deliver exactly that (a soft rule: an honest alternative is kept in the end).
+      var missA = o.ask ? kindsNamed(String(o.ask)).filter(function (k) { return !has(k); }) : [];
+      if (missA.length && !i.choices) return { ok: false, soft: true, reason: 'wrong_kind', detail: 'the person asked for ' + missA.map(function (k) { return k.ask; }).join(' and ') + ', but the plot block draws ' + (Object.keys(drawn).join(', ') || 'something else'), missing: missA, claimed: false };
+    }
+    return { ok: true, plots: valid, choices: i.choices, tags: i.tags, kinds: Object.keys(drawn) };
   }
 
   function repairPrompt(v, attempt) {
@@ -33358,13 +33443,19 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       invalid_plot: 'Your previous reply contained a plot block that could not be drawn (' + (v.detail || 'invalid spec') + ').',
       truncated: 'Your previous reply was cut off in the middle of a block.',
       no_button: 'Your previous reply mentioned buttons but contained no valid [[kind:id]] tag from the CATALOG.',
-      dangling: 'Your previous reply ended with a lead-in and then nothing.'
+      dangling: 'Your previous reply ended with a lead-in and then nothing.',
+      wrong_kind: (v.soft ? 'Your previous reply drew a different kind of graph than the person asked for: ' : 'Your previous reply did not deliver the kind of graph it named: ') + (v.detail || '') + '. The graph you name in words must be the graph the block draws.'
     }[v.reason] || 'Your previous reply did not deliver what it promised.';
-    var how = ' Write the complete reply again now, in the same language: at most two short sentences, then the finished block(s). Use a closed ```plot fence with strict JSON (double quotes, no comments, no trailing commas) and only syntax from your plot rules; reuse any data from your previous reply.' + (attempt > 1 ? ' Make it simpler and certain to draw: one layer, explicit ranges, plain expressions.' : '') + ' Do not apologise, do not mention this check, and do not say a graph is shown unless the block is in this very message.';
+    var how = ' Write the complete reply again now, in the same language: at most two short sentences, then the finished block(s). Use a closed ```plot fence with strict JSON (double quotes, no comments, no trailing commas) and only syntax from your plot rules; reuse any data from your previous reply.' + (attempt > 1 ? ' Make it simpler and certain to draw: one layer, explicit ranges, plain expressions.' : '') + ' Do not apologise, do not mention this check, and do not say a graph is shown unless the block is in this very message.' + (v.reason === 'wrong_kind' ? ' Either draw exactly that kind with the type given, or, if it truly cannot be drawn, name only the kind you do draw.' : '');
     return base + core + how;
   }
 
   function degrade(reply, v, say) {
+    if (v && v.reason === 'wrong_kind' && v.missing) {
+      var parts = QAI.fixFences(String(reply || '')).split(/((?:^|\n)[ \t]{0,3}(?:`{3,}|~{3,})[\s\S]*?\n[ \t]{0,3}(?:`{3,}|~{3,})[ \t]*(?=\n|$))/);
+      var out = parts.map(function (p, n) { if (n % 2) return p; return p.split(/(?<=[.!?\u3002])\s+/).filter(function (sent) { return !((CLAIM_A.test(sent) || CLAIM_B.test(sent)) && v.missing.some(function (k) { return k.re.test(claimPart(sent)); })); }).join(' '); }).join('').trim();
+      return out + '\n\n' + say;
+    }
     var i = inspect(reply), text = i.prose;
     text = text.split(/\n{2,}/).filter(function (para) { return !(CLAIM_A.test(para) || CLAIM_B.test(para) || CLAIM_BTN.test(para)) && !/[:\uff1a]\s*$/.test(para.trim()); }).join('\n\n').replace(/```[\s\S]*$/, '').trim();
     return (text ? text + '\n\n' : '') + say;
@@ -33372,12 +33463,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 
   function visualIntent(text, pending) {
     var s = String(text || '');
-    if (VIS_EN.test(s) || VIS_I18N.test(s)) return true;
+    if (VIS_EN.test(s) || VIS_I18N.test(s) || kindsNamed(s).some(function (k) { return k.ids.indexOf('animation') < 0; })) return true;
     return !!(pending && pending.choices && pending.visual); // answering the graph question we just asked
   }
   function mentionsVisual(s) { return VIS_EN.test(String(s || '')) || VIS_I18N.test(String(s || '')); }
 
-  QAI.guard = { visualIntent: visualIntent, mentionsVisual: mentionsVisual, inspect: inspect, check: check, repairPrompt: repairPrompt, degrade: degrade,
+  QAI.guard = { kindsNamed: kindsNamed, visualIntent: visualIntent, mentionsVisual: mentionsVisual, inspect: inspect, check: check, repairPrompt: repairPrompt, degrade: degrade,
     failText: function () { return 'I couldn\u2019t draw that reliably this time, so I won\u2019t pretend I did. Tell me the exact quantity and range (for example \u201cradial probability of hydrogen 2p, 0 to 20 Bohr radii\u201d) and I\u2019ll rebuild it.'; } };
 })(typeof window !== 'undefined' ? window : globalThis);
 /* <<< embedded: ai/qai-guard.js */
@@ -33857,16 +33948,19 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     '- Everywhere: runs fully in the browser with no account; light and dark themes; 13 languages. This AI panel opens from the round AI button, which can be dragged anywhere.',
     '',
     'YOUR ABILITIES (know them exactly and never claim more)',
-    '- You CAN: explain and calculate; read the APP STATE below (which page, element, molecule or nucleus is selected, and its settings); draw interactive 2D and 3D graphs in the chat with plot blocks (functions, equations, regions, data, contours, heatmaps, vector fields, surfaces, with sliders the person can drag); write Markdown documents the person can download; ask a clarifying question with tappable answers (choices block); offer buttons that guide the person around the app: open elements, molecules, panels and tools, set the nuclear state or zoom stage, toggle overlays, or switch pages (see ACTIONS and CATALOG); search the web, but only when a WEB ACCESS section appears below.',
-    '- You CANNOT: see the 3D view itself (only the APP STATE describes it); change anything on screen yourself (you only offer buttons, and nothing happens until the person presses one); do things for which the CATALOG has no button; make images, photos, drawings, animations, videos or audio; run code or open files; remember other conversations; browse the web unless WEB ACCESS is listed. When asked for any of these, say plainly "I don\'t have the ability to …" in the person\'s language, then offer the closest thing you can do (a plot, an explanation, or where in the app to find it).',
+    '- You CAN: explain and calculate; read the APP STATE below (which page, element, molecule or nucleus is selected, and its settings); draw interactive 2D and 3D graphs in the chat with plot blocks (functions, equations, regions, data, contours, heatmaps, vector fields, streamlines, slope fields, complex domain colouring, ODE solutions and phase portraits, flowing particles, surfaces, isosurfaces, slice planes, surfaces of revolution, tubes and ribbons, with sliders the person can drag, and animated plots that play on a timeline); write Markdown documents the person can download; ask a clarifying question with tappable answers (choices block); offer buttons that guide the person around the app: open elements, molecules, panels and tools, set the nuclear state or zoom stage, toggle overlays, or switch pages (see ACTIONS and CATALOG); search the web, but only when a WEB ACCESS section appears below.',
+    '- You CANNOT: see the 3D view itself (only the APP STATE describes it); change anything on screen yourself (you only offer buttons, and nothing happens until the person presses one); do things for which the CATALOG has no button; make images, photos, drawings, videos or audio, or animate anything outside a plot (you CAN animate a plot: a timeline, a moving point, an ODE or particles); run code or open files; remember other conversations; browse the web unless WEB ACCESS is listed. When asked for any of these, say plainly "I don\'t have the ability to …" in the person\'s language, then offer the closest thing you can do (a plot, an explanation, or where in the app to find it).',
     '',
     'GRAPHS AND VISUALS',
+    "- SHOW, PLOT, BOTH OR NEITHER (decide before you answer): SHOW with a button when the person wants to see a real object the app itself renders (an element, molecule, orbital cloud, nucleus, reaction, annihilation, a panel or tool): the app draws it far better than a graph. PLOT when they want a quantity, function, relationship, field, motion, data set or comparison, or when a curve makes the explanation clearer than words. BOTH when they ask about an app object and a quantity of it (e.g. \"show the 2p orbital and its radial probability\": a button plus a plot). NEITHER for definitions, short facts and conceptual why-questions where a picture adds nothing: answer in words, and at most offer a graph in one short sentence. Never add a plot just to decorate an answer.",
+    "- PICK THE KIND THAT FITS: functions → function plot; shapes given by an equation → implicit curve or isosurface; a field → vector field, or streamlines when the flow pattern matters; dy/dx = f(x, y) → slope field with solution curves; a system of ODEs → \"type\":\"ode\" (phase plane, time plot, or 3D trajectory); f(z) of a complex variable → domain colouring; something that changes in time → an animation (\"animate\"), an ODE, a moving point or particles; a scalar field in space → slices or isosurface; a solid made by rotating a curve → surface of revolution. If the person names a kind (\"streamlines\", \"slope field\", \"animation\", \"3D\"), draw that kind.",
+    "- THE KIND RULE: the graph you name in words must be the graph your block draws. If you write \"here is the streamline plot\", the block must use \"type\":\"streamplot\" (or \"streamlines\" in 3D); \"animated\" needs \"animate\", an ODE or particles; \"3D surface\" needs a 3D type. The app checks this automatically: a block that draws a different kind than you name is rejected, and a missing kind is never accepted. If you choose a different kind than the person asked for, say plainly which kind you drew and why.",
     '- THE DELIVERY RULE: never promise what is not in the same message. Words like "here is your graph", "below is the plot" or "I\'ve drawn it" are allowed only if this very message contains a complete, closed plot block. Put the block in first; the sentence that introduces it must never exist without it. If you cannot draw something, say so plainly instead. Before sending, check: the fence is closed, the JSON is strict (double quotes, no comments, no trailing commas), and every expression uses only the syntax you know the plotter supports. Same for buttons: only mention them if the [[tag]] is in the message and in the CATALOG.',
     '- Clear request (the quantity and enough context to choose ranges are known, e.g. "plot sin x from 0 to 2π", "radial probability of hydrogen 2p", "binding energy per nucleon vs A"): draw it right away with a plot block, choosing sensible ranges and labels.',
     '- Ambiguous request (e.g. "show me a graph", "graph this atom", "plot the energy", "compare the orbitals", "visualise the nucleus"): do not guess and do not draw yet. Ask exactly one short clarifying question as a choices block with 2 to 4 concrete options that are all things you can actually plot, using the APP STATE to make them specific (e.g. "Radial probability of iron\'s 3d and 4s orbitals"). Example:',
     '```choices\n{"question":"Which graph would you like?","options":["Radial probability P(r) for hydrogen 1s, 2s, 2p","Energy levels E_n for n = 1 to 6","Binding energy per nucleon vs mass number"]}\n```',
     '- After the person answers or confirms, your reply must contain the plot block(s). Never describe a graph without drawing it, never ask a second clarifying question about the same graph, and fill in any remaining detail with a sensible default that you state in one line.',
-    '- If they ask for a visual that a plot cannot be (a picture, an animation, a video, a 3D rendering of the atom like the app\'s), say you don\'t have the ability to make that, point to where the app shows it if it does, and offer the closest graph.',
+    '- If they ask for a visual that a plot cannot be (a picture, a video, a 3D rendering or animation of the atom like the app\'s), say you don\'t have the ability to make that, point to where the app shows it if it does, and offer the closest graph.',
     '- The choices block is ALWAYS fenced exactly as ```choices with the JSON inside. Never use ```text, ```json or any other tag for it, and never write the JSON bare. Do not repeat the question in prose when the block asks it.',
     '- Put the choices block alone at the end of the message, after at most one short sentence. Options are plain text (no LaTeX), each under 80 characters. Use choices only for genuine ambiguity, never for yes/no padding.',
     '',
@@ -33905,6 +33999,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     '- Titles, labels, legend entries, axis names and annotation text may contain LaTeX in dollar signs: \"label\":\"$|\\\\psi_{2p}(r)|^2$\", \"xlabel\":\"$r\\\\ (a_0)$\", \"title\":\"Radial probability $P(r) = r^2 R_{nl}^2$\". Without a label, each equation is typeset automatically in the legend, so give a label only when a name says more than the equation.',
     '- 3D (the person can drag to rotate; several items share one scene and hide each other correctly): {\"type\":\"surface\",\"series\":[{\"z\":\"sin(sqrt(x^2+y^2))\"},{\"z\":\"0.3*x\",\"opacity\":0.6}],\"xrange\":[-6,6],\"yrange\":[-6,6]}; parametric surface {\"x\":\"(2+cos(v))*cos(u)\",\"y\":\"(2+cos(v))*sin(u)\",\"z\":\"sin(v)\",\"u\":[0,6.2832],\"v\":[0,6.2832]}; curve {\"x\":\"cos(t)\",\"y\":\"sin(t)\",\"z\":\"t/5\",\"t\":[0,25]}; points {\"xs\":[...],\"ys\":[...],\"zs\":[...]}. Options: \"zrange\", \"colormap\" (viridis plasma turbo coolwarm rdbu inferno magma gray), \"wireframe\":true, \"equal\":true, \"azimuth\" and \"elevation\" in degrees, \"params\" (sliders work in 3D too). Several surfaces without a colormap get one solid colour each.',
     '- More 3D kinds (all draggable; in any 3D expression of x, y, z you can also use r, theta, phi for spherical coordinates): implicit surface or isosurface {\"eq\":\"x^2 + y^2 + z^2 = 4\"} or {\"type\":\"isosurface\",\"f\":\"(Rnl(3,2,r)*Ylm(2,0,theta,phi))^2\",\"level\":0.00002} (orbital boundary surfaces; set xrange, yrange, zrange to enclose it); spherical surface {\"type\":\"spherical\",\"r\":\"Ylm(2,0,theta,phi)\"} (|r| is the radius and its sign colours the lobes, as in orbital plots); cylindrical surface {\"type\":\"cylindrical\",\"rho\":\"1 + 0.25*cos(6*phi)\",\"h\":[-2,2]}; 3D vector field {\"type\":\"vector3d\",\"fx\":\"x/r^3\",\"fy\":\"y/r^3\",\"fz\":\"z/r^3\",\"n\":6}; probability-density cloud {\"type\":\"density\",\"density\":\"(Rnl(2,1,r)*Ylm(1,0,theta,phi))^2\",\"color_expr\":\"Ylm(1,0,theta,phi)\",\"colormap\":\"coolwarm\",\"n\":8000} (points drawn with probability ∝ the density, like the app\'s own clouds); 3D bar chart {\"type\":\"bar3d\",\"zs\":[[1,2],[3,4]]}. Add \"equal\":true for orbitals and other shapes whose proportions matter. Use \"color_expr\" on isosurfaces and clouds to colour by another quantity (e.g. the sign of ψ).',
+    "- Fields, flows and equations in 2D (each can also be one item in \"series\"): streamlines {\"type\":\"streamplot\",\"fx\":\"-y\",\"fy\":\"x - 0.3*y\",\"xrange\":[-3,3],\"yrange\":[-3,3]} (evenly spaced, with arrows, coloured by speed; \"density\" 0.3 to 3, \"seeds\":[[x,y],…] to start lines at chosen points, or add \"streamlines\":true to a vector field); slope field {\"type\":\"slopefield\",\"dydx\":\"x - y\",\"solutions\":[[0,1],[0,-1]]} (short segments of slope dy/dx, plus solution curves through the given points); complex function {\"type\":\"complex\",\"f\":\"(z^2 - 1)/(z^2 + 1)\"} (domain colouring: hue = arg f, bright bands = |f|; zeros show all colours meeting, poles the same in reverse; write it with z and i, functions exp ln sqrt sin cos tan sinh cosh tanh abs arg re im conj; default range −2 to 2).",
+    "- ODEs: {\"type\":\"ode\",\"system\":{\"x\":\"y\",\"y\":\"-x - 0.2*y\"},\"init\":[[2,0],[0,2]],\"t\":[0,30]} solves dx/dt, dy/dt with RK4 from each starting point (\"init\" is one state like [1,0] or a list of states). Two equations draw the phase plane (\"axes\":[\"x\",\"y\"] to choose), one equation or \"plot\":\"time\" draws each variable against t, three equations draw a 3D trajectory (e.g. the Lorenz system). Every ODE plays itself as an animation on a t timeline (a moving state with its trail; \"trail\": a time window, \"duration\": seconds per run, \"animate\": false for a still picture). Parameters from \"params\" work inside the equations. Combine a phase portrait with {\"type\":\"streamplot\"} of the same field in one \"series\" when it helps.",
+    "- Animation: add \"animate\":{\"param\":\"t\",\"from\":0,\"to\":6.283,\"duration\":6,\"loop\":\"loop\"} to any 2D or 3D plot and use that name in the expressions (e.g. {\"y\":\"sin(x - t)\"} for a travelling wave, {\"z\":\"cos(r - t)\"} on a surface); \"loop\" can be \"loop\", \"bounce\" or \"once\". It plays on its own with a play/pause button and a scrub slider. Moving point: {\"point\":[\"cos(t)\",\"sin(t)\"],\"trail\":true} in 2D or {\"point\":[\"cos(t)\",\"sin(t)\",\"t/6\"],\"trail\":true} in 3D (set xrange/yrange/zrange so the whole path fits). Do not name the animation parameter t in a plot that also has parametric curves in t; use s there. Flowing particles: {\"type\":\"particles\",\"fx\":\"-y\",\"fy\":\"x\",\"n\":300} (add \"fz\" for 3D; \"speed\", \"trail\") make a field visibly move. Any \"params\" slider can also autoplay with \"animate\":true.",
+    "- More 3D: streamlines or field lines {\"type\":\"streamlines\",\"fx\":\"x/r^3\",\"fy\":\"y/r^3\",\"fz\":\"z/r^3\",\"seeds\":[[0.3,0,0],[0,0.3,0],[0,0,0.3],[-0.3,0,0],[0,-0.3,0],[0,0,-0.3]]} (\"seeds\" are start points; without them a 3×3×3 grid is used; set the ranges); slice planes {\"type\":\"slice\",\"f\":\"x*exp(-(x^2+y^2+z^2))\",\"planes\":{\"x\":[0],\"z\":[0.5]}} (colour = f on each plane; plane positions may be slider names); surface of revolution {\"type\":\"revolution\",\"profile\":\"sqrt(x)\",\"x\":[0,4],\"axis\":\"x\"} (\"axis\":\"y\" spins the curve about the vertical axis); tube or ribbon: add \"tube\":0.15 or \"ribbon\":0.3 to a 3D curve {\"x\":\"cos(t)\",\"y\":\"sin(t)\",\"z\":\"t/6\",\"t\":[0,18]}; contour projection: add \"project\":10 to a z = f(x, y) surface to draw 10 contour lines on the floor; complex surface {\"type\":\"complexsurface\",\"f\":\"z^3 - 1\"} (height |f(z)|, colour arg f(z)). Use \"equal\":true for revolutions, tubes and anything whose true shape matters.",
+    "- The person can drag sliders, rotate and zoom; how they leave each plot is saved with the chat and restored when they reopen it.",
+    (QAI.plotCatalog ? '- KIND CATALOG (name in words → what draws it): ' + QAI.plotCatalog.map(function (k) { return k.words + ' → ' + k.type + ' [' + k.dim + ']'; }).join('; ') + '.' : ''),
     '- Plot rules: valid JSON only (double quotes, no comments, no trailing commas). Check each expression mentally at one or two points before writing it, and choose ranges that show the interesting behaviour (zeros, peaks, asymptotes, nodes). Use \"equal\":true for circles and orbitals so shapes are not distorted. Label axes with symbols and units. Prefer expressions over long number lists; use data arrays only for numbers you actually know, and never invent measured data. After the block, say in one or two sentences what to look at.',
     '- LANGUAGE: understand every language the person may use, including mixed messages (for example Bengali with English words) and languages typed in Latin letters (for example Banglish, Hinglish or Arabizi). Reply in the language of their latest message; for a romanized message reply in that language in its own script (Bengali script for Banglish) unless they ask to keep Latin letters. If they have not written yet or the language is unclear, use appLanguage from the APP STATE. Keep chemical symbols, formulas, equations and units unchanged in every language.',
     '',
@@ -34932,6 +35032,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     coolwarm: ['#3b4cc0', '#8db0fe', '#dddddd', '#f4987a', '#b40426'],
     rdbu: ['#2166ac', '#67a9cf', '#f7f7f7', '#ef8a62', '#b2182b'],
     inferno: ['#000004', '#420a68', '#932667', '#dd513a', '#fca50a', '#fcffa4'],
+    phase: ['#ff3d3d', '#ffd23d', '#4fe34f', '#3de3e3', '#3d6bff', '#e33de3', '#ff3d3d'], hsv: ['#ff3d3d', '#ffd23d', '#4fe34f', '#3de3e3', '#3d6bff', '#e33de3', '#ff3d3d'],
     gray: ['#111111', '#eeeeee'], magma: ['#000004', '#51127c', '#b73779', '#fc8961', '#fcfdbf']
   };
   var plCmCache = {};
@@ -34998,6 +35099,31 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       args.forEach(function (a) { if (!/^[A-Za-z_]\w*$/.test(a)) throw new Error('bad argument "' + a + '" in ' + it[0]); });
       D[m[1]] = { args: args, src: it[1] };
     });
+    /* a timeline: "animate": {"param": "t", "from": 0, "to": 6.28, "duration": 6, "loop": "loop" | "bounce" | "once"} */
+    var anim = spec.animate != null ? spec.animate : spec.animation != null ? spec.animation : spec.timeline;
+    if (anim === true) anim = (spec.system != null || spec.ode != null) ? null : {}; // an ODE's own clock covers "animate": true
+    if (anim && typeof anim === 'object' && !Array.isArray(anim)) {
+      var pn = String(anim.param || anim.parameter || anim['var'] || anim.variable || 't');
+      if (!/^[A-Za-z_]\w{0,15}$/.test(pn)) throw new Error('"animate.param" must be a plain name such as "t"');
+      var a0 = plNum(anim.from != null ? anim.from : anim.min, NaN), a1 = plNum(anim.to != null ? anim.to : anim.max, NaN), tl = sliders.filter(function (q) { return q.name === pn; })[0];
+      if (!tl) {
+        if (!isFinite(a0)) a0 = 0; if (!isFinite(a1) || a1 <= a0) a1 = a0 + 2 * Math.PI;
+        P[pn] = a0; tl = { name: pn, lo: a0, hi: a1, step: (a1 - a0) / 1000, label: anim.label != null ? String(anim.label) : '' }; sliders.push(tl);
+      } else { if (isFinite(a0)) tl.lo = a0; if (isFinite(a1) && a1 > tl.lo) tl.hi = a1; P[pn] = Math.min(tl.hi, Math.max(tl.lo, P[pn])); }
+      var lp = String(anim.loop == null ? 'loop' : anim.loop).toLowerCase();
+      tl.loop = anim.loop === false || lp === 'once' || lp === 'false' ? 'once' : /bounce|ping|reverse|yoyo/.test(lp) ? 'bounce' : 'loop';
+      var spd = plNum(anim.speed, NaN);
+      tl.dur = Math.min(120, Math.max(0.5, isFinite(spd) && spd > 0 ? (tl.hi - tl.lo) / spd : plNum(anim.duration, 6)));
+      tl.anim = anim.autoplay !== false && anim.play !== false; tl.timeline = true;
+    }
+    /* an ODE runs on its own clock (_t), shown as a "t" timeline the person can play, pause and scrub */
+    var odeT = null;
+    [spec].concat(Array.isArray(spec.series) ? spec.series : [], Array.isArray(spec.layers) ? spec.layers : [], Array.isArray(spec.curves) ? spec.curves : []).forEach(function (s) {
+      if (!s || typeof s !== 'object' || s.animate === false || !(s.system != null || s.ode != null || /^(odes?|differential(equation)?)$/.test(String(s.type || '').toLowerCase().replace(/[\s_-]/g, '')))) return;
+      var tr = plRange(s.t || s.trange || s.time || s.tspan, [0, 20]), d = plNum(s.duration, NaN);
+      odeT = odeT ? [Math.min(odeT[0], tr[0]), Math.max(odeT[1], tr[1]), isFinite(d) ? d : odeT[2]] : [tr[0], tr[1], isFinite(d) ? d : 8];
+    });
+    if (odeT && odeT[1] > odeT[0]) { P._t = odeT[0]; sliders.push({ name: '_t', texName: 't', lo: odeT[0], hi: odeT[1], step: (odeT[1] - odeT[0]) / 2000, label: '$t$', anim: true, loop: 'loop', dur: Math.min(120, Math.max(1, odeT[2])), timeline: true }); }
     var env = { P: P, D: D, sliders: sliders };
     Object.keys(D).forEach(function (k) { var d = D[k]; d.ast = plParse(d.src, { names: d.args.concat(Object.keys(P)), defs: D }); });
     return env;
@@ -35025,39 +35151,217 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     return { lhs: s.slice(0, found[0].i), op: found[0].op, rhs: s.slice(found[0].i + found[0].n) };
   }
 
+  /* ───── complex numbers for domain colouring and complex surfaces: z = x + iy ───── */
+  var PL_CX = (function () {
+    function mul(a, b) { return [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]; }
+    function div(a, b) { var d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; }
+    function exp(a) { var m = Math.exp(a[0]); return [m * Math.cos(a[1]), m * Math.sin(a[1])]; }
+    function log(a) { return [Math.log(Math.hypot(a[0], a[1])), Math.atan2(a[1], a[0])]; }
+    function sin(a) { return [Math.sin(a[0]) * Math.cosh(a[1]), Math.cos(a[0]) * Math.sinh(a[1])]; }
+    function cos(a) { return [Math.cos(a[0]) * Math.cosh(a[1]), -Math.sin(a[0]) * Math.sinh(a[1])]; }
+    function sinh(a) { return [Math.sinh(a[0]) * Math.cos(a[1]), Math.cosh(a[0]) * Math.sin(a[1])]; }
+    function cosh(a) { return [Math.cosh(a[0]) * Math.cos(a[1]), Math.sinh(a[0]) * Math.sin(a[1])]; }
+    function sqrt(a) { var m = Math.hypot(a[0], a[1]), r = Math.sqrt(Math.max(0, (m + a[0]) / 2)), i = Math.sqrt(Math.max(0, (m - a[0]) / 2)); return [r, a[1] < 0 ? -i : i]; }
+    function pow(a, b) {
+      if (b[1] === 0 && b[0] === Math.round(b[0]) && Math.abs(b[0]) <= 64) { var n = Math.abs(b[0]), r = [1, 0], q = a; while (n) { if (n & 1) r = mul(r, q); q = mul(q, q); n = n >> 1; } return b[0] < 0 ? div([1, 0], r) : r; }
+      if (a[0] === 0 && a[1] === 0) return [0, 0];
+      return exp(mul(b, log(a)));
+    }
+    var re = function (a) { return [a[0], 0]; }, im = function (a) { return [a[1], 0]; };
+    return { mul: mul, div: div, pow: pow, f: { exp: exp, ln: log, log: log, sqrt: sqrt, sin: sin, cos: cos, sinh: sinh, cosh: cosh,
+      tan: function (a) { return div(sin(a), cos(a)); }, tanh: function (a) { return div(sinh(a), cosh(a)); },
+      abs: function (a) { return [Math.hypot(a[0], a[1]), 0]; }, arg: function (a) { return [Math.atan2(a[1], a[0]), 0]; },
+      re: re, real: re, Re: re, im: im, imag: im, Im: im, conj: function (a) { return [a[0], -a[1]]; } } };
+  })();
+  function plCx(env, src) { // compile a complex function of z (x = Re z, y = Im z, i = √−1); returns { f([re, im]) -> [re, im], ast }
+    var ast = plParse(String(src).replace(/^\s*(?:f\s*\(\s*z\s*\)|w)\s*=\s*/, ''), { names: ['z', 'i', 'x', 'y'].concat(Object.keys(env.P)), defs: {} });
+    function c(n) {
+      var a, b, k;
+      switch (n.k) {
+        case 'num': k = [n.v, 0]; return function () { return k; };
+        case 'id':
+          if (n.n === 'z') return function (z) { return z; };
+          if (n.n === 'i') { k = [0, 1]; return function () { return k; }; }
+          if (n.n === 'x') return function (z) { return [z[0], 0]; };
+          if (n.n === 'y') return function (z) { return [z[1], 0]; };
+          if (plHas(env.P, n.n)) { var P = env.P, nm = n.n; return function () { return [P[nm], 0]; }; }
+          if (plHas(PL_K, n.n)) { k = [PL_K[n.n], 0]; return function () { return k; }; }
+          throw new Error('unknown name "' + n.n + '" in a complex function (use z, i, pi, e or a slider parameter)');
+        case 'neg': a = c(n.a); return function (z) { var u = a(z); return [-u[0], -u[1]]; };
+        case 'bin':
+          a = c(n.a); b = c(n.b);
+          if (n.op === '+') return function (z) { var u = a(z), v = b(z); return [u[0] + v[0], u[1] + v[1]]; };
+          if (n.op === '-') return function (z) { var u = a(z), v = b(z); return [u[0] - v[0], u[1] - v[1]]; };
+          if (n.op === '*') return function (z) { return PL_CX.mul(a(z), b(z)); };
+          if (n.op === '/') return function (z) { return PL_CX.div(a(z), b(z)); };
+          if (n.op === '^') return function (z) { return PL_CX.pow(a(z), b(z)); };
+          throw new Error('"' + n.op + '" is not defined for complex numbers');
+        case 'call':
+          if (n.f === 'pow' && n.args.length === 2) { a = c(n.args[0]); b = c(n.args[1]); return function (z) { return PL_CX.pow(a(z), b(z)); }; }
+          var f = plHas(PL_CX.f, n.f) ? PL_CX.f[n.f] : null;
+          if (!f) throw new Error(n.f + '() is not available for complex numbers (use exp, ln, sqrt, sin, cos, tan, sinh, cosh, tanh, abs, arg, re, im, conj)');
+          if (n.args.length !== 1) throw new Error(n.f + '() takes one argument');
+          a = c(n.args[0]); return function (z) { return f(a(z)); };
+      }
+      throw new Error('conditions, sums and integrals are not available in a complex function');
+    }
+    return { f: c(ast), ast: ast };
+  }
+  function plCxColor(w, o) { // enhanced phase portrait: hue = arg f, brightness bands = log2 |f|
+    var m = Math.hypot(w[0], w[1]);
+    if (m !== m) { o[3] = 0; return; }
+    if (!isFinite(m)) { o[0] = o[1] = o[2] = 255; o[3] = 255; return; }
+    var hh = (Math.atan2(w[1], w[0]) / (2 * Math.PI) + 1) % 1 * 6, band = m > 0 ? Math.log2(m) : -40; band -= Math.floor(band);
+    var v = m > 0 ? 0.6 + 0.4 * band : 0, s = 0.85, i = Math.floor(hh), f = hh - i, p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f)), r, g, b;
+    switch (i % 6) { case 0: r = v; g = t; b = p; break; case 1: r = q; g = v; b = p; break; case 2: r = p; g = v; b = t; break; case 3: r = p; g = q; b = v; break; case 4: r = t; g = p; b = v; break; default: r = v; g = p; b = q; }
+    o[0] = Math.round(r * 255); o[1] = Math.round(g * 255); o[2] = Math.round(b * 255); o[3] = 255;
+  }
+
+  /* ───── ordinary differential equations: RK4, shared by 2D and 3D ───── */
+  function plNoT(P) { var o = {}; Object.keys(P).forEach(function (k) { if (k !== '_t') o[k] = P[k]; }); return o; }
+  function plOdeSolve(env, s) {
+    var sys = s.system || s.ode || s.odes, keys = [], srcs = [];
+    if (Array.isArray(sys)) sys.forEach(function (q) { var m = /^\s*(?:d\s*([A-Za-z_]\w*)\s*\/\s*dt|([A-Za-z_]\w*)\s*'|([A-Za-z_]\w*)_?dot)\s*=\s*([\s\S]+)$/.exec(String(q)); if (!m) throw new Error('write each ODE like "x\' = y" or use an object {"x": "y", "y": "-x"}'); keys.push(m[1] || m[2] || m[3]); srcs.push(m[4]); });
+    else if (sys && typeof sys === 'object') Object.keys(sys).forEach(function (k) { keys.push(k.trim().replace(/^d\s*([A-Za-z_]\w*)\s*\/\s*dt$/, '$1').replace(/'+$/, '').replace(/_?dot$/, '')); srcs.push(String(sys[k])); });
+    else throw new Error('an ODE needs "system": an object like {"x": "y", "y": "-x"} (each value is dx/dt)');
+    if (!keys.length || keys.length > 3) throw new Error('an ODE "system" needs 1 to 3 equations');
+    keys.forEach(function (v) { if (!/^[A-Za-z_]\w{0,15}$/.test(v) || v === 't') throw new Error('bad ODE variable "' + v + '" (t is the time variable)'); });
+    var nv = keys.length, comp = srcs.map(function (src) { return plFnOf(env, src, keys.concat(['t'])); }), fns = comp.map(function (c) { return c.f; });
+    var tr = plRange(s.t || s.trange || s.time || s.tspan, [0, 20]), N = Math.min(20000, Math.max(50, Math.round(plNum(s.steps || s.n, 2000)))), h = (tr[1] - tr[0]) / N;
+    var inits = s.init != null ? s.init : s.initial != null ? s.initial : s.y0 != null ? s.y0 : s.x0;
+    if (inits == null) inits = [keys.map(function (_, i) { return i === 0 ? 1 : 0; })];
+    if (!Array.isArray(inits)) throw new Error('"init" must be a list of starting values, like [1, 0] or [[1, 0], [2, 0]]');
+    if (!Array.isArray(inits[0])) inits = [inits];
+    var arg = new Array(nv + 1), k1 = new Array(nv), k2 = new Array(nv), k3 = new Array(nv), k4 = new Array(nv), tmp = new Array(nv);
+    function F(t, y, out) { for (var i = 0; i < nv; i++) arg[i] = y[i]; arg[nv] = t; for (var j = 0; j < nv; j++) out[j] = fns[j](arg); }
+    var paths = inits.slice(0, 12).map(function (y0) {
+      if (!Array.isArray(y0) || y0.length < nv) throw new Error('each starting point in "init" needs ' + nv + ' value' + (nv > 1 ? 's' : '') + ' (' + keys.join(', ') + ')');
+      var y = y0.slice(0, nv).map(function (q) { return plNum(q, NaN); }), T = [tr[0]], V = keys.map(function (_, i) { return [y[i]]; }), t = tr[0], i, j;
+      if (!y.every(isFinite)) throw new Error('"init" values must be numbers');
+      for (var step = 0; step < N; step++) {
+        F(t, y, k1); for (i = 0; i < nv; i++) tmp[i] = y[i] + h / 2 * k1[i];
+        F(t + h / 2, tmp, k2); for (i = 0; i < nv; i++) tmp[i] = y[i] + h / 2 * k2[i];
+        F(t + h / 2, tmp, k3); for (i = 0; i < nv; i++) tmp[i] = y[i] + h * k3[i];
+        F(t + h, tmp, k4);
+        var ok = true; for (i = 0; i < nv; i++) { y[i] += h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]); if (!isFinite(y[i]) || Math.abs(y[i]) > 1e9) ok = false; }
+        if (!ok) break;
+        t = tr[0] + (step + 1) * h; T.push(t); for (j = 0; j < nv; j++) V[j].push(y[j]);
+      }
+      return { T: T, V: V };
+    });
+    var tex = keys.map(function (v, i) { return '\\dot{' + plTexName(v) + '} = ' + plTex(comp[i].ast); }).join(',\\ ');
+    return { vars: keys, paths: paths, t0: tr[0], t1: tr[1], h: h, tex: tex };
+  }
+
+  /* ───── a tube or ribbon around a 3D curve (rotation-minimising frame) ───── */
+  function plTube(X, Y, Z, s) {
+    var ribbon = s.ribbon != null && s.tube == null, size = Math.abs(plNum(ribbon ? s.ribbon : s.tube, 0.15)) || 0.15, P = [], i;
+    var stride = Math.max(1, Math.ceil(X.length / 500));
+    for (i = 0; i < X.length; i += stride) if (isFinite(X[i] + Y[i] + Z[i])) P.push([X[i], Y[i], Z[i]]);
+    if (P.length < 3) throw new Error('the curve has too few finite points for a tube');
+    var m = P.length, T = [], N = [], B = [], sub = function (a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }, dot = function (a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+    var unit = function (a) { var l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }, cross = function (a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; };
+    for (i = 0; i < m; i++) T.push(unit(sub(P[Math.min(m - 1, i + 1)], P[Math.max(0, i - 1)])));
+    var a0 = Math.abs(T[0][2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d0 = dot(a0, T[0]);
+    N.push(unit([a0[0] - d0 * T[0][0], a0[1] - d0 * T[0][1], a0[2] - d0 * T[0][2]]));
+    for (i = 1; i < m; i++) { var n0 = N[i - 1], dd = dot(n0, T[i]); N.push(unit([n0[0] - dd * T[i][0], n0[1] - dd * T[i][1], n0[2] - dd * T[i][2]])); }
+    for (i = 0; i < m; i++) B.push(cross(T[i], N[i]));
+    var nv = ribbon ? 2 : Math.min(28, Math.max(6, Math.round(plNum(s.sides, 14)))) + 1, nu = m, GX = new Float64Array(nu * nv), GY = new Float64Array(nu * nv), GZ = new Float64Array(nu * nv), GC = new Float64Array(nu * nv);
+    for (var j = 0; j < nv; j++) for (i = 0; i < nu; i++) {
+      var o = j * nu + i, ca, sa;
+      if (ribbon) { ca = (j ? 1 : -1) * size / 2; sa = 0; } else { var ang = 2 * Math.PI * j / (nv - 1); ca = size * Math.cos(ang); sa = size * Math.sin(ang); }
+      GX[o] = P[i][0] + ca * N[i][0] + sa * B[i][0]; GY[o] = P[i][1] + ca * N[i][1] + sa * B[i][1]; GZ[o] = P[i][2] + ca * N[i][2] + sa * B[i][2]; GC[o] = i / (nu - 1);
+    }
+    return { nu: nu, nv: nv, X: GX, Y: GY, Z: GZ, C: GC, ribbon: ribbon };
+  }
+
+  /* ───── contour lines of a z = f(x, y) surface, projected onto the floor of the 3D box ───── */
+  function plProj(it, n) {
+    var nu = it.nu, nv = it.nv, Z = it.Z, lo = Infinity, hi = -Infinity, q;
+    for (q = 0; q < Z.length; q++) if (isFinite(Z[q])) { if (Z[q] < lo) lo = Z[q]; if (Z[q] > hi) hi = Z[q]; }
+    var SX = [], SY = [], SZ = [], SC = [];
+    if (isFinite(lo) && hi > lo) for (var L = 1; L <= n; L++) {
+      var lv = lo + (hi - lo) * L / (n + 1);
+      for (var j = 0; j < nv - 1; j++) for (var i = 0; i < nu - 1; i++) {
+        var idx = [j * nu + i, j * nu + i + 1, (j + 1) * nu + i + 1, (j + 1) * nu + i], pts = [];
+        for (var e = 0; e < 4; e++) {
+          var a = idx[e], b = idx[(e + 1) % 4], za = Z[a] - lv, zb = Z[b] - lv;
+          if (!(isFinite(za) && isFinite(zb)) || (za < 0) === (zb < 0)) continue;
+          var t = za / (za - zb); pts.push([it.X[a] + (it.X[b] - it.X[a]) * t, it.Y[a] + (it.Y[b] - it.Y[a]) * t]);
+        }
+        for (var p = 0; p + 1 < pts.length; p += 2) { SX.push(pts[p][0], pts[p + 1][0]); SY.push(pts[p][1], pts[p + 1][1]); SZ.push(NaN, NaN); SC.push(lv, lv); }
+      }
+    }
+    return { kind: 'segs', noArrow: true, floor: true, X: SX, Y: SY, Z: SZ, C: SC, lut: it.lut, opacity: 0.9, width: 1.2, color: it.color, kid: 'contourproj', solid: !!it.solid };
+  }
+
+  /* ───── remember how the person left a plot (slider values, camera, pan/zoom) in the saved chat ───── */
+  function plRemember(fig, shell) {
+    if (!fig || typeof fig._qSave !== 'function') return;
+    clearTimeout(fig._qT);
+    fig._qT = setTimeout(function () {
+      if (!fig.isConnected) return;
+      var st = { p: {} };
+      if (shell && shell.env) shell.env.sliders.forEach(function (sl) { st.p[sl.name] = shell.env.P[sl.name]; });
+      if (shell && shell.extra) { try { Object.assign(st, shell.extra()); } catch (e) {} }
+      try { fig._qSave(st); } catch (e) {}
+    }, 1500);
+  }
+
   /* ---- the figure: caption, canvas, sliders, tools ---- */
   function plShell(fig, spec, env, onParam) {
     fig.textContent = '';
+    var saved = fig._qState || null, shell = null;
+    if (saved && saved.p && env) env.sliders.forEach(function (sl) { var v = +saved.p[sl.name]; if (isFinite(v)) env.P[sl.name] = Math.min(sl.hi, Math.max(sl.lo, v)); });
     if (spec.title) fig.appendChild(h('figcaption', { class: 'qai-plot-title', html: plTitleHtml(spec.title) }));
     var stage = h('div', { class: 'qai-plot-stage' });
     var cv = h('canvas', { class: 'qai-plot-cv', role: 'img', 'aria-label': String(spec.title || 'Plot').replace(/[$\\{}]/g, '') });
     stage.appendChild(cv); fig.appendChild(stage);
-    var params = null, anims = [];
+    var params = null, anims = [], calm = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches), seen = true;
+    if (root.IntersectionObserver) { try { new root.IntersectionObserver(function (en) { seen = !!(en[0] && en[0].isIntersecting); }).observe(fig); } catch (e) {} }
+    var ICON_PLAY = '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1.2v7.6L8.6 5z" fill="currentColor"/></svg>', ICON_PAUSE = '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1.5h2.2v7H2zM5.8 1.5H8v7H5.8z" fill="currentColor"/></svg>';
     if (env && env.sliders.length) {
       params = h('div', { class: 'qai-plot-params' });
       env.sliders.forEach(function (sl) {
         var dec = Math.max(0, Math.min(4, -Math.floor(Math.log10(sl.step) + 1e-9)));
         var out = h('output', { class: 'qai-prm-v', text: env.P[sl.name].toFixed(dec) });
         var rng = h('input', { type: 'range', min: String(sl.lo), max: String(sl.hi), step: String(sl.step), value: String(env.P[sl.name]), 'aria-label': (sl.label || sl.name).replace(/[$\\{}]/g, '') });
-        var set = function (v) { env.P[sl.name] = v; out.textContent = v.toFixed(dec); onParam(); };
-        rng.addEventListener('input', function () { set(+rng.value); });
-        var play = h('button', { type: 'button', class: 'qai-prm-play', 'aria-pressed': 'false', 'aria-label': 'Animate ' + sl.name, title: 'Animate', html: '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1.2v7.6L8.6 5z" fill="currentColor"/></svg>' });
-        var an = { on: false, dir: 1, raf: 0 };
-        function tick() {
-          if (!an.on || !fig.isConnected) { an.on = false; play.setAttribute('aria-pressed', 'false'); return; }
-          var v = +rng.value + an.dir * (sl.hi - sl.lo) / 240; if (v >= sl.hi) { v = sl.hi; an.dir = -1; } if (v <= sl.lo) { v = sl.lo; an.dir = 1; }
-          rng.value = String(v); set(+rng.value); an.raf = root.requestAnimationFrame(tick);
+        /* The animation keeps its own exact position (an.v): the range input snaps to its step, so reading the position
+           back from it froze whole-number sliders (Z, n, l) on their first value. Coarse sliders now step whole steps. */
+        var an = { on: false, dir: 1, v: env.P[sl.name], last: 0, raf: 0 }, mode = sl.loop || 'bounce', dur = sl.dur || 4, coarse = sl.step >= (sl.hi - sl.lo) / 60;
+        var show = function (v) { env.P[sl.name] = v; out.textContent = v.toFixed(dec); onParam(); };
+        rng.addEventListener('input', function () { an.v = +rng.value; show(+rng.value); plRemember(fig, shell); });
+        var play = h('button', { type: 'button', class: 'qai-prm-play', 'aria-pressed': 'false', 'aria-label': (sl.timeline ? 'Play ' : 'Animate ') + (sl.texName || sl.name), title: 'Play', html: ICON_PLAY });
+        var paintBtn = function () { play.setAttribute('aria-pressed', an.on ? 'true' : 'false'); play.innerHTML = an.on ? ICON_PAUSE : ICON_PLAY; play.title = an.on ? 'Pause' : 'Play'; };
+        function tick(now) {
+          an.raf = 0;
+          if (!an.on || !fig.isConnected) { an.on = false; paintBtn(); return; }
+          if (!seen) { an.last = 0; an.raf = root.requestAnimationFrame(tick); return; } // off screen: hold still, cost nothing
+          var dt = an.last ? Math.min(0.1, (now - an.last) / 1000) : 0; an.last = now;
+          var span = sl.hi - sl.lo, v = an.v + an.dir * span * dt / dur;
+          if (v >= sl.hi) { if (mode === 'loop') v = sl.lo + ((v - sl.lo) % span); else if (mode === 'once') { v = sl.hi; an.on = false; } else { v = Math.max(sl.lo, 2 * sl.hi - v); an.dir = -1; } }
+          else if (v <= sl.lo && an.dir < 0) { v = Math.min(sl.hi, 2 * sl.lo - v); an.dir = 1; }
+          an.v = v;
+          var q = coarse ? Math.min(sl.hi, Math.max(sl.lo, sl.lo + Math.round((v - sl.lo) / sl.step) * sl.step)) : v;
+          if (q !== env.P[sl.name]) { rng.value = String(q); show(q); }
+          if (an.on) an.raf = root.requestAnimationFrame(tick); else { paintBtn(); plRemember(fig, shell); }
         }
-        play.addEventListener('click', function () { an.on = !an.on; play.setAttribute('aria-pressed', an.on ? 'true' : 'false'); play.innerHTML = an.on ? '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1.5h2.2v7H2zM5.8 1.5H8v7H5.8z" fill="currentColor"/></svg>' : '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1.2v7.6L8.6 5z" fill="currentColor"/></svg>'; if (an.on) tick(); });
-        anims.push(function () { if (sl.anim && !an.on) play.click(); });
-        params.appendChild(h('div', { class: 'qai-prm' }, h('span', { class: 'qai-prm-n', html: sl.label ? plTitleHtml(sl.label) : tex(plTexName(sl.name), false) }), rng, out, play));
+        play.addEventListener('click', function () {
+          an.on = !an.on;
+          if (an.on) { an.v = +env.P[sl.name]; if (mode === 'once' && an.v >= sl.hi) an.v = sl.lo; an.last = 0; if (!an.raf) an.raf = root.requestAnimationFrame(tick); }
+          else plRemember(fig, shell);
+          paintBtn();
+        });
+        anims.push(function () { if (sl.anim && !an.on && !calm) play.click(); });
+        params.appendChild(h('div', { class: 'qai-prm' + (sl.timeline ? ' is-time' : '') }, h('span', { class: 'qai-prm-n', html: sl.label ? plTitleHtml(sl.label) : tex(plTexName(sl.name), false) }), rng, out, play));
       });
       fig.appendChild(params);
     }
     var bar = h('div', { class: 'qai-plot-bar' }), read = h('div', { class: 'qai-plot-read', 'aria-live': 'off' }), tools = h('div', { class: 'qai-plot-tools' });
     bar.appendChild(read); bar.appendChild(tools); fig.appendChild(bar);
     setTimeout(function () { anims.forEach(function (f) { f(); }); }, 400);
-    return { cv: cv, stage: stage, read: read, tools: tools, fig: fig };
+    shell = { cv: cv, stage: stage, read: read, tools: tools, fig: fig, env: env, calm: calm, seen: function () { return seen; }, saved: saved };
+    return shell;
   }
   function plBtn(tools, label, fn, pressed) {
     var b = h('button', { type: 'button', class: 'qai-pbtn', text: label, onclick: function () { fn(b); } });
@@ -35069,7 +35373,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     try {
       var cv = shell.cv, dpr = cv.width / Math.max(1, cv.clientWidth), W = cv.clientWidth, light = plTheme(cv) === 'light';
       var out = doc.createElement('canvas'), ctx = out.getContext('2d'), pad = 18, tBox = spec.title ? plLabelBox(spec.title) : null;
-      var pBox = env && env.sliders.length ? plLabelBox('$' + env.sliders.map(function (s) { return plTexName(s.name) + ' = ' + plSig(env.P[s.name]).replace('−', '-'); }).join(',\\ ') + '$') : null;
+      var pBox = env && env.sliders.length ? plLabelBox('$' + env.sliders.map(function (s) { return (s.texName ? plTexName(s.texName) : plTexName(s.name)) + ' = ' + plSig(env.P[s.name]).replace('−', '-'); }).join(',\\ ') + '$') : null;
       ctx.font = '15px sans-serif'; var tm = tBox ? plLab(ctx, tBox, 16) : null, pm = pBox ? plLab(ctx, pBox, 13) : null;
       var top = tm ? pad + tm.a + tm.d + 10 : pad, H = top + cv.clientHeight + (pm ? pm.a + pm.d + 12 : 0) + pad;
       out.width = Math.round((W + pad * 2) * dpr); out.height = Math.round(H * dpr); ctx.scale(dpr, dpr);
@@ -35154,14 +35458,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
 
   /* ───── 2D ───── */
-  var PL_RANK = { heat: 0, region: 1, vline: 2, hline: 2, contour: 3, vector: 4, fn: 6, xfn: 6, curve: 6, imp: 6, data: 7, ann: 9 };
+  var PL_RANK = { heat: 0, complex: 0, region: 1, vline: 2, hline: 2, contour: 3, vector: 4, stream: 4, slope: 4, fn: 6, xfn: 6, curve: 6, imp: 6, ode: 6, data: 7, particles: 8, ann: 9 };
+  var PL_KID2 = { fn: 'function', xfn: 'function', imp: 'implicit', region: 'region', data: 'data', contour: 'contour', vector: 'vector', ann: 'point', vline: 'guide', hline: 'guide' };
   function plot2d(fig, spec, kind) {
     var env = plEnv(spec), st = null;
     var shell = plShell(fig, spec, env, function () { if (st) st.redraw(); }), cv = shell.cv;
     var xLog = spec.xscale === 'log', yLog = spec.yscale === 'log', idf = function (v) { return v; };
     var Tx = xLog ? Math.log10 : idf, Ty = yLog ? Math.log10 : idf, Ix = xLog ? function (v) { return Math.pow(10, v); } : idf, Iy = yLog ? function (v) { return Math.pow(10, v); } : idf;
     var cmap = spec.colormap, L = [], bars = null, heat = null, ci = 0, legendOff = spec.legend === false;
-    var TAU = 2 * Math.PI;
+    var TAU = 2 * Math.PI, flow = false, NONE = [];
 
     function lbl(s, auto) {
       if (legendOff || s.legend === false) return null;
@@ -35225,12 +35530,69 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       if ((Ls === 'r' || /^r\s*\(\s*(theta|θ)\s*\)$/.test(Ls)) && !plUses(Rs, 'x') && !plUses(Rs, 'y')) return addPolar(Rs, s);
       return addImplicit(Ls, Rs, s);
     }
+    function fieldTex(f, g, sym) { return (sym || '\\vec{F}') + ' = \\left(' + plTex(f.ast) + ',\\ ' + plTex(g.ast) + '\\right)'; }
+    function addStream(s) { // streamlines of a 2D field, evenly spaced, with arrows showing the direction
+      var vf = plFnOf(env, String(s.fx), ['x', 'y']), vg = plFnOf(env, String(s.fy), ['x', 'y']), b = base(s, s.color ? 'line' : 'grad');
+      b.type = 'stream'; b.kid = 'streamplot'; b.fx = vf.f; b.fy = vg.f; b.solid = !!s.color; b.cmap = s.colormap || cmap || 'viridis';
+      b.density = Math.max(0.3, Math.min(3, plNum(s.density, 1))); b.arrows = s.arrows !== false; b.width = Math.min(4, Math.max(0.6, plNum(s.width, 1.5)));
+      b.seeds = Array.isArray(s.seeds) ? s.seeds.slice(0, 200).map(function (p_) { return Array.isArray(p_) ? [plNum(p_[0], NaN), plNum(p_[1], NaN)] : [NaN, NaN]; }).filter(function (p_) { return isFinite(p_[0]) && isFinite(p_[1]); }) : null;
+      b.box = lbl(s, fieldTex(vf, vg)); return push(b);
+    }
+    function addSlope(s) { // slope (direction) field of dy/dx = f(x, y), with optional solution curves through given points
+      var src = s.slope != null ? s.slope : s.dydx != null ? s.dydx : s.dy != null ? s.dy : s.f;
+      if (src == null) throw new Error('a slope field needs "dydx": an expression of x and y, e.g. "x - y"');
+      var c = plFnOf(env, String(src).replace(/^\s*(?:dy\s*\/\s*dx|y\s*')\s*=\s*/, ''), ['x', 'y']), b = base(s);
+      b.type = 'slope'; b.kid = 'slopefield'; b.f = c.f; b.density = Math.max(0.3, Math.min(3, plNum(s.density, 1)));
+      var sols = s.solutions || s.init || s.through || s.points;
+      b.sol = Array.isArray(sols) ? (Array.isArray(sols[0]) ? sols : [sols]).slice(0, 12).map(function (p_) { return [plNum(p_[0], NaN), plNum(p_[1], NaN)]; }).filter(function (p_) { return isFinite(p_[0]) && isFinite(p_[1]); }) : [];
+      b.solCol = b.sol.map(function (_, i) { return plColor(Array.isArray(s.colors) ? s.colors[i] : null, ci++); });
+      b.box = lbl(s, '\\frac{dy}{dx} = ' + plTex(c.ast)); return push(b);
+    }
+    function addComplex(s) { // domain colouring of a complex function: hue = arg f(z), bands = |f(z)|
+      var src = s.f != null ? s.f : s.complex != null ? s.complex : s.w != null ? s.w : s.expr;
+      if (src == null) throw new Error('a complex plot needs "f": a function of z, e.g. "(z^2 - 1)/(z^2 + 1)"');
+      var c = plCx(env, String(src)), b = base(s, 'grad');
+      b.type = 'complex'; b.kid = 'complex'; b.f = c.f; b.cmap = 'phase'; b.box = lbl(s, 'f(z) = ' + plTex(c.ast)); return push(b);
+    }
+    function addOde(s) { // solution curves of an ODE system (phase plane or against time), drawn by the shared RK4 solver
+      var sol = plOdeSolve(env, s), cache = { s: s, k: JSON.stringify(plNoT(env.P)), sol: sol }, nv = sol.vars.length;
+      var timeMode = s.plot === 'time' || s.mode === 'time' || nv === 1 || (nv === 3 && s.plot !== 'phase' && s.mode !== 'phase');
+      var anim = s.animate !== false && plHas(env.P, '_t'), trail = Math.max(0, plNum(s.trail, 0)), w = Math.min(6, Math.max(0.6, plNum(s.width, 2.2)));
+      var ax = [0, Math.min(1, nv - 1)];
+      if (Array.isArray(s.axes)) ax = s.axes.slice(0, 2).map(function (a) { var i = sol.vars.indexOf(String(a)); if (i < 0) throw new Error('"axes" must name two of the ODE variables: ' + sol.vars.join(', ')); return i; });
+      if (timeMode) {
+        sol.vars.forEach(function (v, vi) {
+          var b = base(vi ? { color: Array.isArray(s.colors) ? s.colors[vi] : null } : s); b.type = 'ode'; b.kid = 'ode'; b.cache = cache; b.mode = 'time'; b.vi = vi; b.anim = anim; b.trail = trail; b.width = w;
+          b.box = vi ? lbl({}, plTexName(v) + '(t)') : lbl(s, plTexName(v) + '(t)'); push(b);
+        });
+        return;
+      }
+      var b = base(s); b.type = 'ode'; b.kid = 'ode'; b.cache = cache; b.mode = 'phase'; b.ax = ax; b.anim = anim; b.trail = trail; b.width = w;
+      b.cols = sol.paths.map(function (_, i) { return i === 0 ? b.color : plColor(Array.isArray(s.colors) ? s.colors[i] : null, ci++); });
+      b.box = lbl(s, sol.tex); return push(b);
+    }
+    function odeSol(l) { var c = l.cache, k = JSON.stringify(plNoT(env.P)); if (c.k !== k) { c.sol = plOdeSolve(env, c.s); c.k = k; } return c.sol; }
+    function addParticles(s) { // dots carried along by a 2D velocity field, with short fading trails
+      if (s.fx == null || s.fy == null) throw new Error('particles need a velocity field: "fx" and "fy"');
+      var vf = plFnOf(env, String(s.fx), ['x', 'y']), vg = plFnOf(env, String(s.fy), ['x', 'y']), b = base(s, s.color ? 'dot' : 'grad');
+      b.type = 'particles'; b.kid = 'particles'; b.fx = vf.f; b.fy = vg.f; b.solid = !!s.color; b.cmap = s.colormap || cmap || 'turbo';
+      b.n = Math.min(1500, Math.max(20, Math.round(plNum(s.n || s.count, 300)))); b.speed = Math.min(50, Math.max(0.02, plNum(s.speed, 1)));
+      b.life = Math.min(30, Math.max(0.5, plNum(s.life, 5))); b.tl = s.trail === false ? 0 : Math.min(40, Math.max(0, Math.round(plNum(s.trail, 14)))); b.size = Math.min(5, Math.max(0.8, plNum(s.size, 1.8)));
+      b.ps = null; b.mx = 0; flow = true;
+      b.box = lbl(s, fieldTex(vf, vg, '\\vec{v}')); return push(b);
+    }
     function addItem(s) {
       if (typeof s === 'string') s = { eq: s };
       if (!s || typeof s !== 'object') return;
       var st_ = String(s.type || '').toLowerCase(), eq = s.eq || s.equation || s.implicit || s.region || s.inequality || s.where || s.expr;
       if (eq == null && typeof s.y === 'string' && s.x == null && s.r == null && /[<>=≤≥]/.test(s.y)) eq = s.y;
       if (eq != null) return addEq(eq, s);
+      var kd = st_.replace(/[\s_-]/g, '');
+      if (/^(odes?|differential(equation)?)$/.test(kd) || s.system != null || s.ode != null) return addOde(s);
+      if (/^particles?$/.test(kd)) return addParticles(s);
+      if (/^(slopefield|directionfield|slope)$/.test(kd) || s.slope != null || s.dydx != null) return addSlope(s);
+      if (/^(complex|complexplot|domaincolou?ring)$/.test(kd) || s.complex != null) return addComplex(s);
+      if (s.fx != null && s.fy != null && (/^(streamplot|streamlines?|stream|fieldlines?|flowlines?|flow)$/.test(kd) || s.streamlines === true || s.stream === true)) return addStream(s);
       if (s.vline != null || s.hline != null) {
         var isV = s.vline != null, vals = [].concat(isV ? s.vline : s.hline).map(function (q) { return plNum(q, NaN); }).filter(isFinite), b = base(s); if (!s.style && !s.dash) b.dash = [6, 5]; if (s.width == null) b.width = 1.4;
         b.type = isV ? 'vline' : 'hline'; b.vals = vals; b.box = s.label ? lbl(s) : null; return push(b);
@@ -35244,7 +35606,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         bz.box = lbl(s, 'z = ' + plTex(zl.ast)); return push(bz);
       }
       if (s.point || s.text != null && s.x != null && s.y != null && typeof s.x === 'number') {
-        var pt = Array.isArray(s.point) ? s.point : [s.x, s.y], ba = base(s, 'dot'); ba.type = 'ann'; ba.x = plNum(pt[0], NaN); ba.y = plNum(pt[1], NaN); ba.text = s.text != null ? plLabelBox(s.text) : null; ba.box = s.label ? lbl(s) : null; return push(ba);
+        var pt = Array.isArray(s.point) ? s.point : [s.x, s.y], ba = base(s, 'dot'); ba.type = 'ann';
+        if (typeof pt[0] === 'string' || typeof pt[1] === 'string') { // a point that moves with the sliders / timeline
+          ba.px = plFnOf(env, String(pt[0]), []).f; ba.py = plFnOf(env, String(pt[1]), []).f; ba.kid = 'movingpoint'; ba.x = ba.px(NONE); ba.y = ba.py(NONE);
+          ba.tr = s.trail ? [] : null; ba.tl = Math.min(600, Math.max(5, Math.round(plNum(s.trail === true ? 150 : s.trail, 150)))); ba.size = Math.min(9, Math.max(3, plNum(s.size, 5)));
+        } else { ba.x = plNum(pt[0], NaN); ba.y = plNum(pt[1], NaN); } ba.text = s.text != null ? plLabelBox(s.text) : null; ba.box = s.label ? lbl(s) : null; return push(ba);
       }
       if (s.xs || s.ys) {
         var X = plArr(s.xs, 'xs'), Y = plArr(s.ys, 'ys'), n = Math.min(X.length, Y.length), bd = base(s);
@@ -35286,7 +35652,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       if (kind === 'heat') {
         heat = { zf: spec.z != null ? plFnOf(env, spec.z, ['x', 'y']).f : null, zs: Array.isArray(spec.zs) ? spec.zs : null, n: Math.min(260, Math.max(8, Math.round(plNum(spec.n, 140)))), contour: String(spec.type).toLowerCase() === 'contour' || spec.contours === true || +spec.contours > 0, levels: Math.min(30, Math.max(3, Math.round(plNum(spec.contours, 10)))), cmap: cmap };
         if (!heat.zf && !heat.zs) throw new Error('a heatmap needs "z" (an expression of x and y) or "zs" (a matrix)');
-      } else if (kind === 'vector') addItem({ fx: spec.fx, fy: spec.fy, colormap: cmap, label: spec.label, legend: spec.label ? true : false, density: spec.density });
+      } else if (kind === 'vector') addItem({ fx: spec.fx, fy: spec.fy, colormap: cmap, label: spec.label, legend: spec.label ? true : false, density: spec.density, streamlines: spec.streamlines, stream: spec.stream, seeds: spec.seeds, arrows: spec.arrows });
       var list = [];
       ['series', 'equations', 'functions', 'curves', 'layers'].forEach(function (k) { if (Array.isArray(spec[k])) list = list.concat(spec[k]); });
       if (typeof spec.equation === 'string') list.push(spec.equation);
@@ -35311,8 +35677,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         if (l.type === 'data') for (var i = 0; i < l.x.length; i++) take(l.x[i], l.y[i]);
         else if (l.type === 'curve') { var sm = l.sample(); for (var j = 0; j < sm[0].length; j += 3) take(sm[0][j], sm[1][j]); }
         else if (l.type === 'ann') take(l.x, l.y);
+        else if (l.type === 'ode') { var so = odeSol(l); so.paths.forEach(function (pa) { var xs = l.mode === 'time' ? pa.T : pa.V[l.ax[0]], ys = l.mode === 'time' ? pa.V[l.vi] : pa.V[l.ax[1]]; for (var q = 0; q < xs.length; q += 3) take(xs[q], ys[q]); take(xs[xs.length - 1], ys[ys.length - 1]); }); }
       });
-      var onlyField = L.every(function (l) { return /^(imp|region|vector|contour|vline|hline|ann)$/.test(l.type); });
+      var onlyField = L.every(function (l) { return /^(imp|region|vector|contour|vline|hline|ann|stream|slope|particles|complex)$/.test(l.type); });
+      if (!xr && L.some(function (l) { return l.type === 'complex'; }) && !isFinite(xl)) { xr = [-2, 2]; if (!yr) yr = [-2, 2]; }
       if (!xr) xr = isFinite(xl) ? (xl === xh ? [xl - 1, xh + 1] : [xl - 0.04 * (xh - xl), xh + 0.04 * (xh - xl)]) : (xLog ? [0.1, 100] : (fns.length || L.some(function (l) { return l.type === 'xfn'; })) && !onlyField && !L.some(function (l) { return l.type === 'imp' || l.type === 'region'; }) ? [-10, 10] : [-5, 5]);
       if (xLog && xr[0] <= 0) xr = [Math.max(1e-6, xr[1] / 1e4), xr[1]];
       if (!yr && spec.equal === true && !isFinite(yl)) yr = xr.slice();
@@ -35345,7 +35713,9 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       return { x0: Tx(xr[0]), x1: Tx(xr[1]), y0: Ty(yr[0]), y1: Ty(yr[1]) };
     }
     var view = autoView(), home = Object.assign({}, view);
-    var keepEqual = !bars && !xLog && !yLog && (spec.equal === true || (spec.equal !== false && L.length > 0 && !heat && L.every(function (l) { return l.polar || /^(imp|region|vector|vline|hline|ann)$/.test(l.type); }) && L.some(function (l) { return l.polar || l.type === 'imp' || l.type === 'region'; })));
+    if (shell.saved && shell.saved.view && ['x0', 'x1', 'y0', 'y1'].every(function (k) { return isFinite(shell.saved.view[k]); }) && shell.saved.view.x1 > shell.saved.view.x0 && shell.saved.view.y1 > shell.saved.view.y0) view = Object.assign({}, shell.saved.view);
+    shell.extra = function () { return { view: { x0: view.x0, x1: view.x1, y0: view.y0, y1: view.y1 } }; };
+    var keepEqual = !bars && !xLog && !yLog && (spec.equal === true || (spec.equal !== false && L.some(function (l) { return l.type === 'complex'; })) || (spec.equal !== false && L.length > 0 && !heat && L.every(function (l) { return l.polar || /^(imp|region|vector|vline|hline|ann)$/.test(l.type); }) && L.some(function (l) { return l.polar || l.type === 'imp' || l.type === 'region'; })));
 
     // ---- legend & labels ----
     var legend = [];
@@ -35495,6 +35865,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           ctx.beginPath(); plMarch(ctx, gx, nx, ny, 0, pxF, pyF, thr); ctx.stroke();
         }
       } else if (l.type === 'vector') drawVec(ctx, l, bx, pw, ph);
+      else if (l.type === 'stream') drawStream(ctx, l, bx, pw, ph);
+      else if (l.type === 'slope') drawSlope(ctx, l, X, Y, bx, pw, ph);
+      else if (l.type === 'complex') drawComplex(ctx, l, bx, pw, ph);
+      else if (l.type === 'ode') drawOde(ctx, l, X, Y);
+      else if (l.type === 'particles') drawFlow(ctx, l, X, Y);
       else if (l.type === 'vline' || l.type === 'hline') {
         ctx.strokeStyle = l.color; ctx.lineWidth = l.width; ctx.setLineDash(l.dash); ctx.beginPath();
         l.vals.forEach(function (v) { if (l.type === 'vline') { if (xLog && v <= 0) return; var px = Math.round(X(Tx(v))) + 0.5; ctx.moveTo(px, bx.t); ctx.lineTo(px, bx.t + ph); } else { if (yLog && v <= 0) return; var py = Math.round(Y(Ty(v))) + 0.5; ctx.moveTo(bx.l, py); ctx.lineTo(bx.l + pw, py); } });
@@ -35503,9 +35878,19 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       ctx.restore();
     }
     function drawAnn(ctx, l, X, Y, bx, pw, ph, col) {
+      if (l.px) {
+        l.x = l.px(NONE); l.y = l.py(NONE);
+        if (l.tr && isFinite(l.x) && isFinite(l.y)) {
+          var lt = l.tr[l.tr.length - 1];
+          if (!lt || lt[0] !== l.x || lt[1] !== l.y) { if (lt && (Math.abs(l.x - lt[0]) > 0.3 * (view.x1 - view.x0) || Math.abs(l.y - lt[1]) > 0.3 * (view.y1 - view.y0))) l.tr.length = 0; l.tr.push([l.x, l.y]); if (l.tr.length > l.tl) l.tr.shift(); }
+          ctx.save(); ctx.beginPath(); ctx.rect(bx.l, bx.t, pw, ph); ctx.clip(); ctx.strokeStyle = l.color; ctx.lineWidth = 2; ctx.lineCap = 'round';
+          for (var ti = 1; ti < l.tr.length; ti++) { ctx.globalAlpha = 0.08 + 0.8 * ti / l.tr.length; ctx.beginPath(); ctx.moveTo(X(Tx(l.tr[ti - 1][0])), Y(Ty(l.tr[ti - 1][1]))); ctx.lineTo(X(Tx(l.tr[ti][0])), Y(Ty(l.tr[ti][1]))); ctx.stroke(); }
+          ctx.restore();
+        }
+      }
       if (!isFinite(l.x) || !isFinite(l.y) || (xLog && l.x <= 0) || (yLog && l.y <= 0)) return;
       var px = X(Tx(l.x)), py = Y(Ty(l.y)); if (px < bx.l - 1 || px > bx.l + pw + 1 || py < bx.t - 1 || py > bx.t + ph + 1) return;
-      ctx.save(); ctx.fillStyle = l.color; ctx.strokeStyle = col.light ? '#fff' : '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 4, 0, 7); ctx.stroke(); ctx.fill();
+      ctx.save(); ctx.fillStyle = l.color; ctx.strokeStyle = col.light ? '#fff' : '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, l.size || 4, 0, 7); ctx.stroke(); ctx.fill();
       if (l.text) {
         var m = plLab(ctx, l.text, 12.5), w = m.w + 10, hh = m.a + m.d + 6, lx = px + 8, ly = py - 8 - hh;
         if (lx + w > bx.l + pw) lx = px - 8 - w; if (ly < bx.t) ly = py + 8;
@@ -35565,6 +35950,144 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         g.values.forEach(function (v, i) { if (!isFinite(v)) return; var x = X(i + 0.5) - (cw * fr) / 2 + gi * gw, y = Y(v); ctx.globalAlpha = 0.9; ctx.fillRect(x + (hist ? 0.5 : 1), Math.min(y, y0), Math.max(1, gw - (hist ? 1 : 2)), Math.abs(y0 - y)); });
       }); ctx.globalAlpha = 1;
     }
+    function viewKey(pw, ph) { return [view.x0, view.x1, view.y0, view.y1, Math.round(pw), Math.round(ph), JSON.stringify(env.P)].join('|'); }
+    function traceStream(l, pw, ph) { // evenly spaced streamlines in screen space (y up), cached per view and parameter values
+      var sep = Math.max(7, Math.min(pw, ph) / (15 * l.density)), cell = sep / 2, gw = Math.ceil(pw / cell) + 2, gh = Math.ceil(ph / cell) + 2, occ = new Uint8Array(gw * gh);
+      var sx = pw / (view.x1 - view.x0), sy = ph / (view.y1 - view.y0), v2 = [0, 0], hstep = cell * 0.55, lines = [], mx = 0;
+      function vel(px, py, out) { v2[0] = view.x0 + px / sx; v2[1] = view.y0 + py / sy; var u = l.fx(v2), v = l.fy(v2); if (!isFinite(u) || !isFinite(v)) return -1; var du = u * sx, dv = v * sy, m = Math.hypot(du, dv); if (!(m > 1e-12)) return 0; out[0] = du / m; out[1] = dv / m; return Math.hypot(u, v); }
+      function trace(px, py, dir, free) {
+        var pts = [], ms = [], k1 = [0, 0], k2 = [0, 0], x0 = px, y0 = py;
+        for (var n = 0; n < 1200; n++) {
+          if (px < 0 || py < 0 || px > pw || py > ph) break;
+          if (!free && n > 0) { var id = (Math.floor(py / cell) + 1) * gw + Math.floor(px / cell) + 1; if (occ[id]) break; }
+          var m = vel(px, py, k1); if (!(m > 0)) break;
+          pts.push(px, py); ms.push(m);
+          if (!(vel(px + dir * k1[0] * hstep / 2, py + dir * k1[1] * hstep / 2, k2) > 0)) break;
+          px += dir * k2[0] * hstep; py += dir * k2[1] * hstep;
+          if (n > 24 && Math.hypot(px - x0, py - y0) < hstep * 0.9) { pts.push(x0, y0); ms.push(ms[0]); break; } // closed orbit
+        }
+        return { p: pts, m: ms };
+      }
+      function mark(P) { for (var i = 0; i < P.length; i += 2) { var ci_ = Math.floor(P[i] / cell) + 1, cj = Math.floor(P[i + 1] / cell) + 1; for (var a = -1; a <= 1; a++) for (var b = -1; b <= 1; b++) { var q = (cj + b) * gw + ci_ + a; if (q >= 0 && q < occ.length) occ[q] = 1; } } }
+      function line(px, py, free) {
+        if (!free) { var id = (Math.floor(py / cell) + 1) * gw + Math.floor(px / cell) + 1; if (occ[id]) return; }
+        var bk = trace(px, py, -1, free), fw = trace(px, py, 1, free), P = [], M = [], i;
+        for (i = bk.p.length - 2; i >= 2; i -= 2) { P.push(bk.p[i], bk.p[i + 1]); M.push(bk.m[i / 2]); }
+        for (i = 0; i < fw.p.length; i += 2) { P.push(fw.p[i], fw.p[i + 1]); M.push(fw.m[i / 2]); }
+        if (P.length < 8) return;
+        mark(P); lines.push({ p: P, m: M }); for (i = 0; i < M.length; i++) if (M[i] > mx) mx = M[i];
+      }
+      if (l.seeds && l.seeds.length) l.seeds.forEach(function (q) { line((q[0] - view.x0) * sx, (q[1] - view.y0) * sy, true); });
+      else for (var j = 0; j * sep < ph; j++) for (var i2 = 0; i2 * sep < pw; i2++) line((i2 + 0.5) * sep, (j + 0.5) * sep, false);
+      return { lines: lines, mx: mx };
+    }
+    function drawStream(ctx, l, bx, pw, ph) {
+      var key = viewKey(pw, ph); if (l._key !== key) { l._tr = traceStream(l, pw, ph); l._key = key; }
+      var tr = l._tr, lut = plCmap(l.cmap), mx = tr.mx || 1, B = 24;
+      var col = function (m) { if (l.solid) return l.color; var k = Math.max(0, Math.min(255, Math.round(m / mx * 255))); return 'rgb(' + lut[k * 3] + ',' + lut[k * 3 + 1] + ',' + lut[k * 3 + 2] + ')'; };
+      var X0 = function (px) { return bx.l + px; }, Y0 = function (py) { return bx.t + ph - py; };
+      ctx.lineWidth = l.width; ctx.setLineDash([]);
+      for (var q = 0; q < B; q++) { // one path per colour band keeps this fast
+        ctx.strokeStyle = col((q + 0.5) / B * mx); ctx.beginPath(); var any = false;
+        tr.lines.forEach(function (ln) { for (var i = 0; i + 3 < ln.p.length; i += 2) { var m = (ln.m[i / 2] + ln.m[i / 2 + 1]) / 2, band = l.solid ? 0 : Math.min(B - 1, Math.floor(m / mx * B)); if (band !== q) continue; ctx.moveTo(X0(ln.p[i]), Y0(ln.p[i + 1])); ctx.lineTo(X0(ln.p[i + 2]), Y0(ln.p[i + 3])); any = true; } });
+        if (any) ctx.stroke(); if (l.solid) break;
+      }
+      if (!l.arrows) return;
+      tr.lines.forEach(function (ln) {
+        var n = ln.p.length / 2, k = Math.max(1, Math.floor(n / 2)), ax = ln.p[k * 2] - ln.p[k * 2 - 2], ay = ln.p[k * 2 + 1] - ln.p[k * 2 - 1], d = Math.hypot(ax, ay) || 1, ux = ax / d, uy = -ay / d, x = X0(ln.p[k * 2]), y = Y0(ln.p[k * 2 + 1]), s = 4 + l.width * 1.6;
+        ctx.fillStyle = col(ln.m[k]); ctx.beginPath(); ctx.moveTo(x + ux * s * 0.6, y + uy * s * 0.6); ctx.lineTo(x - ux * s * 0.6 - uy * s * 0.5, y - uy * s * 0.6 + ux * s * 0.5); ctx.lineTo(x - ux * s * 0.6 + uy * s * 0.5, y - uy * s * 0.6 - ux * s * 0.5); ctx.closePath(); ctx.fill();
+      });
+    }
+    function drawSlope(ctx, l, X, Y, bx, pw, ph) {
+      var d = l.density, nx = Math.max(8, Math.min(50, Math.round(pw / 24 * d))), ny = Math.max(6, Math.min(44, Math.round(ph / 24 * d))), cw = pw / nx, chh = ph / ny, Lh = Math.min(cw, chh) * 0.36;
+      var sx = pw / (view.x1 - view.x0), sy = ph / (view.y1 - view.y0), v2 = [0, 0], i, j;
+      ctx.strokeStyle = l.color; ctx.lineWidth = 1.3; ctx.setLineDash([]); ctx.globalAlpha = l.opacity * 0.75; ctx.beginPath();
+      for (j = 0; j < ny; j++) for (i = 0; i < nx; i++) {
+        v2[0] = view.x0 + (view.x1 - view.x0) * (i + 0.5) / nx; v2[1] = view.y0 + (view.y1 - view.y0) * (j + 0.5) / ny;
+        var m = l.f(v2); if (!isFinite(m)) continue;
+        var dx = sx, dy = -m * sy, dl = Math.hypot(dx, dy) || 1, cx = bx.l + (i + 0.5) * cw, cy = bx.t + ph - (j + 0.5) * chh;
+        ctx.moveTo(cx - dx / dl * Lh, cy - dy / dl * Lh); ctx.lineTo(cx + dx / dl * Lh, cy + dy / dl * Lh);
+      }
+      ctx.stroke(); ctx.globalAlpha = l.opacity;
+      var F = function (x, y) { v2[0] = x; v2[1] = y; return l.f(v2); }, span = view.y1 - view.y0, mid = (view.y0 + view.y1) / 2;
+      l.sol.forEach(function (p0, k) {
+        function run(dir) {
+          var x = p0[0], y = p0[1], hh = dir * (view.x1 - view.x0) / 500, pts = [];
+          for (var n = 0; n < 2000; n++) {
+            if ((dir > 0 && x > view.x1) || (dir < 0 && x < view.x0)) break;
+            var k1 = F(x, y), k2 = F(x + hh / 2, y + hh * k1 / 2), k3 = F(x + hh / 2, y + hh * k2 / 2), k4 = F(x + hh, y + hh * k3);
+            y += hh * (k1 + 2 * k2 + 2 * k3 + k4) / 6; x += hh;
+            if (!isFinite(y) || Math.abs(y - mid) > 6 * span) break;
+            pts.push([x, y]);
+          }
+          return pts;
+        }
+        var pts = run(-1).reverse().concat([[p0[0], p0[1]]], run(1));
+        ctx.strokeStyle = l.solCol[k]; ctx.lineWidth = 2.2; ctx.beginPath();
+        pts.forEach(function (p_, n) { var px = X(Tx(p_[0])), py = Y(Ty(p_[1])); if (n) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke();
+        ctx.fillStyle = l.solCol[k]; ctx.beginPath(); ctx.arc(X(Tx(p0[0])), Y(Ty(p0[1])), 3.6, 0, 7); ctx.fill();
+      });
+    }
+    function drawComplex(ctx, l, bx, pw, ph) {
+      var key = viewKey(pw, ph);
+      if (l._key !== key) {
+        var nx = Math.max(60, Math.min(420, Math.round(pw / 1.5))), ny = Math.max(40, Math.min(420, Math.round(ph / 1.5))), off = l._off || (l._off = doc.createElement('canvas'));
+        off.width = nx; off.height = ny;
+        var oc = off.getContext('2d'), im = oc.createImageData(nx, ny), z = [0, 0], o = [0, 0, 0, 0], w;
+        for (var j = 0; j < ny; j++) for (var i = 0; i < nx; i++) {
+          z[0] = view.x0 + (view.x1 - view.x0) * (i + 0.5) / nx; z[1] = view.y1 - (view.y1 - view.y0) * (j + 0.5) / ny;
+          try { w = l.f([z[0], z[1]]); } catch (e) { w = [NaN, NaN]; }
+          plCxColor(w, o); var q = (j * nx + i) * 4; im.data[q] = o[0]; im.data[q + 1] = o[1]; im.data[q + 2] = o[2]; im.data[q + 3] = o[3];
+        }
+        oc.putImageData(im, 0, 0); l._key = key;
+      }
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(l._off, bx.l, bx.t, pw, ph);
+    }
+    function drawOde(ctx, l, X, Y) {
+      var sol = odeSol(l), tnow = l.anim ? env.P._t : Infinity;
+      sol.paths.forEach(function (pa, pi) {
+        var n = pa.T.length, dt = sol.h || 1, kEnd = tnow === Infinity ? n - 1 : Math.max(0, Math.min(n - 1, Math.floor((tnow - pa.T[0]) / dt + 1e-9)));
+        var xs = l.mode === 'time' ? pa.T : pa.V[l.ax[0]], ys = l.mode === 'time' ? pa.V[l.vi] : pa.V[l.ax[1]], col = l.mode === 'time' ? l.color : l.cols[pi % l.cols.length];
+        var k0 = l.trail > 0 ? Math.max(0, kEnd - Math.round(l.trail / dt)) : 0;
+        var path = function (a, b) { ctx.beginPath(); var on = false; for (var k = a; k <= b; k++) { var px = X(Tx(xs[k])), py = Y(Ty(ys[k])); if (!isFinite(px) || !isFinite(py)) { on = false; continue; } if (on) ctx.lineTo(px, py); else { ctx.moveTo(px, py); on = true; } } ctx.stroke(); };
+        ctx.strokeStyle = col; ctx.lineWidth = l.width; ctx.setLineDash(l.dash || []);
+        if (l.anim) { ctx.globalAlpha = l.opacity * 0.22; path(0, n - 1); }
+        ctx.globalAlpha = l.opacity; path(k0, kEnd);
+        if (l.anim || pi >= 0) { // the moving state (or the start point when not animated)
+          var hk = l.anim ? kEnd : 0, hx = X(Tx(xs[hk])), hy = Y(Ty(ys[hk]));
+          if (isFinite(hx) && isFinite(hy)) { ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.fillStyle = col; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(hx, hy, l.anim ? 4.5 : 3, 0, 7); ctx.fill(); if (l.anim) ctx.stroke(); }
+        }
+      });
+    }
+    function flowStep(l, dt) {
+      var sxp = view.x1 - view.x0, syp = view.y1 - view.y0, v2 = [0, 0];
+      var spawn = function (p_) { p_.x = view.x0 + Math.random() * sxp; p_.y = view.y0 + Math.random() * syp; p_.age = 0; p_.tr = []; p_.m = 0; return p_; };
+      if (!l.ps || l.ps.length !== l.n) { l.ps = []; for (var i = 0; i < l.n; i++) { var np = spawn({}); np.age = Math.random() * l.life; l.ps.push(np); } }
+      if (!dt) return;
+      var mx = 0;
+      l.ps.forEach(function (p_) {
+        p_.age += dt;
+        if (p_.age > l.life || p_.x < view.x0 || p_.x > view.x1 || p_.y < view.y0 || p_.y > view.y1) { spawn(p_); return; }
+        v2[0] = p_.x; v2[1] = p_.y; var u = l.fx(v2), v = l.fy(v2), hh = dt * l.speed;
+        if (!isFinite(u) || !isFinite(v)) { spawn(p_); return; }
+        v2[0] = p_.x + u * hh / 2; v2[1] = p_.y + v * hh / 2; var u2 = l.fx(v2), w2 = l.fy(v2);
+        if (!isFinite(u2) || !isFinite(w2)) { spawn(p_); return; }
+        var dx = u2 * hh, dy = w2 * hh, r = Math.hypot(dx / sxp, dy / syp); if (r > 0.02) { dx *= 0.02 / r; dy *= 0.02 / r; }
+        if (l.tl) { p_.tr.push(p_.x, p_.y); if (p_.tr.length > l.tl * 2) p_.tr.splice(0, 2); }
+        p_.x += dx; p_.y += dy; p_.m = Math.hypot(u2, w2); if (p_.m > mx) mx = p_.m;
+      });
+      l.mx = Math.max(mx, l.mx * 0.98);
+    }
+    function drawFlow(ctx, l, X, Y) {
+      if (!l.ps) flowStep(l, 0);
+      var lut = plCmap(l.cmap), mx = l.mx || 1;
+      l.ps.forEach(function (p_) {
+        var k = Math.max(0, Math.min(255, Math.round(p_.m / mx * 255))), c = l.solid ? l.color : 'rgb(' + lut[k * 3] + ',' + lut[k * 3 + 1] + ',' + lut[k * 3 + 2] + ')', fade = Math.min(1, p_.age / 0.4, (l.life - p_.age) / 0.6);
+        if (p_.tr.length >= 2) { ctx.globalAlpha = l.opacity * 0.35 * fade; ctx.strokeStyle = c; ctx.lineWidth = l.size * 0.9; ctx.beginPath(); ctx.moveTo(X(Tx(p_.tr[0])), Y(Ty(p_.tr[1]))); for (var i = 2; i < p_.tr.length; i += 2) ctx.lineTo(X(Tx(p_.tr[i])), Y(Ty(p_.tr[i + 1]))); ctx.lineTo(X(Tx(p_.x)), Y(Ty(p_.y))); ctx.stroke(); }
+        ctx.globalAlpha = l.opacity * fade; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(X(Tx(p_.x)), Y(Ty(p_.y)), l.size, 0, 7); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
     function drawVec(ctx, l, bx, pw, ph) {
       var d = Math.max(0.3, Math.min(3, l.density)), nx = Math.max(6, Math.min(48, Math.round(pw / 30 * d))), ny = Math.max(5, Math.min(40, Math.round(ph / 30 * d))), cells = [], mx = 0, cw = pw / nx, chh = ph / ny, v2 = [0, 0];
       for (var j = 0; j < ny; j++) for (var i = 0; i < nx; i++) {
@@ -35593,6 +36116,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       var parts = ['x = ' + plSig(d.x)];
       if (fns.length) fns.slice(0, 4).forEach(function (fn, i) { var v = fn.f([d.x]); parts.push((fns.length > 1 ? 'y' + '₁₂₃₄'.charAt(i) : 'y') + ' = ' + plSig(v)); });
       else parts.push('y = ' + plSig(d.y));
+      var cxl = L.filter(function (l) { return l.type === 'complex'; })[0];
+      if (cxl) { try { var w = cxl.f([d.x, d.y]); if (isFinite(w[0]) && isFinite(w[1])) parts.push('f = ' + plSig(w[0]) + (w[1] < 0 ? ' − ' : ' + ') + plSig(Math.abs(w[1])) + 'i'); } catch (e) {} }
       if (heat && lastHeat) { var n = lastHeat.n, i2 = Math.floor((d.tx - view.x0) / (view.x1 - view.x0) * n), j2 = Math.floor((d.ty - view.y0) / (view.y1 - view.y0) * n), z = lastHeat.z[j2 * n + i2]; if (isFinite(z)) parts.push('z = ' + plSig(z)); }
       shell.read.textContent = parts.join('   ');
     }
@@ -35604,13 +36129,27 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         if (drag && st.map) { var m = st.map, dx = (e.clientX - drag.x) / m.pw * (drag.v.x1 - drag.v.x0), dy = (e.clientY - drag.y) / m.ph * (drag.v.y1 - drag.v.y0); view.x0 = drag.v.x0 - dx; view.x1 = drag.v.x1 - dx; view.y0 = drag.v.y0 + dy; view.y1 = drag.v.y1 + dy; }
         var d = toData(e); hover = d; readout(d); st.redraw();
       });
-      var end = function () { drag = null; cv.style.cursor = 'crosshair'; };
+      var end = function () { if (drag) plRemember(fig, shell); drag = null; cv.style.cursor = 'crosshair'; };
       cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); cv.addEventListener('pointerleave', function () { hover = null; shell.read.textContent = ''; st.redraw(); });
-      cv.addEventListener('wheel', function (e) { var d = toData(e); if (!d || !d.inside) return; e.preventDefault(); var k = Math.exp(Math.max(-0.5, Math.min(0.5, e.deltaY * 0.0015))); view.x0 = d.tx + (view.x0 - d.tx) * k; view.x1 = d.tx + (view.x1 - d.tx) * k; view.y0 = d.ty + (view.y0 - d.ty) * k; view.y1 = d.ty + (view.y1 - d.ty) * k; st.redraw(); }, { passive: false });
-      cv.addEventListener('dblclick', function () { view = Object.assign({}, home); st.redraw(); });
-      plBtn(shell.tools, 'Reset', function () { view = Object.assign({}, home); st.redraw(); });
+      cv.addEventListener('wheel', function (e) { var d = toData(e); if (!d || !d.inside) return; e.preventDefault(); var k = Math.exp(Math.max(-0.5, Math.min(0.5, e.deltaY * 0.0015))); view.x0 = d.tx + (view.x0 - d.tx) * k; view.x1 = d.tx + (view.x1 - d.tx) * k; view.y0 = d.ty + (view.y0 - d.ty) * k; view.y1 = d.ty + (view.y1 - d.ty) * k; st.redraw(); plRemember(fig, shell); }, { passive: false });
+      cv.addEventListener('dblclick', function () { view = Object.assign({}, home); st.redraw(); plRemember(fig, shell); });
+      plBtn(shell.tools, 'Reset', function () { view = Object.assign({}, home); st.redraw(); plRemember(fig, shell); });
+    }
+    if (flow) { // particles move on their own: one frame loop for every particle layer, paused off screen
+      var fOn = false, fRaf = 0, fLast = 0;
+      var fTick = function (now) { fRaf = 0; if (!fOn || !cv.isConnected) { fOn = false; return; } var dt = fLast ? Math.min(0.05, (now - fLast) / 1000) : 0; fLast = now; if (shell.seen()) { L.forEach(function (l) { if (l.type === 'particles') flowStep(l, dt); }); st.now(); } else fLast = 0; fRaf = root.requestAnimationFrame(fTick); };
+      var fBtn = plBtn(shell.tools, 'Pause', function (b) { fOn = !fOn; b.textContent = fOn ? 'Pause' : 'Play'; b.setAttribute('aria-pressed', fOn ? 'true' : 'false'); if (fOn && !fRaf) { fLast = 0; fRaf = root.requestAnimationFrame(fTick); } }, true);
+      if (shell.calm) { fBtn.textContent = 'Play'; fBtn.setAttribute('aria-pressed', 'false'); } else { fOn = true; fRaf = root.requestAnimationFrame(fTick); }
     }
     plBtn(shell.tools, 'PNG', function () { plSave(shell, spec, env, 'plot'); });
+    var kinds = {};
+    if (bars) kinds[bars.hist ? 'hist' : 'bar'] = 1;
+    if (heat) { kinds.heatmap = 1; if (heat.contour) kinds.contour = 1; }
+    L.forEach(function (l) { kinds[l.kid || PL_KID2[l.type] || l.type] = 1; if (l.type === 'curve') kinds[l.polar ? 'polar' : 'parametric'] = 1; if (l.type === 'data' && l.mode === 'points') kinds.scatter = 1; if (l.type === 'ode' && l.anim) kinds.animation = 1; });
+    if (flow) kinds.animation = 1;
+    if (env.sliders.length) kinds.sliders = 1;
+    if (env.sliders.some(function (q) { return q.timeline || q.anim; })) kinds.animation = 1;
+    fig.setAttribute('data-kinds', Object.keys(kinds).join(' '));
     var touch = root.matchMedia && root.matchMedia('(pointer:coarse)').matches;
     shell.read.setAttribute('data-hint', interactive ? (touch ? 'Drag to pan' : 'Drag to pan · scroll to zoom') : '');
   }
@@ -35632,6 +36171,160 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var xr0 = plRange(spec.xrange, [-5, 5]), yr0 = plRange(spec.yrange, [-5, 5]), zr = plRange(spec.zrange, null), cmap = spec.colormap, lut = plCmap(cmap);
     var nSurf = raw.filter(function (s) { return s && (s.z != null || s.zs) && !(s.t != null && s.x != null); }).length;
     var lo, hi, rg, clo, chi, half;
+    var trails = {}, flows = {}, odeC = {}, NONE3 = [];
+    function newItem(it, s, kd, idx) { // the newer 3D kinds; returns true when it built the item
+      var zr3 = plRange(spec.zrange, [-5, 5]), ax = plRange(s.xrange, xr0), ay = plRange(s.yrange, yr0), az = plRange(s.zrange, zr3);
+      var mapOf = function (dflt) { return s.colormap ? plCmap(s.colormap) : cmap ? lut : plCmap(dflt || 'viridis'); }, cmName = function (dflt) { return s.colormap || cmap || dflt || 'viridis'; };
+      if (/^(odes?|differential(equation)?)$/.test(kd) || s.system != null || s.ode != null) {
+        var key = JSON.stringify(plNoT(env.P)); if (!odeC[idx] || odeC[idx].k !== key) odeC[idx] = { k: key, sol: plOdeSolve(env, s) };
+        var sol = odeC[idx].sol; if (sol.vars.length !== 3) throw new Error('a 3D ODE needs 3 equations; with 1 or 2 equations use a 2D plot');
+        var animd = s.animate !== false && plHas(env.P, '_t'), tnow = animd ? env.P._t : Infinity, parts = [], trail = Math.max(0, plNum(s.trail, 0));
+        sol.paths.forEach(function (pa, pi) {
+          var col = plColor(Array.isArray(s.colors) ? s.colors[pi] : (pi === 0 ? s.color : null), idx + pi), n = pa.T.length, dt = sol.h || 1;
+          var kEnd = animd ? Math.max(0, Math.min(n - 1, Math.floor((tnow - pa.T[0]) / dt + 1e-9))) : n - 1, k0 = trail > 0 ? Math.max(0, kEnd - Math.round(trail / dt)) : 0;
+          if (animd) parts.push({ kind: 'curve', X: pa.V[0], Y: pa.V[1], Z: pa.V[2], C: null, color: col, opacity: 0.2, width: 1.3, swatch: 'line' });
+          parts.push({ kind: 'curve', X: pa.V[0].slice(k0, kEnd + 1), Y: pa.V[1].slice(k0, kEnd + 1), Z: pa.V[2].slice(k0, kEnd + 1), C: null, color: col, opacity: it.opacity, width: Math.min(6, Math.max(1, plNum(s.width, 2.2))), swatch: 'line', head: animd, size: 4.5 });
+        });
+        var p0 = parts.shift(); Object.keys(p0).forEach(function (k) { it[k] = p0[k]; }); it.more = parts; it.kid = 'ode'; it.anim = animd; it._auto = sol.tex;
+        return true;
+      }
+      if (/^particles?$/.test(kd)) {
+        if (s.fx == null || s.fy == null || s.fz == null) throw new Error('3D particles need a velocity field: "fx", "fy" and "fz"');
+        var F = flows[idx] || (flows[idx] = { ps: null }), n0 = Math.min(1200, Math.max(20, Math.round(plNum(s.n || s.count, 250))));
+        F.f = [fn3(String(s.fx)), fn3(String(s.fy)), fn3(String(s.fz))]; F.box = [ax, ay, az]; F.speed = Math.min(50, Math.max(0.02, plNum(s.speed, 1))); F.life = Math.min(30, Math.max(0.5, plNum(s.life, 5)));
+        if (!F.ps || F.ps.length !== n0) { F.ps = []; for (var q = 0; q < n0; q++) F.ps.push(flowSpawn(F, { age: Math.random() * F.life })); }
+        it.kind = 'points'; it.flow = F; it.kid = 'particles'; it.swatch = s.color ? 'dot' : 'grad'; it.size = plNum(s.size, 2.4); it.lut = mapOf('turbo'); it.cmap = cmName('turbo'); it.cNotZ = true; it.solidPts = !!s.color;
+        it.streak = { kind: 'segs', noArrow: true, X: [], Y: [], Z: [], C: [], lut: it.lut, opacity: 0.55, width: 1.4, color: it.color, solid: !!s.color };
+        flowArrays(it); it.crange = [0, 1]; it.streak.crange = it.crange; it.more = [it.streak];
+        it._auto = '\\vec{v} = \\left(' + plTex(F.f[0].ast) + ',\\ ' + plTex(F.f[1].ast) + ',\\ ' + plTex(F.f[2].ast) + '\\right)';
+        return true;
+      }
+      if (/^(streamlines?|streamlines3d|streamline3d|stream|streamplot|fieldlines?|flowlines?|flow)$/.test(kd) || ((s.streamlines === true || s.stream === true) && s.fz != null)) {
+        if (s.fx == null || s.fy == null || s.fz == null) throw new Error('3D streamlines need "fx", "fy" and "fz"');
+        var gx = fn3(String(s.fx)), gy = fn3(String(s.fy)), gz = fn3(String(s.fz)), seeds = [];
+        if (Array.isArray(s.seeds)) s.seeds.slice(0, 150).forEach(function (q) { if (Array.isArray(q) && q.length >= 3) { var a = [plNum(q[0], NaN), plNum(q[1], NaN), plNum(q[2], NaN)]; if (isFinite(a[0] + a[1] + a[2])) seeds.push(a); } });
+        if (!seeds.length) { var gs = Math.min(7, Math.max(2, Math.round(plNum(s.n, 3)))); for (var k = 0; k < gs; k++) for (var j = 0; j < gs; j++) for (var i = 0; i < gs; i++) seeds.push([ax[0] + (ax[1] - ax[0]) * (i + 0.5) / gs, ay[0] + (ay[1] - ay[0]) * (j + 0.5) / gs, az[0] + (az[1] - az[0]) * (k + 0.5) / gs]); }
+        var diag = Math.hypot(ax[1] - ax[0], ay[1] - ay[0], az[1] - az[0]), hs = diag / 240, SX = [], SY = [], SZ = [], SC = [], arr = [];
+        var field = function (p, out) { var u = gx.f(p[0], p[1], p[2]), v = gy.f(p[0], p[1], p[2]), w = gz.f(p[0], p[1], p[2]), m = Math.sqrt(u * u + v * v + w * w); if (!(m > 1e-12) || !isFinite(m)) return 0; out[0] = u / m; out[1] = v / m; out[2] = w / m; return m; };
+        var inside = function (p) { return p[0] >= ax[0] && p[0] <= ax[1] && p[1] >= ay[0] && p[1] <= ay[1] && p[2] >= az[0] && p[2] <= az[1]; };
+        var trace = function (sd, dir) {
+          var p = sd.slice(), pts = [], ms = [], k1 = [0, 0, 0], k2 = [0, 0, 0], k3 = [0, 0, 0], k4 = [0, 0, 0], q = [0, 0, 0], m = field(p, k1);
+          if (!m) return { p: pts, m: ms };
+          pts.push(p.slice()); ms.push(m);
+          for (var n = 0, nMax = Math.round(plNum(s.length, 1.6) * 240); n < nMax && n < 2400; n++) {
+            if (!field(p, k1)) break;
+            q[0] = p[0] + dir * hs / 2 * k1[0]; q[1] = p[1] + dir * hs / 2 * k1[1]; q[2] = p[2] + dir * hs / 2 * k1[2]; if (!field(q, k2)) break;
+            q[0] = p[0] + dir * hs / 2 * k2[0]; q[1] = p[1] + dir * hs / 2 * k2[1]; q[2] = p[2] + dir * hs / 2 * k2[2]; if (!field(q, k3)) break;
+            q[0] = p[0] + dir * hs * k3[0]; q[1] = p[1] + dir * hs * k3[1]; q[2] = p[2] + dir * hs * k3[2]; if (!field(q, k4)) break;
+            for (var d = 0; d < 3; d++) p[d] += dir * hs / 6 * (k1[d] + 2 * k2[d] + 2 * k3[d] + k4[d]);
+            if (!inside(p)) break;
+            m = field(p, k1); if (!m) break; pts.push(p.slice()); ms.push(m);
+            if (n > 30 && Math.hypot(p[0] - sd[0], p[1] - sd[1], p[2] - sd[2]) < hs * 0.8) break; // closed loop
+          }
+          return { p: pts, m: ms };
+        };
+        seeds.forEach(function (sd) {
+          if (!inside(sd)) return;
+          var bk = trace(sd, -1), fw = trace(sd, 1), P = bk.p.slice(1).reverse().concat(fw.p), M = bk.m.slice(1).reverse().concat(fw.m);
+          if (P.length < 3) return;
+          var mid = P.length >> 1;
+          for (var k = 0; k + 1 < P.length; k++) { SX.push(P[k][0], P[k + 1][0]); SY.push(P[k][1], P[k + 1][1]); SZ.push(P[k][2], P[k + 1][2]); SC.push(M[k], M[k + 1]); arr.push(k === mid - 1 ? 1 : 0); }
+        });
+        if (!SX.length) throw new Error('no streamline could be traced inside the box (is the field zero or undefined there? try other "seeds")');
+        var srt = SC.filter(isFinite).sort(function (a, b) { return a - b; }), smn = srt[Math.floor(srt.length * 0.03)], smx = srt[Math.floor(srt.length * 0.97)]; it.crange = [smn, smx > smn ? smx : smn + 1]; // middle 94 %: a 1/r² field near its source would wash out every other colour
+        it.kind = 'segs'; it.arr = arr; it.X = SX; it.Y = SY; it.Z = SZ; it.C = SC; it.lut = mapOf('viridis'); it.cmap = cmName('viridis'); it.solid = !!s.color; it.swatch = s.color ? 'line' : 'grad'; it.width = Math.min(4, Math.max(0.8, plNum(s.width, 1.7))); it.cNotZ = true; it.kid = 'streamlines3d';
+        it._auto = '\\vec{F} = \\left(' + plTex(gx.ast) + ',\\ ' + plTex(gy.ast) + ',\\ ' + plTex(gz.ast) + '\\right)';
+        return true;
+      }
+      if (/^(slices?|sliceplanes?)$/.test(kd) || s.planes != null) {
+        var fsrc = s.f != null ? s.f : s.field != null ? s.field : s.value != null ? s.value : s.density;
+        if (fsrc == null) throw new Error('a slice plot needs "f": an expression of x, y and z');
+        var ff = fn3(String(fsrc)), pl = s.planes || s.at || {}, list = [], ns = Math.min(90, Math.max(12, Math.round(plNum(s.n || spec.n, 46))));
+        ['x', 'y', 'z'].forEach(function (a) { var v = pl[a]; if (v == null) return; [].concat(v).slice(0, 4).forEach(function (q) { var val = typeof q === 'number' ? q : plFnOf(env, String(q), []).f(NONE3); if (isFinite(val)) list.push([a, val]); }); });
+        if (!list.length) list = [['x', (ax[0] + ax[1]) / 2], ['y', (ay[0] + ay[1]) / 2], ['z', (az[0] + az[1]) / 2]];
+        var cmin = Infinity, cmax = -Infinity;
+        var subs = list.map(function (pq) {
+          var A = new Float64Array(ns * ns), Bq = new Float64Array(ns * ns), Cq = new Float64Array(ns * ns), V = new Float64Array(ns * ns);
+          for (var j = 0; j < ns; j++) for (var i = 0; i < ns; i++) {
+            var u = i / (ns - 1), w = j / (ns - 1), o = j * ns + i, x, y, z;
+            if (pq[0] === 'x') { x = pq[1]; y = ay[0] + (ay[1] - ay[0]) * u; z = az[0] + (az[1] - az[0]) * w; }
+            else if (pq[0] === 'y') { y = pq[1]; x = ax[0] + (ax[1] - ax[0]) * u; z = az[0] + (az[1] - az[0]) * w; }
+            else { z = pq[1]; x = ax[0] + (ax[1] - ax[0]) * u; y = ay[0] + (ay[1] - ay[0]) * w; }
+            A[o] = x; Bq[o] = y; Cq[o] = z; var fv = ff.f(x, y, z); V[o] = isFinite(fv) ? fv : NaN; if (isFinite(fv)) { if (fv < cmin) cmin = fv; if (fv > cmax) cmax = fv; }
+          }
+          return { kind: 'surface', nu: ns, nv: ns, X: A, Y: Bq, Z: Cq, C: V, solid: false, cNotZ: true, opacity: it.opacity, swatch: 'grad', color: it.color };
+        });
+        var dflt = cmin < 0 && cmax > 0 ? 'coolwarm' : 'viridis', L2 = mapOf(dflt);
+        var crs = cmin < 0 && cmax > 0 ? [-Math.max(-cmin, cmax), Math.max(-cmin, cmax)] : [cmin, cmax > cmin ? cmax : cmin + 1];
+        subs.forEach(function (q) { q.lut = L2; q.cmap = cmName(dflt); q.crange = crs; });
+        var s0 = subs.shift(); Object.keys(s0).forEach(function (k) { it[k] = s0[k]; }); it.more = subs; it.kid = 'slice'; it._auto = plTex(ff.ast);
+        return true;
+      }
+      if (/^(revolution|surfaceofrevolution|revolve)$/.test(kd) || s.profile != null) {
+        var psrc = s.profile != null ? s.profile : s.f != null ? s.f : s.y != null ? s.y : s.r;
+        if (psrc == null) throw new Error('a surface of revolution needs "profile": the curve y = f(x) to rotate, e.g. "sqrt(x)"');
+        var pf = plFnOf(env, String(psrc).replace(/^\s*y\s*=\s*/, ''), ['x']), xrr = plRange(Array.isArray(s.x) ? s.x : s.domain || s.range || s.xrange, [0, 4]), axis = String(s.axis || 'x').toLowerCase();
+        var nu = Math.min(140, Math.max(16, Math.round(plNum(s.n || spec.n, 72)))), nvv = 48, RX = new Float64Array(nu * nvv), RY = new Float64Array(nu * nvv), RZ = new Float64Array(nu * nvv), RC = new Float64Array(nu * nvv), w1 = [0];
+        for (var rj = 0; rj < nvv; rj++) for (var ri = 0; ri < nu; ri++) {
+          var xv = xrr[0] + (xrr[1] - xrr[0]) * ri / (nu - 1), ang = 2 * Math.PI * rj / (nvv - 1); w1[0] = xv; var rv = pf.f(w1), ro = rj * nu + ri;
+          if (axis === 'x') { RX[ro] = xv; RY[ro] = rv * Math.cos(ang); RZ[ro] = rv * Math.sin(ang); } else { RX[ro] = xv * Math.cos(ang); RY[ro] = xv * Math.sin(ang); RZ[ro] = rv; }
+          RC[ro] = axis === 'x' ? xv : rv;
+        }
+        var useMap = !!(s.colormap || cmap);
+        it.kind = 'surface'; it.nu = nu; it.nv = nvv; it.X = RX; it.Y = RY; it.Z = RZ; it.C = RC; it.solid = !useMap; it.lut = mapOf(); it.cmap = cmName(); it.swatch = it.solid ? 'patch' : 'grad'; it.cNotZ = true; it.kid = 'revolution';
+        it._auto = 'y = ' + plTex(pf.ast);
+        return true;
+      }
+      if (/^(complexsurface|complex3d|complex|domaincolou?ring|complexplot)$/.test(kd)) {
+        var csrc = s.f != null ? s.f : s.complex != null ? s.complex : s.w;
+        if (csrc == null) throw new Error('a complex surface needs "f": a function of z');
+        var cf = plCx(env, String(csrc)), cxr = plRange(s.xrange || spec.xrange, [-2, 2]), cyr = plRange(s.yrange || spec.yrange, [-2, 2]), nc = Math.min(140, Math.max(16, Math.round(plNum(s.n || spec.n, 80))));
+        var zcap = spec.zrange ? plRange(spec.zrange, [0, 5])[1] : plNum(s.zmax, 5), QX = new Float64Array(nc * nc), QY = new Float64Array(nc * nc), QZ = new Float64Array(nc * nc), QC = new Float64Array(nc * nc);
+        for (var cj = 0; cj < nc; cj++) for (var ck = 0; ck < nc; ck++) {
+          var zx = cxr[0] + (cxr[1] - cxr[0]) * ck / (nc - 1), zy = cyr[0] + (cyr[1] - cyr[0]) * cj / (nc - 1), wv, co = cj * nc + ck;
+          try { wv = cf.f([zx, zy]); } catch (e) { wv = [NaN, NaN]; }
+          var mg = Math.hypot(wv[0], wv[1]); QX[co] = zx; QY[co] = zy; QZ[co] = mg === mg ? Math.min(mg, zcap) : NaN; QC[co] = Math.atan2(wv[1], wv[0]);
+        }
+        it.kind = 'surface'; it.nu = nc; it.nv = nc; it.X = QX; it.Y = QY; it.Z = QZ; it.C = QC; it.solid = false; it.lut = plCmap('phase'); it.cmap = 'phase'; it.swatch = 'grad'; it.cNotZ = true; it.kid = 'complexsurface'; it.crange = [-Math.PI, Math.PI];
+        it._auto = '|f(z)|,\\ f(z) = ' + plTex(cf.ast);
+        return true;
+      }
+      if (Array.isArray(s.point) && s.point.length === 3) {
+        var pf3 = s.point.map(function (q) { if (typeof q === 'number') return function () { return q; }; return plFnOf(env, String(q), []).f; });
+        var cur = [pf3[0](NONE3), pf3[1](NONE3), pf3[2](NONE3)], tr = trails[idx] || (trails[idx] = []), cap = Math.min(800, Math.max(5, Math.round(plNum(s.trail === true ? 200 : s.trail, 200))));
+        if (s.trail && cur.every(isFinite)) {
+          var lt = tr[tr.length - 1], jump = 0.35 * Math.hypot(ax[1] - ax[0], ay[1] - ay[0], az[1] - az[0]);
+          if (!lt || lt[0] !== cur[0] || lt[1] !== cur[1] || lt[2] !== cur[2]) { if (lt && Math.hypot(cur[0] - lt[0], cur[1] - lt[1], cur[2] - lt[2]) > jump) tr.length = 0; tr.push(cur); if (tr.length > cap) tr.shift(); }
+        }
+        var pts = s.trail ? (tr.length ? tr : [cur]) : [cur];
+        it.kind = 'curve'; it.X = pts.map(function (p) { return p[0]; }); it.Y = pts.map(function (p) { return p[1]; }); it.Z = pts.map(function (p) { return p[2]; }); it.C = null;
+        it.head = true; it.fade = true; it.size = Math.min(9, Math.max(3, plNum(s.size, 5))); it.width = Math.min(5, Math.max(1, plNum(s.width, 2))); it.swatch = 'dot'; it.kid = 'movingpoint';
+        return true;
+      }
+      return false;
+    }
+    function flowSpawn(F, p) { var b = F.box; p.x = b[0][0] + Math.random() * (b[0][1] - b[0][0]); p.y = b[1][0] + Math.random() * (b[1][1] - b[1][0]); p.z = b[2][0] + Math.random() * (b[2][1] - b[2][0]); p.age = p.age || 0; p.h = []; p.m = 0; return p; }
+    function flowArrays(it) {
+      var F = it.flow, n = F.ps.length, st_ = it.streak; it.X = new Float64Array(n); it.Y = new Float64Array(n); it.Z = new Float64Array(n); it.C = new Float64Array(n);
+      st_.X = []; st_.Y = []; st_.Z = []; st_.C = [];
+      F.ps.forEach(function (p, i) { it.X[i] = p.x; it.Y[i] = p.y; it.Z[i] = p.z; it.C[i] = p.m; if (p.h.length) { var o = p.h[0]; st_.X.push(o[0], p.x); st_.Y.push(o[1], p.y); st_.Z.push(o[2], p.z); st_.C.push(p.m, p.m); } });
+    }
+    function flowStep3(it, dt) {
+      var F = it.flow, b = F.box, sp = [b[0][1] - b[0][0], b[1][1] - b[1][0], b[2][1] - b[2][0]];
+      F.ps.forEach(function (p) {
+        p.age += dt;
+        var out = p.x < b[0][0] || p.x > b[0][1] || p.y < b[1][0] || p.y > b[1][1] || p.z < b[2][0] || p.z > b[2][1];
+        if (p.age > F.life || out) { p.age = 0; flowSpawn(F, p); return; }
+        var hh = dt * F.speed, u = F.f[0].f(p.x, p.y, p.z), v = F.f[1].f(p.x, p.y, p.z), w = F.f[2].f(p.x, p.y, p.z);
+        if (!isFinite(u + v + w)) { p.age = 0; flowSpawn(F, p); return; }
+        var mx_ = p.x + u * hh / 2, my_ = p.y + v * hh / 2, mz_ = p.z + w * hh / 2, u2 = F.f[0].f(mx_, my_, mz_), v2 = F.f[1].f(mx_, my_, mz_), w2 = F.f[2].f(mx_, my_, mz_);
+        if (!isFinite(u2 + v2 + w2)) { p.age = 0; flowSpawn(F, p); return; }
+        var dx = u2 * hh, dy = v2 * hh, dz = w2 * hh, r = Math.hypot(dx / sp[0], dy / sp[1], dz / sp[2]); if (r > 0.015) { dx *= 0.015 / r; dy *= 0.015 / r; dz *= 0.015 / r; }
+        p.h.push([p.x, p.y, p.z]); if (p.h.length > 6) p.h.shift();
+        p.x += dx; p.y += dy; p.z += dz; p.m = Math.sqrt(u2 * u2 + v2 * v2 + w2 * w2);
+      });
+      flowArrays(it);
+    }
 
     function fn3(src) { // f(x, y, z), with spherical r, theta, phi available too
       var c = plFnOf(env, src, ['x', 'y', 'z', 'r', 'theta', 'phi']), v = [0, 0, 0, 0, 0, 0];
@@ -35673,7 +36366,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       var paramSurf = (s.u != null || s.v != null) && s.x != null && s.y != null && s.z != null;
       var auto = '', zr3 = plRange(spec.zrange, [-5, 5]), TWO_PI = 2 * Math.PI, useMap = !!(s.colormap || cmap);
       var mapOf = function () { return s.colormap ? plCmap(s.colormap) : lut; };
-      if (s.eq != null || s.f != null || s.iso != null || s.implicit != null || kd === 'isosurface' || kd === 'implicit' || kd === 'implicit3d') {
+      if (newItem(it, s, kd, idx)) auto = it._auto || '';
+      else if (s.eq != null || s.f != null || s.iso != null || s.implicit != null || kd === 'isosurface' || kd === 'implicit' || kd === 'implicit3d') {
         // implicit surface / isosurface by marching tetrahedra on an n³ grid
         var src = s.eq != null ? s.eq : s.implicit != null ? s.implicit : (s.f != null ? s.f : s.iso), lvl = plNum(s.level, 0), rel = plSplitRel(String(src)), fA, fB, fsrc = String(src);
         if (rel && rel.op === '=') { fA = fn3(rel.lhs); fB = fn3(rel.rhs); auto = plTex(fA.ast) + ' = ' + plTex(fB.ast); }
@@ -35682,7 +36376,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         var ng = Math.min(64, Math.max(12, Math.round(plNum(s.n || spec.n, 36))));
         var tri = isoMesh(F, plRange(s.xrange, xr0), plRange(s.yrange, yr0), plRange(s.zrange, zr3), ng);
         if (!tri.length) throw new Error('the surface ' + fsrc + ' does not cross the plotted box; widen xrange, yrange or zrange');
-        meshItem(it, tri, s, null);
+        meshItem(it, tri, s, null); it.kid = 'isosurface';
       } else if (s.r != null && (s.phi != null || s.theta != null || kd === 'spherical' || plUses(String(s.r), 'phi'))) {
         // spherical surface r(θ, φ); the sign of r colours the lobes (as in orbital plots)
         var fr = plFnOf(env, String(s.r), ['theta', 'phi']), tR = plRange(s.theta, [0, Math.PI]), pR = plRange(s.phi, [0, TWO_PI]), ns = Math.min(140, Math.max(16, Math.round(plNum(s.n || spec.n, 72))));
@@ -35694,7 +36388,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         }
         it.kind = 'surface'; it.nu = ns; it.nv = ns; it.X = SX; it.Y = SY; it.Z = SZ; it.C = SC;
         it.solid = !useMap && !signed && !s.color_by; it.lut = s.colormap ? plCmap(s.colormap) : (useMap ? lut : plCmap('coolwarm')); it.swatch = it.solid ? 'patch' : 'grad'; it.cNotZ = true;
-        auto = 'r = ' + plTex(fr.ast);
+        auto = 'r = ' + plTex(fr.ast); it.kid = 'spherical';
       } else if (s.rho != null) {
         // cylindrical surface ρ(φ, z)
         var fq = plFnOf(env, String(s.rho), ['phi', 'z']), pq = plRange(s.phi, [0, TWO_PI]), hq = plRange(s.h || s.height, [-2, 2]), nq = Math.min(140, Math.max(16, Math.round(plNum(s.n || spec.n, 64))));
@@ -35704,7 +36398,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           var rr = fq.f(wq), qo = qj * nq + qi; QX[qo] = rr * Math.cos(pp); QY[qo] = rr * Math.sin(pp); QZ[qo] = zz2; QC[qo] = rr;
         }
         it.kind = 'surface'; it.nu = nq; it.nv = nq; it.X = QX; it.Y = QY; it.Z = QZ; it.C = QC; it.solid = !useMap; it.lut = mapOf(); it.swatch = it.solid ? 'patch' : 'grad'; it.cNotZ = true;
-        auto = '\\rho = ' + plTex(fq.ast);
+        auto = '\\rho = ' + plTex(fq.ast); it.kid = 'cylindrical';
       } else if (s.fx != null && s.fy != null && s.fz != null) {
         // 3D vector field: arrows on a g³ grid, coloured by magnitude
         var gx = fn3(String(s.fx)), gy = fn3(String(s.fy)), gz = fn3(String(s.fz)), g3 = Math.min(10, Math.max(3, Math.round(plNum(s.n || spec.n, 6))));
@@ -35716,7 +36410,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         }
         var cell = Math.min((ax[1] - ax[0]), (ay[1] - ay[0]), (az[1] - az[0])) / g3 * 0.85, VX = [], VY = [], VZ = [], VC = [];
         arr.forEach(function (q) { if (!q[6]) return; var L = cell * (0.3 + 0.7 * q[6] / (mx || 1)) / q[6]; VX.push(q[0] - q[3] * L / 2, q[0] + q[3] * L / 2); VY.push(q[1] - q[4] * L / 2, q[1] + q[4] * L / 2); VZ.push(q[2] - q[5] * L / 2, q[2] + q[5] * L / 2); VC.push(q[6], q[6]); });
-        it.kind = 'segs'; it.X = VX; it.Y = VY; it.Z = VZ; it.C = VC; it.lut = mapOf(); it.swatch = 'grad'; it.width = plNum(s.width, 1.8); it.cNotZ = true;
+        it.kind = 'segs'; it.kid = 'vector3d'; it.X = VX; it.Y = VY; it.Z = VZ; it.C = VC; it.lut = mapOf(); it.swatch = 'grad'; it.width = plNum(s.width, 1.8); it.cNotZ = true;
         auto = '\\vec{F} = \\left(' + plTex(gx.ast) + ',\\ ' + plTex(gy.ast) + ',\\ ' + plTex(gz.ast) + '\\right)';
       } else if (s.density != null) {
         // probability-density cloud: points drawn with probability ∝ the expression (e.g. |ψ|²)
@@ -35728,7 +36422,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           tries++; var x1 = dxr[0] + (dxr[1] - dxr[0]) * Math.random(), y1 = dyr[0] + (dyr[1] - dyr[0]) * Math.random(), z1 = dzr[0] + (dzr[1] - dzr[0]) * Math.random(), d1 = fd.f(x1, y1, z1);
           if (d1 > 0 && Math.random() * fmax * 1.15 < d1) { DX.push(x1); DY.push(y1); DZ.push(z1); DC.push(cs ? cs.f(x1, y1, z1) : d1); }
         }
-        it.kind = 'points'; it.X = DX; it.Y = DY; it.Z = DZ; it.C = DC; it.size = plNum(s.size, want > 6000 ? 1.6 : 2.4); it.swatch = 'dot'; it.lut = mapOf(); it.cNotZ = true;
+        it.kind = 'points'; it.kid = 'density'; it.X = DX; it.Y = DY; it.Z = DZ; it.C = DC; it.size = plNum(s.size, want > 6000 ? 1.6 : 2.4); it.swatch = 'dot'; it.lut = mapOf(); it.cNotZ = true;
         auto = plTex(fd.ast);
       } else if (kd === 'bar3d' || kd === 'bars3d' || s.bars != null) {
         // 3D bar chart from a matrix: rows along y, columns along x
@@ -35736,7 +36430,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         var btri = [], bw = Math.min(0.48, Math.max(0.15, plNum(s.barwidth, 0.4)));
         bm.slice(0, 40).forEach(function (row, rj) { row.slice(0, 40).forEach(function (v, ri) { v = plNum(v, NaN); if (isFinite(v) && v !== 0) boxTris(btri, ri - bw, ri + bw, rj - bw, rj + bw, Math.min(0, v), Math.max(0, v)); }); });
         if (!btri.length) throw new Error('the bar matrix has no non-zero numbers');
-        meshItem(it, btri, s, 'height');
+        meshItem(it, btri, s, 'height'); it.kid = 'bar3d';
       } else if (paramSurf || ((kind === 'surface' || kd === 'surface') && ((s.zs && !s.xs) || (s.z != null && s.x == null && s.t == null))) || (s.z != null && s.x == null && s.xs == null && kd !== 'curve3d')) {
         var n = Math.min(140, Math.max(8, Math.round(plNum(s.n || spec.n, nSurf > 2 ? 48 : 64)))), nu = n, nv = n, X, Y, Z, C, o, i, j;
         if (paramSurf) {
@@ -35759,27 +36453,47 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         if (zr) for (var q = 0; q < Z.length; q++) if (Z[q] < zr[0] || Z[q] > zr[1]) Z[q] = NaN;
         it.kind = 'surface'; it.nu = nu; it.nv = nv; it.X = X; it.Y = Y; it.Z = Z; it.C = C;
         it.solid = !!(s.color) || (nSurf > 1 && !cmap && !s.colormap); it.lut = s.colormap ? plCmap(s.colormap) : lut; it.swatch = it.solid ? 'patch' : 'grad'; it.cmap = s.colormap || cmap;
+        it.kid = paramSurf ? 'paramsurface' : 'surface';
+        var pj = s.project != null ? s.project : s.contours != null ? s.contours : spec.project;
+        if (!paramSurf && !s.zs && pj != null && pj !== false && +pj !== 0) it._proj = Math.min(30, Math.max(2, Math.round(pj === true ? 10 : plNum(pj, 10))));
       } else if (s.xs && s.ys && s.zs) {
         var px = plArr(s.xs, 'xs'), py = plArr(s.ys, 'ys'), pz = plArr(s.zs, 'zs'), m = Math.min(px.length, py.length, pz.length);
-        it.kind = (s.style === 'line') ? 'curve' : 'points'; it.X = px.slice(0, m); it.Y = py.slice(0, m); it.Z = pz.slice(0, m); it.C = s.cs ? plArr(s.cs, 'cs').slice(0, m) : null; it.swatch = it.kind === 'curve' ? 'line' : 'dot'; it.size = plNum(s.size, m > 1500 ? 2 : 3.4); it.width = plNum(s.width, 2.2);
+        it.kind = (s.style === 'line') ? 'curve' : 'points'; it.kid = it.kind === 'curve' ? 'curve3d' : 'scatter3d'; it.X = px.slice(0, m); it.Y = py.slice(0, m); it.Z = pz.slice(0, m); it.C = s.cs ? plArr(s.cs, 'cs').slice(0, m) : null; it.swatch = it.kind === 'curve' ? 'line' : 'dot'; it.size = plNum(s.size, m > 1500 ? 2 : 3.4); it.width = plNum(s.width, 2.2);
       } else if (s.x != null && s.y != null && s.z != null) {
         var gx = plFnOf(env, s.x, ['t']), gy = plFnOf(env, s.y, ['t']), gz = plFnOf(env, s.z, ['t']), tr = plRange(s.t, [0, 2 * Math.PI]), N = Math.min(6000, Math.max(20, Math.round(plNum(s.n, 1200)))), cx = [], cy = [], cz = [], tt = [0];
         for (var k = 0; k <= N; k++) { tt[0] = tr[0] + (tr[1] - tr[0]) * k / N; cx.push(gx.f(tt)); cy.push(gy.f(tt)); cz.push(gz.f(tt)); }
-        it.kind = 'curve'; it.X = cx; it.Y = cy; it.Z = cz; it.C = null; it.width = Math.min(6, Math.max(1, plNum(s.width, 2.4))); it.swatch = 'line';
+        if (s.tube != null || s.ribbon != null) { // a tube or ribbon built around the curve
+          var tb = plTube(cx, cy, cz, s); it.kind = 'surface'; it.nu = tb.nu; it.nv = tb.nv; it.X = tb.X; it.Y = tb.Y; it.Z = tb.Z; it.C = tb.C; it.cNotZ = true;
+          it.solid = !(s.colormap || cmap); it.lut = s.colormap ? plCmap(s.colormap) : lut; it.cmap = s.colormap || cmap; it.swatch = it.solid ? 'patch' : 'grad'; it.kid = tb.ribbon ? 'ribbon' : 'tube'; it.crange = [0, 1];
+        } else { it.kind = 'curve'; it.kid = 'curve3d'; it.X = cx; it.Y = cy; it.Z = cz; it.C = null; it.width = Math.min(6, Math.max(1, plNum(s.width, 2.4))); it.swatch = 'line'; }
         auto = '\\left(' + plTex(gx.ast) + ',\\ ' + plTex(gy.ast) + ',\\ ' + plTex(gz.ast) + '\\right)';
       } else throw new Error('3D items need "z" (an expression of x and y, or "z = …"), "x","y","z" with u and v (surface) or with t (curve), or "xs","ys","zs" (points)');
       if (spec.legend !== false && s.legend !== false) { if (s.label != null && String(s.label).trim()) it.box = plLabelBox(s.label); else if (auto && (raw.length > 1 || spec.legend === true)) { try { it.box = cmParse(auto); } catch (e) {} } }
       return it;
     }
+    var cache = [], usesDefs = !!(spec.define || spec.defs || spec.let || spec.definitions);
+    var deps = raw.map(function (s) { // does this item change when a slider (or the timeline) moves?
+      if (usesDefs || !s || typeof s !== 'object') return true;
+      if (s.system != null || s.ode != null || /ode|particle/.test(String(s.type || '').toLowerCase()) || (Array.isArray(s.point))) return true;
+      var js = (JSON.stringify(s) || '').replace(/"[A-Za-z_]\w*"\s*:/g, ' ');
+      return env.sliders.some(function (sl) { return plUses(js, sl.name); });
+    });
     function build() {
-      items = raw.map(buildItem);
+      var out = [];
+      raw.forEach(function (s, i) {
+        var it = (!first && cache[i] && !deps[i]) ? cache[i] : (cache[i] = buildItem(s, i));
+        out.push(it);
+        (it.more || []).forEach(function (m) { if (!m.lut) m.lut = it.lut; if (m.opacity == null) m.opacity = it.opacity; out.push(m); });
+        if (it._proj && it.kind === 'surface') { if (!it._projIt || it._projIt._src !== it) { it._projIt = plProj(it, it._proj); it._projIt._src = it; } out.push(it._projIt); }
+      });
+      items = out;
       if (!items.length) throw new Error('nothing to draw');
       if (first) {
         lo = [Infinity, Infinity, Infinity]; hi = [-Infinity, -Infinity, -Infinity]; clo = Infinity; chi = -Infinity;
         items.forEach(function (it) { for (var i = 0; i < it.X.length; i++) { var a = [it.X[i], it.Y[i], it.Z[i]]; if (!(isFinite(a[0]) && isFinite(a[1]) && isFinite(a[2]))) continue; for (var d = 0; d < 3; d++) { if (a[d] < lo[d]) lo[d] = a[d]; if (a[d] > hi[d]) hi[d] = a[d]; } var c = it.C ? it.C[i] : a[2]; if (isFinite(c)) { if (c < clo) clo = c; if (c > chi) chi = c; } } });
         if (!isFinite(lo[0])) throw new Error('no finite points to draw (check the expressions and ranges)');
-        if (spec.xrange && nSurf) { lo[0] = Math.min(lo[0], xr0[0]); hi[0] = Math.max(hi[0], xr0[1]); }
-        if (spec.yrange && nSurf) { lo[1] = Math.min(lo[1], yr0[0]); hi[1] = Math.max(hi[1], yr0[1]); }
+        if (spec.xrange) { lo[0] = Math.min(lo[0], xr0[0]); hi[0] = Math.max(hi[0], xr0[1]); }
+        if (spec.yrange) { lo[1] = Math.min(lo[1], yr0[0]); hi[1] = Math.max(hi[1], yr0[1]); }
         rg = [0, 1, 2].map(function (d) { if (hi[d] === lo[d]) { lo[d] -= 1; hi[d] += 1; } return hi[d] - lo[d]; });
         if (zr) { lo[2] = zr[0]; hi[2] = zr[1]; rg[2] = zr[1] - zr[0]; }
         if (!isFinite(clo) || clo === chi) { clo = lo[2]; chi = hi[2]; }
@@ -35787,13 +36501,17 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         half = spec.equal === true ? (function () { var mx = Math.max(rg[0], rg[1], rg[2]); return [rg[0] / mx, rg[1] / mx, rg[2] / mx]; })() : [1, 1, 0.72];
         first = false;
       }
-      items.forEach(function (it) { var n = it.X.length; it.nx = new Float32Array(n); it.ny = new Float32Array(n); it.nz = new Float32Array(n); for (var i = 0; i < n; i++) { it.nx[i] = norm(it.X[i], 0); it.ny[i] = norm(it.Y[i], 1); it.nz[i] = norm(it.Z[i], 2); } });
+      items.forEach(function (it) { if (it.floor && !it._nrm) for (var q = 0; q < it.Z.length; q++) it.Z[q] = lo[2]; });
+      items.forEach(function (it) { if (it._nrm) return; it._nrm = true; var n = it.X.length; it.nx = new Float32Array(n); it.ny = new Float32Array(n); it.nz = new Float32Array(n); for (var i = 0; i < n; i++) { it.nx[i] = norm(it.X[i], 0); it.ny[i] = norm(it.Y[i], 1); it.nz[i] = norm(it.Z[i], 2); } });
     }
     function norm(v, d) { return ((v - lo[d]) / rg[d] * 2 - 1) * half[d]; }
+    function renorm(it) { var n = it.X.length; it.nx = new Float32Array(n); it.ny = new Float32Array(n); it.nz = new Float32Array(n); for (var i = 0; i < n; i++) { it.nx[i] = norm(it.X[i], 0); it.ny[i] = norm(it.Y[i], 1); it.nz[i] = norm(it.Z[i], 2); } it._nrm = true; }
     build();
 
     var az = plNum(spec.azimuth, NaN), el = plNum(spec.elevation, NaN);
     var cam = { az: isFinite(az) ? az * Math.PI / 180 : -0.75, el: isFinite(el) ? el * Math.PI / 180 : 0.5, zoom: 1 }, home = Object.assign({}, cam), wire = spec.wireframe === true, spin = false;
+    var sc_ = shell.saved && shell.saved.cam; if (sc_ && isFinite(sc_.az) && isFinite(sc_.el) && isFinite(sc_.zoom)) cam = { az: +sc_.az, el: Math.max(-1.5, Math.min(1.5, +sc_.el)), zoom: Math.max(0.4, Math.min(4, +sc_.zoom)) };
+    shell.extra = function () { return { cam: { az: +cam.az.toFixed(4), el: +cam.el.toFixed(4), zoom: +cam.zoom.toFixed(3) } }; };
     var axBox = [spec.xlabel || 'x', spec.ylabel || 'y', spec.zlabel || 'z'].map(plLabelBox);
     var hasBar = items.some(function (it) { return ((it.kind === 'surface' || it.kind === 'mesh') && !it.solid) || (it.C && it.kind === 'points') || it.kind === 'segs'; });
     var legend = items.filter(function (i) { return i.box; }), lastLay = null;
@@ -35843,10 +36561,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       ctx.restore();
       if (hasBar) {
         var bh = Math.min(H * 0.6, 220), bt = (H - bh) / 2, bxp = W - 48;
-        var BL = (items.filter(function (it) { return !it.solid && it.lut; })[0] || {}).lut || lut; // the colour bar matches the item it describes
+        var bItem = items.filter(function (it) { return !it.solid && it.lut && (it.C || it.kind === 'surface'); })[0] || {}, BL = bItem.lut || lut; // the colour bar matches the item it describes
+        var clo_ = bItem.crange ? bItem.crange[0] : clo, chi_ = bItem.crange ? bItem.crange[1] : chi;
         for (var i = 0; i < bh; i++) { var k2 = Math.round((1 - i / (bh - 1)) * 255); ctx.fillStyle = 'rgb(' + BL[k2 * 3] + ',' + BL[k2 * 3 + 1] + ',' + BL[k2 * 3 + 2] + ')'; ctx.fillRect(bxp, bt + i, 11, 1.5); }
         ctx.save(); ctx.fillStyle = col.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.globalAlpha = 0.85; ctx.font = '10px ' + col.mono;
-        var tk = plTicks(clo, chi, 4); tk.t.forEach(function (v) { var y = bt + bh - (v - clo) / (chi - clo) * bh; if (y >= bt - 1 && y <= bt + bh + 1) ctx.fillText(plFmt(v, tk.step), bxp + 15, y); }); ctx.restore();
+        var tk = plTicks(clo_, chi_, 4); tk.t.forEach(function (v) { var y = bt + bh - (v - clo_) / (chi_ - clo_ || 1) * bh; if (y >= bt - 1 && y <= bt + bh + 1) ctx.fillText(plFmt(v, tk.step), bxp + 15, y); }); ctx.restore();
       }
     }
     var fit = { key: '' };
@@ -35879,6 +36598,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           }
         } else if (it.kind === 'curve') {
           for (var s = 0; s < n - 1; s++) { var zz = (P[s * 3 + 2] + P[s * 3 + 5]) / 2; if (zz === zz) prims.push({ z: zz, it: ii, t: 1, a: s }); }
+          if (it.head && n && P[(n - 1) * 3 + 2] === P[(n - 1) * 3 + 2]) prims.push({ z: P[(n - 1) * 3 + 2] - 1e-3, it: ii, t: 2, a: n - 1 });
         } else if (it.kind === 'mesh') {
           for (var tq = 0; tq + 2 < n; tq += 3) { var zt = (P[tq * 3 + 2] + P[tq * 3 + 5] + P[tq * 3 + 8]) / 3; if (zt === zt) prims.push({ z: zt, it: ii, t: 3, a: tq }); }
         } else if (it.kind === 'segs') {
@@ -35886,17 +36606,18 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         } else for (var q = 0; q < n; q++) { var z3 = P[q * 3 + 2]; if (z3 === z3) prims.push({ z: z3, it: ii, t: 2, a: q }); }
       });
       prims.sort(function (A, B) { return B.z - A.z; });
+      var clo0 = clo, chi0 = chi;
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       var DIST = 5;
       for (var m = 0; m < prims.length; m++) {
-        var pr = prims[m], it = items[pr.it], P2 = it.P, a2 = pr.a;
+        var pr = prims[m], it = items[pr.it], P2 = it.P, a2 = pr.a, lc = it.crange ? it.crange[0] : clo0, hc = it.crange ? it.crange[1] : chi0;
         ctx.globalAlpha = it.opacity;
         if (pr.t === 0) {
           var nu2 = it.nu, b2 = a2 + 1, c2 = a2 + nu2, d2 = c2 + 1;
           var ux = it.nx[d2] - it.nx[a2], uy = it.ny[d2] - it.ny[a2], uz = it.nz[d2] - it.nz[a2], vx = it.nx[c2] - it.nx[b2], vy = it.ny[c2] - it.ny[b2], vz = it.nz[c2] - it.nz[b2];
           var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) || 1, sh = 0.5 + 0.5 * Math.abs((nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl), r, g, bb;
           if (it.solid) { var rgb = plRGB(it.color); r = rgb[0] * sh; g = rgb[1] * sh; bb = rgb[2] * sh; }
-          else { var cval = (it.C[a2] + it.C[b2] + it.C[c2] + it.C[d2]) / 4, ci = cval === cval ? Math.max(0, Math.min(255, Math.round((cval - clo) / (chi - clo) * 255))) : 0, L_ = it.lut; r = L_[ci * 3] * sh; g = L_[ci * 3 + 1] * sh; bb = L_[ci * 3 + 2] * sh; }
+          else { var cval = (it.C[a2] + it.C[b2] + it.C[c2] + it.C[d2]) / 4, ci = cval === cval ? Math.max(0, Math.min(255, Math.round((cval - lc) / (hc - lc) * 255))) : 0, L_ = it.lut; r = L_[ci * 3] * sh; g = L_[ci * 3 + 1] * sh; bb = L_[ci * 3 + 2] * sh; }
           var fill = 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(bb) + ')';
           ctx.beginPath(); ctx.moveTo(P2[a2 * 3], P2[a2 * 3 + 1]); ctx.lineTo(P2[b2 * 3], P2[b2 * 3 + 1]); ctx.lineTo(P2[d2 * 3], P2[d2 * 3 + 1]); ctx.lineTo(P2[c2 * 3], P2[c2 * 3 + 1]); ctx.closePath();
           ctx.fillStyle = fill; ctx.fill();
@@ -35906,22 +36627,26 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           var ex = it.nx[B3] - it.nx[A3], ey = it.ny[B3] - it.ny[A3], ez = it.nz[B3] - it.nz[A3], fx2 = it.nx[C3] - it.nx[A3], fy2 = it.ny[C3] - it.ny[A3], fz2 = it.nz[C3] - it.nz[A3];
           var tnx = ey * fz2 - ez * fy2, tny = ez * fx2 - ex * fz2, tnz = ex * fy2 - ey * fx2, tl = Math.hypot(tnx, tny, tnz) || 1, sh3 = 0.45 + 0.55 * Math.abs((tnx * LIGHT[0] + tny * LIGHT[1] + tnz * LIGHT[2]) / tl), r3, g3, b3;
           if (it.solid) { var rgb3 = plRGB(it.color); r3 = rgb3[0] * sh3; g3 = rgb3[1] * sh3; b3 = rgb3[2] * sh3; }
-          else { var cv3 = (it.C[A3] + it.C[B3] + it.C[C3]) / 3, ci3 = cv3 === cv3 ? Math.max(0, Math.min(255, Math.round((cv3 - clo) / (chi - clo) * 255))) : 0, L3 = it.lut || lut; r3 = L3[ci3 * 3] * sh3; g3 = L3[ci3 * 3 + 1] * sh3; b3 = L3[ci3 * 3 + 2] * sh3; }
+          else { var cv3 = (it.C[A3] + it.C[B3] + it.C[C3]) / 3, ci3 = cv3 === cv3 ? Math.max(0, Math.min(255, Math.round((cv3 - lc) / (hc - lc) * 255))) : 0, L3 = it.lut || lut; r3 = L3[ci3 * 3] * sh3; g3 = L3[ci3 * 3 + 1] * sh3; b3 = L3[ci3 * 3 + 2] * sh3; }
           var fill3 = 'rgb(' + Math.round(r3) + ',' + Math.round(g3) + ',' + Math.round(b3) + ')';
           ctx.beginPath(); ctx.moveTo(P2[A3 * 3], P2[A3 * 3 + 1]); ctx.lineTo(P2[B3 * 3], P2[B3 * 3 + 1]); ctx.lineTo(P2[C3 * 3], P2[C3 * 3 + 1]); ctx.closePath();
           ctx.fillStyle = fill3; ctx.fill();
           if (wire) { ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 0.5; ctx.stroke(); } else if (it.opacity >= 0.99) { ctx.strokeStyle = fill3; ctx.lineWidth = 0.6; ctx.stroke(); }
         } else if (pr.t === 4) {
-          var sx0 = P2[a2 * 3], sy0 = P2[a2 * 3 + 1], sx1 = P2[a2 * 3 + 3], sy1 = P2[a2 * 3 + 4], cq4 = Math.max(0, Math.min(255, Math.round((it.C[a2] - clo) / (chi - clo || 1) * 255))), L4 = it.lut || lut;
-          var col4 = 'rgb(' + L4[cq4 * 3] + ',' + L4[cq4 * 3 + 1] + ',' + L4[cq4 * 3 + 2] + ')', dl = Math.hypot(sx1 - sx0, sy1 - sy0) || 1, ux4 = (sx1 - sx0) / dl, uy4 = (sy1 - sy0) / dl, hl = Math.min(7, dl * 0.4);
+          var sx0 = P2[a2 * 3], sy0 = P2[a2 * 3 + 1], sx1 = P2[a2 * 3 + 3], sy1 = P2[a2 * 3 + 4], cq4 = Math.max(0, Math.min(255, Math.round((it.C[a2] - lc) / (hc - lc || 1) * 255))), L4 = it.lut || lut;
+          var col4 = it.solid ? it.color : 'rgb(' + L4[cq4 * 3] + ',' + L4[cq4 * 3 + 1] + ',' + L4[cq4 * 3 + 2] + ')', dl = Math.hypot(sx1 - sx0, sy1 - sy0) || 1, ux4 = (sx1 - sx0) / dl, uy4 = (sy1 - sy0) / dl, hl = it.arr ? 7.5 : Math.min(7, dl * 0.4);
           ctx.strokeStyle = ctx.fillStyle = col4; ctx.lineWidth = it.width || 1.6; ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(sx1, sy1); ctx.stroke();
+          if (it.noArrow || (it.arr && !it.arr[a2 >> 1])) continue;
           ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx1 - ux4 * hl - uy4 * hl * 0.55, sy1 - uy4 * hl + ux4 * hl * 0.55); ctx.lineTo(sx1 - ux4 * hl + uy4 * hl * 0.55, sy1 - uy4 * hl - ux4 * hl * 0.55); ctx.closePath(); ctx.fill();
         } else if (pr.t === 1) {
-          ctx.strokeStyle = it.color; ctx.lineWidth = it.width || 2.4; ctx.beginPath(); ctx.moveTo(P2[a2 * 3], P2[a2 * 3 + 1]); ctx.lineTo(P2[a2 * 3 + 3], P2[a2 * 3 + 4]); ctx.stroke();
+          if (it.fade) ctx.globalAlpha = it.opacity * (0.1 + 0.9 * a2 / Math.max(1, it.nx.length - 2));
+          if (it.C && it.lut && isFinite(it.C[a2])) { var q1 = Math.max(0, Math.min(255, Math.round((it.C[a2] - lc) / (hc - lc || 1) * 255))); ctx.strokeStyle = 'rgb(' + it.lut[q1 * 3] + ',' + it.lut[q1 * 3 + 1] + ',' + it.lut[q1 * 3 + 2] + ')'; } else ctx.strokeStyle = it.color;
+          ctx.lineWidth = it.width || 2.4; ctx.beginPath(); ctx.moveTo(P2[a2 * 3], P2[a2 * 3 + 1]); ctx.lineTo(P2[a2 * 3 + 3], P2[a2 * 3 + 4]); ctx.stroke();
         } else {
           var sPt = DIST / (DIST + P2[a2 * 3 + 2]);
-          if (it.C && isFinite(it.C[a2])) { var q2 = Math.max(0, Math.min(255, Math.round((it.C[a2] - clo) / (chi - clo) * 255))), LP = it.lut || lut; ctx.fillStyle = 'rgb(' + LP[q2 * 3] + ',' + LP[q2 * 3 + 1] + ',' + LP[q2 * 3 + 2] + ')'; } else ctx.fillStyle = it.color;
-          ctx.beginPath(); ctx.arc(P2[a2 * 3], P2[a2 * 3 + 1], (it.size || 3.4) * sPt, 0, 7); ctx.fill();
+          if (it.C && !it.solidPts && !(it.kind === 'curve' && it.head) && isFinite(it.C[a2])) { var q2 = Math.max(0, Math.min(255, Math.round((it.C[a2] - lc) / (hc - lc) * 255))), LP = it.lut || lut; ctx.fillStyle = 'rgb(' + LP[q2 * 3] + ',' + LP[q2 * 3 + 1] + ',' + LP[q2 * 3 + 2] + ')'; } else ctx.fillStyle = it.color;
+          if (it.head) { ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(P2[a2 * 3], P2[a2 * 3 + 1], (it.size || 4.5) * sPt, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4; ctx.stroke(); }
+          else { ctx.beginPath(); ctx.arc(P2[a2 * 3], P2[a2 * 3 + 1], (it.size || 3.4) * sPt, 0, 7); ctx.fill(); }
         }
       }
       ctx.globalAlpha = 1;
@@ -35931,36 +36656,55 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     cv.style.touchAction = 'none'; cv.style.cursor = 'grab';
     cv.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, az: cam.az, el: cam.el }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} cv.style.cursor = 'grabbing'; });
     cv.addEventListener('pointermove', function (e) { if (!drag) return; cam.az = drag.az + (e.clientX - drag.x) * 0.01; cam.el = Math.max(-1.5, Math.min(1.5, drag.el + (e.clientY - drag.y) * 0.01)); st.redraw(); });
-    var end = function () { drag = null; cv.style.cursor = 'grab'; };
+    var end = function () { if (drag) plRemember(fig, shell); drag = null; cv.style.cursor = 'grab'; };
     cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
-    cv.addEventListener('wheel', function (e) { e.preventDefault(); cam.zoom = Math.max(0.4, Math.min(4, cam.zoom * Math.exp(-e.deltaY * 0.0012))); st.redraw(); }, { passive: false });
-    cv.addEventListener('dblclick', function () { cam = Object.assign({}, home); st.redraw(); });
+    cv.addEventListener('wheel', function (e) { e.preventDefault(); cam.zoom = Math.max(0.4, Math.min(4, cam.zoom * Math.exp(-e.deltaY * 0.0012))); st.redraw(); plRemember(fig, shell); }, { passive: false });
+    cv.addEventListener('dblclick', function () { cam = Object.assign({}, home); st.redraw(); plRemember(fig, shell); });
     function spinLoop() { if (!spin || !cv.isConnected) { spin = false; return; } if (!drag) cam.az += 0.01; st.redraw(); root.requestAnimationFrame(spinLoop); }
-    plBtn(shell.tools, 'Reset', function () { cam = Object.assign({}, home); st.redraw(); });
+    plBtn(shell.tools, 'Reset', function () { cam = Object.assign({}, home); st.redraw(); plRemember(fig, shell); });
     plBtn(shell.tools, 'Rotate', function (b) { spin = !spin; b.setAttribute('aria-pressed', spin ? 'true' : 'false'); if (spin) spinLoop(); }, false);
     if (items.some(function (i) { return i.kind === 'surface'; })) plBtn(shell.tools, 'Mesh', function (b) { wire = !wire; b.setAttribute('aria-pressed', wire ? 'true' : 'false'); st.redraw(); }, wire);
+    if (items.some(function (i) { return i.flow; })) { // 3D particles: their own frame loop with Play / Pause, paused off screen
+      var gOn = false, gRaf = 0, gLast = 0;
+      var gTick = function (now) { gRaf = 0; if (!gOn || !cv.isConnected) { gOn = false; return; } var dt = gLast ? Math.min(0.05, (now - gLast) / 1000) : 0; gLast = now;
+        if (shell.seen()) { items.forEach(function (it) { if (!it.flow) return; flowStep3(it, dt); var mx = 0; for (var q = 0; q < it.C.length; q++) if (it.C[q] > mx) mx = it.C[q]; it.crange = [0, Math.max(mx, (it.crange && it.crange[1] * 0.98) || 0) || 1]; it.streak.crange = it.crange; renorm(it); renorm(it.streak); }); st.redraw(); } else gLast = 0;
+        gRaf = root.requestAnimationFrame(gTick); };
+      var gBtn = plBtn(shell.tools, 'Pause', function (b) { gOn = !gOn; b.textContent = gOn ? 'Pause' : 'Play'; b.setAttribute('aria-pressed', gOn ? 'true' : 'false'); if (gOn && !gRaf) { gLast = 0; gRaf = root.requestAnimationFrame(gTick); } }, true);
+      if (shell.calm) { gBtn.textContent = 'Play'; gBtn.setAttribute('aria-pressed', 'false'); } else { gOn = true; gRaf = root.requestAnimationFrame(gTick); }
+    }
     plBtn(shell.tools, 'PNG', function () { plSave(shell, spec, env, 'plot3d'); });
+    var kinds3 = {}; items.forEach(function (it) { if (it.kid) kinds3[it.kid] = 1; if (it.anim || it.flow) kinds3.animation = 1; });
+    if (env.sliders.length) kinds3.sliders = 1; if (env.sliders.some(function (q) { return q.timeline || q.anim; })) kinds3.animation = 1;
+    fig.setAttribute('data-kinds', Object.keys(kinds3).join(' '));
     shell.read.textContent = 'Drag to rotate';
     shell.read.classList.add('is-hint');
   }
 
+  var PL_DUAL = { streamplot: 1, streamlines: 1, streamline: 1, stream: 1, fieldlines: 1, fieldline: 1, flowlines: 1, flow: 1, particles: 1, particle: 1, ode: 1, odes: 1, differential: 1, differentialequation: 1 };
+  function plHas3(s) { return !!(s && typeof s === 'object' && (s.fz != null || (s.system && typeof s.system === 'object' && !Array.isArray(s.system) && Object.keys(s.system).length === 3 && s.plot !== 'time' && s.mode !== 'time') || (Array.isArray(s.system) && s.system.length === 3 && s.plot !== 'time') || (Array.isArray(s.point) && s.point.length === 3) || s.planes != null || s.profile != null || s.tube != null || s.ribbon != null)); }
+  function plFlat(s) { return !!(s && typeof s === 'object' && /^(complex|complexplot|domaincolou?ring|slopefield|directionfield|slope)$/.test(String(s.type || '').toLowerCase().replace(/[\s_-]/g, ''))); }
   function plotType(spec) {
     var t = String(spec.type || spec.kind || '').toLowerCase().replace(/[\s_-]/g, '');
     var map = { line: 'line', lines: 'line', function: 'line', functions: 'line', plot: 'line', parametric: 'line', implicit: 'line', equation: 'line', equations: 'line', region: 'line', inequality: 'line', inequalities: 'line', '2d': 'line',
-      polar: 'polar', scatter: 'scatter', bar: 'bar', bars: 'bar', column: 'bar', hist: 'hist', histogram: 'hist', heatmap: 'heat', contour: 'heat', density: 'heat', image: 'heat',
-      vector: 'vector', quiver: 'vector', field: 'vector', vectorfield: 'vector', surface: 'surface', isosurface: 'surface', implicit3d: 'surface', volume: 'surface', density: 'surface', cloud: 'surface', orbital: 'surface', vector3d: 'surface', quiver3d: 'surface', field3d: 'surface', bar3d: 'surface', bars3d: 'surface', spherical: 'surface', cylindrical: 'surface', isosurface3d: 'surface', surface3d: 'surface', '3d': 'surface', plot3d: 'surface', mesh: 'surface', curve3d: 'curve3d', line3d: 'curve3d', parametric3d: 'curve3d', scatter3d: 'scatter3d', points3d: 'scatter3d' };
-    var series = [].concat(Array.isArray(spec.series) ? spec.series : [], Array.isArray(spec.surfaces) ? spec.surfaces : [], Array.isArray(spec.equations) ? spec.equations : []);
+      polar: 'polar', scatter: 'scatter', bar: 'bar', bars: 'bar', column: 'bar', hist: 'hist', histogram: 'hist', heatmap: 'heat', contour: 'heat', image: 'heat',
+      vector: 'vector', quiver: 'vector', field: 'vector', vectorfield: 'vector',
+      slopefield: 'line', directionfield: 'line', slope: 'line', complex: 'line', complexplot: 'line', domaincoloring: 'line', domaincolouring: 'line', phaseportrait: 'line', animation: 'line',
+      surface: 'surface', isosurface: 'surface', implicit3d: 'surface', volume: 'surface', density: 'surface', cloud: 'surface', orbital: 'surface', vector3d: 'surface', quiver3d: 'surface', field3d: 'surface', bar3d: 'surface', bars3d: 'surface', spherical: 'surface', cylindrical: 'surface', isosurface3d: 'surface', surface3d: 'surface', '3d': 'surface', plot3d: 'surface', mesh: 'surface',
+      slice: 'surface', slices: 'surface', sliceplanes: 'surface', revolution: 'surface', surfaceofrevolution: 'surface', revolve: 'surface', tube: 'surface', ribbon: 'surface', complexsurface: 'surface', complex3d: 'surface', streamlines3d: 'surface', streamline3d: 'surface',
+      curve3d: 'curve3d', line3d: 'curve3d', parametric3d: 'curve3d', scatter3d: 'scatter3d', points3d: 'scatter3d' };
+    var series = [].concat(Array.isArray(spec.series) ? spec.series : [], Array.isArray(spec.surfaces) ? spec.surfaces : [], Array.isArray(spec.equations) ? spec.equations : [], Array.isArray(spec.layers) ? spec.layers : [], Array.isArray(spec.curves) ? spec.curves : []);
+    if (PL_DUAL[t]) return plHas3(spec) || series.some(plHas3) ? 'surface' : 'line';
     if (t === 'contour' && series.length) return 'line';
     if (t === 'density' && (spec.density == null && !series.some(function (s) { return s && s.density != null; }))) return 'heat'; // 2D density map (z of x, y)
     if (map[t]) return map[t];
-    var three = function (s) { return s && typeof s === 'object' && (s.density != null || s.fz != null || s.rho != null || s.iso != null || s.f != null || s.bars != null || (typeof s.eq === 'string' && plUses(s.eq, 'z')) || (s.r != null && (s.phi != null || plUses(String(s.r), 'phi')))); };
+    var three = function (s) { return s && typeof s === 'object' && !plFlat(s) && (plHas3(s) || s.density != null || s.rho != null || s.iso != null || (s.f != null && !s.dydx && !s.slope) || s.bars != null || (typeof s.eq === 'string' && plUses(s.eq, 'z')) || (s.r != null && (s.phi != null || plUses(String(s.r), 'phi'))) || /^(slices?|revolution|tube|ribbon|complexsurface|complex3d|streamlines3d|isosurface|spherical|cylindrical|vector3d|bar3d|surface)$/.test(String(s.type || '').toLowerCase().replace(/[\s_-]/g, ''))); };
     if (three(spec) || series.some(three) || series.some(function (s) { return typeof s === 'string' && plUses(s, 'z') && /=/.test(s); })) return 'surface';
     if (spec.fx != null && spec.fy != null) return 'vector';
     var is3 = function (s) {
       if (typeof s === 'string') return /^\s*z\s*=/.test(s);
-      if (!s || typeof s !== 'object') return false;
+      if (!s || typeof s !== 'object' || plFlat(s)) return false;
       var st_ = String(s.type || '').toLowerCase();
-      if (/contour|heat|density/.test(st_)) return false;
+      if (/contour|heat|density|stream|particle|ode/.test(st_)) return false;
       return /3d|surface/.test(st_) || s.u != null || s.v != null || (s.zs != null && s.xs != null) || (s.z != null && s.x != null && s.y != null) || (s.z != null && !s.fx);
     };
     if (spec.z != null && !series.length) return /^\s*z\s*=/.test(String(spec.z)) || spec.x == null ? 'surface' : 'curve3d';
@@ -35991,10 +36735,19 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       if (kind === 'surface' || kind === 'curve3d' || kind === 'scatter3d') plot3d(fig, spec, kind); else plot2d(fig, spec, kind);
     } catch (e) { plotError(fig, e && e.message ? e.message : 'unknown error', src); }
   }
-  function hydratePlots(scope, plots) {
+  function hydratePlots(scope, plots, node) {
     if (!plots || !plots.length) return;
     var figs = scope.querySelectorAll('figure.qai-plot[data-p]');
-    for (var i = 0; i < figs.length; i++) { var src = plots[+figs[i].getAttribute('data-p')]; if (src != null && !figs[i].getAttribute('data-done')) { figs[i].setAttribute('data-done', '1'); drawPlot(figs[i], src, figs[i].getAttribute('data-3d') === '1'); } }
+    for (var i = 0; i < figs.length; i++) {
+      var pi = +figs[i].getAttribute('data-p'), src = plots[pi];
+      if (src == null || figs[i].getAttribute('data-done')) continue;
+      figs[i].setAttribute('data-done', '1');
+      if (node) { // how the person leaves this plot (sliders, camera, zoom) is saved with the message and restored when the chat is reopened
+        figs[i]._qState = node._msg && node._msg.views ? node._msg.views[pi] || null : null;
+        figs[i]._qSave = (function (idx) { return function (state) { var m = node._msg; if (!m) return; m.views = m.views || {}; m.views[idx] = state; if (ui.conv && ui.conv.messages && ui.conv.messages.indexOf(m) >= 0 && QAI.history && QAI.history.enabled()) { ui.conv.updated = Date.now(); QAI.history.save(JSON.parse(JSON.stringify(ui.conv))); } }; })(pi);
+      }
+      drawPlot(figs[i], src, figs[i].getAttribute('data-3d') === '1');
+    }
   }
   QAI.drawPlot = drawPlot;
   QAI.plotExpr = function (src, vars) { return plFnOf({ P: {}, D: {} }, src, vars || ['x']).f; };
@@ -36385,7 +37138,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   function markWide(node) { node._bubble.classList.toggle('is-wide', !!node._prose.querySelector('.qai-plot,.qai-code,.qai-tw,.qai-math-d,h1,h2,table')); }
   function finishNode(node, raw) {
     endTyping(node); raw = cleanRaw(node, raw);
-    node._prose.innerHTML = md(raw, false); markWide(node); hydratePlots(node._prose, md.plots);
+    node._prose.innerHTML = md(raw, false); markWide(node); hydratePlots(node._prose, md.plots, node);
     if (node._searched || node._src.length) {
       node._web.hidden = false; node._web.className = 'qai-web-line'; node._web.textContent = '';
       node._web.appendChild(h('span', { html: ICON.globe, 'aria-hidden': 'true' }));
@@ -36588,7 +37341,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (!QAI.history || !QAI.history.enabled()) return;
     var now = Date.now();
     if (!ui.conv) { ui.conv = { id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 7), title: userText.replace(/\s+/g, ' ').slice(0, 90), created: now, updated: now, messages: [] }; ui.convId = ui.conv.id; }
-    ui.conv.messages.push({ role: 'user', content: userText, t: sentAt || now - 1 }, { role: 'assistant', content: reply, t: now, via: node._via || (ui.sel && { providerId: ui.sel.providerId, model: ui.sel.model }), src: (node._src || []).slice(0, 12), searched: !!node._searched, notes: (node._noteKeys || []).slice(), sw: node._switch || null, stopped: !!stopped });
+    var bot = { role: 'assistant', content: reply, t: now, via: node._via || (ui.sel && { providerId: ui.sel.providerId, model: ui.sel.model }), src: (node._src || []).slice(0, 12), searched: !!node._searched, notes: (node._noteKeys || []).slice(), sw: node._switch || null, stopped: !!stopped };
+    ui.conv.messages.push({ role: 'user', content: userText, t: sentAt || now - 1 }, bot); node._msg = bot;
     ui.conv.updated = now;
     QAI.history.save(JSON.parse(JSON.stringify(ui.conv)));
   }
@@ -36707,7 +37461,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var who = h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(14) }), p ? mark(p) : null, h('span', { text: (p ? p.name + ' · ' : '') + (m.via && m.via.model ? modelName(m.via) : '') }));
     var node = h('div', { class: 'qai-msg bot' }, who, bubble, meta);
     node._prose = prose; node._typing = null; node._bubble = bubble; node._meta = meta; node._web = webLine; node._src = (m.src || []).slice(); node._searched = !!m.searched;
-    node._noteKeys = (m.notes || []).slice(); node._notes = node._noteKeys.map(function (k) { return t(k); });
+    node._noteKeys = (m.notes || []).slice(); node._notes = node._noteKeys.map(function (k) { return t(k); }); node._msg = m;
     if (m.sw && m.sw.to) node.insertBefore(h('div', { class: 'qai-pnote qai-switch', text: switchText(m.sw) }), bubble);
     el.log.appendChild(node); return node;
   }

@@ -473,14 +473,16 @@ Quantum Atom ships with an **embedded AI guide** in the Simulator and the Nucleu
 |---|---|
 | **Explain in context** | Answers are grounded in the live app state, not in memory. Suggested questions change with what you are viewing (for example *"Why does water have this shape?"*, *"Which orbitals form the bonds in H₂O?"*). |
 | **Calculate** | Shows formulas and substituted values, and checks units, signs, factors of 2 and π, and limiting cases (r → 0, r → ∞, n = 1). |
-| **Draw interactive 2D graphs** | Functions, implicit curves, shaded regions (`y < sin(x)`), sideways and polar curves, parametric curves, data points, bar charts, contours, heat maps, vector fields, log axes, annotations, LaTeX labels and π-aware axis ticks. |
-| **Draw interactive 3D graphs** | Surfaces, parametric surfaces, implicit surfaces and **isosurfaces** (for example orbital boundary surfaces from `Rnl(n,l,r)·Ylm(l,m,θ,φ)`), with spherical coordinates (`r, theta, phi`), drag-to-rotate, and several objects sharing one scene. |
+| **Draw interactive 2D graphs** | Functions, implicit curves, shaded regions (`y < sin(x)`), sideways and polar curves, parametric curves, data points with error bars, bar charts, histograms, contours, heat maps, vector fields, **streamlines** (evenly spaced, with arrows), **slope fields** with solution curves, **complex domain colouring** of f(z), **ODE phase planes and time plots**, log axes, annotations, LaTeX labels and π-aware axis ticks. |
+| **Draw interactive 3D graphs** | Surfaces (with optional **contour lines projected on the floor**), parametric surfaces, implicit surfaces and **isosurfaces** (for example orbital boundary surfaces from `Rnl(n,l,r)·Ylm(l,m,θ,φ)`), spherical and cylindrical surfaces, 3D vector fields, **3D streamlines / field lines**, **slice planes** through f(x, y, z), **surfaces of revolution**, curves drawn as **tubes or ribbons**, **complex surfaces** (height \|f(z)\|, colour arg f), probability-density clouds, 3D bars, curves, point clouds and **3D ODE trajectories** (e.g. the Lorenz attractor), with drag-to-rotate and several objects sharing one scene. |
 | **Special functions built in** | Hydrogen-like radial functions **Rnl**, real spherical harmonics **Ylm**, Laguerre, Hermite, Legendre, Bessel, gamma, erf, factorial and binomial. |
-| **Sliders and animation** | Any parameter (nuclear charge Z, quantum number, frequency, damping…) becomes a **slider you can drag or animate**. |
+| **Sliders and animation** | Any parameter (nuclear charge Z, quantum number, frequency, damping…) becomes a **slider you can drag or animate**. A plot can also carry a **timeline** (`"animate": {"param": "t", …}`, loop / bounce / once) for travelling waves and moving surfaces, **moving points with trails**, **ODEs that play their own solution**, and **flowing particles** that make a field visibly move. Animations pause when scrolled off screen and respect reduced-motion settings. |
 | **Save graphs** | Every plot has a **PNG** export (solid background, title and current parameter values). |
+| **Remember your view** | With chat history on, how you leave each plot (slider values, 3D camera, 2D zoom and pan) is saved with the message, synced if you connected your own database, and restored when you reopen the chat. |
 | **Search the web** | On supported models, switch on **Web** and the AI looks up current or external facts (measured values, recent papers, constants), uses them in plots, and **cites sources**. It never searches for off-topic questions. |
 | **Write documents** | Ask for a report, lesson, notes, summary or essay and get one structured **Markdown document** with sections, tables, equations and sources, plus a **download (.md)** button. |
 | **Guide you around the app** | Knows the real screen layout and the on-screen names of controls. Replies can include **action buttons** such as *Fe*, *H₂O*, *Compare elements*, *Annihilation*, *Molecule analysis*, *Nucleus Explorer*, *zoom to quarks*, *toggle pions*, or *select a nuclear state*. **Nothing changes on screen until you press one.** |
+| **Pick the right visual** | Decides between **showing** the real object in the app (a button), **plotting** a quantity, doing **both**, or answering in **words only** when a picture adds nothing. If you name a kind ("streamlines", "slope field", "animation"), it draws that kind. |
 | **Ask a clarifying question when needed** | For a vague request ("graph this atom"), it asks **one** short multiple-choice question with 2–4 concrete things it can really plot, then draws. |
 | **Answer in your language** | Replies in the language you write in, or the app language if you haven't written yet. |
 | **Take its time to be right** | Defaults to under 150 words unless you ask for depth, leads with the answer, then the reason. |
@@ -489,7 +491,7 @@ Quantum Atom ships with an **embedded AI guide** in the Simulator and the Nucleu
 
 ### What the AI cannot do (and says so)
 
-It is told to know its limits exactly. It **cannot** see the 3D view itself (only the state snapshot describes it), change anything on screen by itself, generate images, photos, animations, video or audio, run code or open your files, or remember other conversations. It will say so, point to where the app shows the thing if it does, and offer the closest graph instead of pretending.
+It is told to know its limits exactly. It **cannot** see the 3D view itself (only the state snapshot describes it), change anything on screen by itself, generate images, photos, video or audio, animate anything outside a plot, run code or open your files, or remember other conversations. It will say so, point to where the app shows the thing if it does, and offer the closest graph instead of pretending.
 
 ### Providers: bring your own key
 
@@ -517,8 +519,10 @@ Web search uses each provider's **own server-side search tool**, so your key is 
 
 - **Bring-your-own-key, no Quantum Atom server.** The site is static; there is no backend that sees your key or your chats.
 - Keys are sent **only to the provider you choose**, never placed in URLs, and are **redacted from error messages**.
-- Keys are kept for **this session only by default**; "Remember on this device" is an explicit opt-in, with a warning that it is stored unencrypted in the browser (leave it off on shared computers). **Forget all keys** wipes everything in one click.
-- **Chats are not saved.**
+- Keys saved "on this device" are **encrypted with AES-GCM**, using a device key that the browser keeps as a non-extractable key: page scripts can use it but cannot read it out. Untick **Save on this device** to keep a key for this session only (do this on shared computers). **Forget all keys** wipes everything in one click.
+- **Chat history is optional and off by default.** Turn on **Save chat history** in the plug menu and your chats are kept in this browser, encrypted the same way. The clock button opens them, and you can delete any chat. With history on, each plot also remembers how you left it (sliders, 3D camera, zoom).
+- **Optional sync with your own database.** Connect your own free Supabase project to keep keys and chats on all your devices. Everything is encrypted with your passphrase (PBKDF2-SHA256, 310,000 rounds, then AES-GCM-256) **before** it leaves the device, so the database only ever stores unreadable data. The passphrase is never stored or sent: if you forget it, nobody can open the data.
+- **No database? Use a backup file.** **Export backup** saves an encrypted file you can import on any device.
 - Local models (Ollama, LM Studio) keep your questions **on your own computer**.
 
 ### Safety, scope and honesty guards
@@ -526,9 +530,9 @@ Web search uses each provider's **own server-side search tool**, so your key is 
 Ask AI is built to stay a **science guide**, and to never over-promise.
 
 - **Intent gate:** before any tool can run, each message is checked locally (instantly, free) for scope and safety. **Off-topic or unsafe requests get no web search, no plots and no buttons** and receive a short, polite decline with a related suggestion. Explicit sexual content is refused locally and **nothing is sent to any provider**. Attempts to override instructions or leak the system prompt, and requests for weapons or other operational harm, are declined. For genuinely unclear messages when web search is on, a tiny tool-less classifier call decides; if it fails, the system **fails safe** with tools off.
-- **Delivery guard (no broken promises):** if the AI says "here is your graph", a **valid, drawable plot** must actually be in the reply. The app **renders the plot off-screen to test it** before you see it, **silently repairs it up to twice**, and otherwise replaces the reply with an honest message instead of leaving a promise with nothing behind it. The same check covers truncated blocks, mentioned-but-missing buttons and replies that end on a lead-in.
+- **Delivery guard (no broken promises):** if the AI says "here is your graph", a **valid, drawable plot** must actually be in the reply. It also checks the **kind**: every plot reports what it really drew, so "here is the streamline graph" with only arrows (or no streamlines at all) is caught and repaired, and if you asked for a specific kind the AI is pushed to draw exactly that. The app **renders the plot off-screen to test it** before you see it, **silently repairs it up to twice**, and otherwise replaces the reply with an honest message instead of leaving a promise with nothing behind it. The same check covers truncated blocks, mentioned-but-missing buttons and replies that end on a lead-in.
 - **Plain-language errors:** wrong or expired keys, quota or credit exhausted, daily or per-minute rate limits, unavailable regions, unknown models, overloaded services, context too long, timeouts, offline, and dropped connections each get a clear title, what happened, and what to do next. Partial replies are kept with a **Try again** button.
-- **Quality of life:** stream-as-it-types replies, **Stop** button, **Copy**, **New chat**, a wider/narrower panel, a model search box, and a 32,000-character conversation window that always starts on a user turn.
+- **Quality of life:** stream-as-it-types replies, **Stop** button, **Copy**, **New chat**, optional **chat history** (reopen a chat and keep talking), a wider/narrower panel, a model search box, and a 32,000-character conversation window that always starts on a user turn.
 
 ### Example things to ask
 
@@ -808,13 +812,13 @@ Yes. The **Ask AI** button opens a context-aware science guide that knows which 
 Quantum Atom's AI feature is optional and uses **your own key**: cloud providers (OpenAI, Anthropic, Google Gemini, xAI, Mistral, DeepSeek, Groq, OpenRouter) bill your own account, while **Ollama and LM Studio run locally with no key and no cost**. Everything else in the app works without any AI.
 
 **Is my API key safe? Are my chats stored?**
-There is no Quantum Atom server. Keys stay in your browser (session-only by default, device storage is opt-in), are sent only to the provider you pick, and are redacted from errors. Chats are not saved.
+There is no Quantum Atom server. Keys stay in your browser, encrypted (or for this session only, if you untick "Save on this device"), are sent only to the provider you pick, and are redacted from errors. Chats are saved only if you turn on **Save chat history**: then they are encrypted in your browser and, if you connect your own Supabase database, synced encrypted with your passphrase.
 
 **Will the AI answer anything?**
 No. It stays on atoms, orbitals, molecules, nuclei, particles, quantum mechanics and the periodic table (plus the maths and graphs for them). Off-topic and unsafe requests are declined with all tools switched off.
 
 **Can the AI draw graphs?**
-Yes: interactive 2D and 3D plots (functions, regions, polar and parametric curves, contours, heat maps, vector fields, surfaces and orbital isosurfaces) with draggable sliders and PNG export. Every plot is test-rendered before you see it.
+Yes: interactive 2D and 3D plots (functions, regions, polar and parametric curves, contours, heat maps, vector fields, streamlines, slope fields, complex domain colouring, ODE solutions, surfaces, isosurfaces, slice planes, surfaces of revolution, tubes, ribbons and orbital clouds), animated timelines, moving points and flowing particles, with draggable sliders and PNG export. Every plot is test-rendered before you see it, and the graph named in the reply must be the graph actually drawn.
 
 **Can I zoom into the nucleus and see quarks?** Yes. Open the **Nucleus Explorer** and keep scrolling.
 
