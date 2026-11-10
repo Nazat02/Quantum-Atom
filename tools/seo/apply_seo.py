@@ -36,7 +36,41 @@ LANGS = ["en", "ar", "bn", "zh-Hans", "ko", "ja", "it", "fr", "el"]
 OG_LOCALES = ["ar_AR", "bn_BD", "zh_CN", "ko_KR", "ja_JP", "it_IT", "fr_FR", "el_GR"]
 OG_IMAGE = "images/og-image.jpg"
 OG_IMAGE_ALT = "Quantum Atom: 3D electron orbitals, molecules and nuclei running in the browser"
-SCREENSHOTS = ["images/preview2.png", "images/preview3.png", "images/preview5.png"]
+# Large mockups (real Diffuse-mode captures). Each one is shown in the landing-page gallery as a real <img>
+# (Google Images only indexes pictures that are embedded in a page), listed in sitemap.xml and in the JSON-LD.
+# (file, width, height, alt text, visible caption).  A "-1200" sibling of every file is used in srcset.
+G = "images/quantum-atom-simulator-"
+GALLERY = [
+    (G + "3d-electron-cloud.jpg", 2400, 1350,
+     "Quantum Atom Simulator showing a carbon atom as a glowing 3D electron cloud on desktop and a neon atom on a phone",
+     "Quantum Atom Simulator on desktop and phone: the atom drawn as one soft probability cloud."),
+    (G + "carbon-atom-diffuse-mode.jpg", 2400, 1600,
+     "Carbon atom in the Quantum Atom Simulator, Diffuse mode: 2p electron cloud lobes in two colours around a glowing nucleus",
+     "Carbon (Z = 6) in Diffuse mode. The two colours are the + and − signs of the wavefunction."),
+    (G + "neon-atom-electron-orbitals.jpg", 2400, 1600,
+     "Neon atom electron orbitals rendered as a 3D probability cloud in the Quantum Atom Simulator",
+     "Neon, 1s² 2s² 2p⁶: a full second shell."),
+    (G + "water-molecule-h2o.jpg", 2400, 1600,
+     "Water molecule H2O in the Quantum Atom Simulator with its bent 104.5 degree geometry, shown on desktop and mobile",
+     "Water, H₂O: the bent 104.5° shape with its electron cloud."),
+    (G + "methane-molecule-ch4.jpg", 2400, 1600,
+     "Methane molecule CH4 with tetrahedral geometry rendered as an electron cloud in the Quantum Atom Simulator",
+     "Methane, CH₄: tetrahedral, 109.5°."),
+    (G + "iron-atom-d-orbitals.jpg", 2400, 1600,
+     "Iron atom with 26 electrons and its d orbitals shown as a dense 3D electron cloud in the Quantum Atom Simulator",
+     "Iron, 26 electrons: the 3d orbitals fill in."),
+    (G + "cloud-studio-controls.jpg", 2400, 1600,
+     "Cloud Studio controls in the Quantum Atom Simulator: sliders for density, spread, dot size, brightness and glow of the electron cloud",
+     "Cloud Studio: tune density, spread, glow and jitter of the cloud live."),
+    (G + "mobile-app-screens.jpg", 2400, 1800,
+     "Quantum Atom Simulator on mobile: carbon atom, Cloud Studio controls and a water molecule on three phone screens",
+     "The simulator on a phone. No install needed."),
+    (G + "dark-and-light-themes.jpg", 2400, 1350,
+     "Quantum Atom Simulator in dark theme and light theme showing the same neon atom",
+     "Dark and light themes, same atom."),
+]
+SQUARE_IMAGE = (G + "app-square.jpg", 1600, 1600)
+SCREENSHOTS = [g[0] for g in GALLERY]
 ROBOTS = "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
 
 DESC_SPLASH = ("Quantum Atom is a free 3D simulator of real electron orbitals for all 118 elements, "
@@ -129,13 +163,22 @@ def g_image():
             "width": 1200, "height": 630, "caption": OG_IMAGE_ALT}
 
 
+def g_gallery():
+    return [{"@type": "ImageObject", "@id": url(f) + "#image", "url": url(f), "contentUrl": url(f), "width": w, "height": h,
+             "name": cap, "caption": alt, "representativeOfPage": i == 0,
+             "creator": {"@id": BASE + "#author"}, "creditText": AUTHOR_NAME,
+             "copyrightNotice": "© " + AUTHOR_NAME, "license": REPO + "/blob/main/LICENSE",
+             "acquireLicensePage": REPO} for i, (f, w, h, alt, cap) in enumerate(GALLERY)]
+
+
 def g_simulator():
     return {"@type": "WebApplication", "@id": BASE + "#simulator", "name": "Quantum Atom Simulator",
             "url": url("simulator_dark.html"), "description": DESC_SIM,
             "applicationCategory": "EducationalApplication", "operatingSystem": "Any (web browser)",
             "browserRequirements": "Requires a modern browser with JavaScript and WebGL",
             "isAccessibleForFree": True, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-            "image": url(OG_IMAGE), "screenshot": [url(p) for p in SCREENSHOTS],
+            "image": [url(GALLERY[0][0]), url(GALLERY[7][0]), url(SQUARE_IMAGE[0])],      # 16:9, 4:3, 1:1
+            "screenshot": [url(p) for p in SCREENSHOTS],
             "inLanguage": LANGS, "author": {"@id": BASE + "#author"}, "sameAs": [REPO],
             "audience": {"@type": "EducationalAudience", "educationalRole": ["student", "teacher"]},
             "featureList": [
@@ -172,8 +215,9 @@ def g_webpage(cfg, title, canonical_rel, about_id, crumbs):
 
 def jsonld_for(name, cfg, title):
     if cfg["kind"] == "landing":
-        g = [g_website(), g_person(), g_image(), g_simulator(), g_nucleus(),
-             g_webpage(cfg, title, "index_dark.html", BASE + "#simulator", None)]
+        page = g_webpage(cfg, title, "index_dark.html", BASE + "#simulator", None)
+        page["image"] = [{"@id": url(f[0]) + "#image"} for f in GALLERY]
+        g = [g_website(), g_person(), g_image(), g_simulator(), g_nucleus(), page] + g_gallery()
     elif cfg["kind"] == "simulator":
         g = [g_website(), g_person(), g_image(), g_simulator(),
              g_webpage(cfg, title, "simulator_dark.html", BASE + "#simulator",
@@ -223,6 +267,40 @@ def sr_section(name, cfg):
             "<!-- qa-seo:sr:end -->")
 
 
+# ───────────────────────── landing gallery ─────────────────────────
+# Layout only; type and colours come from the page's own .section-* classes, so it follows both themes.
+# Spacing uses the site's golden-ratio steps (8 / 13 / 21 / 34 px).
+GALLERY_CSS = ("<style>#gallery{position:relative;z-index:1}"
+               ".qa-gal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:21px;margin-top:34px}"
+               ".qa-gal figure{margin:0;display:flex;flex-direction:column;gap:13px}"
+               ".qa-gal figure:first-child{grid-column:1/-1}"
+               ".qa-gal a{display:block;border-radius:21px;overflow:hidden;background:#060403;"
+               "border:1px solid color-mix(in srgb,currentColor 18%,transparent);"
+               "box-shadow:0 13px 34px rgba(0,0,0,.28);transition:transform .22s}"
+               ".qa-gal a:hover{transform:translateY(-3px)}"
+               ".qa-gal img{display:block;width:100%;height:auto}"
+               ".qa-gal figcaption{font-size:.85rem;line-height:1.6;opacity:.82;padding:0 8px}"
+               "@media(max-width:820px){.qa-gal{grid-template-columns:1fr;gap:21px;margin-top:21px}}"
+               "@media(prefers-reduced-motion:reduce){.qa-gal a{transition:none}.qa-gal a:hover{transform:none}}</style>")
+
+
+def gallery_section():
+    figs = []
+    for i, (f, w, h, alt, cap) in enumerate(GALLERY):
+        small = f.replace(".jpg", "-1200.jpg")
+        sizes = "(max-width:820px) 100vw, 1200px" if i == 0 else "(max-width:820px) 100vw, 600px"
+        lazy = "" if i == 0 else ' loading="lazy"'
+        figs.append(f'<figure><a href="{f}" title="{E(cap)}">'
+                    f'<img src="{f}" srcset="{small} 1200w, {f} {w}w" sizes="{sizes}" width="{w}" height="{h}" '
+                    f'alt="{E(alt)}"{lazy} decoding="async"></a><figcaption>{E(cap)}</figcaption></figure>')
+    return ('<!-- qa-seo:ins:gallery --><section id="gallery"><div class="section-inner">'
+            '<p class="section-eyebrow">Gallery</p>'
+            '<h2 class="section-title">Quantum Atom Simulator<br>in pictures</h2>'
+            '<p class="section-body">Real captures from the simulator in Diffuse mode, where the whole atom is drawn '
+            'as one soft probability cloud. Tap a picture to open it full size.</p>'
+            f'<div class="qa-gal">{"".join(figs)}</div></div></section>\n\n<!-- /qa-seo:ins -->')
+
+
 # ───────────────────────── head block ─────────────────────────
 def head_block(name, cfg, title, overrides):
     canon = url(cfg["canonical"])
@@ -233,6 +311,9 @@ def head_block(name, cfg, title, overrides):
          f'<meta name="robots" content="{ROBOTS}">',
          f'<meta name="google-site-verification" content="{GOOGLE_VERIFICATION}">',
          f'<link rel="canonical" href="{canon}">',
+         *([f'<link rel="icon" href="{url("favicon.ico")}" sizes="48x48">',
+            f'<link rel="icon" type="image/png" href="{url("images/icon-192.png")}" sizes="192x192">']
+           if cfg["canonical"] == name or cfg["kind"] == "splash" else []),
          '<meta property="og:type" content="website">',
          f'<meta property="og:site_name" content="{E(SITE_NAME)}">',
          f'<meta property="og:title" content="{E(title)}">',
@@ -268,6 +349,7 @@ def head_block(name, cfg, title, overrides):
     if cfg["kind"] == "landing":
         L.append("<style>.qa-seo-cta{margin-top:.9rem}.qa-seo-cta a{color:inherit;font-weight:600;"
                  "text-decoration:underline;text-underline-offset:3px}</style>")
+        L.append(GALLERY_CSS)
     L.append("<!-- qa-seo:end -->")
     return "\n" + "\n".join(L)
 
@@ -349,6 +431,9 @@ def process(name: str, cfg: dict) -> dict:
         cta = (f'<!-- qa-seo:ins:cta --><p class="section-body qa-seo-cta"><a href="{nuc}">Nucleus Explorer →</a></p>'
                f"<!-- /qa-seo:ins -->")
         s = s[:pm.end()] + cta + s[pm.end():]
+        gi = s.find('<section id="cta">')
+        assert gi > 0, f"{name}: CTA section not found"
+        s = s[:gi] + gallery_section() + s[gi:]
 
     with open(path, "w", encoding="utf-8", newline="") as fh:
         fh.write(s)
@@ -357,8 +442,8 @@ def process(name: str, cfg: dict) -> dict:
 
 # ───────────────────────── static files ─────────────────────────
 def write_static(lastmod: str):
-    canon_pages = [("index_dark.html", "1.0", "monthly", [OG_IMAGE, "images/preview1.png"]),
-                   ("simulator_dark.html", "0.9", "monthly", ["images/preview2.png", "images/preview3.png", "images/preview5.png"]),
+    canon_pages = [("index_dark.html", "1.0", "monthly", [g[0] for g in GALLERY] + [SQUARE_IMAGE[0], OG_IMAGE]),
+                   ("simulator_dark.html", "0.9", "monthly", []),          # canvas app: no <img> on the page
                    ("nucleus_explorer.html", "0.8", "monthly", [])]
     x = ['<?xml version="1.0" encoding="UTF-8"?>',
          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">']
@@ -380,7 +465,7 @@ def write_static(lastmod: str):
     (ROOT / "site.webmanifest").write_text(json.dumps({
         "name": "Quantum Atom — 3D Atom, Molecule & Nucleus Simulator", "short_name": "Quantum Atom",
         "description": DESC_LANDING, "start_url": "./index_dark.html", "scope": "./", "display": "standalone",
-        "background_color": "#000000", "theme_color": "#ff5b14", "lang": "en", "categories": ["education", "science"],
+        "background_color": "#090605", "theme_color": "#090605", "lang": "en", "categories": ["education", "science"],
         "icons": [{"src": "images/icon-192.png", "sizes": "192x192", "type": "image/png"},
                   {"src": "images/icon-512.png", "sizes": "512x512", "type": "image/png"},
                   {"src": "images/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]},
@@ -391,6 +476,8 @@ def write_static(lastmod: str):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#090605">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <title>Page not found — Quantum Atom</title>
 <meta name="robots" content="noindex,follow">
 <meta name="color-scheme" content="dark light">

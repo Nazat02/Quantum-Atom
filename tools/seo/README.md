@@ -13,6 +13,15 @@ The apply script is **idempotent** (byte-identical output on every run) and writ
 *outside* the generated `qa-i18n:start … qa-i18n:end` region, so it survives `tools/install-engine.js`.
 Run it again after regenerating the pages.
 
+## Images for Google Images
+
+Google Images only indexes pictures that are embedded in a page with a real `<img>`. The site used to have none
+(the previews were only in the GitHub README), so `apply_seo.py` now inserts a **Gallery** section into both landing
+pages (before the CTA) from the `GALLERY` list in its config: descriptive file names, alt text, captions,
+`width`/`height`, `srcset` with a 1200px variant, plus `ImageObject` JSON-LD and `<image:image>` sitemap entries.
+To add a picture: put `name.jpg` and `name-1200.jpg` in `images/`, add a line to `GALLERY`, re-run the script.
+The gallery text is English only (it lives outside the generated i18n block).
+
 ## URL strategy
 
 | Page | Canonical | Why |
