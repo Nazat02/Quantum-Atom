@@ -31513,6 +31513,12 @@ html[data-glass="off"] :is(#ol-badge,.ol-stat,.ol-stp button,#ol-chev){backgroun
 #dtune .dt-row input{width:100%;min-width:0;margin:0}
 #dtune .dt-row .sv{text-align:end;font-size:.9rem}
 @media (pointer:coarse){#dtune .dt-btn{padding-top:10px;padding-bottom:10px}#dtune .dt-row{min-height:42px}}
+/* Spacing pass: Cloud Studio now uses the same title-to-card distance as every other section of the panel
+   (it was 10px against 16px elsewhere, so in the dark theme the bordered cards and the RESET glow crowded the title rule). */
+#dtune{gap:inherit}
+#dtune .dt-title{padding-bottom:13px}
+#dtune .dt-reset{min-height:34px;box-shadow:0 2px 8px rgba(var(--cyan-rgb),.28),inset 0 1px 0 rgba(255,255,255,.22) !important}
+#dtune .dt-row{grid-template-columns:minmax(0,38%) minmax(0,1fr) 34px}
 /* Keep scrolled content (Diffuse button + Cloud Studio) from butting into / being sliced by the header divider */
 #right-inner{scroll-padding-top:18px;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 16px);mask-image:linear-gradient(to bottom,transparent 0,#000 16px)}
 </style>

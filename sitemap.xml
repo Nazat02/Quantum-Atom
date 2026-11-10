@@ -2,24 +2,30 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://nazat02.github.io/Quantum-Atom/index_dark.html</loc>
-    <lastmod>2026-11-03</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-3d-electron-cloud.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-carbon-atom-diffuse-mode.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-neon-atom-electron-orbitals.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-water-molecule-h2o.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-methane-molecule-ch4.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-iron-atom-d-orbitals.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-cloud-studio-controls.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-mobile-app-screens.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-dark-and-light-themes.jpg</image:loc></image:image>
+    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-app-square.jpg</image:loc></image:image>
     <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/og-image.jpg</image:loc></image:image>
-    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/preview1.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://nazat02.github.io/Quantum-Atom/simulator_dark.html</loc>
-    <lastmod>2026-11-03</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/preview2.png</image:loc></image:image>
-    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/preview3.png</image:loc></image:image>
-    <image:image><image:loc>https://nazat02.github.io/Quantum-Atom/images/preview5.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://nazat02.github.io/Quantum-Atom/nucleus_explorer.html</loc>
-    <lastmod>2026-11-03</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

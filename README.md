@@ -14,6 +14,23 @@ An interactive, browser-based **quantum atom visualizer**: real **electron orbit
 
 <br>
 
+<img src="images/quantum-atom-simulator-3d-electron-cloud.jpg" alt="Quantum Atom Simulator showing a carbon atom as a glowing 3D electron cloud on desktop and a neon atom on a phone" width="100%">
+
+<table>
+<tr>
+<td><img src="images/quantum-atom-simulator-carbon-atom-diffuse-mode.jpg" alt="Carbon atom in the Quantum Atom Simulator, Diffuse mode: 2p electron cloud lobes in two colours around a glowing nucleus"></td>
+<td><img src="images/quantum-atom-simulator-neon-atom-electron-orbitals.jpg" alt="Neon atom electron orbitals rendered as a 3D probability cloud in the Quantum Atom Simulator"></td>
+</tr>
+<tr>
+<td><img src="images/quantum-atom-simulator-water-molecule-h2o.jpg" alt="Water molecule H2O in the Quantum Atom Simulator with its bent 104.5 degree geometry, shown on desktop and mobile"></td>
+<td><img src="images/quantum-atom-simulator-methane-molecule-ch4.jpg" alt="Methane molecule CH4 with tetrahedral geometry rendered as an electron cloud in the Quantum Atom Simulator"></td>
+</tr>
+<tr>
+<td><img src="images/quantum-atom-simulator-cloud-studio-controls.jpg" alt="Cloud Studio controls in the Quantum Atom Simulator: sliders for density, spread, dot size, brightness and glow of the electron cloud"></td>
+<td><img src="images/quantum-atom-simulator-mobile-app-screens.jpg" alt="Quantum Atom Simulator on mobile: carbon atom, Cloud Studio controls and a water molecule on three phone screens"></td>
+</tr>
+</table>
+
 <img src="images/preview1.png" alt="Quantum Atom 3D atom simulator landing page in dark mode with a glowing electron orbital cloud and stats for 118 elements" width="100%">
 
 <table>
