@@ -70,6 +70,11 @@ GALLERY = [
      "Dark and light themes, same atom."),
 ]
 SQUARE_IMAGE = (G + "app-square.jpg", 1600, 1600)
+# Gallery texts in every language the app ships: {lang: {key: text}}. Keys: landing.gallery.eyebrow / .title / .body / .c1 … .c9
+# (c1…c9 are the captions, in GALLERY order). Registered with QA_I18N.add() from the head block, so they switch with the
+# language picker like the rest of the page. Alt texts stay English: they describe the picture for search engines.
+GALLERY_I18N = json.loads((Path(__file__).resolve().parent / "gallery_i18n.json").read_text(encoding="utf-8"))
+assert all(GALLERY_I18N["en"][f"landing.gallery.c{i + 1}"] == g[4] for i, g in enumerate(GALLERY)), "gallery_i18n.json: English captions differ from GALLERY"
 SCREENSHOTS = [g[0] for g in GALLERY]
 ROBOTS = "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
 
@@ -285,19 +290,20 @@ GALLERY_CSS = ("<style>#gallery{position:relative;z-index:1}"
 
 
 def gallery_section():
+    T = GALLERY_I18N["en"]
     figs = []
     for i, (f, w, h, alt, cap) in enumerate(GALLERY):
         small = f.replace(".jpg", "-1200.jpg")
         sizes = "(max-width:820px) 100vw, 1200px" if i == 0 else "(max-width:820px) 100vw, 600px"
         lazy = "" if i == 0 else ' loading="lazy"'
-        figs.append(f'<figure><a href="{f}" title="{E(cap)}">'
+        k = f"landing.gallery.c{i + 1}"
+        figs.append(f'<figure><a href="{f}" title="{E(cap)}" data-i18n-attr="title:{k}">'
                     f'<img src="{f}" srcset="{small} 1200w, {f} {w}w" sizes="{sizes}" width="{w}" height="{h}" '
-                    f'alt="{E(alt)}"{lazy} decoding="async"></a><figcaption>{E(cap)}</figcaption></figure>')
+                    f'alt="{E(alt)}"{lazy} decoding="async"></a><figcaption data-i18n="{k}">{E(cap)}</figcaption></figure>')
     return ('<!-- qa-seo:ins:gallery --><section id="gallery"><div class="section-inner">'
-            '<p class="section-eyebrow">Gallery</p>'
-            '<h2 class="section-title">Quantum Atom Simulator<br>in pictures</h2>'
-            '<p class="section-body">Real captures from the simulator in Diffuse mode, where the whole atom is drawn '
-            'as one soft probability cloud. Tap a picture to open it full size.</p>'
+            f'<p class="section-eyebrow" data-i18n="landing.gallery.eyebrow">{E(T["landing.gallery.eyebrow"])}</p>'
+            f'<h2 class="section-title" data-i18n="landing.gallery.title">{E(T["landing.gallery.title"])}</h2>'
+            f'<p class="section-body" data-i18n="landing.gallery.body">{E(T["landing.gallery.body"])}</p>'
             f'<div class="qa-gal">{"".join(figs)}</div></div></section>\n\n<!-- /qa-seo:ins -->')
 
 
@@ -350,6 +356,8 @@ def head_block(name, cfg, title, overrides):
         L.append("<style>.qa-seo-cta{margin-top:.9rem}.qa-seo-cta a{color:inherit;font-weight:600;"
                  "text-decoration:underline;text-underline-offset:3px}</style>")
         L.append(GALLERY_CSS)
+        L.append("<script>window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,d[k]);})("
+                 + json.dumps(GALLERY_I18N, ensure_ascii=False, separators=(",", ":")) + ");</script>")
     L.append("<!-- qa-seo:end -->")
     return "\n" + "\n".join(L)
 

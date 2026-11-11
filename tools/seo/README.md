@@ -20,7 +20,7 @@ Google Images only indexes pictures that are embedded in a page with a real `<im
 pages (before the CTA) from the `GALLERY` list in its config: descriptive file names, alt text, captions,
 `width`/`height`, `srcset` with a 1200px variant, plus `ImageObject` JSON-LD and `<image:image>` sitemap entries.
 To add a picture: put `name.jpg` and `name-1200.jpg` in `images/`, add a line to `GALLERY`, re-run the script.
-The gallery text is English only (it lives outside the generated i18n block).
+The gallery texts are translated into all 13 app languages in `gallery_i18n.json` (alt texts stay English for search engines); a new picture needs a `landing.gallery.cN` caption there for each language.
 
 ## URL strategy
 
