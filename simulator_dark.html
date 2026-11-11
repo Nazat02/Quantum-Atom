@@ -29856,12 +29856,13 @@ body.hypo-mode a[href*="nucleus_explorer"]{display:none !important;}
 #build-status.warn{ border-color: var(--amber); color: var(--hi); }
 #build-status.err { border-color: rgba(255,90,90,.4); color: var(--hi); }
 #build-status.info{ color: var(--mid); }
-#build-suggest-chip {
+#build-suggest-chip, .build-suggest-chip {
   display:inline-block; margin-top:8px; padding:6px 10px; border-radius:14px;
   border:1px solid var(--cyan-40); background:var(--cyan-10); color:var(--hi);
   font-size:.7rem; cursor:pointer; user-select:none;
 }
-#build-suggest-chip:hover { background:var(--cyan-20); }
+#build-suggest-chip:hover, .build-suggest-chip:hover { background:var(--cyan-20); }
+.build-suggest-chip { margin-right:5px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:top; }
 .build-examples-section { margin-top:16px; }
 .chip-grid {
   display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;
@@ -31815,14 +31816,14 @@ html[data-glass="off"] .qai-root .qai-fab{box-shadow:none;border:1px solid var(-
             <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/>
             <path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
           </svg>
-          <input data-i18n-attr="placeholder:sim.build_input.type_an_element_or_molecule" type="text" id="build-input" placeholder="Type an element or molecule..." autocomplete="off" autocorrect="off" spellcheck="false" maxlength="60">
+          <input data-i18n-attr="placeholder:sim.build_input.type_an_element_or_molecule" type="text" id="build-input" placeholder="Type an element or molecule..." autocomplete="off" autocorrect="off" spellcheck="false" maxlength="240">
         </div>
         <button data-i18n="sim.build_go.go" class="mode-btn" id="build-go" onclick="runBuild()">GO</button>
         <div id="build-status"></div>
         <div class="build-examples-section">
           <div data-i18n="sim.ptitle.quick_examples" class="ptitle">Quick Examples</div>
           <div class="chip-grid" id="build-examples"></div>
-          <div data-i18n="sim.build_examples_note.or_type_any_of_the" class="build-examples-note">Or type any of the 118 elements, or any compound name &mdash; looked up online if it&rsquo;s not already in the local library.</div>
+          <div data-i18n="sim.build_examples_note.or_type_any_of_the" class="build-examples-note">Type a name in any language, a formula (H2SO4), an ion (SO4 2-), a SMILES string or a PubChem CID. Simple formulas are built on your device; everything else is looked up online.</div>
         </div>
       </div>
     </div>
@@ -32178,6 +32179,8 @@ html[data-glass="off"] .qai-root .qai-fab{box-shadow:none;border:1px solid var(-
       8: 6, 16: 6, 34: 6, 52: 6,                    // group 16
       9: 7, 17: 7, 35: 7, 53: 7,                    // group 17
       36: 8, 54: 8,                                 // group 18
+      81: 3, 83: 5, 84: 6, 85: 7, 86: 8,            // Tl, Bi, Po, At, Rn (formula-built molecules)
+      24: 6, 25: 7, 41: 5, 73: 5, 43: 7, 75: 7, 44: 8, // Cr, Mn, Nb, Ta, Tc, Re, Ru as d0 centres (CrO4 2-, MnO4-)
       // d-block / f-block: group number (d+s electrons). Present so every element in
       // ELEMENTS has a rule (no RangeError from the engine); a VSEPR lone-pair count
       // is NOT meaningful for these, which is why Analysis reports them as N/A.
@@ -42794,7 +42797,7 @@ function realBondLengthPm(Za, Zb, order){
 // unit-vector dipoles are scale-invariant, so positions work as directions.
 const _molDirsCache = new WeakMap();
 function moleculeDirs(mol){
-  if(mol.atoms.every(a=>Array.isArray(a.dir))) return mol.atoms.map(a=>a.dir);
+  if(!mol.realXyz && mol.atoms.every(a=>Array.isArray(a.dir))) return mol.atoms.map(a=>a.dir);   // realXyz molecules: `dir` is parent-relative there, so use the real positions below
   let dirs=_molDirsCache.get(mol);
   if(!dirs){
     const pos=resolveMoleculeAtoms(mol).map(a=>a.pos);
@@ -45505,6 +45508,11 @@ function resolveMultiStrandMolecule(mol, lenFn){
 // mol.strands-tagged multi-chain ones like DNA) go through the exact same
 // walk as before, byte-for-byte -- this dispatch is the only new surface.
 function resolveMoleculeAtoms(mol){
+  // Fetched molecules carry their real 3D coordinates (see bConvertPubChemRecord): use them directly.
+  if(mol.realXyz){
+    const P=bRealScenePositions(mol);
+    return mol.atoms.map((a,idx)=>({Z:a.Z, sym:a.sym, pos:P[idx], formalCharge:a.formalCharge||0}));
+  }
   // Compounds authored without hand-typed `dir` vectors go through the
   // Universal Compound Engine (see EngineBridge). Every hand-authored
   // molecule -- including the multi-strand DNA entries -- has dir on
@@ -45516,7 +45524,11 @@ function resolveMoleculeAtoms(mol){
   const positions = mol.strands
     ? resolveMultiStrandMolecule(mol, lenFn)
     : resolvePositionsWalk(mol.atoms, mol.bonds, lenFn);
-  return mol.atoms.map((a,idx)=>({Z:a.Z, sym:a.sym, pos:positions[idx], formalCharge:a.formalCharge||0}));
+  // Name-built molecules (Build mode's rule engine) are walked out from their first atom, which left
+  // them off-centre and at whatever angle the walk happened to produce. Centre them and turn them
+  // face-on, exactly like fetched molecules. Curated molecules keep their authored frame.
+  const placed = mol.builtBy==='tier2' ? bOrientPoints(positions, mol.atoms.map(a=>a.Z!==1)) : positions;
+  return mol.atoms.map((a,idx)=>({Z:a.Z, sym:a.sym, pos:placed[idx], formalCharge:a.formalCharge||0}));
 }
 
 
@@ -46647,6 +46659,7 @@ function buildMolecule(key){
 function buildMoleculeImpl(key){
   const mol=MOLECULES.find(m=>m.key===key);
   if(!mol){ console.warn('[buildMolecule] Unknown molecule key:', key); return; }
+  bSwayOn=!!mol.builtBy;
   moleculePointScale = computeMoleculePointScale(mol.atoms.length);
   orbitalMeshLOD = computeOrbitalMeshLOD(mol.atoms.length);
   ultraMeshes=[];
@@ -47291,7 +47304,7 @@ function moleculeConfigString(mol){
 function updateMoleculeUI(mol){
   const totalP=mol.atoms.reduce((s,a)=>s+a.Z,0);
   const totalN=mol.atoms.reduce((s,a)=>{const el=ELS.find(e=>e.Z===a.Z);return s+(el?el.n:0);},0);
-  const totalE=totalP;
+  const totalE=totalP-mol.atoms.reduce((s,a)=>s+(a.formalCharge||a.perceptionCharge||0),0);   // an ion has fewer / more electrons than protons
 
   const particleWord=antimatterMode?qaT("sim.particleword.positron"):qaT("sim.particleword.electron");
   document.getElementById('ename').textContent=(antimatterMode?'ANTI-':'')+mol.name.toUpperCase();
@@ -47366,7 +47379,12 @@ function selectMolecule(key){
 
 // ── text normalization ──────────────────────────────────────────────
 function bNormalize(s){
-  return String(s||'').toLowerCase().trim().replace(/[^a-z0-9\-\s,]/g,'').replace(/\s+/g,' ');
+  // Letters, marks and digits of EVERY script are kept. The old ASCII-only filter erased a Bengali, Arabic,
+  // Greek, Japanese ... name completely; the resulting empty string then "matched" the first element or the
+  // first molecule whenever the interface language itself was non-Latin.
+  let t=String(s||'');
+  try{ t=t.normalize('NFKC'); }catch(e){}
+  return t.toLowerCase().trim().replace(/[^\p{L}\p{M}\p{N}\-\s,]/gu,'').replace(/\s+/g,' ').trim();
 }
 function bDeSubscript(s){
   const map={'₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9'};
@@ -48364,8 +48382,136 @@ async function bPubChemSpellingSuggestion(rawName){
 // Math.min(3, order) turned dative/ionic/unknown bonds into TRIPLE bonds.
 function bPubChemOrder(o){
   o=Math.round(o||1);
-  return (o===2||o===3) ? o : 1;
+  if(o===4) return 3;                 // quadruple -> drawn as triple (the renderer has no 4th-order bond)
+  return (o===2||o===3) ? o : 1;      // 5 dative / 6 complex / 7 ionic / unknown -> single
 }
+
+// ── Real-coordinate geometry for fetched molecules ─────────────────────
+// A fetched record carries the molecule's actual 3D coordinates. Earlier
+// versions threw those away and kept only the bond DIRECTIONS, re-walking
+// the structure with the simulator's display bond lengths. That is fine for
+// a chain, but a ring only closes if every length around it has the right
+// ratio — and the display lengths don't (S and P are drawn 3.5x wider than
+// C), so fused and hetero rings (penicillin, morphine, ATP, steroids) came
+// out torn or kinked, and every bond after the first atom drifted away from
+// the origin, leaving the molecule orbiting off-centre.
+// Now the coordinates themselves are kept (mol.realXyz, in Å), centred on
+// the molecule and turned onto its principal axes, and resolveMoleculeAtoms()
+// scales them straight into scene units. Rings close exactly and every angle
+// is the real one.
+
+// Jacobi eigen-decomposition of a symmetric 3x3 matrix -> axes sorted by variance (largest first).
+function bPrincipalAxes(A){
+  A=A.map(r=>r.slice());
+  const V=[[1,0,0],[0,1,0],[0,0,1]];
+  for(let sweep=0; sweep<60; sweep++){
+    let p=0,q=1,mx=Math.abs(A[0][1]);
+    if(Math.abs(A[0][2])>mx){p=0;q=2;mx=Math.abs(A[0][2]);}
+    if(Math.abs(A[1][2])>mx){p=1;q=2;mx=Math.abs(A[1][2]);}
+    if(mx<1e-12) break;
+    const th=(A[q][q]-A[p][p])/(2*A[p][q]), t=(th<0?-1:1)/(Math.abs(th)+Math.sqrt(th*th+1)), c=1/Math.sqrt(t*t+1), s=t*c;
+    for(let k=0;k<3;k++){ const x=A[k][p],y=A[k][q]; A[k][p]=c*x-s*y; A[k][q]=s*x+c*y; }
+    for(let k=0;k<3;k++){ const x=A[p][k],y=A[q][k]; A[p][k]=c*x-s*y; A[q][k]=s*x+c*y; }
+    for(let k=0;k<3;k++){ const x=V[k][p],y=V[k][q]; V[k][p]=c*x-s*y; V[k][q]=s*x+c*y; }
+  }
+  const ev=[A[0][0],A[1][1],A[2][2]], ix=[0,1,2].sort((a,b)=>ev[b]-ev[a]);
+  return ix.map(i=>[V[0][i],V[1][i],V[2][i]]);
+}
+
+// Centre a set of [x,y,z] points and turn them so the molecule faces the viewer:
+// its longest dimension lies along the screen's long side, its second-longest
+// along the short side, and its thinnest dimension points at the camera — so a
+// flat ring system is seen face-on and a long chain runs across the screen
+// instead of pointing into it. `heavy[i]` marks the atoms that define the shape
+// (hydrogens only follow). The rotation is proper (no mirror), so chirality is kept.
+function bOrientPoints(P, heavy){
+  const n=P.length;
+  if(!n) return [];
+  const cen=[0,1,2].map(k=>P.reduce((s,p)=>s+p[k],0)/n);
+  const Q=P.map(p=>[p[0]-cen[0],p[1]-cen[1],p[2]-cen[2]]);
+  let shape=Q.filter((_,i)=>!heavy||heavy[i]);
+  if(shape.length<3) shape=Q;
+  if(shape.length<2) return Q;
+  const m=[0,1,2].map(k=>shape.reduce((s,p)=>s+p[k],0)/shape.length);
+  const C=[[0,0,0],[0,0,0],[0,0,0]];
+  shape.forEach(p=>{ for(let i=0;i<3;i++) for(let j=0;j<3;j++) C[i][j]+=(p[i]-m[i])*(p[j]-m[j]); });
+  const ax=bPrincipalAxes(C);
+  // deterministic signs: the bulkier end of each axis goes to the positive side
+  for(let a=0;a<2;a++){
+    let skew=0; shape.forEach(p=>{ const v=(p[0]-m[0])*ax[a][0]+(p[1]-m[1])*ax[a][1]+(p[2]-m[2])*ax[a][2]; skew+=v*v*v; });
+    if(skew<0) ax[a]=ax[a].map(v=>-v);
+  }
+  const portrait=(typeof innerHeight!=='undefined') && innerHeight>innerWidth*1.05;
+  const ex=portrait?ax[1]:ax[0], ey=portrait?ax[0]:ax[1];
+  const ez=[ex[1]*ey[2]-ex[2]*ey[1], ex[2]*ey[0]-ex[0]*ey[2], ex[0]*ey[1]-ex[1]*ey[0]]; // x × y: right-handed
+  return Q.map(p=>[p[0]*ex[0]+p[1]*ex[1]+p[2]*ex[2], p[0]*ey[0]+p[1]*ey[1]+p[2]*ey[2], p[0]*ez[0]+p[1]*ez[1]+p[2]*ez[2]]);
+}
+
+// Scene positions for a molecule that carries real coordinates (mol.realXyz, Å).
+// Heavy atoms: real coordinates x one fixed scale (the same Å->scene factor the
+// covalent bond model uses, so a C-C bond is exactly as long as everywhere else).
+// Hydrogens: kept on their real bond direction but seated at the simulator's own
+// X-H distance, inside the heavy atom's lobe, like every other molecule here.
+function bRealScenePositions(mol){
+  const S=COVALENT_SCALE*100, A=mol.atoms, R=mol.realXyz;
+  const P=R.map(p=>[p[0]*S,p[1]*S,p[2]*S]);
+  const parent={};
+  (mol.bonds||[]).forEach(([i,j,o])=>{
+    if(o===0) return;
+    if(A[i].Z===1 && A[j].Z!==1 && parent[i]===undefined) parent[i]=j;
+    else if(A[j].Z===1 && A[i].Z!==1 && parent[j]===undefined) parent[j]=i;
+  });
+  Object.keys(parent).forEach(k=>{
+    const h=+k, x=parent[h];
+    const d=[R[h][0]-R[x][0], R[h][1]-R[x][1], R[h][2]-R[x][2]], L=Math.hypot(d[0],d[1],d[2]);
+    if(L<1e-6) return;
+    const len=bondLength(A[x].Z,1,1);
+    P[h]=[P[x][0]+d[0]/L*len, P[x][1]+d[1]/L*len, P[x][2]+d[2]/L*len];
+  });
+  const n=P.length, c=[0,1,2].map(k=>P.reduce((s,p)=>s+p[k],0)/n);
+  return P.map(p=>[p[0]-c[0],p[1]-c[1],p[2]-c[2]]);
+}
+
+// A flat structure diagram draws every hydrogen in the plane, where they pile on top of each other
+// and of the neighbouring atoms. Keep the heavy-atom skeleton exactly as drawn, but give each
+// hydrogen the direction it would really have around its atom: in the plane for sp2/sp centres,
+// above and below it for sp3 ones (CH2 and CH3 groups), so the clouds no longer collide.
+function bLiftFlatHydrogens(pos, elements, adj){
+  const TET=Math.acos(-1/3), rad=a=>a*Math.PI/180;
+  for(let x=0;x<pos.length;x++){
+    if(elements[x]===1) continue;
+    const hs=adj[x].filter(e=>elements[e.to]===1).map(e=>e.to);
+    if(!hs.length) continue;
+    const heavy=adj[x].filter(e=>elements[e.to]!==1);
+    const u=heavy.map(e=>{ const dx=pos[e.to][0]-pos[x][0], dy=pos[e.to][1]-pos[x][1], l=Math.hypot(dx,dy)||1; return [dx/l,dy/l]; });
+    const planar=adj[x].some(e=>e.order>=2);
+    const dirs=[];
+    if(u.length===0){
+      if(planar||hs.length<=1) for(let k=0;k<hs.length;k++){ const a=2*Math.PI*k/Math.max(hs.length,1); dirs.push([Math.cos(a),Math.sin(a),0]); }
+      else if(hs.length===2) dirs.push([Math.sin(rad(52.25)),Math.cos(rad(52.25)),0],[-Math.sin(rad(52.25)),Math.cos(rad(52.25)),0]);   // H2O-like, bent
+      else dirs.push([1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]);                                                                       // NH3, CH4, NH4+
+    } else if(u.length===1){
+      const a=[-u[0][0],-u[0][1]], p=[-a[1],a[0]];
+      if(planar){
+        if(hs.length===1 && adj[x].some(e=>e.order===3)) dirs.push([a[0],a[1],0]);
+        else [60,-60].forEach(d=>dirs.push([a[0]*Math.cos(rad(d))+p[0]*Math.sin(rad(d)), a[1]*Math.cos(rad(d))+p[1]*Math.sin(rad(d)), 0]));
+      } else {
+        const c=-Math.cos(TET), sn=Math.sin(TET);       // tetrahedral cone around the bond axis
+        const phis=hs.length===1?[0]:hs.length===2?[120,-120]:[0,120,-120];
+        phis.forEach(d=>dirs.push([a[0]*c+p[0]*sn*Math.cos(rad(d)), a[1]*c+p[1]*sn*Math.cos(rad(d)), sn*Math.sin(rad(d))]));
+      }
+    } else {
+      let bx=-u.reduce((s,v)=>s+v[0],0), by=-u.reduce((s,v)=>s+v[1],0); const bl=Math.hypot(bx,by);
+      if(bl>1e-3){ bx/=bl; by/=bl; } else { bx=0; by=0; }
+      if(u.length===2 && (planar||hs.length===1)) dirs.push([bx,by,0]);
+      else if(u.length===2){ const h=TET/2; dirs.push([bx*Math.cos(h),by*Math.cos(h),Math.sin(h)],[bx*Math.cos(h),by*Math.cos(h),-Math.sin(h)]); }
+      else { const sgn=(x%2)?-1:1, w=Math.min(bl,1)*0.6; dirs.push([bx*w,by*w,sgn],[bx*w,by*w,-sgn]); }
+    }
+    hs.forEach((h,k)=>{ const d=dirs[k%Math.max(dirs.length,1)]||[0,0,1], l=Math.hypot(d[0],d[1],d[2])||1;
+      pos[h]=[pos[x][0]+d[0]/l, pos[x][1]+d[1]/l, pos[x][2]+d[2]/l]; });
+  }
+}
+
 function bConvertPubChemRecord(rec){
   const compound=rec?.PC_Compounds?.[0];
   if(!compound) return null;
@@ -48375,137 +48521,607 @@ function bConvertPubChemRecord(rec){
   const N=aids.length;
   if(!N) return null;
   const xs=conf.x, ys=conf.y, zs=conf.z||aids.map(()=>0);
-  if(!xs||!ys||xs.length!==N||ys.length!==N) return null; // malformed/truncated conformer — refuse rather than guess
+  if(!xs||!ys||xs.length!==N||ys.length!==N||zs.length!==N) return null; // malformed/truncated conformer — refuse rather than guess
+  // coords carry their own atom-id list; it is normally identical to atoms.aid, but honour it if it is not
+  const cAids=compound.coords[0].aid, cIdx={};
+  if(Array.isArray(cAids) && cAids.length===N) cAids.forEach((aid,i)=>{ cIdx[aid]=i; });
+  const at=i=>{ const k=cIdx[aids[i]]; return k===undefined ? i : k; };
 
   const bondList=(compound.bonds?.aid1||[]).map((a1,i)=>({a1, a2:compound.bonds.aid2[i], order:compound.bonds.order?.[i]||1}));
   const aidToIdx={}; aids.forEach((aid,i)=>{ aidToIdx[aid]=i; });
-  const pos=aids.map((_,i)=>({x:xs[i],y:ys[i],z:zs[i]}));
+  let pos=aids.map((_,i)=>[+xs[at(i)],+ys[at(i)],+zs[at(i)]]);
+  if(pos.some(p=>!isFinite(p[0])||!isFinite(p[1])||!isFinite(p[2]))) return null;
   const symFor=z=>(ELS.find(e=>e.Z===z)||{sym:'?'}).sym;
-  const chargeByAid={}; (compound.charge||[]).forEach(c=>{ chargeByAid[c.aid]=c.value; });
+  // Per-atom formal charges live in atoms.charge ([{aid,value}]). compound.charge is the molecule's TOTAL
+  // charge (a number): reading that as the list made every ion ("ammonium", "acetate", ...) throw.
+  const chargeByAid={}; (Array.isArray(compound.atoms.charge)?compound.atoms.charge:[]).forEach(c=>{ chargeByAid[c.aid]=c.value; });
 
   const adj=aids.map(()=>[]);
   bondList.forEach(b=>{
     const i=aidToIdx[b.a1], j=aidToIdx[b.a2];
-    if(i===undefined||j===undefined) return;
+    if(i===undefined||j===undefined||i===j) return;
     const ord=bPubChemOrder(b.order);
     adj[i].push({to:j, order:ord}); adj[j].push({to:i, order:ord});
   });
 
-  // resolveMoleculeAtoms() — the one shared position-resolving pass every
-  // hand-authored AND Tier-2-generated molecule already goes through —
-  // requires atom 0 to be a single fixed origin and every OTHER atom to
-  // be listed AFTER the specific neighbor its `dir` was measured against,
-  // so it can walk the array once, front to back, and always find that
-  // exact neighbor already placed. The curated library and the universal
-  // engine both satisfy this by construction. PubChem's own `aid`
-  // ordering makes no such promise — it's whatever PubChem's internal
-  // canonicalization produced, so an atom can easily sit earlier in the
-  // array than every one of its bonded neighbors. The OLD version of this
-  // function kept PubChem's index order verbatim and only walked the
-  // graph to compute `dir`, which silently broke (wrong bond directions
-  // measured from the wrong anchor, or atoms placed relative to an atom
-  // they were never bonded to at all) for any real compound whose aid
-  // order isn't already a valid front-to-back walk — which is most
-  // non-trivial ones. This BFS instead RE-DERIVES the array order itself
-  // (visit order from one root), so the invariant holds for any fetched
-  // record, not just ones that happen to already be walk-ordered.
-  const visited=new Array(N).fill(false);
-  const order=[]; // old (PubChem aid) index -> BFS visit order
-  const parentOldOf={}, parentBondOrderOf={};
-  visited[0]=true; order.push(0);
-  const queue=[0];
-  while(queue.length){
-    const cur=queue.shift();
-    adj[cur].forEach(edge=>{
-      if(visited[edge.to]) return;
-      visited[edge.to]=true;
-      order.push(edge.to);
-      parentOldOf[edge.to]=cur;
-      parentBondOrderOf[edge.to]=edge.order;
-      queue.push(edge.to);
-    });
+  // A record without z (PubChem has no 3D conformer for large, very flexible or multi-part
+  // compounds) is a flat structure diagram. Its coordinates are in drawing units, not Å:
+  // rescale so a typical heavy-atom bond is 1.45 Å, which keeps atom spacing consistent.
+  const flat=pos.every(p=>Math.abs(p[2])<1e-6);
+  if(flat){
+    const lens=[];
+    bondList.forEach(b=>{ const i=aidToIdx[b.a1], j=aidToIdx[b.a2]; if(i===undefined||j===undefined) return;
+      if(elements[i]!==1 && elements[j]!==1) lens.push(Math.hypot(pos[i][0]-pos[j][0],pos[i][1]-pos[j][1])); });
+    lens.sort((a,b)=>a-b);
+    const med=lens.length ? lens[lens.length>>1] : 0;
+    if(med>1e-3){ const k=1.45/med; pos=pos.map(p=>[p[0]*k,p[1]*k,0]); }
   }
-  // More than one connected component (a salt, a solvate, two separate
-  // ions or fragments bundled into one PubChem record) can't be
-  // positioned by this single-root walk — every atom in an extra
-  // fragment would have no bonded, already-placed neighbor to anchor to
-  // and would silently collapse onto atom 0's position instead. Refuse
-  // rather than render overlapping, physically meaningless geometry.
-  if(order.length!==N) return null;
+  if(flat) bLiftFlatHydrogens(pos, elements, adj);
+  pos=bOrientPoints(pos, elements.map(z=>z!==1));
+
+  // Array order: a breadth-first walk of every connected part, starting each part at a heavy
+  // atom, so each atom is listed after the atom it hangs off. Salts, hydrates and other
+  // multi-part records simply contribute more than one walk — their parts keep the relative
+  // placement the record gives them (they used to be refused outright).
+  const visited=new Array(N).fill(false);
+  const order=[], parentOldOf={}, parentBondOrderOf={};
+  const roots=[...Array(N).keys()].sort((a,b)=>((elements[a]===1)-(elements[b]===1))||(a-b));
+  let parts=0;
+  roots.forEach(root=>{
+    if(visited[root]) return;
+    parts++;
+    visited[root]=true; order.push(root);
+    const queue=[root];
+    while(queue.length){
+      const cur=queue.shift();
+      adj[cur].forEach(edge=>{
+        if(visited[edge.to]) return;
+        visited[edge.to]=true;
+        order.push(edge.to);
+        parentOldOf[edge.to]=cur;
+        parentBondOrderOf[edge.to]=edge.order;
+        queue.push(edge.to);
+      });
+    }
+  });
 
   const oldToNew={}; order.forEach((oldIdx,newIdx)=>{ oldToNew[oldIdx]=newIdx; });
-  const atoms=order.map((oldIdx,newIdx)=>{
-    if(newIdx===0){ const q0=chargeByAid[aids[oldIdx]]||0; return q0 ? {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[0,0,0], perceptionCharge:q0} : {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[0,0,0]}; }
+  const atoms=order.map(oldIdx=>{
+    const Z=elements[oldIdx], a={Z, sym:symFor(Z), dir:[0,0,0]};
     const parentOld=parentOldOf[oldIdx];
-    const dx=pos[oldIdx].x-pos[parentOld].x, dy=pos[oldIdx].y-pos[parentOld].y, dz=pos[oldIdx].z-pos[parentOld].z;
-    const L=Math.hypot(dx,dy,dz)||1;
+    if(parentOld!==undefined){
+      const d=[pos[oldIdx][0]-pos[parentOld][0], pos[oldIdx][1]-pos[parentOld][1], pos[oldIdx][2]-pos[parentOld][2]];
+      const L=Math.hypot(d[0],d[1],d[2])||1;
+      a.dir=[d[0]/L,d[1]/L,d[2]/L];
+    }
     const q=chargeByAid[aids[oldIdx]]||0;
-    // perceptionCharge feeds aromaticity perception only; a real `formalCharge` would switch the renderer to ion-cloud drawing
-    return q ? {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[dx/L,dy/L,dz/L], perceptionCharge:q}
-             : {Z:elements[oldIdx], sym:symFor(elements[oldIdx]), dir:[dx/L,dy/L,dz/L]};
+    if(q){
+      // A lone ion (Na+ in a salt, Cl-) is drawn with the ION's electron configuration; a charged atom
+      // inside a covalent framework (nitro N+, carboxylate O-) keeps its normal cloud and only reports
+      // the charge to aromaticity perception.
+      if(adj[oldIdx].length===0) a.formalCharge=q; else a.perceptionCharge=q;
+    }
+    return a;
   });
 
-  // Anchor (tree) edges are emitted FIRST, one per non-root atom in
-  // increasing newIdx order, so resolveMoleculeAtoms's `.find()` — which
-  // just scans this array front-to-back for the first bond touching a
-  // given atom — always lands on the SAME edge `dir` above was measured
-  // against, even when a ring gives that atom a second, also-already-
-  // resolved neighbor. Every other bond (ring closures, cross-links) is
-  // appended after: still rendered everywhere else that reads mol.bonds
-  // (buildBondDescriptors, buildRawBondDirs, the order guide-lines,
-  // aromatic-ring detection), just never used to place an atom twice.
+  // Tree (anchor) edges first, one per non-root atom in array order, then ring closures.
   const treeEdgeKeys=new Set();
   const bonds=[];
-  for(let newIdx=1; newIdx<N; newIdx++){
-    const oldIdx=order[newIdx];
+  order.forEach((oldIdx,newIdx)=>{
     const parentOld=parentOldOf[oldIdx];
+    if(parentOld===undefined) return;
     bonds.push([oldToNew[parentOld], newIdx, parentBondOrderOf[oldIdx]]);
     treeEdgeKeys.add(parentOld<oldIdx ? `${parentOld}-${oldIdx}` : `${oldIdx}-${parentOld}`);
-  }
+  });
   bondList.forEach(b=>{
     const i=aidToIdx[b.a1], j=aidToIdx[b.a2];
-    if(i===undefined||j===undefined) return;
+    if(i===undefined||j===undefined||i===j) return;
     const key=i<j ? `${i}-${j}` : `${j}-${i}`;
     if(treeEdgeKeys.has(key)) return; // already emitted above as this atom's anchor edge
-    const ni=oldToNew[i], nj=oldToNew[j];
-    if(ni===undefined||nj===undefined) return;
-    bonds.push([ni,nj,bPubChemOrder(b.order)]);
+    treeEdgeKeys.add(key);            // also drops a bond the record lists twice
+    bonds.push([oldToNew[i],oldToNew[j],bPubChemOrder(b.order)]);
   });
 
-  return {atoms, bonds, geometry:qaT("sim.categorize.complex")};
+  return {atoms, bonds, realXyz:order.map(o=>pos[o]), srcIndex:order.slice(), flat, parts, geometry:qaT("sim.categorize.complex")};
 }
 
-async function bResolveTier3(rawName, norm){
-  const cidRes=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(rawName)}/cids/JSON`);
-  if(!cidRes.ok){
-    const sugg=await bPubChemSpellingSuggestion(rawName);
-    return sugg ? {status:'suggestion', suggestion:sugg} : null;
+// One PubChem record -> registered molecule (shared by the name and SMILES lookups).
+async function bFetchPubChemCid(cid){
+  const base=`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/record/JSON`;
+  let built=null;
+  const r3=await fetch(base+'?record_type=3d');
+  if(r3.ok) built=bConvertPubChemRecord(await r3.json());
+  if(!built){
+    // No 3D conformer on file (PubChem computes none for very large or flexible molecules, salts,
+    // mixtures and most metal compounds): fall back to the 2D record and show it as a flat layout.
+    const r2=await fetch(base);
+    if(r2.ok) built=bConvertPubChemRecord(await r2.json());
   }
-  const cidData=await cidRes.json();
-  const cid=cidData?.IdentifierList?.CID?.[0];
-  if(!cid) return null;
+  return built;
+}
+// Looks like a SMILES string rather than a name: no spaces, only SMILES characters, and at least one
+// character a plain name or formula would not contain.
+function bLooksLikeSmiles(s){
+  return /^[A-Za-z0-9@+\-\[\]()=#$%\\/.:*]+$/.test(s) && /[=#()\[\]@\\/]/.test(s) && /[A-Za-z]/.test(s);
+}
 
-  const recRes=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/record/JSON?record_type=3d`);
-  if(!recRes.ok) return null;
-  const rec=await recRes.json();
-  const built=bConvertPubChemRecord(rec);
-  if(!built) return null;
-  // Every atom's own point-cloud is ALREADY hard-capped per orbital
-  // (MAX_CLOUD_POINTS, defined earlier) regardless of how many atoms the
-  // molecule has — so a bigger molecule doesn't blow up any single
-  // cloud, it just means more total objects in the scene. There's no
-  // real reason to refuse a molecule pre-emptively just for being
-  // sizeable; the only genuine risk is one truly enormous request
-  // locking up the tab, so this is a practical backstop for THIS
-  // device/browser, not a designed "molecule size limit" — attempt the
-  // render below it, however large.
-  if(built.atoms.length>500) return {status:'notfound', reason:'toolarge'};
+// ══════════════════════════════════════════════════════════════════════
+// UNIVERSAL BUILD — formulas, ions, identifiers and names in any language
+//
+// Build used to understand only English names (plus a SMILES fallback).
+// Everything below widens what can be typed, without changing how a
+// molecule is drawn once its atoms and bonds are known:
+//
+//   • a chemical FORMULA, with or without a charge ("H2SO4", "SO4 2-",
+//     "NH4+", "XeOF4", "N2H4", "Na2S", "C2H6O")
+//       – one central atom, or two identical bonded centres, is solved
+//         right here, offline: a small Lewis-structure search picks the
+//         bond orders and formal charges, and the app's own VSEPR engine
+//         turns that into 3D (bFormulaSolve);
+//       – a simple salt of a group-1/2 metal becomes an ion pair, like the
+//         curated NaCl / MgCl2;
+//       – anything with more atoms to arrange is looked up online by
+//         formula; when several molecules share it, the user picks one.
+//   • a NAME IN ANY LANGUAGE OR SCRIPT: resolved through Wikidata's
+//     multilingual labels to the English name (so "Wasser" or "পানি" lands on
+//     the same curated water as "water") or to a PubChem record.
+//   • a PubChem CID ("cid 2244") or an InChIKey.
+// ══════════════════════════════════════════════════════════════════════
 
-  const actual=bCountFormula(built.atoms);
-  const key=qaT("sim.key.build_p1",{p1:bSlug(norm)});
-  const mol={ key, formula:bFormulaString(actual), name:bTitleCase(norm), geometry:built.geometry, atoms:built.atoms, bonds:built.bonds, builtBy:'tier3' };
+const B_SUBS='₀₁₂₃₄₅₆₇₈₉', B_SUPS='⁰¹²³⁴⁵⁶⁷⁸⁹';
+const bSubDigits=n=>String(n).split('').map(d=>B_SUBS[+d]).join('');
+const bSupCharge=q=>!q?'':((Math.abs(q)>1?String(Math.abs(q)).split('').map(d=>B_SUPS[+d]).join(''):'')+(q>0?'⁺':'⁻'));
+const bSymZ=(()=>{ let m=null; return sym=>{ if(!m){ m={}; ELS.forEach(e=>{ m[e.sym]=e.Z; }); } return m[sym]; }; })();
+const bZSym=Z=>(ELS.find(e=>e.Z===Z)||{sym:'?'}).sym;
+
+// Two-letter symbols that are safe to read greedily in an all-lowercase formula ("h2so4", "nacl").
+// The ambiguous ones (co, cs, no, hf, os, ni, sn, pb, bi, in ...) are left out on purpose: in lowercase
+// they are read as two one-letter elements, and only proper capitals ("Co", "Sn") mean the metal.
+const B_LOWER_TWO=new Set(['cl','br','na','mg','al','si','ca','fe','cu','zn','ag','li','be','xe','se','as','te','ge','kr','mn','cr','ti','au','hg','pt','ba','sr','rb','ar','ne','he','sb','ga']);
+
+// "SO4 2-" / "SO₄²⁻" / "SO4^2-" / "[SO4]2-" / "NH4+" / "Ca(OH)2" / "CuSO4·5H2O" -> {counts:{Z:n}, order:[Z...], charge, n, hill}
+// Returns null when the text is not a formula (so names are never mistaken for one).
+function bParseFormulaInput(raw){
+  let t=String(raw||'').trim();
+  if(!t || t.length>80) return null;
+  // superscripts mark a charge unambiguously; subscripts are plain counts
+  t=t.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g,m=>'^'+m.split('').map(c=>c==='⁺'?'+':c==='⁻'?'-':String(B_SUPS.indexOf(c))).join(''));
+  t=t.replace(/[₀-₉]/g,c=>String(B_SUBS.indexOf(c))).replace(/[−–—]/g,'-').replace(/[\[\{]/g,'(').replace(/[\]\}]/g,')').replace(/[·•∙*]/g,'.');
+  let charge=0, m, ambiguous=false;
+  if((m=t.match(/\)\s*(\d?)([+\-]+)$/)) && (m[1] || /\]\s*\d?[+\-]+$/.test(String(raw).trim()) || m[2].length===1)){   // "[Fe(CN)6]4-", "(SO4)2-": digits after a closing bracket are the charge
+    charge=(m[1]?+m[1]:m[2].length)*(m[2][0]==='+'?1:-1); t=t.slice(0,m.index+1);
+  } else if((m=t.match(/[\s^]\(?(\d*)([+\-]+)\)?$/)) || (m=t.match(/\((\d*)([+\-]+)\)$/))){        // "SO4 2-", "SO4^2-", "SO4(2-)", "Fe +++"
+    charge=(m[1]?+m[1]:m[2].length)*(m[2][0]==='+'?1:-1); t=t.slice(0,m.index);
+  } else if((m=t.match(/[\s^]\(?([+\-])(\d+)\)?$/))){                                         // "SO4 -2", "SO4^-2"
+    charge=+m[2]*(m[1]==='+'?1:-1); t=t.slice(0,m.index);
+  } else if((m=t.match(/(\d+)([+\-])$/))){                                                    // "SO42-", "NH4+": no separator
+    const d=m[1];
+    // two or more digits: the last one is the charge ("SO42-" = SO4 2-); a single digit is a count ("NH4+" = NH4 1+)
+    if(d.length>=2){ charge=+d.slice(-1)*(m[2]==='+'?1:-1); t=t.slice(0,m.index)+d.slice(0,-1); }
+    else { charge=(m[2]==='+'?1:-1); t=t.slice(0,m.index)+d; ambiguous=true; }
+  } else if((m=t.match(/([A-Za-z\)])([+\-]+)$/))){                                            // "OH-", "CN-", "Fe++"
+    charge=m[2].length*(m[2][0]==='+'?1:-1); t=t.slice(0,m.index+1);
+  }
+  t=t.replace(/\s+/g,'').replace(/\^/g,'');
+  if(!t || !/^[A-Za-z0-9().]+$/.test(t) || !/[A-Za-z]/.test(t)) return null;
+  const lower=(t===t.toLowerCase());
+  if(lower && !/\d/.test(t) && !charge) return null;        // an all-lowercase word without digits is a name, not a formula
+  const counts={}, order=[]; let n=0, tokens=0, repeated=false, grouped=false, ok=true, pos=0;
+  const num=()=>{ const s0=pos; while(pos<t.length && /\d/.test(t[pos])) pos++; return pos>s0 ? +t.slice(s0,pos) : null; };
+  const symbolAt=()=>{
+    const c=t[pos];
+    if(lower){
+      const two=t.slice(pos,pos+2);
+      if(/^[a-z]{2}$/.test(two) && B_LOWER_TWO.has(two) && bSymZ(two[0].toUpperCase()+two[1])) return two[0].toUpperCase()+two[1];
+      return bSymZ(c.toUpperCase()) ? c.toUpperCase() : null;
+    }
+    if(!/[A-Z]/.test(c)) return null;
+    const two=t.slice(pos,pos+2);
+    if(/^[A-Z][a-z]$/.test(two) && bSymZ(two)) return two;
+    return bSymZ(c) ? c : null;
+  };
+  // one run of symbols / parenthesised groups -> [[Z,count], ...] in reading order
+  function seq(depth){
+    const out=[];
+    while(pos<t.length && ok){
+      const c=t[pos];
+      if(c==='('){ grouped=true; pos++; const inner=seq(depth+1); if(!ok) return out; if(t[pos]!==')'){ ok=false; return out; } pos++;
+        const k=num(); if(k===0){ ok=false; return out; } inner.forEach(([Z,m])=>out.push([Z,m*(k||1)])); continue; }
+      if(c===')'){ if(depth===0) ok=false; return out; }
+      if(c==='.') return out;
+      if(!/[A-Za-z]/.test(c)){ ok=false; return out; }
+      const sym=symbolAt(); if(!sym){ ok=false; return out; }
+      pos+=sym.length; const k=num(); if(k===0){ ok=false; return out; }
+      out.push([bSymZ(sym), k||1]); tokens++;
+    }
+    return out;
+  }
+  while(pos<t.length && ok){                                   // parts separated by "." are hydrates / adducts: "CuSO4.5H2O"
+    const k=(pos>0 || /^\d/.test(t)) ? (num()||1) : 1;
+    if(pos>0) grouped=true;
+    seq(0).forEach(([Z,m])=>{ if(Z in counts) repeated=true; else { counts[Z]=0; order.push(Z); } counts[Z]+=m*k; n+=m*k; });
+    if(ok && pos<t.length){ if(t[pos]==='.'){ pos++; if(pos>=t.length) ok=false; } else ok=false; }
+  }
+  if(!ok || pos<t.length || !tokens || n>400) return null;
+  if(order.length===1 && n===1 && !charge) return null;       // a bare element symbol is Tier 0's business
+  // One element with a charge: a single atom is a monatomic ion ("Fe 3+", "Cl-"), and a METAL written "Fe3+" / "Ca2+"
+  // means charge 3+ / 2+, not three atoms. Neither is a molecule to assemble — leave them to the name lookup.
+  const B_NONMETAL=new Set([1,5,6,7,8,9,14,15,16,17,33,34,35,52,53,54]);
+  if(order.length===1 && charge && (n===1 || (ambiguous && !B_NONMETAL.has(order[0])))) return null;
+  // Hill string for the online formula search: C, H, then the rest alphabetically (no C: all alphabetical)
+  const syms=order.map(bZSym), hasC=!!counts[6];
+  const hillOrder=syms.slice().sort((a,b)=>{ const r=s=>hasC?(s==='C'?0:s==='H'?1:2):2; return (r(a)-r(b))||(a<b?-1:a>b?1:0); });
+  const hill=hillOrder.map(s=>s+(counts[bSymZ(s)]>1?counts[bSymZ(s)]:'')).join('');
+  const display=order.map(Z=>bZSym(Z)+(counts[Z]>1?bSubDigits(counts[Z]):'')).join('')+bSupCharge(charge);
+  return {counts, order, charge, n, hill, display, condensed:repeated||grouped, lower};
+}
+
+// ── Offline Lewis-structure solver ────────────────────────────────────
+// Valence electrons by periodic group (main groups, plus the d0 metals that form molecular oxides/halides).
+const B_VALENCE=(()=>{ const v={};
+  [[1,[1]],[2,[4,12,20,38,56]],[3,[5,13,31,49,81]],[4,[6,14,32,50,82]],[5,[7,15,33,51,83]],[6,[8,16,34,52,84]],[7,[9,17,35,53,85]],[8,[36,54,86]],
+   [4,[22,40,72]],[5,[23,41,73]],[6,[24,42,74]],[7,[25,43,75]],[8,[44,76]]].forEach(([n,zs])=>zs.forEach(z=>{ v[z]=n; }));
+  return v; })();
+const B_EN={1:2.20,5:2.04,6:2.55,7:3.04,8:3.44,9:3.98,13:1.61,14:1.90,15:2.19,16:2.58,17:3.16,31:1.81,32:2.01,33:2.18,34:2.55,35:2.96,36:3.00,
+  49:1.78,50:1.96,51:2.05,52:2.10,53:2.66,54:2.60,81:1.62,82:2.33,83:2.02,84:2.0,85:2.2,86:2.2,4:1.57,12:1.31,
+  22:1.54,23:1.63,24:1.66,25:1.55,40:1.33,41:1.6,42:2.16,43:1.9,44:2.2,72:1.3,73:1.5,74:2.36,75:1.9,76:2.2};
+const B_HALOGEN=new Set([9,17,35,53,85]), B_CHALC=new Set([8,16,34,52]), B_PNICT=new Set([7,15,33,51]);
+const bPeriod=Z=>Z<=2?1:Z<=10?2:Z<=18?3:Z<=36?4:Z<=54?5:Z<=86?6:7;
+const B_DBLOCK=Z=>(Z>=21&&Z<=30)||(Z>=39&&Z<=48)||(Z>=72&&Z<=80);
+// bond orders a TERMINAL atom may take towards its centre
+function bTerminalOrders(Z, diatomic){
+  if(Z===1||B_HALOGEN.has(Z)) return [1];
+  if(B_CHALC.has(Z)) return diatomic?[1,2,3]:[1,2];
+  if(B_PNICT.has(Z)||Z===6) return [1,2,3];
+  return [1];
+}
+
+// Score one fully specified candidate. Lower is better, compared left to right:
+//   [second-period C/N/O/F atoms without an octet, total |formal charge|, other incomplete/odd-electron centres,
+//    charge placed against electronegativity, largest single charge, hydrogens not on a heteroatom, extra bond order]
+function bLewisBetter(a,b){ for(let i=0;i<a.length;i++){ if(Math.abs(a[i]-b[i])>1e-9) return a[i]<b[i]; } return false; }
+
+// A "skeleton" is a tree: centres (1 or 2, bonded to each other) + terminals, each terminal optionally
+// carrying hydrogens. Given the skeleton, enumerate terminal bond orders (and the centre–centre order),
+// give every terminal the formal charge that completes its octet, hand the remaining charge to the
+// centre(s), and keep the best-scoring valid assignment.
+function bSolveSkeleton(sk, charge){
+  const C=sk.centres, T=sk.terminals, nC=C.length;
+  for(const c of C){ if(!(c.Z in B_VALENCE)) return null; }
+  for(const t of T){ if(!(t.Z in B_VALENCE)) return null; }
+  const choices=T.map(t=>t.h ? [1] : bTerminalOrders(t.Z, sk.diatomic));
+  const ccOrders=nC===2 ? [1,2,3] : [0];
+  let best=null;
+  const idx=T.map(()=>0);
+  const total=choices.reduce((p,c)=>p*c.length,1);
+  if(total>20000) return null;
+  for(let combo=0; combo<total; combo++){
+    let r=combo; const ord=choices.map(c=>{ const o=c[r%c.length]; r=Math.floor(r/c.length); return o; });
+    // terminal formal charges (octet-complete): f = V - 8 + (bond order sum incl. its own H's)
+    const tf=T.map((t,i)=>t.Z===1 ? 0 : (B_VALENCE[t.Z]-8+ord[i]+t.h));
+    if(tf.some((f,i)=>Math.abs(f)>2 || (T[i].Z===1&&ord[i]!==1))) continue;
+    // a terminal may not hold more hydrogens than its octet allows
+    if(T.some((t,i)=>t.Z!==1 && (B_VALENCE[t.Z]-tf[i]-ord[i]-t.h)<0)) continue;
+    const rest=charge-tf.reduce((s,f)=>s+f,0);
+    for(const occ of ccOrders){
+      // split the remaining charge over the centre(s): try every split for two centres (symmetric first)
+      const splits=nC===1 ? [[rest]] : (()=>{ const out=[]; for(let a=-2;a<=2;a++){ const b=rest-a; if(Math.abs(b)<=2) out.push([a,b]); } return out.sort((x,y)=>Math.abs(x[0]-x[1])-Math.abs(y[0]-y[1])); })();
+      for(const cf of splits){
+        let valid=true, incomplete2=0, other=0; const lone=[];
+        for(let k=0;k<nC && valid;k++){
+          const c=C[k], V=B_VALENCE[c.Z], f=cf[k];
+          if(Math.abs(f)>2){ valid=false; break; }
+          let B=c.h+(nC===2?occ:0), sigma=c.h+(nC===2?1:0);
+          T.forEach((t,i)=>{ if(t.on===k){ B+=ord[i]; sigma++; } });
+          const L=V-f-B;                                   // non-bonding electrons left on the centre
+          if(L<0){ valid=false; break; }
+          const per=bPeriod(c.Z), shell=L+2*B, pairs=Math.ceil(L/2);
+          if(c.Z===1){ if(shell!==2) valid=false; lone.push(0); continue; }
+          if(per===2 && shell>8){ valid=false; break; }
+          if(sigma+pairs>6 || sigma<1){ valid=false; break; }
+          if(B_DBLOCK(c.Z) && L>0){ valid=false; break; }  // VSEPR only describes d0 metal centres
+          if(per===2 && [6,7,8,9].includes(c.Z) && shell<8) incomplete2++;
+          else if(shell<8 && ![4,5,13,12].includes(c.Z) && !B_DBLOCK(c.Z)) other++;
+          if(L%2) other++;
+          lone.push(L);
+        }
+        if(!valid) continue;
+        const allF=tf.concat(cf), allZ=T.map(t=>t.Z).concat(C.map(c=>c.Z));
+        const sumAbs=allF.reduce((s,f)=>s+Math.abs(f),0);
+        const enTerm=allF.reduce((s,f,i)=>s+f*(B_EN[allZ[i]]||2),0);
+        const hOnC=C.reduce((s,c)=>s+c.h,0);
+        const hetero=T.some(t=>t.Z!==1&&!B_HALOGEN.has(t.Z));
+        const score=[incomplete2, sumAbs, other, enTerm, Math.max(0,...allF.map(Math.abs)), hetero?hOnC:0, ord.reduce((s,o)=>s+o-1,0)+(occ>1?occ-1:0)];
+        if(!best || bLewisBetter(score,best.score)) best={score, ord:ord.slice(), tf, cf:cf.slice(), occ, lone};
+      }
+    }
+  }
+  if(!best) return null;
+  // materialise atoms + bonds: centres first, then each terminal followed by its hydrogens
+  const atoms=[], bonds=[];
+  C.forEach((c,k)=>{ const a={Z:c.Z, sym:bZSym(c.Z)}; if(best.cf[k]) a.formalCharge=best.cf[k]; atoms.push(a); });
+  if(nC===2) bonds.push([0,1,best.occ]);
+  C.forEach((c,k)=>{ for(let h=0;h<c.h;h++){ atoms.push({Z:1,sym:'H'}); bonds.push([k,atoms.length-1,1]); } });
+  T.forEach((t,i)=>{ const a={Z:t.Z, sym:bZSym(t.Z)}; if(best.tf[i]) a.formalCharge=best.tf[i]; atoms.push(a); const ti=atoms.length-1;
+    bonds.push([t.on,ti,best.ord[i]]);
+    for(let h=0;h<t.h;h++){ atoms.push({Z:1,sym:'H'}); bonds.push([ti,atoms.length-1,1]); } });
+  const sigma0=C[0].h+(nC===2?1:0)+T.filter(t=>t.on===0).length;
+  return {atoms, bonds, score:best.score, sigma:sigma0, pairs:Math.ceil(best.lone[0]/2), nCentres:nC};
+}
+
+// Oxoacids whose hydrogens do NOT all sit on oxygen (Hill formula -> hydrogens on the central atom).
+const B_H_ON_CENTRE={'H3O3P':1,'H3O2P':2};
+
+// All ways to give `h` hydrogens to the centre (0..maxC) and the rest to O/N/S-type terminals (at most `cap` each).
+function bHydrogenPlacements(h, hostIdx, capOf, maxOnCentre){
+  const out=[];
+  for(let onC=Math.min(h,maxOnCentre); onC>=0; onC--){
+    const left=h-onC;
+    // distribute `left` over hosts, filling hosts in order (hosts of one element are interchangeable)
+    const rec=(i,rem,acc)=>{ if(i===hostIdx.length){ if(rem===0) out.push({onC, on:acc.slice()}); return; }
+      for(let k=Math.min(rem,capOf(hostIdx[i])); k>=0; k--){ acc.push(k); rec(i+1,rem-k,acc); acc.pop(); } };
+    rec(0,left,[]);
+    if(out.length>400) break;
+  }
+  return out;
+}
+
+function bFormulaSolve(pf){
+  const counts=pf.counts, zs=pf.order.slice(), nonH=zs.filter(z=>z!==1), nH=counts[1]||0;
+  if(pf.n<2 || pf.n>14 || !nonH.length && pf.n!==2) return null;
+  if(zs.some(z=>!(z in B_VALENCE))) return null;
+  const cands=[];
+  const push=sk=>{ const s=bSolveSkeleton(sk, pf.charge); if(s) cands.push(s); };
+  if(pf.n===2){                                             // diatomic: either atom is the "centre"
+    const two=[]; zs.forEach(z=>{ for(let k=0;k<counts[z];k++) two.push(z); });
+    push({diatomic:true, centres:[{Z:two[0],h:0}], terminals:[{Z:two[1],on:0,h:0}]});
+    if(two[0]!==two[1]) push({diatomic:true, centres:[{Z:two[1],h:0}], terminals:[{Z:two[0],on:0,h:0}]});
+  } else {
+    // centre = one atom of the least electronegative non-hydrogen element (never fluorine)
+    const byEN=nonH.slice().sort((a,b)=>(B_EN[a]||2)-(B_EN[b]||2));
+    const cZ=byEN.find(z=>z!==9)||byEN[0];
+    const hill=pf.hill;
+    // ── one centre ──
+    { const term=[]; nonH.forEach(z=>{ const k=counts[z]-(z===cZ?1:0); for(let i=0;i<k;i++) term.push(z); });
+      if(term.length+ (nH?1:0) >=1 && term.length<=6){
+        const hosts=term.map((z,i)=>i).filter(i=>B_CHALC.has(term[i])||B_PNICT.has(term[i])||term[i]===6);
+        const capOf=i=>B_CHALC.has(term[i])?1:B_PNICT.has(term[i])?2:3;
+        let places=bHydrogenPlacements(nH, hosts, capOf, Math.min(nH,6));
+        if(hill in B_H_ON_CENTRE && !pf.charge) places=places.filter(p=>p.onC===B_H_ON_CENTRE[hill]);
+        places.forEach(p=>{
+          if(p.onC+term.length>6 || p.onC+term.length<1) return;
+          const T=term.map((z,i)=>({Z:z,on:0,h:0})); hosts.forEach((ti,j)=>{ T[ti].h=p.on[j]; });
+          push({centres:[{Z:cZ,h:p.onC}], terminals:T});
+        });
+      } }
+    // ── two identical bonded centres, everything else shared out evenly (H2O2, N2H4, C2H4, N2O4, C2O4²⁻ ...) ──
+    if(counts[cZ]===2){
+      const others=nonH.filter(z=>z!==cZ);
+      const kinds=others.length, even=others.every(z=>counts[z]%2===0) && nH%2===0;
+      // more than one kind of substituent, or hydrogens plus oxygen on carbon, has several isomers — leave those to the online lookup
+      const organicAmbiguous=(cZ===6 && others.length && nH>2);
+      if(even && kinds<=1 && !organicAmbiguous){
+        const half=[]; others.forEach(z=>{ for(let i=0;i<counts[z]/2;i++) half.push(z); });
+        if(half.length<=5){
+          const hosts=half.map((z,i)=>i).filter(i=>B_CHALC.has(half[i])||B_PNICT.has(half[i]));
+          const capOf=i=>B_CHALC.has(half[i])?1:2;
+          bHydrogenPlacements(nH/2, hosts, capOf, Math.min(nH/2,5)).forEach(p=>{
+            if(p.onC+half.length>5) return;
+            const T=[]; [0,1].forEach(c=>half.forEach((z,i)=>{ const j=hosts.indexOf(i); T.push({Z:z,on:c,h:j>=0?p.on[j]:0}); }));
+            push({centres:[{Z:cZ,h:p.onC},{Z:cZ,h:p.onC}], terminals:T});
+          });
+        }
+      }
+    }
+  }
+  if(!cands.length) return null;
+  let best=cands[0]; cands.forEach(c=>{ if(bLewisBetter(c.score,best.score)) best=c; });
+  // an unavoidable sextet on carbon/nitrogen/oxygen in a NEUTRAL closed-shell formula means the real
+  // molecule is not this simple skeleton (e.g. C3H8O typed with one "centre") — decline rather than invent
+  const electrons=pf.order.reduce((s,z)=>s+B_VALENCE[z]*counts[z],0)-pf.charge;
+  if(best.score[0]>0 && electrons%2===0 && !pf.charge) return null;
+  return best;
+}
+
+// Simple salts of group 1 / group 2 metals: an ion pair (or a metal ion between its anions), as the curated NaCl / MgCl2 / Li2O.
+function bIonicSolve(pf){
+  if(pf.charge || pf.order.length!==2) return null;
+  const CAT={3:1,11:1,19:1,37:1,55:1,12:2,20:2,38:2,56:2}, AN={9:-1,17:-1,35:-1,53:-1,8:-2,16:-2,34:-2,7:-3,1:-1};
+  const [a,b]=pf.order, M=CAT[a]?a:CAT[b]?b:null, X=M===a?b:a;
+  if(!M || !AN[X] || CAT[X]) return null;
+  const nM=pf.counts[M], nX=pf.counts[X];
+  if(nM*CAT[M]+nX*AN[X]!==0) return null;
+  const R=window.ChemistryCore&&ChemistryCore.ELEMENTS;
+  if(!R || !R[M] || !R[X] || !R[M].IONIC_R[CAT[M]] || !R[X].IONIC_R[AN[X]]) return null;
+  let hub, hubQ, sat, satQ, nSat;
+  if(nM===1){ hub=M; hubQ=CAT[M]; sat=X; satQ=AN[X]; nSat=nX; } else if(nX===1){ hub=X; hubQ=AN[X]; sat=M; satQ=CAT[M]; nSat=nM; } else return null;
+  if(nSat>3) return null;
+  const atoms=[{Z:hub,sym:bZSym(hub),formalCharge:hubQ}], bonds=[];
+  for(let i=0;i<nSat;i++){ atoms.push({Z:sat,sym:bZSym(sat),formalCharge:satQ}); bonds.push([0,i+1,0]); }
+  return {atoms, bonds, ionic:true, sigma:nSat, pairs:0, nCentres:1};
+}
+
+// VSEPR shape name from (bonded neighbours, lone pairs) — reuses the labels the curated molecules already have in every language.
+function bShapeLabel(sigma, pairs, angle){
+  const base=k=>{ const s=qaT(k); return String(s).replace(/\s*[\(（][^\)）]*[\)）]\s*$/,''); };
+  const withAngle=(s)=>angle ? `${s} (≈${Math.round(angle)}°)` : s;
+  if(sigma<=1) return qaT("sim.molecules.linear");
+  if(sigma===2) return (pairs===0||pairs===3) ? qaT("sim.molecules.linear") : withAngle(base("sim.molecules.bent_119"));
+  if(sigma===3) return pairs===0 ? qaT("sim.molecules.trigonal_planar") : pairs===1 ? withAngle(base("sim.molecules.trigonal_pyramidal_107_8")) : qaT("sim.molecules.t_shaped");
+  if(sigma===4) return pairs===0 ? qaT("sim.molecules.tetrahedral") : pairs===1 ? qaT("sim.molecules.see_saw") : qaT("sim.molecules.square_planar");
+  if(sigma===5) return pairs===0 ? qaT("sim.molecules.trigonal_bipyramidal") : qaT("sim.molecules.square_pyramidal");
+  return qaT("sim.molecules.octahedral");
+}
+
+const bShapeOf=sh=>sh.ionic
+  ? (sh.n===2 ? qaT("sim.molecules.ionic_gas_phase_pair") : sh.n===3 ? qaT("sim.molecules.ionic_gas_phase_linear") : bShapeLabel(sh.sigma,0,0))
+  : bShapeLabel(sh.sigma, sh.pairs, sh.angle);
+
+// Formula -> registered molecule, offline. Returns null when the formula needs the online lookup.
+function bResolveFormulaOffline(pf){
+  let solved=null;
+  try{ solved=bIonicSolve(pf) || bFormulaSolve(pf); }catch(e){ solved=null; }
+  if(!solved) return null;
+  const key='build:f-'+pf.hill.toLowerCase()+(pf.charge?(pf.charge>0?'p':'m')+Math.abs(pf.charge):'');   // fixed prefix: a key must not change with the interface language
+  const existing=MOLECULES.find(m=>m.key===key);
+  if(existing){ if(existing.shape) existing.geometry=bShapeOf(existing.shape); return {status:'rendered', key, mol:existing}; }   // re-label in the language in use now
+  const mol={ key, formula:pf.display, name:pf.display, geometry:'', atoms:solved.atoms, bonds:solved.bonds, builtBy:'tier2', fromFormula:true };
+  let placed;
+  try{ placed=resolveMoleculeAtoms(mol); }catch(e){ return null; }          // the VSEPR engine could not place it: let the online lookup try
+  if(!placed || placed.some(a=>!a.pos || a.pos.some(v=>!isFinite(v)))) return null;
+  // smallest neighbour–centre–neighbour angle, for the shape label of bent / pyramidal species
+  let angle=0;
+  const nb=mol.bonds.filter(b=>b[0]===0||b[1]===0).map(b=>b[0]===0?b[1]:b[0]);
+  if(nb.length>=2){ let mn=Infinity; const c=placed[0].pos;
+    for(let i=0;i<nb.length;i++) for(let j=i+1;j<nb.length;j++){ const u=placed[nb[i]].pos.map((v,k)=>v-c[k]), w=placed[nb[j]].pos.map((v,k)=>v-c[k]);
+      const a=Math.acos(Math.max(-1,Math.min(1,(u[0]*w[0]+u[1]*w[1]+u[2]*w[2])/((Math.hypot(...u)||1)*(Math.hypot(...w)||1)))))*180/Math.PI; mn=Math.min(mn,a); }
+    angle=mn; }
+  mol.shape={ionic:!!solved.ionic, n:mol.atoms.length, sigma:solved.sigma, pairs:solved.pairs, angle};
+  mol.geometry=bShapeOf(mol.shape);
   bRegisterMolecule(mol);
   return {status:'rendered', key, mol};
+}
+
+// ── Online: PubChem by formula, Wikidata for names in any language ─────
+const B_PUG='https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound';
+async function bJson(url){ try{ const r=await fetch(url); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } }
+
+// Molecules that have this formula: [{cid,title}], the longest-known compounds first (PubChem numbers
+// compounds in the order it learned of them, so low numbers are overwhelmingly the familiar ones).
+async function bPubChemFormulaCandidates(pf){
+  if(pf.charge) return [];
+  const data=await bJson(`${B_PUG}/fastformula/${encodeURIComponent(pf.hill)}/cids/JSON?MaxRecords=3000`);
+  const cids=(data?.IdentifierList?.CID||[]).slice().sort((a,b)=>a-b).slice(0,6);
+  if(!cids.length) return [];
+  const props=await bJson(`${B_PUG}/cid/${cids.join(',')}/property/Title/JSON`);
+  const title={}; (props?.PropertyTable?.Properties||[]).forEach(p=>{ title[p.CID]=p.Title; });
+  return cids.map(cid=>({cid, title:String(title[cid]||('CID '+cid)).replace(/[<>&"'`]/g,'')}));
+}
+
+// Script of the typed text -> the Wikidata language(s) whose labels are worth searching first.
+function bScriptLanguages(s){
+  const out=[];
+  if(/[\u0980-\u09FF]/.test(s)) out.push('bn');
+  if(/[\u0900-\u097F]/.test(s)) out.push('hi');
+  if(/[\u0600-\u06FF]/.test(s)) out.push('ar');
+  if(/[\u3040-\u30FF]/.test(s)) out.push('ja');
+  if(/[\uAC00-\uD7AF]/.test(s)) out.push('ko');
+  if(/[\u4E00-\u9FFF]/.test(s)) out.push('zh','ja');
+  if(/[\u0370-\u03FF]/.test(s)) out.push('el');
+  if(/[\u0400-\u04FF]/.test(s)) out.push('ru');
+  return out;
+}
+
+// Any-language name -> {Z} (an element), {cid, en} (a compound PubChem knows) or {en} (English name only).
+async function bWikidataResolve(raw){
+  const WD='https://www.wikidata.org/w/api.php?format=json&origin=*';
+  let active='en'; try{ active=(QA_I18N.getLang()||'en').split('-')[0]; }catch(e){}
+  const langs=[...new Set([...bScriptLanguages(raw), active, 'en'])].slice(0,3);
+  const claim=(ent,p)=>{ const c=ent?.claims?.[p]?.[0]?.mainsnak?.datavalue?.value; return c===undefined?null:(typeof c==='object'?(c.amount!==undefined?c.amount:null):c); };
+  // first search hit (in the search engine's own ranking) that is chemistry: an element or a compound PubChem knows
+  const pick=async ids=>{
+    if(!ids.length) return null;
+    const e=await bJson(`${WD}&action=wbgetentities&props=claims|labels&languages=en&ids=${ids.slice(0,8).join('|')}`);
+    const ents=e?.entities||{};
+    for(const id of ids){
+      const ent=ents[id]; if(!ent) continue;
+      const en=ent.labels?.en?.value||null;
+      const zRaw=claim(ent,'P1086');              // atomic number -> a chemical element
+      const z=zRaw!==null ? Math.round(parseFloat(String(zRaw).replace('+',''))) : null, Z=(z>=1 && z<=118) ? z : null;
+      const cid=claim(ent,'P662');                // PubChem CID
+      if(Z) return {Z, en};
+      if(cid && /^\d+$/.test(String(cid))) return {cid:+cid, en};
+    }
+    return null;
+  };
+  const seen=new Set();
+  for(const lang of langs){
+    const d=await bJson(`${WD}&action=wbsearchentities&type=item&limit=7&language=${lang}&uselang=${lang}&search=${encodeURIComponent(raw)}`);
+    const ids=(d?.search||[]).map(h=>h.id).filter(id=>id && !seen.has(id));
+    ids.forEach(id=>seen.add(id));
+    const hit=await pick(ids);
+    if(hit) return hit;
+  }
+  // labels are also indexed for full-text search across every language
+  const d=await bJson(`${WD}&action=query&list=search&srlimit=7&srsearch=${encodeURIComponent(raw)}`);
+  return await pick((d?.query?.search||[]).map(h=>h.title).filter(t=>/^Q\d+$/.test(t) && !seen.has(t)));
+}
+
+// Name shown for something the user typed: their own words, tidied.
+function bDisplayName(raw){
+  const t=String(raw||'').replace(/[<>&"'`]/g,'').trim().replace(/\s+/g,' ');
+  return /^[\x00-\x7F]+$/.test(t) ? bTitleCase(t.toLowerCase()) : t;
+}
+const bAsciiSlug=s=>{ const n=bSlug(s); return /^[a-z0-9\-,]+$/.test(n) ? n : null; };
+
+// Fetch one PubChem compound and register it under the given display name.
+async function bBuildFromCid(cid, displayName, slug){
+  const built=await bFetchPubChemCid(cid);
+  if(!built) return null;
+  if(built.atoms.length>500) return {status:'notfound', reason:'toolarge'};
+  const key='build:'+(slug||('cid-'+cid));
+  displayName=String(displayName||('CID '+cid)).replace(/[<>&"'`]/g,'');
+  const netQ=built.atoms.reduce((q,a)=>q+(a.formalCharge||a.perceptionCharge||0),0);
+  const mol={ key, formula:bFormulaString(bCountFormula(built.atoms))+bSupCharge(netQ), name:displayName, geometry:built.geometry, atoms:built.atoms, bonds:built.bonds,
+              realXyz:built.realXyz, srcIndex:built.srcIndex, flat:built.flat, parts:built.parts, covalentBonds:true, builtBy:'tier3', cid };
+  bRegisterMolecule(mol);
+  return {status:'rendered', key, mol};
+}
+
+// Everything that needs the network. Returns a rendered molecule, an element, a list of choices, a suggestion, or null.
+async function bResolveOnline(raw, norm, pf){
+  const titleOf=async cid=>{ const t=await bJson(`${B_PUG}/cid/${cid}/property/Title/JSON`); return t?.PropertyTable?.Properties?.[0]?.Title || ('CID '+cid); };
+  // 1. explicit identifiers: "cid 2244", or an InChIKey
+  let m=raw.match(/^cid[\s:#]*(\d{1,10})$/i);
+  if(m) return await bBuildFromCid(+m[1], await titleOf(+m[1]));
+  if(/^[A-Z]{14}-[A-Z]{10}-[A-Z]$/.test(raw)){
+    const d=await bJson(`${B_PUG}/inchikey/${raw}/cids/JSON`), cid=d?.IdentifierList?.CID?.[0];
+    if(cid) return await bBuildFromCid(cid, await titleOf(cid));
+  }
+  const byFormula=async()=>{
+    const c=await bPubChemFormulaCandidates(pf);
+    if(c.length===1) return await bBuildFromCid(c[0].cid, c[0].title);
+    if(c.length>1) return {status:'choices', choices:c.map(x=>({label:x.title, value:'cid '+x.cid}))};
+    return null;
+  };
+  // 2. a plain formula (each element written once): several molecules may share it, so offer the choice
+  if(pf && !pf.condensed && !pf.charge){ const r=await byFormula(); if(r) return r; }
+
+  // 3. the text as a name — PubChem knows English and many other Latin-script names, trade names,
+  //    CAS numbers and condensed formulas ("CH3COOH")
+  const ascii=/^[\x00-\x7F]+$/.test(raw);
+  let cid=null, viaSmiles=false, nameAnswered=false;
+  if(ascii){
+    try{ const res=await fetch(`${B_PUG}/name/${encodeURIComponent(raw)}/cids/JSON`); nameAnswered=true;
+      if(res.ok){ const d=await res.json(); cid=d?.IdentifierList?.CID?.[0]||null; } }catch(e){ if(!navigator.onLine) throw e; }
+    if(!cid && bLooksLikeSmiles(raw)){
+      const d=await bJson(`${B_PUG}/smiles/cids/JSON?smiles=${encodeURIComponent(raw)}`);
+      cid=d?.IdentifierList?.CID?.[0]||null; viaSmiles=!!cid;
+    }
+    if(cid){ const r=await bBuildFromCid(cid, viaSmiles?raw:bDisplayName(raw), viaSmiles?null:bAsciiSlug(norm)); if(r) return r; }
+  }
+  // 4. a condensed formula nobody lists as a name: fall back to its molecular formula
+  if(pf && pf.condensed && !pf.charge){ const r=await byFormula(); if(r) return r; }
+
+  // 5. a name in any language or script, through Wikidata's multilingual labels
+  if(!pf && !viaSmiles){
+    const w=await bWikidataResolve(raw);
+    if(w){
+      if(w.en){                                   // the English name may be something the app builds itself
+        const en=bNormalize(w.en);
+        if(en){
+          const el=bTier0Lookup(en); if(el) return {status:'element', Z:el.Z, name:el.name};
+          const hit=bTier1Lookup(en); if(hit) return {status:'rendered', key:hit.key, mol:hit};
+          const t2=bResolveTier2(en); if(t2) return t2;
+        }
+      }
+      if(w.Z){ const el=ELS.find(e=>e.Z===w.Z); if(el) return {status:'element', Z:el.Z, name:el.name}; }
+      if(w.cid){ const r=await bBuildFromCid(w.cid, bDisplayName(raw), bAsciiSlug(norm)); if(r) return r; }
+    }
+  }
+  // 6. nothing matched: maybe a typo
+  if(ascii && !pf){ const sugg=await bPubChemSpellingSuggestion(raw); if(sugg) return {status:'suggestion', suggestion:sugg}; }
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -48514,32 +49130,52 @@ async function bResolveTier3(rawName, norm){
 async function resolveMolecule(rawInput){
   const trimmed=String(rawInput||'').trim();
   if(!trimmed) return {status:'notfound', reason:'empty'};
-  if(trimmed.length>60) return {status:'notfound', reason:'toolong'};
+  if(trimmed.length>(bLooksLikeSmiles(trimmed)?240:80)) return {status:'notfound', reason:'toolong'};
   const norm=bNormalize(trimmed);
+  const pf=bParseFormulaInput(trimmed);
+  // A formula typed with its capitals means the compound, never a look-alike element symbol:
+  // "CO" is carbon monoxide and "Co" cobalt; "NO" nitric oxide and "No" nobelium.
+  const formulaTyped=!!(pf && !pf.lower && pf.n>=2);
 
-  const el=bTier0Lookup(norm);
-  if(el) return {status:'element', Z:el.Z, name:el.name};
+  if(norm){
+    if(formulaTyped){
+      const byName=ELS.find(e=>bNormalize(e.name)===norm || bNormalize(QA_I18N.en('name.element.'+e.Z))===norm);
+      if(byName) return {status:'element', Z:byName.Z, name:byName.name};
+    } else if(!(pf && pf.charge)){
+      const el=bTier0Lookup(norm);
+      if(el) return {status:'element', Z:el.Z, name:el.name};
+    }
+    // an ION is never the neutral molecule with the same letters ("NO2+" is not nitrogen dioxide)
+    const hit=(pf && pf.charge) ? null : bTier1Lookup(norm);
+    if(hit) return {status:'rendered', key:hit.key, mol:hit};
+    if(!formulaTyped && !(pf && pf.charge)){ const t2=bResolveTier2(norm); if(t2) return t2; }
+  }
 
-  const hit=bTier1Lookup(norm);
-  if(hit) return {status:'rendered', key:hit.key, mol:hit};
-
-  const t2=bResolveTier2(norm);
-  if(t2) return t2;
+  // Formulas with one obvious structure are solved on the spot. Carbon skeletons with isomers
+  // (C2H6O: ethanol or dimethyl ether) are better answered online, where the user can choose —
+  // the built-in solver is then only the offline fallback.
+  const isomerProne=!!(pf && ((pf.counts[6]||0)>=3 || ((pf.counts[6]||0)>=2 && pf.order.length>=3)));
+  if(pf && !(isomerProne && navigator.onLine)){ const f=bResolveFormulaOffline(pf); if(f) return f; }
 
   // A near-miss against a LOCAL name used to short-circuit here, before
   // PubChem was ever asked — so real, valid names one or two letters from
   // a curated one ("cyclohexanol", "cyclohexanone", "propene") answered
   // "Did you mean Cyclohexane?" instead of being built. The local
   // suggestion is now only a fallback when the lookup finds nothing.
-  const suggestion=bNearestKnownName(norm);
-  if(!navigator.onLine) return suggestion ? {status:'suggestion', suggestion} : {status:'notfound', reason:'offline'};
+  const suggestion=(norm && !pf) ? bNearestKnownName(norm) : null;
+  if(!navigator.onLine){
+    if(pf){ const f=bResolveFormulaOffline(pf); if(f) return f; }
+    return suggestion ? {status:'suggestion', suggestion} : {status:'notfound', reason:'offline'};
+  }
   try{
-    const t3=await bResolveTier3(trimmed, norm);
-    if(t3 && t3.status==='rendered') return t3;
+    const t3=await bResolveOnline(trimmed, norm, pf);
+    if(t3 && (t3.status==='rendered' || t3.status==='element' || t3.status==='choices')) return t3;
+    if(pf){ const f=bResolveFormulaOffline(pf); if(f) return f; }
     if(suggestion) return {status:'suggestion', suggestion};
     if(t3) return t3;
   }catch(err){
-    console.warn('[Build] Tier 3 lookup failed:', err);
+    console.warn('[Build] online lookup failed:', err);
+    if(pf){ const f=bResolveFormulaOffline(pf); if(f) return f; }
     if(suggestion) return {status:'suggestion', suggestion};
     return {status:'notfound', reason:'network'};
   }
@@ -48551,7 +49187,15 @@ function bShowBuildStatus(text, kind, suggestionText){
   const el=document.getElementById('build-status');
   if(!el) return;
   el.className='show '+(kind||'');
-  if(suggestionText){
+  if(Array.isArray(suggestionText)){
+    // several answers to choose from (isomers of a formula): one chip each
+    el.textContent=text+' ';
+    suggestionText.forEach(c=>{ const chip=document.createElement('span'); chip.className='build-suggest-chip'; chip.textContent=c.label; chip.title=c.label;
+      chip.setAttribute('role','button'); chip.tabIndex=0;
+      const go=()=>runBuild(c.value);
+      chip.onclick=go; chip.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } };
+      el.appendChild(chip); });
+  } else if(suggestionText){
     el.innerHTML=`${text} <span id="build-suggest-chip">${suggestionText}</span>`;
     const chip=document.getElementById('build-suggest-chip');
     if(chip) chip.onclick=()=>{ document.getElementById('build-input').value=suggestionText; runBuild(); };
@@ -48560,9 +49204,51 @@ function bShowBuildStatus(text, kind, suggestionText){
   }
 }
 
-async function runBuild(){
+// Frame a freshly built molecule: start face-on (the build orients it that way) and pull the camera
+// to the distance at which the whole molecule fits, with room for the clouds and for the slow
+// auto-spin about the vertical axis. Without this a new molecule kept the previous zoom and angle,
+// so a big one overflowed the screen and a small one was a speck.
+// Built molecules rock gently from side to side instead of spinning all the way round: the view stays
+// close to the face-on orientation they were built in, while the motion still shows their depth.
+// Dragging takes over as usual; double-click resumes.
+const B_SWAY_AMP=.42, B_SWAY_RATE=.55;
+let bSwayOn=false, bSwayT=0;
+function bFrameBuiltMolecule(){
+  if(!curMoleculeAtoms||!curMoleculeAtoms.length) return;
+  let rx=0, ry=0, rz=0;
+  // an atom's cloud reaches past its nucleus by about its valence-shell radius: ~41 for carbon, over 1000 for iodine or xenon
+  curMoleculeAtoms.forEach(a=>{ let r=48; try{ r=Math.max(30,valenceR(a.Z)*1.05); }catch(e){}
+    rx=Math.max(rx,Math.abs(a.pos[0])+r); ry=Math.max(ry,Math.abs(a.pos[1])+r); rz=Math.max(rz,Math.abs(a.pos[2])+r*.5); });
+  const cloud=0;
+  const half=camera.fov*Math.PI/360, tanV=Math.tan(half), tanH=tanV*camera.aspect;
+  // The canvas runs under the top/bottom bars and (on desktop) under any open side panel, and the
+  // molecule sits at the canvas centre: fit it into the part that is actually visible on both sides.
+  const W=innerWidth, H=innerHeight, rect=id=>{ const el=document.getElementById(id); return el?el.getBoundingClientRect():null; };
+  const tb=rect('topbar'), bb=rect('botbar');
+  const vCover=Math.max(tb?tb.bottom:0, bb?H-bb.top:0);
+  let hCover=0;
+  if(W>640){ const l=rect('left'), r=rect('right');
+    if(l && l.width && l.left>-2 && l.right<W*.5) hCover=Math.max(hCover,l.right);
+    if(r && r.width && r.right<W+2 && r.left>W*.5) hCover=Math.max(hCover,W-r.left); }
+  const usableV=Math.max(.4,1-2*vCover/H-.03), usableH=Math.max(.3,1-2*hCover/W-.02);
+  const sway=Math.sin(B_SWAY_AMP);                  // the view rocks gently, so depth swings into the width
+  const dist=Math.max((ry+rz*Math.sin(.28)+cloud)/(tanV*usableV), (rx+rz*sway+cloud)/(tanH*usableH))*1.03 + rz;
+  rotX=.28; rotY=0; bSwayT=0; autoSpin=true;
+  // Heavy-atom molecules (iodine, xenon ...) are far larger than the default zoom range allows: widen the range
+  // instead of leaving the molecule cut off at the edges of the screen.
+  if(dist>maxZoomDist){ maxZoomDist=dist*1.02; camera.far=Math.max(camera.far, dist*1.5+rz*2); camera.updateProjectionMatrix(); }
+  const d=Math.max(6, Math.min(maxZoomDist, dist));
+  sl.value=Math.max(1, Math.min(600, 600*Math.log(d/maxZoomDist)/Math.log(5/maxZoomDist)));
+  applyZoom();
+}
+// The flat-diagram note in every language the app ships (registered here because it was added after the generated i18n block).
+window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.runbuild.flat_layout_note":d[k]});})({"en": "No 3D structure is available for this one, so it is shown as a flat diagram.", "ar": "لا توجد بنية ثلاثية الأبعاد متاحة لهذا الجزيء، لذلك يُعرض كمخطط مسطّح.", "bn": "এই অণুর কোনো 3D গঠন পাওয়া যায়নি, তাই এটি সমতল নকশা হিসেবে দেখানো হয়েছে।", "de": "Für dieses Molekül gibt es keine 3D-Struktur, daher wird es als flaches Diagramm gezeigt.", "el": "Δεν υπάρχει διαθέσιμη τρισδιάστατη δομή για αυτό το μόριο, γι’ αυτό εμφανίζεται ως επίπεδο διάγραμμα.", "es": "No hay estructura 3D disponible para esta molécula, así que se muestra como un diagrama plano.", "fr": "Aucune structure 3D n’est disponible pour cette molécule ; elle est donc affichée sous forme de schéma plat.", "hi": "इस अणु की कोई 3D संरचना उपलब्ध नहीं है, इसलिए इसे समतल आरेख के रूप में दिखाया गया है।", "it": "Per questa molecola non è disponibile una struttura 3D, quindi è mostrata come diagramma piatto.", "ja": "この分子には 3D 構造データがないため、平面図として表示しています。", "ko": "이 분자는 3D 구조 자료가 없어 평면 그림으로 표시됩니다.", "ru": "Для этой молекулы нет трёхмерной структуры, поэтому она показана в виде плоской схемы.", "zh": "这个分子没有可用的三维结构，因此显示为平面示意图。"});
+window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.build_examples_note.or_type_any_of_the":d[k]});try{QA_I18N.applyDom&&QA_I18N.applyDom(document.getElementById("build-view"));}catch(e){}})({"en": "Type a name in any language, a formula (H2SO4), an ion (SO4 2-), a SMILES string or a PubChem CID. Simple formulas are built on your device; everything else is looked up online.", "de": "Gib einen Namen in beliebiger Sprache, eine Formel (H2SO4), ein Ion (SO4 2-), einen SMILES-Code oder eine PubChem-CID ein. Einfache Formeln werden direkt auf deinem Gerät gebaut, alles andere wird online nachgeschlagen.", "fr": "Saisissez un nom dans n’importe quelle langue, une formule (H2SO4), un ion (SO4 2-), un code SMILES ou un CID PubChem. Les formules simples sont construites sur votre appareil ; tout le reste est recherché en ligne.", "es": "Escribe un nombre en cualquier idioma, una fórmula (H2SO4), un ion (SO4 2-), un código SMILES o un CID de PubChem. Las fórmulas sencillas se construyen en tu dispositivo; todo lo demás se busca en línea.", "it": "Scrivi un nome in qualsiasi lingua, una formula (H2SO4), uno ione (SO4 2-), una stringa SMILES o un CID di PubChem. Le formule semplici vengono costruite sul tuo dispositivo; tutto il resto viene cercato online.", "el": "Πληκτρολογήστε ένα όνομα σε οποιαδήποτε γλώσσα, έναν χημικό τύπο (H2SO4), ένα ιόν (SO4 2-), μια συμβολοσειρά SMILES ή ένα PubChem CID. Οι απλοί τύποι κατασκευάζονται στη συσκευή σας· όλα τα άλλα αναζητούνται στο διαδίκτυο.", "ru": "Введите название на любом языке, формулу (H2SO4), ион (SO4 2-), строку SMILES или PubChem CID. Простые формулы строятся прямо на устройстве, всё остальное ищется в интернете.", "ar": "اكتب اسمًا بأي لغة، أو صيغة (H2SO4)، أو أيونًا (SO4 2-‎)، أو سلسلة SMILES، أو رقم PubChem CID. تُبنى الصيغ البسيطة على جهازك، وكل ما عداها يُبحث عنه عبر الإنترنت.", "bn": "যেকোনো ভাষায় নাম, সংকেত (H2SO4), আয়ন (SO4 2-), SMILES বা PubChem CID লিখুন। সহজ সংকেতগুলো আপনার ডিভাইসেই তৈরি হয়; বাকি সব অনলাইনে খোঁজা হয়।", "hi": "किसी भी भाषा में नाम, सूत्र (H2SO4), आयन (SO4 2-), SMILES या PubChem CID लिखें। सरल सूत्र आपके डिवाइस पर ही बनते हैं; बाकी सब ऑनलाइन खोजा जाता है।", "ja": "名前（どの言語でも可）、化学式（H2SO4）、イオン（SO4 2-）、SMILES、PubChem CID を入力できます。簡単な化学式は端末内で組み立て、それ以外はオンラインで検索します。", "ko": "어떤 언어로든 이름을 입력하거나 화학식(H2SO4), 이온(SO4 2-), SMILES, PubChem CID를 입력하세요. 간단한 화학식은 기기에서 바로 만들고, 나머지는 온라인에서 찾습니다.", "zh": "可输入任意语言的名称、化学式（H2SO4）、离子（SO4 2-）、SMILES 或 PubChem CID。简单的化学式直接在设备上构建，其余的会联网查询。"});
+window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.runbuild.pick_formula":d[k]});})({"en": "🧪 Several molecules share this formula. Pick one:", "de": "🧪 Mehrere Moleküle haben diese Formel. Wähle eines:", "fr": "🧪 Plusieurs molécules ont cette formule. Choisissez-en une :", "es": "🧪 Varias moléculas comparten esta fórmula. Elige una:", "it": "🧪 Più molecole hanno questa formula. Scegline una:", "el": "🧪 Πολλά μόρια έχουν αυτόν τον τύπο. Διαλέξτε ένα:", "ru": "🧪 У нескольких молекул такая формула. Выберите одну:", "ar": "🧪 عدة جزيئات لها هذه الصيغة. اختر واحدًا:", "bn": "🧪 একাধিক অণুর এই সংকেত আছে। একটি বেছে নিন:", "hi": "🧪 कई अणुओं का यही सूत्र है। एक चुनें:", "ja": "🧪 この化学式をもつ分子は複数あります。1つ選んでください：", "ko": "🧪 이 화학식을 가진 분자가 여러 개 있습니다. 하나를 고르세요:", "zh": "🧪 有多种分子具有这个化学式，请选择一种："});
+const bT=(key,fallback,vars)=>{ let v; try{ v=qaT(key,vars); }catch(e){} return (v && v!==key) ? v : fallback; };
+async function runBuild(query){
   const input=document.getElementById('build-input');
-  const raw=input ? input.value : '';
+  const raw=(typeof query==='string' && query) ? query : (input ? input.value : '');
   if(!raw || !raw.trim()){ bShowBuildStatus(qaT("sim.runbuild.type_a_name_to_get"), 'warn'); return; }
   bShowBuildStatus(qaT("sim.runbuild.looking_it_up"), 'info');
   const outcome=await resolveMolecule(raw);
@@ -48573,12 +49259,15 @@ async function runBuild(){
     updateBuildURL(raw);
   } else if(outcome.status==='rendered'){
     selectMolecule(outcome.key);
+    if(outcome.mol.builtBy) bFrameBuiltMolecule();
     // Still render regardless of size — MAX_CLOUD_POINTS already bounds
     // each atom's own point-cloud, so this is a heads-up about pace, not
     // a capability question.
     const big = outcome.mol.atoms.length>150;
-    bShowBuildStatus(qaT("sim.runbuild.built_name_formula_p1",{name:outcome.mol.name,formula:outcome.mol.formula,p1:big?" "+qaT("sim.runbuild.large_molecule_may_render_a"):''}), 'ok');
+    bShowBuildStatus((outcome.mol.name===outcome.mol.formula ? qaT("sim.runbuild.built_name",{name:outcome.mol.name}) : qaT("sim.runbuild.built_name_formula_p1",{name:outcome.mol.name,formula:outcome.mol.formula,p1:big?" "+qaT("sim.runbuild.large_molecule_may_render_a"):''}))+(outcome.mol.flat&&outcome.mol.atoms.length>3?" "+bT("sim.runbuild.flat_layout_note","No 3D structure is available for this one, so it is shown as a flat diagram."):''), 'ok');
     updateBuildURL(raw);
+  } else if(outcome.status==='choices'){
+    bShowBuildStatus(bT("sim.runbuild.pick_formula","🧪 Several molecules share this formula. Pick one:"), 'info', outcome.choices);
   } else if(outcome.status==='suggestion'){
     bShowBuildStatus(qaT("sim.runbuild.did_you_mean"), 'warn', outcome.suggestion);
   } else {
@@ -48590,7 +49279,7 @@ async function runBuild(){
 document.getElementById('build-input')?.addEventListener('keydown', e=>{ if(e.key==='Enter') runBuild(); });
 
 // ── Quick-example chips for Build mode ──────────────────────────────────
-const BUILD_EXAMPLES=['ethane','but-2-ene','1-butyne','ethanol','propanoic acid','butan-2-one','1,2-dichloroethane','toluene','chlorobenzene','phenol','aniline','diethyl ether','cyclododecane','dodecane'];
+const BUILD_EXAMPLES=['caffeine','aspirin','glucose','cholesterol','penicillin g','H2SO4','SO4 2-','NH4+','XeOF4','H2O2','C2H6O','ethane','but-2-ene','1-butyne','ethanol','propanoic acid','butan-2-one','1,2-dichloroethane','toluene','chlorobenzene','phenol','aniline','diethyl ether','cyclododecane','dodecane'];
 (function renderBuildExamples(){
   const grid=document.getElementById('build-examples');
   if(!grid) return;
@@ -48672,6 +49361,26 @@ window.runBuildSelfTest=function(){
   return results;
 };
 
+
+// Formula solver self-test: run window.runFormulaSelfTest() in the console.
+// Each row is [formula, bonded neighbours of the central atom, lone pairs on it] — the two numbers VSEPR needs.
+const FORMULA_GOLDEN_TESTS=[
+  ['H2SO4',4,0],['SO4 2-',4,0],['NH4+',4,0],['NO3-',3,0],['CO3 2-',3,0],['PO4 3-',4,0],['H3O+',3,1],['ClO3-',3,1],['XeOF4',5,1],
+  ['SF4',4,1],['ClF3',3,2],['XeF2',2,3],['I3-',2,3],['ICl4-',4,2],['PF6-',6,0],['O3',2,1],['N2O',2,0],['HNO3',3,0],['CH2O2',3,0],
+  ['H2O2',2,2],['N2H4',3,1],['C2H6',4,0],['C2H4',3,0],['C2H2',2,0],['N2O4',3,0],['MnO4-',4,0]
+];
+window.runFormulaSelfTest=function(){
+  const results=FORMULA_GOLDEN_TESTS.map(([f,sigma,pairs])=>{
+    const pf=bParseFormulaInput(f); let s=null; try{ s=pf && bFormulaSolve(pf); }catch(e){}
+    const net=s ? s.atoms.reduce((q,a)=>q+(a.formalCharge||0),0) : null;
+    const pass=!!s && s.sigma===sigma && s.pairs===pairs && net===pf.charge && s.atoms.length===pf.n;
+    return {formula:f, pass, detail:s?`σ${s.sigma} lp${s.pairs} q${net}`:'unsolved'};
+  });
+  console.table(results);
+  const failed=results.filter(r=>!r.pass);
+  console.log(failed.length===0 ? '✅ All formula tests passed' : `❌ ${failed.length} formula test(s) failed`);
+  return results;
+};
 
 function setLeftMode(mode){
   const isEl=mode==='elements', isMol=mode==='molecules', isBuild=mode==='build', isHypo=mode==='hypo';
@@ -49071,7 +49780,7 @@ function loop(){
   // feel constant no matter the current or momentary frame rate.
   camZ+=(tZ-camZ)*(1-Math.exp(-dt*ZOOM_EASE_RATE));
   camera.position.z=camZ;
-  if(autoSpin)rotY+=dt*.2;
+  if(autoSpin){ if(moleculeMode&&bSwayOn){ bSwayT+=dt; rotY=B_SWAY_AMP*Math.sin(bSwayT*B_SWAY_RATE); } else rotY+=dt*.2; }
   rotX=wrapAngle(rotX);rotY=wrapAngle(rotY);
   pivot.rotation.y=rotY;pivot.rotation.x=rotX;
   // Free focus: pivot itself only ever rotates about its own local origin;
@@ -49773,6 +50482,7 @@ const ionicPos=m=>{
   return P};
 const geo3=m=>{
   const A=m.atoms,n=A.length,bs=m.bonds||[];
+  if(m.realXyz)return m.realXyz.map(p=>p.slice());   // fetched molecule: its real coordinates (Å) — rings close exactly
   if(!A.every(a=>Array.isArray(a.dir)))return ionicPos(m);
   const P=new Array(n);P[0]=[0,0,0];
   for(let i=1;i<n;i++){
