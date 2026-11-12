@@ -29390,8 +29390,8 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 .qai-meta{display:flex;align-items:center;gap:12px;padding:0 6px;min-height:22px;font-family:var(--q-mono);font-size:.68rem;color:var(--q-ink3)}
 .qai-time{font-variant-numeric:tabular-nums}
 .qai-day{align-self:center;max-width:100%;padding:3px 12px;border-radius:999px;background:var(--q-raise);border:1px solid var(--q-line);font-family:var(--q-mono);font-size:.7rem;color:var(--q-ink3);text-align:center}
-.qai-hero{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--q-grad);color:#fff;box-shadow:0 2px 8px rgba(var(--q-acc-rgb,255,85,0),.28)}
-.qai-hero .qai-ico{width:14px;height:14px}
+.qai-hero{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--q-grad);color:#fff;box-shadow:0 2px 8px rgba(var(--q-acc-rgb,255,85,0),.28)}
+.qai-hero .qai-ico{width:26px;height:26px}
 .qai-who{display:flex;align-items:center;gap:8px;margin-bottom:2px;font-family:var(--q-mono);font-size:.74rem;color:var(--q-ink3)}
 .qai-mark{--pc:#888;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex:none;font-family:var(--q-mono);font-size:.66rem;font-weight:600;letter-spacing:-.02em;
   color:var(--q-ink);border:1px solid color-mix(in srgb,var(--pc) 60%,transparent);background:color-mix(in srgb,var(--pc) 20%,transparent)}
@@ -29429,7 +29429,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 @keyframes qaiDot{0%,60%,100%{transform:translateY(0) scale(.82);opacity:.5}30%{transform:translateY(-5px) scale(1.05);opacity:1}}
 .qai-typing-l{font-family:var(--q-mono);font-size:.74rem;color:var(--q-ink3);opacity:0;animation:qaiFade .5s ease 3.5s forwards}
 @keyframes qaiFade{to{opacity:1}}
-.qai-msg.bot.is-thinking .qai-hero .qai-spin,.qai-msg.bot.is-streaming .qai-hero .qai-spin{animation:qaiSpin 4s linear infinite}
+.qai-msg.bot.is-thinking .qai-hero .qai-spin,.qai-msg.bot.is-streaming .qai-hero .qai-spin{animation:none}
 .qai-msg.bot.is-thinking .qai-hero,.qai-msg.bot.is-streaming .qai-hero{animation:qaiPulse 1.8s ease-out infinite}
 @keyframes qaiPulse{0%{box-shadow:0 0 0 0 rgba(var(--q-acc-rgb),.5)}70%,100%{box-shadow:0 0 0 9px rgba(var(--q-acc-rgb),0)}}
 .qai-head{position:relative}
@@ -29440,9 +29440,9 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 .qai-panel.is-busy .qai-send{animation:qaiPulse 1.8s ease-out infinite}
 .qai-log{scrollbar-width:thin;scrollbar-color:rgba(var(--q-acc-rgb),.35) transparent}
 .qai-log::-webkit-scrollbar{width:8px}.qai-log::-webkit-scrollbar-thumb{background:rgba(var(--q-acc-rgb),.3);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
-.qai-orb{width:46px;height:46px;margin-bottom:14px;box-shadow:0 6px 24px rgba(var(--q-acc-rgb),.38)}
-.qai-orb .qai-ico{width:23px;height:23px}
-.qai-orb .qai-spin{animation:qaiSpin 14s linear infinite}
+.qai-orb{width:60px;height:60px;margin-bottom:14px;box-shadow:0 6px 24px rgba(var(--q-acc-rgb),.38)}
+.qai-orb .qai-ico{width:40px;height:40px}
+.qai-orb .qai-spin{animation:none}
 @media (prefers-reduced-motion:reduce){
   .qai-msg{animation:none}
   .qai-dots i{animation:qaiDotCalm 1.6s ease-in-out infinite;transform:none}
@@ -29674,13 +29674,13 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 
 /* ── AI launcher: brand mark, size, placement, drag to move ── */
 .qai-ico{display:block;overflow:visible;flex:none}
-.qai-spin{transform-box:view-box;transform-origin:12px 12px}
+.qai-spin{transform-box:view-box;transform-origin:512px 506px}@keyframes qaiTilt{0%{transform:rotate(-12deg)}100%{transform:rotate(12deg)}}
 .qai-spark{transform-box:view-box;transform-origin:12px 12px}
 @keyframes qaiSpin{to{transform:rotate(360deg)}}
 @keyframes qaiTwinkle{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
-.qai-launch:hover .qai-spin,.qai-launch.is-busy .qai-spin{animation:qaiSpin 7s linear infinite}
+.qai-launch:hover .qai-spin,.qai-launch.is-busy .qai-spin{animation:none}
 .qai-launch .qai-ico{filter:drop-shadow(0 0 3px rgba(var(--q-acc-rgb,255,85,0),.0))}
-.qai-fab .qai-ico{width:24px;height:24px}
+.qai-fab .qai-ico{width:36px;height:36px}
 .qai-root[data-theme="dark"] .qai-fab{box-shadow:0 4px 14px rgba(0,0,0,.35)}
 .qai-root[data-theme="light"] .qai-fab{box-shadow:0 4px 14px rgba(76,60,160,.28)}
 .qai-fab{width:48px;height:48px}
@@ -29692,7 +29692,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 .qai-root.qai-in-bar .qai-fab.qai-fab-sim{position:static;right:auto;bottom:auto;width:42px;height:42px;border-radius:50%;flex:none}
 .qai-bar-sep{width:1px;height:16px;flex:none;background:var(--border,rgba(128,128,128,.35))}
 .qai-root .qai-fab.qai-fab-sim{width:48px;height:48px;border-radius:50%;right:14px;bottom:calc(var(--botbar-h,64px) + 14px + env(safe-area-inset-bottom,0px))}
-.qai-root.qai-in-bar .qai-fab.qai-fab-sim .qai-ico{width:22px;height:22px}
+.qai-root.qai-in-bar .qai-fab.qai-fab-sim .qai-ico{width:30px;height:30px}
 
 /* Movable launcher: press and drag it anywhere; drop it back home (the bar, or the dashed ring) to reset */
 .qai-fab{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:grab}
@@ -29775,7 +29775,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
    Same colour tokens as before (--cyan-rgb / --brand-grad / --hi), so dark, light
    and antimatter keep their palette. Only surfaces, hierarchy, spacing and states change.
    ═══════════════════════════════════════════════════════════════════════════ */
-.qai-root{--q-r:20px;--q-ease:cubic-bezier(.2,.8,.2,1);--q-spark:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z'/%3E%3C/svg%3E")}
+.qai-root{--q-r:20px;--q-ease:cubic-bezier(.2,.8,.2,1);--q-spark:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='152 146.5 720 720'%3E%3Cg fill='%23fff' fill-rule='evenodd'%3E%3Cpath d='M509.2 600.8 C437.2 601 360.2 594.8 289.7 580.5 C257 573.9 222.9 566.6 193.8 549.6 C139.3 517.6 216.8 489.5 243.9 483.8 C244.3 483.7 246.2 483.1 246.4 483.2 C246.7 483.3 247.2 483.9 246.9 483.9 C229.6 490.2 179.7 510.9 209 534.2 C215.2 539.1 222.4 543 229.8 545.8 C243.5 551.1 257.1 554.8 271.4 558 C276.3 559.1 281.4 559.7 286.3 560.6 C288.1 560.9 289.9 561 291.6 561.2 C292.4 561.3 293.1 561.4 293.8 561.4 C294.1 561.3 294.7 561.2 294.5 561.2 C290.6 559.3 286.3 558.1 282.2 556.5 C269.9 551.7 257.1 546.2 246.4 538.4 C201.8 505.6 279.8 482.1 303 476.9 C304.1 476.7 305.2 476.4 306.3 476.2 C306.9 476 307.4 476 308 475.8 C308.1 475.7 308.4 475.5 308.3 475.6 C310.6 468.8 311.6 461.1 313.5 454 C316.7 441.9 321.4 430.3 326.9 419 C360.1 350 435.7 305.6 511.6 305.9 C589.2 306.2 662.8 348.7 697.4 419 C702.7 430 707.5 441.4 710.7 453.1 C711.8 457.3 712.5 461.7 713.7 465.8 C714.2 467.9 714.6 470.1 715 472.3 C715.1 473 715 474.1 715.4 474.8 C715.6 475 716 475.9 715.9 475.6 C720.1 476.9 724.4 477.6 728.6 478.7 C739.1 481.4 749.5 484.5 759.4 488.8 C825.8 517.8 775 545 735.3 558.9 C733.9 559.4 732.5 559.9 731.1 560.3 C730.9 560.4 726.7 562.4 729.4 561.2 C738.7 561.7 748.6 558.8 757.7 556.9 C773.9 553.7 835.7 538.4 822.7 512.2 C818.3 503.2 805 495 796 491.2 C792.9 489.9 787.4 488.4 785 486.4 C784.5 486 783 485.3 783.5 485.6 C789.1 485.9 794.6 488.3 800.1 490 C814.5 494.5 842.6 505 848 520.5 C851.9 531.9 843 541.2 834.2 547 C806 565.7 771.2 572.8 738.6 579.9 C707.2 586.7 675 590.9 643 594 C598.4 598.2 553.9 600.6 509.2 600.8 Z M618.9 563.5 C644.1 560.3 739.7 545.3 746.2 516.3 C749 503.5 730.3 494.7 720.3 492.6 C719.9 492.5 719.1 492.1 718.7 492.1 C718.4 492.1 717.5 492.1 717.8 492.2 C716.9 497.8 718.4 504.4 715.4 509.7 C707.8 523.6 644.9 535.8 628.9 537.7 C628 537.8 627.2 538 626.4 538.1 C626 538.1 625 537.9 625.3 537.9 C625.3 537.6 624.9 537.4 624.8 537.1 C624.7 536.4 628.5 523.5 628.9 521.3 C631 509.2 631.5 497 630.1 484.7 C623.6 426.3 570.1 383.5 512.5 383.8 C437 384.3 379.4 452.6 397.6 527.1 C398.3 529.9 400.3 534.4 400.3 537.1 C400.3 537.2 400.3 537.7 400.2 537.5 C399.9 537.6 399.7 538.1 399.4 538.1 C393.8 538.4 387.5 536.3 382 535.3 C366.5 532.7 320.2 523 310.5 511.3 C306.8 506.9 306.8 501.8 306.9 496.4 C307 495.4 307.3 494 307 493 C306.9 492.7 306.2 491.7 306.3 492.1 C297.3 493.8 287.3 498.3 281.4 505.5 C277.8 509.7 277.1 515.6 279.8 520.5 C294.2 546.1 377.5 560.3 405.2 563.8 C477.8 572.9 546.4 573 618.9 563.5 Z M429.2 692.6 C429.5 692.4 429.1 691.8 429.3 691.7 C434.8 691.4 440.5 691.7 446 691.5 C461.5 691 477.1 690.2 492.5 687.8 C529.6 682 561.2 669.6 593.9 651.6 C595.2 650.9 596.6 650.2 597.8 649.3 C598.9 648.6 600.2 647.4 599.9 647.7 C593.5 647.6 586.9 649.2 580.6 650.3 C568.3 652.5 555.7 654 543.2 655.4 C510.9 659.1 478.5 660.2 446 659.4 C444.6 659.4 443.2 659.4 441.8 659.3 C441.1 659.3 440.8 659.3 440.1 658.8 C440.1 658.7 439.9 658.4 440 658.5 C455.1 655.3 470.6 652.9 485.4 648.5 C490.5 647 495.7 645.8 500.8 644.3 C502.5 643.8 504.3 643.4 506 642.7 C506.7 642.4 507.5 642.1 508.3 641.9 C508.7 641.8 509.5 640.8 509.2 641 C502.8 640.2 496.4 640.4 490 640.1 C477.8 639.5 465.6 639 453.4 637.9 C416.2 634.5 379.2 629.3 342.9 620.7 C328.9 617.4 314.8 614.5 301.1 610.3 C299.5 609.8 297.9 609.3 296.3 608.9 C295.4 608.7 294.7 608.3 293.8 608 C293.6 607.9 292.7 607.7 293 607.8 C293.6 607.7 294.1 607.3 294.7 607.3 C297.4 607.2 300.3 607.9 303 608.2 C308.5 608.9 314.1 609.5 319.6 610.1 C333.4 611.7 347.3 613.1 361.2 614.5 C403.5 618.6 445.9 621.2 488.4 622.2 C531.6 623.3 574.9 621.4 618.1 618 C633 616.8 648.1 615.3 663 613.3 C668.2 612.6 673.5 611.8 678.7 611.3 C680.7 611.1 682.6 610.8 684.6 610.6 C685.2 610.6 686.4 610.3 687.1 610.6 C687.3 610.7 687.8 611.1 687.6 611.1 C682.6 619.2 675.7 626.4 669.4 633.5 C639.4 667.2 599.3 690 555.7 700.7 C543.4 703.8 531 706.3 518.3 706.9 C492 708.2 464.4 703.6 439.3 695.7 C437.1 695 434.9 694.3 432.7 693.6 C431.8 693.4 431 693.1 430.2 692.9 C429.9 692.8 428.9 692.5 429.2 692.6 Z'/%3E%3C/g%3E%3C/svg%3E")}
 .qai-root[data-theme="dark"]{
   --q-surface:#0d0907;--q-raise:rgba(255,255,255,.04);--q-raise2:rgba(255,255,255,.07);
   --q-line:rgba(255,255,255,.09);--q-line2:rgba(255,255,255,.15);
@@ -29801,8 +29801,8 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 /* ── Header ── */
 .qai-head{padding:14px 12px 14px 16px;gap:6px;background:linear-gradient(180deg,rgba(var(--q-acc-rgb),.08),transparent)}
 .qai-title{display:flex;align-items:center;gap:11px;font-size:1.12rem;letter-spacing:.07em}
-.qai-title::before{content:"";width:30px;height:30px;flex:none;border-radius:50%;
-  background:var(--q-spark) center/16px no-repeat,var(--q-grad);box-shadow:0 4px 14px rgba(var(--q-acc-rgb),.38),inset 0 1px 0 rgba(255,255,255,.28)}
+.qai-title::before{content:"";width:38px;height:38px;flex:none;border-radius:50%;
+  background:var(--q-spark) center/30px no-repeat,var(--q-grad);box-shadow:0 4px 14px rgba(var(--q-acc-rgb),.38),inset 0 1px 0 rgba(255,255,255,.28)}
 .qai-root .qai-iconbtn{width:34px;height:34px;border:0;color:#fff;background:linear-gradient(var(--q-ontint),var(--q-ontint)),var(--q-grad);
   box-shadow:0 3px 10px -2px rgba(var(--q-acc-rgb),.5),inset 0 1px 0 rgba(255,255,255,.25);transition:filter .15s,transform .15s,box-shadow .15s}
 .qai-root .qai-iconbtn:hover{filter:brightness(1.1);color:#fff;background:linear-gradient(var(--q-ontint),var(--q-ontint)),var(--q-grad)}
@@ -29835,7 +29835,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 
 /* ── Empty state ── */
 .qai-empty{padding:8px 6px}
-.qai-orb{width:52px;height:52px;margin-bottom:16px;box-shadow:0 0 0 7px rgba(var(--q-acc-rgb),.10),0 10px 30px rgba(var(--q-acc-rgb),.40)}
+.qai-orb{width:68px;height:68px;margin-bottom:16px;box-shadow:0 0 0 7px rgba(var(--q-acc-rgb),.10),0 10px 30px rgba(var(--q-acc-rgb),.40)}
 .qai-empty h3{font-size:1.5rem;letter-spacing:.01em;margin-bottom:8px}
 .qai-empty p{margin-bottom:20px;line-height:1.5}
 .qai-sugg{gap:8px}
@@ -29903,7 +29903,7 @@ html[data-glass="off"] .qai-root .qai-head{background:#fff;border-bottom-color:v
 html[data-glass="off"] .qai-root .qai-head::after{background:var(--q-acc);background-size:auto;animation:none !important}
 html[data-glass="off"] .qai-root :is(.qai-hero,.qai-orb,.qai-fab,.qai-send:not(:disabled),.qai-btn:not(.ghost),.qai-iconbtn,.qai-msg.user .qai-bubble,.qai-choice.is-picked,.qai-dots i){
   background:var(--q-acc);background-image:none;box-shadow:none;border:0;text-shadow:none}
-html[data-glass="off"] .qai-root .qai-title::before{background:var(--q-spark) center/16px no-repeat,var(--q-acc);box-shadow:none}
+html[data-glass="off"] .qai-root .qai-title::before{background:var(--q-spark) center/30px no-repeat,var(--q-acc);box-shadow:none}
 html[data-glass="off"] .qai-root :is(.qai-iconbtn:hover,.qai-btn:hover:not(:disabled),.qai-fab:hover){background:var(--q-acc);filter:brightness(1.12);box-shadow:none}
 html[data-glass="off"] .qai-root .qai-iconbtn.qai-iconbtn.qai-iconbtn[aria-pressed="true"]{background:#fff;color:var(--q-acc);box-shadow:none;border:2px solid var(--q-acc)}
 html[data-glass="off"] .qai-root .qai-send:disabled{background:#fff;border:1px solid var(--q-line2);box-shadow:none}
@@ -34034,12 +34034,12 @@ html body #excrow .exc-chip.on span{opacity:.85}
   /* ───────────── helpers ───────────── */
   /* Brand mark: an atom (two tilted orbits, two electrons) with an AI spark as its nucleus. One path set drawn in currentColor, so
      the same mark works on the dark and light themes, on gradient buttons and on plain tinted ones. */
-  function brandMark(size, cls) { // a single four-point spark; the round themed button behind it is the circle (orange in dark, blue in light)
-    return '<svg class="qai-ico' + (cls ? ' ' + cls : '') + '" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">' +
-      '<g class="qai-spin"><path fill="currentColor" d="M12 4.5C12.51 9.1 14.9 11.49 19.5 12C14.9 12.51 12.51 14.9 12 19.5C11.49 14.9 9.1 12.51 4.5 12C9.1 11.49 11.49 9.1 12 4.5Z"/></g></svg>';
+  function brandMark(size, cls) { // the Quantum Atom AI mark: a ringed planet with sweeping orbit trails (drawn in currentColor, themed by the round button behind it)
+    return '<svg class="qai-ico' + (cls ? ' ' + cls : '') + '" width="' + size + '" height="' + size + '" viewBox="152 146.5 720 720" aria-hidden="true" focusable="false">' +
+      '<g class="qai-spin" fill="currentColor" fill-rule="evenodd"><path d="M509.2 600.8 C437.2 601 360.2 594.8 289.7 580.5 C257 573.9 222.9 566.6 193.8 549.6 C139.3 517.6 216.8 489.5 243.9 483.8 C244.3 483.7 246.2 483.1 246.4 483.2 C246.7 483.3 247.2 483.9 246.9 483.9 C229.6 490.2 179.7 510.9 209 534.2 C215.2 539.1 222.4 543 229.8 545.8 C243.5 551.1 257.1 554.8 271.4 558 C276.3 559.1 281.4 559.7 286.3 560.6 C288.1 560.9 289.9 561 291.6 561.2 C292.4 561.3 293.1 561.4 293.8 561.4 C294.1 561.3 294.7 561.2 294.5 561.2 C290.6 559.3 286.3 558.1 282.2 556.5 C269.9 551.7 257.1 546.2 246.4 538.4 C201.8 505.6 279.8 482.1 303 476.9 C304.1 476.7 305.2 476.4 306.3 476.2 C306.9 476 307.4 476 308 475.8 C308.1 475.7 308.4 475.5 308.3 475.6 C310.6 468.8 311.6 461.1 313.5 454 C316.7 441.9 321.4 430.3 326.9 419 C360.1 350 435.7 305.6 511.6 305.9 C589.2 306.2 662.8 348.7 697.4 419 C702.7 430 707.5 441.4 710.7 453.1 C711.8 457.3 712.5 461.7 713.7 465.8 C714.2 467.9 714.6 470.1 715 472.3 C715.1 473 715 474.1 715.4 474.8 C715.6 475 716 475.9 715.9 475.6 C720.1 476.9 724.4 477.6 728.6 478.7 C739.1 481.4 749.5 484.5 759.4 488.8 C825.8 517.8 775 545 735.3 558.9 C733.9 559.4 732.5 559.9 731.1 560.3 C730.9 560.4 726.7 562.4 729.4 561.2 C738.7 561.7 748.6 558.8 757.7 556.9 C773.9 553.7 835.7 538.4 822.7 512.2 C818.3 503.2 805 495 796 491.2 C792.9 489.9 787.4 488.4 785 486.4 C784.5 486 783 485.3 783.5 485.6 C789.1 485.9 794.6 488.3 800.1 490 C814.5 494.5 842.6 505 848 520.5 C851.9 531.9 843 541.2 834.2 547 C806 565.7 771.2 572.8 738.6 579.9 C707.2 586.7 675 590.9 643 594 C598.4 598.2 553.9 600.6 509.2 600.8 Z M618.9 563.5 C644.1 560.3 739.7 545.3 746.2 516.3 C749 503.5 730.3 494.7 720.3 492.6 C719.9 492.5 719.1 492.1 718.7 492.1 C718.4 492.1 717.5 492.1 717.8 492.2 C716.9 497.8 718.4 504.4 715.4 509.7 C707.8 523.6 644.9 535.8 628.9 537.7 C628 537.8 627.2 538 626.4 538.1 C626 538.1 625 537.9 625.3 537.9 C625.3 537.6 624.9 537.4 624.8 537.1 C624.7 536.4 628.5 523.5 628.9 521.3 C631 509.2 631.5 497 630.1 484.7 C623.6 426.3 570.1 383.5 512.5 383.8 C437 384.3 379.4 452.6 397.6 527.1 C398.3 529.9 400.3 534.4 400.3 537.1 C400.3 537.2 400.3 537.7 400.2 537.5 C399.9 537.6 399.7 538.1 399.4 538.1 C393.8 538.4 387.5 536.3 382 535.3 C366.5 532.7 320.2 523 310.5 511.3 C306.8 506.9 306.8 501.8 306.9 496.4 C307 495.4 307.3 494 307 493 C306.9 492.7 306.2 491.7 306.3 492.1 C297.3 493.8 287.3 498.3 281.4 505.5 C277.8 509.7 277.1 515.6 279.8 520.5 C294.2 546.1 377.5 560.3 405.2 563.8 C477.8 572.9 546.4 573 618.9 563.5 Z M429.2 692.6 C429.5 692.4 429.1 691.8 429.3 691.7 C434.8 691.4 440.5 691.7 446 691.5 C461.5 691 477.1 690.2 492.5 687.8 C529.6 682 561.2 669.6 593.9 651.6 C595.2 650.9 596.6 650.2 597.8 649.3 C598.9 648.6 600.2 647.4 599.9 647.7 C593.5 647.6 586.9 649.2 580.6 650.3 C568.3 652.5 555.7 654 543.2 655.4 C510.9 659.1 478.5 660.2 446 659.4 C444.6 659.4 443.2 659.4 441.8 659.3 C441.1 659.3 440.8 659.3 440.1 658.8 C440.1 658.7 439.9 658.4 440 658.5 C455.1 655.3 470.6 652.9 485.4 648.5 C490.5 647 495.7 645.8 500.8 644.3 C502.5 643.8 504.3 643.4 506 642.7 C506.7 642.4 507.5 642.1 508.3 641.9 C508.7 641.8 509.5 640.8 509.2 641 C502.8 640.2 496.4 640.4 490 640.1 C477.8 639.5 465.6 639 453.4 637.9 C416.2 634.5 379.2 629.3 342.9 620.7 C328.9 617.4 314.8 614.5 301.1 610.3 C299.5 609.8 297.9 609.3 296.3 608.9 C295.4 608.7 294.7 608.3 293.8 608 C293.6 607.9 292.7 607.7 293 607.8 C293.6 607.7 294.1 607.3 294.7 607.3 C297.4 607.2 300.3 607.9 303 608.2 C308.5 608.9 314.1 609.5 319.6 610.1 C333.4 611.7 347.3 613.1 361.2 614.5 C403.5 618.6 445.9 621.2 488.4 622.2 C531.6 623.3 574.9 621.4 618.1 618 C633 616.8 648.1 615.3 663 613.3 C668.2 612.6 673.5 611.8 678.7 611.3 C680.7 611.1 682.6 610.8 684.6 610.6 C685.2 610.6 686.4 610.3 687.1 610.6 C687.3 610.7 687.8 611.1 687.6 611.1 C682.6 619.2 675.7 626.4 669.4 633.5 C639.4 667.2 599.3 690 555.7 700.7 C543.4 703.8 531 706.3 518.3 706.9 C492 708.2 464.4 703.6 439.3 695.7 C437.1 695 434.9 694.3 432.7 693.6 C431.8 693.4 431 693.1 430.2 692.9 C429.9 692.8 428.9 692.5 429.2 692.6 Z"/></g></svg>';
   }
   var ICON = {
-    launch: brandMark(20),
+    launch: brandMark(27),
     close: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="m2.5 2.5 9 9m0-9-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     clock: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8M2.5 2.2v2.6h2.6M8 5v3.2l2.1 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     plus: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
@@ -36858,7 +36858,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
   function renderEmpty() {
     el.log.textContent = ''; ui.lastDay = '';
     var s = snap(), pg = page(), sugg = pg && pg.suggestions ? pg.suggestions(s) : [];
-    var box = h('div', { class: 'qai-empty' }, h('span', { class: 'qai-hero qai-orb', 'aria-hidden': 'true', html: brandMark(23) }), h('h3', { text: t('emptyTitle') }), h('p', { text: t('emptyBody') }));
+    var box = h('div', { class: 'qai-empty' }, h('span', { class: 'qai-hero qai-orb', 'aria-hidden': 'true', html: brandMark(30) }), h('h3', { text: t('emptyTitle') }), h('p', { text: t('emptyBody') }));
     if (sugg.length) {
       var wrap = h('div', { class: 'qai-sugg' });
       sugg.forEach(function (q) { wrap.appendChild(h('button', { type: 'button', text: q, onclick: function () { send(q); } })); });
@@ -36895,7 +36895,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
     var p = QAI.provider(ui.sel.providerId);
     var d = new Date(); dayDivider(d);
     var webLine = h('div', { class: 'qai-web-line', hidden: true }), prose = h('div', { class: 'qai-prose' }), typing = h('div', { class: 'qai-typing', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'qai-dots', 'aria-hidden': 'true' }, h('i', {}), h('i', {}), h('i', {})), h('span', { class: 'qai-typing-l', text: t('thinking') })), bubble = h('div', { class: 'qai-bubble' }, webLine, typing, prose), meta = h('div', { class: 'qai-meta' }, timeEl(d));
-    var node = h('div', { class: 'qai-msg bot is-thinking' }, h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(14) }), mark(p), h('span', { text: p.name + ' · ' + modelName(ui.sel) })), bubble, meta);
+    var node = h('div', { class: 'qai-msg bot is-thinking' }, h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(16) }), mark(p), h('span', { text: p.name + ' · ' + modelName(ui.sel) })), bubble, meta);
     node._prose = prose; node._typing = typing; node._typingL = typing.lastChild; node._bubble = bubble; node._meta = meta; node._web = webLine; node._src = []; node._notes = []; el.log.appendChild(node); return node;
   }
   /* Errors are always shown as: a short title, what happened, and buttons for the next step. Never raw provider text. */
@@ -37175,7 +37175,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
     var p = QAI.provider(d.to.providerId); if (!p) return;
     node._via = { providerId: d.to.providerId, model: d.to.model };
     var who = node.querySelector('.qai-who');
-    if (who && !d.keyOnly) { who.textContent = ''; who.appendChild(h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(14) })); who.appendChild(mark(p)); who.appendChild(h('span', { text: p.name + ' · ' + modelName(d.to) })); }
+    if (who && !d.keyOnly) { who.textContent = ''; who.appendChild(h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(16) })); who.appendChild(mark(p)); who.appendChild(h('span', { text: p.name + ' · ' + modelName(d.to) })); }
     node._switch = { to: { providerId: d.to.providerId, model: d.to.model }, code: d.code, keyOnly: !!d.keyOnly };
     var text = switchText(node._switch);
     var old = node.querySelector('.qai-switch'); if (old) old.remove();
@@ -37304,7 +37304,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
     dayDivider(d);
     var p = m.via && QAI.provider(m.via.providerId);
     var webLine = h('div', { class: 'qai-web-line', hidden: true }), prose = h('div', { class: 'qai-prose' }), bubble = h('div', { class: 'qai-bubble' }, webLine, prose), meta = h('div', { class: 'qai-meta' }, timeEl(d));
-    var who = h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(14) }), p ? mark(p) : null, h('span', { text: (p ? p.name + ' · ' : '') + (m.via && m.via.model ? modelName(m.via) : '') }));
+    var who = h('div', { class: 'qai-who' }, h('span', { class: 'qai-hero', 'aria-hidden': 'true', html: brandMark(16) }), p ? mark(p) : null, h('span', { text: (p ? p.name + ' · ' : '') + (m.via && m.via.model ? modelName(m.via) : '') }));
     var node = h('div', { class: 'qai-msg bot' }, who, bubble, meta);
     node._prose = prose; node._typing = null; node._bubble = bubble; node._meta = meta; node._web = webLine; node._src = (m.src || []).slice(); node._searched = !!m.searched;
     node._noteKeys = (m.notes || []).slice(); node._notes = node._noteKeys.map(function (k) { return t(k); }); node._msg = m;
