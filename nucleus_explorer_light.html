@@ -29749,6 +29749,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 /* guide */
 .qai-gback{align-self:flex-start;margin:0 0 4px}
 .qai-gitem{border-bottom:1px solid rgba(var(--q-acc-rgb),.16)}
+.qai-guide .qai-btnrow{margin-top:22px;padding-bottom:12px}
 .qai-gitem summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:13px 2px;font-weight:700;font-size:.98rem;line-height:1.4}
 .qai-gitem summary::-webkit-details-marker{display:none}
 .qai-gitem summary::after{content:"+";margin-inline-start:auto;font-weight:400;font-size:1.25rem;line-height:1;opacity:.7}
@@ -31963,6 +31964,37 @@ html body #excrow .exc-chip.on span{opacity:.85}
   h.addEventListener('pointerup', function () { y0 = null; });
   h.addEventListener('pointercancel', function () { y0 = null; });
   h.addEventListener('click', function () { if (moved) { moved = false; return; } set(!bb.classList.contains('nx-collapsed')); });
+  // smart touch: dragging / pinching the scene tucks the sheet away so the view is clear;
+  // a quick tap on the empty scene toggles it. Touch and pen only (mouse users keep the handle).
+  // Auto-collapse is temporary: it is not saved, so the handle's saved preference still wins on reload.
+  var cv = document.getElementById('c'), lg = document.getElementById('legend-pop');
+  if (cv) {
+    var down = 0, multi = false, tx = 0, ty = 0, tt = 0, wasC = false, blocked = false;
+    var tuck = function (c) { if (bb.classList.contains('nx-collapsed') !== c) { bb.classList.toggle('nx-collapsed', c); label(); } };
+    cv.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse') return;
+      down++;
+      if (down > 1) { multi = true; tuck(true); return; }            // second finger = pinch: clear the view
+      multi = false; tx = e.clientX; ty = e.clientY; tt = Date.now();
+      wasC = bb.classList.contains('nx-collapsed');
+      blocked = !!(lg && lg.classList.contains('open'));              // this touch is only closing the legend
+    }, { passive: true });
+    cv.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'mouse' || down !== 1 || multi) return;
+      if (Math.hypot(e.clientX - tx, e.clientY - ty) > 8) tuck(true); // orbit-drag: collapse
+    }, { passive: true });
+    var lift = function (e) {
+      if (e.pointerType === 'mouse' || !down) return;
+      down--;
+      if (down === 0) {
+        var tap = e.type === 'pointerup' && !multi && !blocked && Date.now() - tt < 300 && Math.hypot(e.clientX - tx, e.clientY - ty) <= 8;
+        if (tap) tuck(!wasC);                                         // tap: toggle
+        multi = false;
+      }
+    };
+    cv.addEventListener('pointerup', lift, { passive: true });
+    cv.addEventListener('pointercancel', lift, { passive: true });
+  }
   window.addEventListener('qa:langchange', label);
   // phone: tap the clamped description to read it all
   document.addEventListener('click', function (e) { var x = e.target.closest && e.target.closest('#excinfo'); if (x && mq.matches) x.classList.toggle('nx-open'); });
