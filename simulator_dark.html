@@ -48512,7 +48512,7 @@ function bLiftFlatHydrogens(pos, elements, adj){
   }
 }
 
-function bConvertPubChemRecord(rec){
+function bConvertPubChemRecord(rec, opts){
   const compound=rec?.PC_Compounds?.[0];
   if(!compound) return null;
   const elements=compound.atoms?.element, aids=compound.atoms?.aid;
@@ -48547,7 +48547,7 @@ function bConvertPubChemRecord(rec){
   // A record without z (PubChem has no 3D conformer for large, very flexible or multi-part
   // compounds) is a flat structure diagram. Its coordinates are in drawing units, not Å:
   // rescale so a typical heavy-atom bond is 1.45 Å, which keeps atom spacing consistent.
-  const flat=pos.every(p=>Math.abs(p[2])<1e-6);
+  let flat=pos.every(p=>Math.abs(p[2])<1e-6), embedded=false;
   if(flat){
     const lens=[];
     bondList.forEach(b=>{ const i=aidToIdx[b.a1], j=aidToIdx[b.a2]; if(i===undefined||j===undefined) return;
@@ -48556,7 +48556,18 @@ function bConvertPubChemRecord(rec){
     const med=lens.length ? lens[lens.length>>1] : 0;
     if(med>1e-3){ const k=1.45/med; pos=pos.map(p=>[p[0]*k,p[1]*k,0]); }
   }
+  let stereo=null;
+  if(flat){ try{ stereo=b3WedgeStereo(conf, aidToIdx, pos, adj); }catch(e){ stereo=null; } }
   if(flat) bLiftFlatHydrogens(pos, elements, adj);
+  // A flat record (PubChem computes no 3D conformer for very large or flexible molecules, salts and most
+  // metal compounds) gets a real 3D shape from the on-device builder, keeping the drawing's wedges and cis/trans.
+  if(flat && !(opts&&opts.keep3D) && N<=1500){
+    try{
+      const eb=[]; bondList.forEach(b=>{ const i=aidToIdx[b.a1], j=aidToIdx[b.a2]; if(i!==undefined && j!==undefined && i!==j) eb.push([i,j,bPubChemOrder(b.order)]); });
+      const P3=bEmbed3D(elements, eb, pos, {zHint:stereo&&stereo.zHint, chiral:stereo&&stereo.chiral, seed:7});
+      if(P3 && P3.every(p=>p.every(v=>isFinite(v)))){ pos=P3; flat=false; embedded=true; }
+    }catch(e){ console.warn('[Build] 3D builder failed, showing the flat drawing:', e); }
+  }
   pos=bOrientPoints(pos, elements.map(z=>z!==1));
 
   // Array order: a breadth-first walk of every connected part, starting each part at a heavy
@@ -48622,7 +48633,7 @@ function bConvertPubChemRecord(rec){
     bonds.push([oldToNew[i],oldToNew[j],bPubChemOrder(b.order)]);
   });
 
-  return {atoms, bonds, realXyz:order.map(o=>pos[o]), srcIndex:order.slice(), flat, parts, geometry:qaT("sim.categorize.complex")};
+  return {atoms, bonds, realXyz:order.map(o=>pos[o]), srcIndex:order.slice(), flat, embedded, parts, geometry:qaT("sim.categorize.complex")};
 }
 
 // One PubChem record -> registered molecule (shared by the name and SMILES lookups).
@@ -48932,13 +48943,13 @@ function bIonicSolve(pf){
   const nM=pf.counts[M], nX=pf.counts[X];
   if(nM*CAT[M]+nX*AN[X]!==0) return null;
   const R=window.ChemistryCore&&ChemistryCore.ELEMENTS;
-  if(!R || !R[M] || !R[X] || !R[M].IONIC_R[CAT[M]] || !R[X].IONIC_R[AN[X]]) return null;
+  const noR=!R || !R[M] || !R[X] || !R[M].IONIC_R[CAT[M]] || !R[X].IONIC_R[AN[X]];   // e.g. hydride: laid out below with an estimated radius
   let hub, hubQ, sat, satQ, nSat;
   if(nM===1){ hub=M; hubQ=CAT[M]; sat=X; satQ=AN[X]; nSat=nX; } else if(nX===1){ hub=X; hubQ=AN[X]; sat=M; satQ=CAT[M]; nSat=nM; } else return null;
-  if(nSat>3) return null;
+  if(nSat>6) return null;
   const atoms=[{Z:hub,sym:bZSym(hub),formalCharge:hubQ}], bonds=[];
   for(let i=0;i<nSat;i++){ atoms.push({Z:sat,sym:bZSym(sat),formalCharge:satQ}); bonds.push([0,i+1,0]); }
-  return {atoms, bonds, ionic:true, sigma:nSat, pairs:0, nCentres:1};
+  return {atoms, bonds, ionic:true, noR, sigma:nSat, pairs:0, nCentres:1};
 }
 
 // VSEPR shape name from (bonded neighbours, lone pairs) — reuses the labels the curated molecules already have in every language.
@@ -48962,6 +48973,14 @@ function bResolveFormulaOffline(pf){
   let solved=null;
   try{ solved=bIonicSolve(pf) || bFormulaSolve(pf); }catch(e){ solved=null; }
   if(!solved) return null;
+  if(solved.ionic && (solved.atoms.length>3 || solved.noR)){
+    // ion clusters beyond a pair or a line (Li3N, AlF3-type) and ions without a tabulated radius (H⁻): place the ions directly
+    const ir=(Z,q)=>{ const R=window.ChemistryCore&&ChemistryCore.ELEMENTS, v=R&&R[Z]&&R[Z].IONIC_R&&R[Z].IONIC_R[q]; return v ? v/100 : (Z===1 ? 1.4 : b3Radius(Z)*1.1); };
+    const A=solved.atoms, d=ir(A[0].Z,A[0].formalCharge)+ir(A[1].Z,A[1].formalCharge), slots=bCoordSlots(A.length-1,false);
+    const r={Z:A.map(a=>a.Z), bonds:[], q:A.map(a=>a.formalCharge||0), P:[[0,0,0]].concat(slots.map(v=>v.map(x=>x*d))), label:'ionic', exact:true};
+    const geo = A.length===2 ? qaT("sim.molecules.ionic_gas_phase_pair") : A.length===3 ? qaT("sim.molecules.ionic_gas_phase_linear") : bShapeLabel(A.length-1,0,0);
+    return bRegisterGraph(r, pf.display, 'f-'+pf.hill.toLowerCase(), {geometry:geo});
+  }
   const key='build:f-'+pf.hill.toLowerCase()+(pf.charge?(pf.charge>0?'p':'m')+Math.abs(pf.charge):'');   // fixed prefix: a key must not change with the interface language
   const existing=MOLECULES.find(m=>m.key===key);
   if(existing){ if(existing.shape) existing.geometry=bShapeOf(existing.shape); return {status:'rendered', key, mol:existing}; }   // re-label in the language in use now
@@ -49031,6 +49050,8 @@ async function bWikidataResolve(raw){
       const cid=claim(ent,'P662');                // PubChem CID
       if(Z) return {Z, en};
       if(cid && /^\d+$/.test(String(cid))) return {cid:+cid, en};
+      const pdb=claim(ent,'P638');                // PDB structure ID: a protein or other macromolecule
+      if(pdb && /^[1-9][A-Za-z0-9]{3}$/.test(String(pdb))) return {pdb:String(pdb).toUpperCase(), en};
     }
     return null;
   };
@@ -49058,19 +49079,1217 @@ const bAsciiSlug=s=>{ const n=bSlug(s); return /^[a-z0-9\-,]+$/.test(n) ? n : nu
 async function bBuildFromCid(cid, displayName, slug){
   const built=await bFetchPubChemCid(cid);
   if(!built) return null;
-  if(built.atoms.length>500) return {status:'notfound', reason:'toolarge'};
+  if(built.atoms.length>B_PDB_FULL_LIMIT) return {status:'notfound', reason:'toolarge'};
   const key='build:'+(slug||('cid-'+cid));
   displayName=String(displayName||('CID '+cid)).replace(/[<>&"'`]/g,'');
   const netQ=built.atoms.reduce((q,a)=>q+(a.formalCharge||a.perceptionCharge||0),0);
   const mol={ key, formula:bFormulaString(bCountFormula(built.atoms))+bSupCharge(netQ), name:displayName, geometry:built.geometry, atoms:built.atoms, bonds:built.bonds,
-              realXyz:built.realXyz, srcIndex:built.srcIndex, flat:built.flat, parts:built.parts, covalentBonds:true, builtBy:'tier3', cid };
+              realXyz:built.realXyz, srcIndex:built.srcIndex, flat:built.flat, embedded:built.embedded, parts:built.parts, covalentBonds:true, builtBy:'tier3', cid };
   bRegisterMolecule(mol);
   return {status:'rendered', key, mol};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 3D BUILDER — any connected set of atoms and bonds -> real 3D coordinates
+//
+// Used whenever no measured 3D structure exists: PubChem's flat-only
+// records (very large molecules, salts, most metal compounds) and every
+// structure assembled offline from a formula (rings, cages, complexes).
+// A small force field, run from the flat drawing (or a rough start):
+//   • bonds at covalent-radius lengths (shorter for double/triple bonds)
+//   • angles from each atom's bonding: 180° (sp), 120° (sp2), 109.5° (sp3),
+//     90° in four-membered rings; metal and hypervalent centres take the
+//     ideal square-planar / trigonal-bipyramidal / octahedral angles
+//   • sp2 centres and double bonds kept flat, with the drawing's cis/trans
+//   • every wedge/dash stereocentre kept with the drawn handedness
+//   • atoms three or more bonds apart pushed out of each other's way
+// Distances in Å. Deterministic: the same input always gives the same 3D.
+// ══════════════════════════════════════════════════════════════════════
+const B3_METAL=Z=>(Z>=21&&Z<=30)||(Z>=39&&Z<=48)||(Z>=57&&Z<=80)||(Z>=89)||[3,4,11,12,13,19,20,31,37,38,49,50,55,56,81,82,83].includes(Z);
+const B3_D8=new Set([28,46,78,79,45,77]);   // Ni Pd Pt Au Rh Ir: four-coordinate d8 centres are square planar
+// Single-bond covalent radii in pm for Z = 1…118 (Pyykkö & Atsumi, 2009).
+const B3_R=[32,46,133,102,85,75,71,63,64,67,155,139,126,116,111,103,99,96,196,171,148,136,134,122,119,116,111,110,112,118,124,121,121,116,114,117,210,185,163,154,147,138,128,125,125,120,128,136,142,140,140,136,133,131,232,196,180,163,176,174,173,172,168,169,168,167,166,165,164,170,162,152,146,137,131,129,122,123,124,133,144,144,151,145,147,142,223,201,186,175,169,170,171,172,166,166,168,168,165,167,173,176,161,157,149,143,141,134,129,128,121,122,136,143,162,175,165,157];
+function b3Radius(Z){ return (B3_R[Z-1]||145)/100; }
+// Typical measured bond lengths (Å) for common pairs, by bond order; anything else from covalent radii.
+const B3_LEN=(()=>{ const t={}, put=(a,b,o,l)=>{ t[a+'-'+b+'-'+o]=l; t[b+'-'+a+'-'+o]=l; };
+  [[6,6,1,1.53],[6,6,1.5,1.395],[6,6,2,1.34],[6,6,3,1.20],[6,1,1,1.09],[6,7,1,1.47],[6,7,1.5,1.34],[6,7,2,1.28],[6,7,3,1.16],[6,8,1,1.43],[6,8,1.5,1.36],[6,8,2,1.21],
+   [6,9,1,1.35],[6,17,1,1.77],[6,35,1,1.94],[6,53,1,2.14],[6,16,1,1.82],[6,16,1.5,1.72],[6,16,2,1.61],[6,15,1,1.84],[6,14,1,1.87],[6,5,1,1.56],
+   [7,1,1,1.01],[8,1,1,0.96],[16,1,1,1.34],[15,1,1,1.42],[7,7,1,1.45],[7,7,2,1.25],[7,7,3,1.10],[7,8,1,1.40],[7,8,2,1.21],[8,8,1,1.48],[8,8,2,1.21],
+   [15,8,1,1.60],[15,8,2,1.48],[16,8,1,1.57],[16,8,2,1.43],[16,16,1,2.05],[7,1.5,1,1.0],[5,1,1,1.19],[14,8,1,1.63],[14,1,1,1.48],[15,9,1,1.56],[16,9,1,1.56],[5,9,1,1.31]]
+   .forEach(([a,b,o,l])=>put(a,b,o,l));
+  return t; })();
+function b3BondLen(Za,Zb,o){
+  o=o||1; const k=B3_LEN[Za+'-'+Zb+'-'+o]; if(k) return k;
+  return (b3Radius(Za)+b3Radius(Zb)+((Za===1||Zb===1)?0.02:0))*(1-0.12*(Math.max(1,Math.min(3,o))-1));
+}
+
+// opts: { chiral:[{c,nb:[a,b,c],sign}], zHint:[], d8:Set(atom index), seed, iters }
+function bEmbed3D(Z, bonds, init, opts){
+  opts=opts||{};
+  const n=Z.length;
+  let seed=(opts.seed||1)>>>0;
+  const rnd=()=>{ seed=(seed*1664525+1013904223)>>>0; return seed/4294967296-0.5; };
+  const nb=Z.map(()=>[]), ord={};
+  const K=(i,j)=>i<j?i*n+j:j*n+i;
+  bonds.forEach(([i,j,o])=>{ if(o===0||i===j||ord[K(i,j)]!==undefined) return; nb[i].push(j); nb[j].push(i); ord[K(i,j)]=o||1; });
+  // start: the drawing (or given 3D), with wedge heights and a little seeded noise so rings can pucker
+  const P=Z.map((_,i)=>{ const p=init&&init[i]?init[i]:[rnd()*3,rnd()*3,rnd()*3];
+    return [p[0], p[1], (p[2]||0)+((opts.zHint&&opts.zHint[i])||0)+rnd()*0.35]; });
+
+  const terms2=[];   // [i, j, target, weight]   distance terms (bonds, 1-3, 1-4 double-bond geometry)
+  const lin=[];      // [c, a, b, la, lb, weight]  a–c–b held straight: (a−c)/la + (b−c)/lb = 0
+  (opts.linear||[]).forEach(x=>lin.push(x));
+  const vols=[];     // [c, a, b, d, target, weight, flatBottom]
+  // a ring whose atoms all carry a double bond inside the ring and alternate (benzene, pyridine, Kekulé form) has even bonds
+  const eff={};
+  (()=>{ const ringBonds=new Set();
+    // find 5/6-membered rings by short cycles through each bond
+    bonds.forEach(([i,j,o])=>{ if(o===0) return;
+      const prev={[j]:i}, q=[j], depth={[j]:1};
+      while(q.length){ const x=q.shift(); if(depth[x]>=6) continue;
+        for(const y of nb[x]){ if(x===j && y===i) continue; if(y===i && depth[x]>=4){ // ring of size depth+1
+            let path=[i], z=x; while(z!==i && z!==undefined){ path.push(z); z=prev[z]; }
+            if(path.length>=5 && path.length<=6){ const all=path.every(a=>nb[a].some(b=>ord[K(a,b)]===2 && path.includes(b))); if(all){ for(let t=0;t<path.length;t++){ ringBonds.add(K(path[t],path[(t+1)%path.length])); } } }
+            continue; }
+          if(prev[y]===undefined && y!==i){ prev[y]=x; depth[y]=depth[x]+1; q.push(y); } } } });
+    ringBonds.forEach(k=>{ eff[k]=1.5; }); })();
+  const L=(i,j)=>{ const k=K(i,j); if(opts.lenOverride && opts.lenOverride[k]!==undefined) return opts.lenOverride[k]; return b3BondLen(Z[i],Z[j],eff[k]!==undefined?eff[k]:ord[k]); };
+  bonds.forEach(([i,j,o])=>{ if(o!==0 && i!==j) terms2.push([i,j,L(i,j),12]); });
+  (opts.extra||[]).forEach(([i,j,d,w])=>terms2.push([i,j,d,w||8]));
+  const bonded=(a,b)=>ord[K(a,b)]!==undefined;
+  const common=(a,b,c)=>nb[a].some(x=>x!==c && nb[b].includes(x));
+
+  const hyb=Z.map((z,c)=>{
+    const os=nb[c].map(j=>ord[K(c,j)]);
+    if(os.includes(3) || os.filter(o=>o===2).length>=2) return 'sp';
+    if(os.includes(2)) return 'sp2';
+    if((z===5||z===13) && nb[c].length===3) return 'sp2';
+    if(z===7 && nb[c].length===3 && nb[c].some(j=>nb[j].some(k=>ord[K(j,k)]===2))) return 'sp2';   // amide / aniline nitrogen: planar
+    if((z===8||z===16) && nb[c].length===2 && nb[c].some(j=>nb[j].some(k=>k!==c && ord[K(j,k)]===2)) && nb[c].every(j=>Z[j]!==1)) return 'sp3';
+    return 'sp3';
+  });
+
+  // ideal angle between two neighbours of every centre
+  for(let c=0;c<n;c++){
+    const m=nb[c], k=m.length;
+    if(k<2 || (opts.fixedCentres && opts.fixedCentres.has(c))) continue;
+    const metalLike=B3_METAL(Z[c]) || k>=5;
+    const ang={};
+    // four-coordinate: square planar only for a d8 centre (Ni(II), Pd(II), Pt(II), Au(III) ...). When the caller knows the
+    // oxidation state it says so in opts.d8; otherwise the element decides (Ni(CO)4, Ni(0), must stay tetrahedral when known).
+    const sqp = opts.d8 ? opts.d8.has(c) : B3_D8.has(Z[c]);
+    if(metalLike && k>=4 && !(k===4 && !sqp)){
+      // assign trans partners from the starting geometry: the most opposite pairs
+      const dir=m.map(j=>{ const v=[P[j][0]-P[c][0],P[j][1]-P[c][1],P[j][2]-P[c][2]], l=Math.hypot(...v)||1; return v.map(x=>x/l); });
+      const dot=(a,b)=>dir[a][0]*dir[b][0]+dir[a][1]*dir[b][1]+dir[a][2]*dir[b][2];
+      const pairs=[]; for(let a=0;a<k;a++) for(let b=a+1;b<k;b++) pairs.push([dot(a,b),a,b]);
+      pairs.sort((x,y)=>x[0]-y[0]);
+      const used=new Set(), trans=[];
+      const wantTrans = k===4 ? 2 : k===5 ? 1 : k===6 ? 3 : 0;
+      for(const [,a,b] of pairs){ if(trans.length>=wantTrans) break; if(!used.has(a)&&!used.has(b)){ used.add(a); used.add(b); trans.push([a,b]); } }
+      const isTrans=(a,b)=>trans.some(([x,y])=>(x===a&&y===b)||(x===b&&y===a));
+      for(let a=0;a<k;a++) for(let b=a+1;b<k;b++){
+        if(isTrans(a,b)) ang[a+','+b]=180;
+        else if(k===5 && !used.has(a) && !used.has(b)) ang[a+','+b]=120;    // trigonal bipyramid: equatorial pairs
+        else if(k<=6) ang[a+','+b]=90;
+      }
+    } else {
+      const base = k===2&&metalLike ? 180 : k===3&&metalLike ? 120 : hyb[c]==='sp' ? 180 : hyb[c]==='sp2' ? 120 : 109.47;
+      for(let a=0;a<k;a++) for(let b=a+1;b<k;b++) ang[a+','+b]=base;
+    }
+    for(let a=0;a<k;a++) for(let b=a+1;b<k;b++){
+      const i=m[a], j=m[b];
+      if(bonded(i,j)) continue;                         // three-membered ring: the ring bonds already fix it
+      let t=ang[a+','+b]; if(t===undefined) continue;
+      if(common(i,j,c) && t>100) t=90;                  // four-membered ring
+      const li=L(c,i), lj=L(c,j), d=Math.sqrt(li*li+lj*lj-2*li*lj*Math.cos(t*Math.PI/180));
+      terms2.push([i,j,d,4]);
+      if(t>=179) lin.push([c,i,j,li,lj,6]);       // a straight angle needs a direct pull: the distance hardly changes as it bends
+    }
+    if(hyb[c]==='sp2' && k===3 && !metalLike) vols.push([c,m[0],m[1],m[2],0,3,false]);
+  }
+
+  // double bonds: keep them flat with the cis/trans arrangement of the drawing, or the one stated (SMILES / and \)
+  const ezT=(a,i,j,b,cis)=>{ const li=L(i,j), la=L(i,a), lb=L(j,b), th=60*Math.PI/180;
+    const A=[-la*Math.cos(th), la*Math.sin(th)], B=[li+lb*Math.cos(th), (cis?1:-1)*lb*Math.sin(th)];
+    terms2.push([a,b,Math.hypot(A[0]-B[0],A[1]-B[1]),3]); };
+  const stated=new Set();
+  (opts.ez||[]).forEach(e=>{ ezT(e.a,e.i,e.j,e.b,e.cis); stated.add(K(e.i,e.j));
+    // the other substituents follow: on the same carbon they are opposite
+    nb[e.i].forEach(a2=>{ if(a2===e.j||a2===e.a) return; nb[e.j].forEach(b2=>{ if(b2===e.i) return; ezT(a2,e.i,e.j,b2, b2===e.b ? !e.cis : e.cis); }); });
+    nb[e.j].forEach(b2=>{ if(b2===e.i||b2===e.b) return; ezT(e.a,e.i,e.j,b2,!e.cis); });
+  });
+  bonds.forEach(([i,j,o])=>{
+    if(o!==2 || stated.has(K(i,j)) || !init) return;
+    const li=L(i,j);
+    nb[i].forEach(a=>{ if(a===j) return; nb[j].forEach(b=>{ if(b===i||b===a) return;
+      const ux=P[j][0]-P[i][0], uy=P[j][1]-P[i][1];
+      const s1=ux*(P[a][1]-P[i][1])-uy*(P[a][0]-P[i][0]), s2=ux*(P[b][1]-P[j][1])-uy*(P[b][0]-P[j][0]);
+      if(Math.abs(s1)<1e-3 || Math.abs(s2)<1e-3) return;
+      const cis=(s1>0)===(s2>0);
+      const la=L(i,a), lb=L(j,b), th=60*Math.PI/180;         // 120° at both ends
+      const A=[-la*Math.cos(th), la*Math.sin(th)], B=[li+lb*Math.cos(th), (cis?1:-1)*lb*Math.sin(th)];
+      terms2.push([a,b,Math.hypot(A[0]-B[0],A[1]-B[1]),2]);
+    }); });
+  });
+
+  // stereocentres from wedges
+  const tet=b=>0.62*b*b*b;
+  (opts.chiral||[]).forEach(ch=>{ const b=(L(ch.c,ch.nb[0])+L(ch.c,ch.nb[1])+L(ch.c,ch.nb[2]))/3; vols.push([ch.c,ch.nb[0],ch.nb[1],ch.nb[2],ch.sign*tet(b)*0.7,8,true]); });
+
+  const tors=[];
+  bonds.forEach(([b,c,o])=>{ if(o!==1 || hyb[b]!=='sp3' || hyb[c]!=='sp3' || Z[b]===1 || Z[c]===1) return;
+    if(nb[b].length<2 || nb[c].length<2) return;
+    const as=nb[b].filter(x=>x!==c), ds=nb[c].filter(x=>x!==b), w=0.5/(as.length*ds.length);
+    // a bond inside a 3-, 4- or 5-membered ring (or a cage made of them) must stay nearly eclipsed: no staggering preference
+    if(as.some(a=>ds.some(d=>a===d || bonded(a,d) || common(a,d,-1)))) return;
+    as.forEach(a=>ds.forEach(d=>{ if(a!==d) tors.push([a,b,c,d,w]); })); });
+  // topological distance (up to 3) for the repulsion list
+  const far=[];
+  for(let i=0;i<n;i++){
+    const dist={[i]:0}, q=[i];
+    while(q.length){ const x=q.shift(); if(dist[x]>=3) continue; nb[x].forEach(y=>{ if(dist[y]===undefined){ dist[y]=dist[x]+1; q.push(y); } }); }
+    for(let j=i+1;j<n;j++){
+      const t=dist[j];
+      if(t!==undefined && t<3) continue;
+      const hh=(Z[i]===1)+(Z[j]===1);
+      const r = t===3 ? [2.55,2.2,1.9][hh] : [3.0,2.5,2.05][hh];
+      far.push([i,j,r]);
+    }
+  }
+
+  const iters=opts.iters|| (n>250?900:n>80?1150:1500);
+  const vol=(Q,c,a,b,d)=>{ const A=[Q[a][0]-Q[c][0],Q[a][1]-Q[c][1],Q[a][2]-Q[c][2]], B=[Q[b][0]-Q[c][0],Q[b][1]-Q[c][1],Q[b][2]-Q[c][2]], C=[Q[d][0]-Q[c][0],Q[d][1]-Q[c][1],Q[d][2]-Q[c][2]];
+    const bxc=[B[1]*C[2]-B[2]*C[1],B[2]*C[0]-B[0]*C[2],B[0]*C[1]-B[1]*C[0]], cxa=[C[1]*A[2]-C[2]*A[1],C[2]*A[0]-C[0]*A[2],C[0]*A[1]-C[1]*A[0]], axb=[A[1]*B[2]-A[2]*B[1],A[2]*B[0]-A[0]*B[2],A[0]*B[1]-A[1]*B[0]];
+    return [A[0]*bxc[0]+A[1]*bxc[1]+A[2]*bxc[2], bxc, cxa, axb]; };
+  // energy of a geometry (and its gradient into G when given)
+  let lastStructural=0;
+  function energy(Q, G, repW){
+    let E=0;
+    if(G) for(let i=0;i<n;i++){ G[i][0]=G[i][1]=G[i][2]=0; }
+    for(const [i,j,t,w] of terms2){
+      const dx=Q[i][0]-Q[j][0], dy=Q[i][1]-Q[j][1], dz=Q[i][2]-Q[j][2], d=Math.sqrt(dx*dx+dy*dy+dz*dz)||1e-6, e=d-t;
+      E+=w*e*e; if(!G) continue; const f=2*w*e/d;
+      G[i][0]+=f*dx; G[i][1]+=f*dy; G[i][2]+=f*dz; G[j][0]-=f*dx; G[j][1]-=f*dy; G[j][2]-=f*dz;
+    }
+    for(const [i,j,r] of far){
+      const dx=Q[i][0]-Q[j][0], dy=Q[i][1]-Q[j][1], dz=Q[i][2]-Q[j][2], d2=dx*dx+dy*dy+dz*dz;
+      if(d2>=r*r) continue;
+      const d=Math.sqrt(d2)||1e-6; E+=repW*(r-d)*(r-d); if(!G) continue; const f=-2*repW*(r-d)/d;
+      G[i][0]+=f*dx; G[i][1]+=f*dy; G[i][2]+=f*dz; G[j][0]-=f*dx; G[j][1]-=f*dy; G[j][2]-=f*dz;
+    }
+    for(const [c,a,b,d,t,w,flat] of vols){
+      const [v,bxc,cxa,axb]=vol(Q,c,a,b,d);
+      if(flat && (t>0 ? v>=t : v<=t)) continue;
+      const e=v-t; E+=w*e*e; if(!G) continue; const f=2*w*e;
+      for(let k=0;k<3;k++){ G[a][k]+=f*bxc[k]; G[b][k]+=f*cxa[k]; G[d][k]+=f*axb[k]; G[c][k]-=f*(bxc[k]+cxa[k]+axb[k]); }
+    }
+    for(const [c,a,b,la,lb,w] of lin){
+      const v=[(Q[a][0]-Q[c][0])/la+(Q[b][0]-Q[c][0])/lb, (Q[a][1]-Q[c][1])/la+(Q[b][1]-Q[c][1])/lb, (Q[a][2]-Q[c][2])/la+(Q[b][2]-Q[c][2])/lb];
+      E+=w*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); if(!G) continue;
+      for(let k=0;k<3;k++){ const g=2*w*v[k]; G[a][k]+=g/la; G[b][k]+=g/lb; G[c][k]-=g*(1/la+1/lb); }
+    }
+    lastStructural=E;
+    for(const [a,b,c,d,w] of tors){
+      const b1=[Q[b][0]-Q[a][0],Q[b][1]-Q[a][1],Q[b][2]-Q[a][2]], b2=[Q[c][0]-Q[b][0],Q[c][1]-Q[b][1],Q[c][2]-Q[b][2]], b3=[Q[d][0]-Q[c][0],Q[d][1]-Q[c][1],Q[d][2]-Q[c][2]];
+      const n1=[b1[1]*b2[2]-b1[2]*b2[1],b1[2]*b2[0]-b1[0]*b2[2],b1[0]*b2[1]-b1[1]*b2[0]], n2=[b2[1]*b3[2]-b2[2]*b3[1],b2[2]*b3[0]-b2[0]*b3[2],b2[0]*b3[1]-b2[1]*b3[0]];
+      const lb2=Math.hypot(...b2)||1e-6, nn1=n1[0]*n1[0]+n1[1]*n1[1]+n1[2]*n1[2]||1e-9, nn2=n2[0]*n2[0]+n2[1]*n2[1]+n2[2]*n2[2]||1e-9;
+      const phi=Math.atan2(lb2*(b1[0]*n2[0]+b1[1]*n2[1]+b1[2]*n2[2]), n1[0]*n2[0]+n1[1]*n2[1]+n1[2]*n2[2]);
+      E+=w*(1+Math.cos(3*phi)); if(!G) continue;
+      const dE=-3*w*Math.sin(3*phi);
+      const ga=n1.map(v=>-lb2/nn1*v), gd=n2.map(v=>lb2/nn2*v);
+      const r1=(b1[0]*b2[0]+b1[1]*b2[1]+b1[2]*b2[2])/(lb2*lb2), r3=(b3[0]*b2[0]+b3[1]*b2[1]+b3[2]*b2[2])/(lb2*lb2);
+      for(let k=0;k<3;k++){ const gb=(r1-1)*ga[k]-r3*gd[k], gc=(r3-1)*gd[k]-r1*ga[k];
+        G[a][k]+=dE*ga[k]; G[b][k]+=dE*gb; G[c][k]+=dE*gc; G[d][k]+=dE*gd[k]; }
+    }
+    return E;
+  }
+  function run(start){
+    const Q=start.map(p=>p.slice()), G=Z.map(()=>[0,0,0]), V=Z.map(()=>[0,0,0]);
+    let lastE=Infinity;
+    for(let it=0; it<iters; it++){
+      const repW = it<iters*0.15 ? 0.3 : 2;          // let the skeleton settle before atoms start pushing each other
+      const Ecur=energy(Q, G, repW);
+      if(it>=iters*0.75 && it%100===0){ if(Math.abs(lastE-Ecur) < 2e-6*(1+Ecur)) break; lastE=Ecur; }   // fully settled: stop early
+      const step=0.012*(it<iters*0.8?1:0.4);
+      for(let i=0;i<n;i++) for(let k=0;k<3;k++){
+        V[i][k]=0.85*V[i][k]-step*G[i][k];
+        if(V[i][k]>0.25) V[i][k]=0.25; else if(V[i][k]<-0.25) V[i][k]=-0.25;
+        Q[i][k]+=V[i][k];
+      }
+    }
+    const E=energy(Q, null, 2); return {P:Q, E, Es:lastStructural};
+  }
+  // Second start, from the bond network alone (classical multidimensional scaling of the
+  // through-bond distances): it already has the right overall 3D shape for cages and
+  // crowded ring systems, where a flat drawing is a poor place to begin.
+  function networkStart(mirror){
+    const hop=Z.map(()=>new Array(n).fill(Infinity));
+    for(let i=0;i<n;i++){ hop[i][i]=0; const q=[i]; while(q.length){ const x=q.shift(); nb[x].forEach(y=>{ if(hop[i][y]===Infinity){ hop[i][y]=hop[i][x]+1; q.push(y); } }); } }
+    let mx=0; hop.forEach(r=>r.forEach(v=>{ if(v<Infinity && v>mx) mx=v; }));
+    const D2=hop.map(r=>r.map(v=>{ const d=1.25*Math.pow(v<Infinity?v:mx+2,0.9); return d*d; }));
+    const rm=D2.map(r=>r.reduce((s,v)=>s+v,0)/n), gm=rm.reduce((s,v)=>s+v,0)/n;
+    const B=D2.map((r,i)=>r.map((v,j)=>-0.5*(v-rm[i]-rm[j]+gm)));
+    const axes=[];
+    for(let k=0;k<3;k++){
+      let v=Z.map(()=>rnd()), lam=0;
+      for(let it=0;it<120;it++){
+        const w=B.map(r=>r.reduce((s,x,j)=>s+x*v[j],0));
+        axes.forEach(([u,l])=>{ const d=w.reduce((s,x,j)=>s+x*u[j],0); for(let j=0;j<n;j++) w[j]-=d*u[j]; });
+        const len=Math.hypot(...w)||1; lam=len; v=w.map(x=>x/len);
+      }
+      axes.push([v,lam]);
+    }
+    return Z.map((_,i)=>[axes[0][0][i]*Math.sqrt(axes[0][1]), axes[1][0][i]*Math.sqrt(axes[1][1]), (mirror?-1:1)*axes[2][0][i]*Math.sqrt(axes[2][1])+rnd()*0.2]);
+  }
+  const clash=Q=>{ for(const [i,j,r] of far){ if(Z[i]!==1 && Z[j]!==1){ const d=Math.hypot(Q[i][0]-Q[j][0],Q[i][1]-Q[j][1],Q[i][2]-Q[j][2]); if(d<r*0.6) return true; } } return false; };
+  // stuck: a bond or angle far from its target (an atom trapped inside out), or atoms on top of each other
+  const strained=Q=>terms2.some(([i,j,t])=>Math.abs(Math.hypot(Q[i][0]-Q[j][0],Q[i][1]-Q[j][1],Q[i][2]-Q[j][2])-t)>0.45);
+  const chiralBad=Q=>(opts.chiral||[]).filter(ch=>{ const v=vol(Q,ch.c,ch.nb[0],ch.nb[1],ch.nb[2])[0]; return ch.sign>0 ? v<=0 : v>=0; }).length;
+  if(!init && n>=4 && n<=400){
+    let b1=run(networkStart(false)); b1.bad=chiralBad(b1.P);
+    if(b1.bad){ const b2=run(networkStart(true)); b2.bad=chiralBad(b2.P); if(b2.bad<b1.bad || (b2.bad===b1.bad && b2.E<b1.E)) b1=b2; }
+    if(!clash(b1.P) && !strained(b1.P)) return b1.P;
+    P.forEach((p,i)=>{ p[0]=b1.P[i][0]; p[1]=b1.P[i][1]; p[2]=b1.P[i][2]; });
+  }
+  let best=run(P);
+  if(n<=60){ for(let t=0;t<2;t++){ const S=P.map(p=>[p[0]+rnd()*0.6, p[1]+rnd()*0.6, p[2]+rnd()*1.2]); const r=run(S); if(r.E<best.E) best=r; } }
+  if(opts.debug) opts.debug.push(['drawing',best.E]);
+
+
+  if(n>=4 && n<=400 && (clash(best.P) || strained(best.P) || best.Es>0.15*n || n<=40 || opts.cage)){
+    for(const mirror of [false,true]){ const r=run(networkStart(mirror)); if(opts.debug) opts.debug.push(['network'+(mirror?'-mirror':''),r.E]); if(r.E<best.E) best=r; }
+  }
+  return best.P;
+}
+
+// Wedge/dash bonds of a flat PubChem record -> height hints and stereocentres.
+// style.annotation 5 = wedge (up), 6 = dash (down); aid1 is the narrow end, the stereocentre.
+function b3WedgeStereo(conf, aidToIdx, pos2, adj){
+  const st=conf&&conf.style, n=pos2.length, zHint=new Array(n).fill(0), chiral=[];
+  if(!st || !Array.isArray(st.annotation)) return {zHint, chiral};
+  const own={};                                   // centre -> {neighbour: height} from that centre's OWN wedges only
+  st.annotation.forEach((code,k)=>{
+    if(code!==5 && code!==6) return;
+    const c=aidToIdx[st.aid1[k]], w=aidToIdx[st.aid2[k]];
+    if(c===undefined||w===undefined) return;
+    const h=code===5?0.9:-0.9;
+    zHint[w]=h; (own[c]=own[c]||{})[w]=h;
+  });
+  Object.keys(own).forEach(cs=>{
+    const c=+cs, m=adj[c].map(e=>e.to);
+    if(m.length<3) return;
+    // a neighbour that is the wide end of some OTHER atom's wedge must not lend its height to this centre
+    const p=i=>[pos2[i][0],pos2[i][1],(i===c?0:(own[c][i]||0))];
+    // use the three neighbours that make the clearest triangle (an implicit-H centre has exactly three)
+    let best=null;
+    for(let a=0;a<m.length;a++) for(let b=a+1;b<m.length;b++) for(let d=b+1;d<m.length;d++){
+      const A=p(m[a]).map((v,k)=>v-p(c)[k]), B=p(m[b]).map((v,k)=>v-p(c)[k]), C=p(m[d]).map((v,k)=>v-p(c)[k]);
+      const v=A[0]*(B[1]*C[2]-B[2]*C[1])-A[1]*(B[0]*C[2]-B[2]*C[0])+A[2]*(B[0]*C[1]-B[1]*C[0]);
+      if(!best || Math.abs(v)>Math.abs(best.v)) best={v, nb:[m[a],m[b],m[d]]};
+    }
+    if(best && Math.abs(best.v)>0.05) chiral.push({c, nb:best.nb, sign:best.v>0?1:-1});
+  });
+  return {zHint, chiral};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// OFFLINE STRUCTURES BEYOND ONE CENTRE — complexes, rings, cages, any formula
+// Each builder produces atoms + bonds (and sometimes exact coordinates);
+// bEmbed3D turns the bond network into 3D when no coordinates are given.
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Coordination complexes: "[Fe(CN)6]4-", "K4[Fe(CN)6]", "[Co(NH3)6]Cl3", "Ni(CO)4", "trans-[Pt(NH3)2Cl2]" ──
+// Ligand recipes: atoms (first = donor), bonds inside the ligand, net charge, denticity (second donor index for chelates).
+const B_LIGANDS={
+  CN:{a:[6,7],b:[[0,1,3]],q:[-1,0]},           NC:{a:[7,6],b:[[0,1,3]],q:[0,-1]},
+  CO:{a:[6,8],b:[[0,1,3]],q:[-1,1]},           NO:{a:[7,8],b:[[0,1,3]],q:[0,1]},
+  NH3:{a:[7,1,1,1],b:[[0,1,1],[0,2,1],[0,3,1]],q:[0,0,0,0]},
+  H3N:{alias:'NH3'}, H2O:{a:[8,1,1],b:[[0,1,1],[0,2,1]],q:[0,0,0]}, OH2:{alias:'H2O'}, AQ:{alias:'H2O'},
+  OH:{a:[8,1],b:[[0,1,1]],q:[-1,0]},           HO:{alias:'OH'},
+  F:{a:[9],b:[],q:[-1]}, Cl:{a:[17],b:[],q:[-1]}, Br:{a:[35],b:[],q:[-1]}, I:{a:[53],b:[],q:[-1]},
+  O:{a:[8],b:[],q:[-2],bo:2}, S:{a:[16],b:[],q:[-2]}, H:{a:[1],b:[],q:[-1]}, N:{a:[7],b:[],q:[-3],bo:3},
+  NO2:{a:[7,8,8],b:[[0,1,2],[0,2,1]],q:[1,0,-1],net:-1}, ONO:{a:[8,7,8],b:[[0,1,1],[1,2,2]],q:[-1,0,0]},
+  SCN:{a:[16,6,7],b:[[0,1,1],[1,2,3]],q:[-1,0,0]}, NCS:{a:[7,6,16],b:[[0,1,2],[1,2,2]],q:[-1,0,0]},
+  CH3:{a:[6,1,1,1],b:[[0,1,1],[0,2,1],[0,3,1]],q:[-1,0,0,0]},
+  PH3:{a:[15,1,1,1],b:[[0,1,1],[0,2,1],[0,3,1]],q:[0,0,0,0]},
+  PF3:{a:[15,9,9,9],b:[[0,1,1],[0,2,1],[0,3,1]],q:[0,0,0,0]},
+  NH2:{a:[7,1,1],b:[[0,1,1],[0,2,1]],q:[-1,0,0]},
+  // chelates: donor indices 0 and `d2`
+  en:{a:[7,6,6,7,1,1,1,1,1,1,1,1],b:[[0,1,1],[1,2,1],[2,3,1],[0,4,1],[0,5,1],[1,6,1],[1,7,1],[2,8,1],[2,9,1],[3,10,1],[3,11,1]],q:[0,0,0,0,0,0,0,0,0,0,0,0],d2:3},
+  ox:{a:[8,6,6,8,8,8],b:[[0,1,1],[1,2,1],[2,3,1],[1,4,2],[2,5,2]],q:[-1,0,0,-1,0,0],d2:3},
+  C2O4:{alias:'ox'},
+  bipy:{a:[7,6,6,7,6,6,6,6,6,6,6,6,1,1,1,1,1,1,1,1],b:[[0,1,2],[1,2,1],[2,3,2],[0,4,1],[4,5,2],[5,6,1],[6,7,2],[7,1,1],[3,8,1],[8,9,2],[9,10,1],[10,11,2],[11,2,1],[4,12,1],[5,13,1],[6,14,1],[7,15,1],[8,16,1],[9,17,1],[10,18,1],[11,19,1]],q:new Array(20).fill(0),d2:3},
+  py:{a:[7,6,6,6,6,6,1,1,1,1,1],b:[[0,1,2],[1,2,1],[2,3,2],[3,4,1],[4,5,2],[5,0,1],[1,6,1],[2,7,1],[3,8,1],[4,9,1],[5,10,1]],q:new Array(11).fill(0)},
+  C5H5N:{alias:'py'},
+};
+const bLig=k=>{ let L=B_LIGANDS[k]; if(L&&L.alias) L=B_LIGANDS[L.alias]; return L||null; };
+const B_TM=Z=>(Z>=21&&Z<=30)||(Z>=39&&Z<=48)||(Z>=57&&Z<=80)||(Z>=89&&Z<=112)||Z===13||Z===31||Z===49||Z===50||Z===82;
+const bGroupOf=Z=>Z<=30?Z-18:Z<=48?Z-36:Z<=80?(Z>=72?Z-68:3):Z-100;
+
+// ideal donor directions for each coordination number
+function bCoordSlots(cn, sq){
+  const r=Math.SQRT1_2, t=1/Math.sqrt(3);
+  if(cn===1) return [[1,0,0]];
+  if(cn===2) return [[1,0,0],[-1,0,0]];
+  if(cn===3) return [[1,0,0],[-.5,.866,0],[-.5,-.866,0]];
+  if(cn===4) return sq ? [[1,0,0],[0,1,0],[-1,0,0],[0,-1,0]] : [[t,t,t],[t,-t,-t],[-t,t,-t],[-t,-t,t]];
+  if(cn===5) return [[0,0,1],[0,0,-1],[1,0,0],[-.5,.866,0],[-.5,-.866,0]];
+  if(cn===6) return [[1,0,0],[0,1,0],[0,0,1],[-1,0,0],[0,-1,0],[0,0,-1]];
+  if(cn===7){ const s=[[0,0,1],[0,0,-1]]; for(let k=0;k<5;k++) s.push([Math.cos(k*2*Math.PI/5),Math.sin(k*2*Math.PI/5),0]); return s; }
+  const s=[]; for(let k=0;k<cn;k++){ const z=1-2*(k+.5)/cn, a=k*2.399963; s.push([Math.sqrt(1-z*z)*Math.cos(a),Math.sqrt(1-z*z)*Math.sin(a),z]); } return s;   // spread evenly
+}
+
+// parse "Mx(L)n(L)m..." inside the complex brackets
+function bParseComplexCore(t){
+  const m=t.match(/^([A-Z][a-z]?)(.*)$/); if(!m) return null;
+  const M=bSymZ(m[1]); if(!M || !B_TM(M)) return null;
+  let rest=m[2], ligs=[];
+  while(rest.length){
+    let mm;
+    if((mm=rest.match(/^\(([A-Za-z0-9]+)\)(\d*)/))){ const L=bLig(mm[1]); if(!L) return null; ligs.push([mm[1], +(mm[2]||1)]); rest=rest.slice(mm[0].length); continue; }
+    if((mm=rest.match(/^(CN|CO|NO|OH|NH3|H2O|SCN|NCS|en|py|ox|Cl|Br|F|I|O|S|H|N)(\d*)/))){ ligs.push([mm[1], +(mm[2]||1)]); rest=rest.slice(mm[0].length); continue; }
+    return null;
+  }
+  if(!ligs.length) return null;
+  return {M, ligs};
+}
+
+function bParseComplexInput(raw){
+  let t=String(raw||'').trim().replace(/\s+/g,'').replace(/[−–—]/g,'-');
+  t=t.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+$/,s=>s.split('').map(c=>c==='⁺'?'+':c==='⁻'?'-':String('⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c))).join('')).replace(/[₀-₉]/g,c=>String('₀₁₂₃₄₅₆₇₈₉'.indexOf(c)));
+  let iso=null, m;
+  if((m=t.match(/^(cis|trans|fac|mer)-/i))){ iso=m[1].toLowerCase(); t=t.slice(m[0].length); }
+  let pre='', core, post='', charge=null;
+  if((m=t.match(/^([A-Za-z0-9]*)\[([^\]]+)\]\^?(\d*)([+\-]?)([A-Za-z0-9]*)$/))){
+    pre=m[1]; core=m[2]; post=m[5];
+    if(m[4]) charge=(m[3]?+m[3]:1)*(m[4]==='+'?1:-1);
+  } else {
+    if(!/^([A-Z][a-z]?\(|Cp)/.test(t)) return null;      // un-bracketed only as "Ni(CO)4", "Fe(CO)5", "CpFe(CO)2Cl", "Cp2Fe"
+    const c=t.match(/^(.*?)\^?(\d*)([+\-])$/); if(c && c[1].endsWith(')')){ core=c[1]; charge=(c[2]?+c[2]:1)*(c[3]==='+'?1:-1); } else core=t;
+  }
+  const P=bParseComplexCore2(core); if(!P) return null;
+  const counter=[];
+  for(const part of [pre,post]){ if(!part) continue;
+    const mm=part.match(/^([A-Z][a-z]?)(\d*)$/); if(!mm) return null;
+    const Z=bSymZ(mm[1]); if(!Z) return null;
+    const q={3:1,11:1,19:1,37:1,55:1,12:2,20:2,38:2,56:2,9:-1,17:-1,35:-1,53:-1}[Z]; if(!q) return null;
+    counter.push({Z, n:+(mm[2]||1), q});
+  }
+  const cq=counter.reduce((s,c)=>s+c.n*c.q,0);
+  if(charge===null) charge=-cq; else if(counter.length && charge!==-cq) return null;
+  return {M:P.M, ligs:P.ligs, charge, counter, iso};
+}
+
+function bBuildComplex(C){
+  const atoms=[], bonds=[], q=[], P=[];
+  let lq=0, cn=0;
+  C.ligs.forEach(([k,n])=>{ const L=bLig(k); lq+=n*(L.net!==undefined?L.net:L.q.reduce((s,v)=>s+v,0)); cn+=n*(L.d2!==undefined?2:1); });
+  if(cn<1 || cn>9) return null;
+  const ox=C.charge-lq, dcount=bGroupOf(C.M)-ox;
+  const halideOnly=C.ligs.every(([k])=>['F','Cl','Br','I'].includes(k));
+  const sq=(cn===4 && (dcount===8 || (C.M===29 && ox===2 && !halideOnly)));   // d8, and Cu(II) amines (Jahn–Teller)
+  const slots=bCoordSlots(cn, sq);
+  // slot order: chelates take cis pairs; then the rarest ligand kinds, packed cis (or trans / mer when asked)
+  const used=new Array(slots.length).fill(false), dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const takeCisPair=()=>{ for(let i=0;i<slots.length;i++) if(!used[i]) for(let j=i+1;j<slots.length;j++) if(!used[j] && dot(slots[i],slots[j])>-0.5 && dot(slots[i],slots[j])<0.5){ used[i]=used[j]=true; return [i,j]; } return null; };
+  const takeOne=(prev)=>{ let best=-1, bs=Infinity;
+    for(let i=0;i<slots.length;i++){ if(used[i]) continue;
+      // cis / fac: next to the previous ligands of this kind; trans / mer: opposite the first one
+      let s=0; prev.forEach(p=>{ const d=dot(slots[i],slots[p]); s+= (C.iso==='trans'||C.iso==='mer') ? (prev.length===1?d:-Math.abs(d)) : -d; });
+      if(C.iso==='mer' && prev.length===2) s=prev.reduce((a,p)=>a+Math.abs(dot(slots[i],slots[p])),0);
+      if(s<bs-1e-6){ bs=s; best=i; } }
+    if(best>=0) used[best]=true; return best; };
+  atoms.push(C.M); q.push(ox); P.push([0,0,0]);
+  const Mlen=L=>b3BondLen(C.M, L, 1)*1.08;
+  const place=(L, slotIdx, slotIdx2)=>{
+    const base=atoms.length;
+    L.a.forEach((z,i)=>{ atoms.push(z); q.push(L.q[i]||0); });
+    L.b.forEach(([i,j,o])=>bonds.push([base+i,base+j,o]));
+    const d=slots[slotIdx], d2=slotIdx2!==undefined?slots[slotIdx2]:null;
+    const out=d2 ? [d[0]+d2[0],d[1]+d2[1],d[2]+d2[2]].map(v=>v/Math.SQRT2) : d;
+    L.a.forEach((z,i)=>{ let p;
+      if(i===0) p=d.map(v=>v*Mlen(z));
+      else if(d2 && i===L.d2) p=d2.map(v=>v*Mlen(z));
+      else { const r=Mlen(L.a[0])+0.9+0.35*i; p=out.map((v,k)=>v*r+((i*7919+k*104729)%13-6)*0.04); }
+      P.push(p); });
+    bonds.push([0, base, L.bo||1]);
+    if(d2) bonds.push([0, base+L.d2, 1]);
+  };
+  // chelates first
+  C.ligs.forEach(([k,n])=>{ const L=bLig(k); if(L.d2===undefined) return; for(let i=0;i<n;i++){ const pr=takeCisPair(); if(!pr) return; place(L,pr[0],pr[1]); } });
+  const mono=C.ligs.filter(([k])=>bLig(k).d2===undefined).sort((a,b)=>a[1]-b[1]);
+  for(const [k,n] of mono){ const L=bLig(k), prev=[]; for(let i=0;i<n;i++){ const s=takeOne(prev); if(s<0) return null; prev.push(s); place(L,s); } }
+  // counter-ions, spread around the complex
+  const far=b3BondLen(C.M,8,1)+4.2; let ci=0; const nC=C.counter.reduce((s,c)=>s+c.n,0);
+  C.counter.forEach(c=>{ for(let i=0;i<c.n;i++,ci++){ const z=1-2*(ci+.5)/Math.max(nC,1), a=ci*2.4+0.6; atoms.push(c.Z); q.push(c.q); P.push([Math.sqrt(1-z*z)*Math.cos(a)*far, Math.sqrt(1-z*z)*Math.sin(a)*far, z*far]); } });
+  const d8=new Set(sq?[0]:[]);
+  const X=bEmbed3D(atoms, bonds, P, {seed:3, d8});
+  const shapeKey = cn===2?'sim.molecules.linear':cn===3?'sim.molecules.trigonal_planar':cn===4?(sq?'sim.molecules.square_planar':'sim.molecules.tetrahedral'):cn===5?'sim.molecules.trigonal_bipyramidal':cn===6?'sim.molecules.octahedral':null;
+  const kinds=C.ligs.filter(([k])=>bLig(k).d2===undefined).map(([,n])=>n);
+  const canIsomer=(sq || cn===6) && kinds.length>=2;
+  const isomerShown = canIsomer ? (C.iso || (cn===6 && kinds.includes(3) ? 'fac' : kinds.includes(2) ? 'cis' : null)) : null;
+  return {Z:atoms, bonds, P:X, q, shapeKey, isomer:C.iso, isomerShown, ox, cn, label:'complex'};
+}
+
+// ── Rings and cages from a formula ──────────────────────────────────
+function bGoldbergC60(){
+  // truncated icosahedron: cyclic permutations of (0,±1,±3φ), (±1,±(2+φ),±2φ), (±φ,±2,±φ³)
+  const f=(1+Math.sqrt(5))/2, V=[], seen=new Set();
+  const add=v=>{ const k=v.map(x=>x.toFixed(4)).join(','); if(!seen.has(k)){ seen.add(k); V.push(v); } };
+  const base=[[0,1,3*f],[1,2+f,2*f],[f,2,f*f*f]];
+  base.forEach(b=>{ for(let s=0;s<8;s++){ const v=b.map((x,i)=>(s>>i)&1?-x:x); for(let r=0;r<3;r++) add([v[r%3],v[(r+1)%3],v[(r+2)%3]]); } });
+  const k=1.4/2;                                          // edge length 2 in these units -> 1.40 Å
+  const P=V.map(v=>v.map(x=>x*k)), bonds=[];
+  for(let i=0;i<P.length;i++) for(let j=i+1;j<P.length;j++){ const d=Math.hypot(P[i][0]-P[j][0],P[i][1]-P[j][1],P[i][2]-P[j][2]); if(d<1.5) bonds.push([i,j,1]); }
+  // 6:6 bonds (edges NOT in a pentagon) are the double bonds; an edge is in a pentagon when its ends share a 5-cycle
+  const adj=P.map(()=>[]); bonds.forEach(([i,j])=>{ adj[i].push(j); adj[j].push(i); });
+  const inPent=(i,j)=>{ // path of length 4 from j back to i avoiding the edge
+    const st=[[j,[i,j]]]; while(st.length){ const [x,path]=st.pop(); if(path.length===5){ if(adj[x].includes(i)) return true; continue; } adj[x].forEach(y=>{ if(!path.includes(y)) st.push([y,path.concat(y)]); }); } return false; };
+  bonds.forEach(b=>{ if(!inPent(b[0],b[1])) b[2]=2; });
+  return {Z:P.map(()=>6), bonds, P, q:P.map(()=>0)};
+}
+
+function bCageFromFormula(pf){
+  if(pf.charge) return null;
+  const c=pf.counts, els=pf.order, one=els.length===1 ? els[0] : null, N=one?c[one]:0;
+  // C60 buckminsterfullerene
+  if(one===6 && N===60) return Object.assign(bGoldbergC60(), {label:'cage'});
+  // P4, As4, Sb4: tetrahedra
+  if(one && [15,33,51].includes(one) && N===4) return {Z:[one,one,one,one], bonds:[[0,1,1],[0,2,1],[0,3,1],[1,2,1],[1,3,1],[2,3,1]], P:null, q:[0,0,0,0], label:'cage'};
+  // S6, S7, S8, Se8, S12 ... rings of single bonds (crowns and chairs come out of the 3D builder)
+  if(one && [16,34,52].includes(one) && N>=5 && N<=20){ const b=[]; for(let i=0;i<N;i++) b.push([i,(i+1)%N,1]); return {Z:new Array(N).fill(one), bonds:b, P:null, q:new Array(N).fill(0), label:'ring'}; }
+  // P4O6 / P4O10 / As4O6 / Sb4O6 / P4S10: tetrahedron of E with an X on every edge (+ one terminal X per E)
+  if(els.length===2){
+    const E=els.find(z=>[15,33,51].includes(z)), X=els.find(z=>[8,16].includes(z));
+    if(E && X && c[E]===4 && (c[X]===6 || c[X]===10)){
+      const Z=[E,E,E,E], b=[];
+      [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]].forEach(([i,j])=>{ Z.push(X); b.push([i,Z.length-1,1],[j,Z.length-1,1]); });
+      if(c[X]===10) for(let i=0;i<4;i++){ Z.push(X); b.push([i,Z.length-1,2]); }
+      return {Z, bonds:b, P:null, q:Z.map(()=>0), label:'cage'};
+    }
+  }
+  // diborane B2H6: two bridging hydrogens (exact gas-phase geometry)
+  if(els.length===2 && c[5]===2 && c[1]===6){
+    const Z=[5,5,1,1,1,1,1,1], P=[[.885,0,0],[-.885,0,0],[1.47,1.04,0],[1.47,-1.04,0],[-1.47,1.04,0],[-1.47,-1.04,0],[0,0,.97],[0,0,-.97]];
+    return {Z, bonds:[[0,2,1],[0,3,1],[1,4,1],[1,5,1],[0,6,1],[1,6,1],[0,7,1],[1,7,1]], P, q:Z.map(()=>0), label:'bridged', exact:true};
+  }
+  // metallocenes M(C5H5)2 — Fe, Co, Ni, Ru, Os, Cr, V, Mn, Mg
+  const M=els.find(z=>[26,27,28,44,76,24,23,25,12].includes(z));
+  if(M && els.length===3 && c[M]===1 && c[6]===10 && c[1]===10){
+    const Z=[M], P=[[0,0,0]], b=[], ring=1.21, hr=2.28, h=1.66;
+    [h,-h].forEach(zz=>{ const base=Z.length;
+      for(let k=0;k<5;k++){ const a=k*2*Math.PI/5; Z.push(6); P.push([ring*Math.cos(a),ring*Math.sin(a),zz]); }
+      for(let k=0;k<5;k++){ const a=k*2*Math.PI/5; Z.push(1); P.push([hr*Math.cos(a),hr*Math.sin(a),zz]); b.push([base+k,base+5+k,1]); }
+      for(let k=0;k<5;k++) b.push([base+k, base+(k+1)%5, k===0||k===2?2:1]);
+      for(let k=0;k<5;k++) b.push([0, base+k, 0]);            // drawn as the metal's links to the rings
+    });
+    const q=Z.map(()=>0); q[0]=2; q[5]=-1; q[15]=-1;
+    return {Z, bonds:b, P, q, label:'sandwich', exact:true};
+  }
+  return null;
+}
+
+// ── Any formula: one valid structure, offline ───────────────────────
+// Builds a carbon chain, hangs the heteroatoms on it, spends the unsaturation on a benzene ring,
+// C=O / C≡N / C=C bonds and ring closures, then fills every remaining valence with hydrogen.
+// Clearly labelled as one possible structure — a formula alone does not say which isomer was meant.
+function bGenericFromFormula(pf){
+  const VAL={1:1,9:1,17:1,35:1,53:1,8:2,16:2,34:2,7:3,15:3,5:3,33:3,6:4,14:4,32:4};
+  if(pf.order.some(z=>!(z in VAL))) return null;
+  const c=pf.counts, Z=[], val=[];
+  const push=z=>{ Z.push(z); val.push(VAL[z]); return Z.length-1; };
+  let q=pf.charge;
+  const nC=c[6]||0;
+  const backbone=[];
+  const order=[6,14,32,7,15,33,5,8,16,34];
+  order.forEach(z=>{ for(let i=0;i<(c[z]||0);i++) backbone.push(push(z)); });
+  // a charge goes on a nitrogen (NH4+-like, +1) or an oxygen (alkoxide/carboxylate, -1)
+  const charge=new Array(Z.length).fill(0);
+  if(q){ const pick=backbone.find(i=>(q>0&&Z[i]===7)||(q<0&&Z[i]===8)); if(!pick && pick!==0) return null; if(Math.abs(q)>1) return null; charge[pick]=q; val[pick]+= q>0?1:-1; }
+  const monov=[]; [9,17,35,53,1].forEach(z=>{ for(let i=0;i<(c[z]||0);i++) monov.push(z); });
+  const k=backbone.length, V=backbone.reduce((s,i)=>s+val[i],0), M=monov.length;
+  if(k<2 || (V-M)%2!==0) return null;
+  const B=(V-M)/2; let u=B-(k-1);
+  if(u<0) return null;
+  const bonds=[], deg=new Array(Z.length).fill(0), bo={};
+  const key=(i,j)=>i<j?i+'_'+j:j+'_'+i;
+  const bond=(i,j,o)=>{ bonds.push([i,j,o]); deg[i]+=o; deg[j]+=o; bo[key(i,j)]=bonds.length-1; };
+  const cap=i=>val[i]-deg[i];
+  const carbons=backbone.filter(i=>Z[i]===6||Z[i]===14||Z[i]===32), hetero=backbone.filter(i=>!carbons.includes(i));
+  for(let i=1;i<carbons.length;i++) bond(carbons[i-1],carbons[i],1);
+  let ringMade=false;
+  // a benzene ring when the carbons and the unsaturation allow it
+  if(carbons.length>=6 && u>=4){ bond(carbons[0],carbons[5],1); for(const [a,b] of [[0,1],[2,3],[4,5]]){ const t=bonds[bo[key(carbons[a],carbons[b])]]; t[2]=2; deg[carbons[a]]++; deg[carbons[b]]++; } u-=4; ringMade=true; }
+  // heteroatoms: on the carbon with the most room, preferring ends and carbons without a heteroatom yet
+  const hetOn=new Array(Z.length).fill(0);
+  const pairO=(c[8]||0)>=2 && u>=1;
+  hetero.forEach((h,idx)=>{
+    if(!carbons.length){ if(idx>0) bond(hetero[idx-1],h,1); return; }
+    let best=-1, bs=-Infinity;
+    carbons.forEach((ci,pos)=>{ if(cap(ci)<1) return;
+      const end=(pos===0||pos===carbons.length-1)?1:0;
+      let s=cap(ci)*2+end*1.5-hetOn[ci]*3;
+      if(pairO && Z[h]===8 && hetOn[ci]===1 && end && cap(ci)>=2) s+=6;   // two oxygens on one end carbon: a carboxylic acid
+      if(s>bs){ bs=s; best=ci; } });
+    if(best<0){ const other=hetero.slice(0,idx).find(x=>cap(x)>=2); if(other===undefined) { best=-2; } else { bond(other,h,1); return; } }
+    if(best===-2) return;
+    bond(best,h,1); hetOn[best]++;
+  });
+  if(backbone.some(i=>deg[i]===0) && k>1) return null;
+  const tryMultiple=(filter,o)=>{ for(const b of bonds){ if(u<o-1+0) break; const [i,j]=b; if(b[2]!==1) continue; if(!filter(i,j)) continue; if(cap(i)>=o-1 && cap(j)>=o-1){ b[2]=o; deg[i]+=o-1; deg[j]+=o-1; u-=o-1; } } };
+  const isC=i=>carbons.includes(i);
+  if(u>0) tryMultiple((i,j)=>(isC(i)&&Z[j]===7&&deg[j]===1)||(isC(j)&&Z[i]===7&&deg[i]===1), 3);       // nitrile
+  if(u>0) tryMultiple((i,j)=>(isC(i)&&Z[j]===8)||(isC(j)&&Z[i]===8)||(isC(i)&&Z[j]===16&&deg[j]===1)||(isC(j)&&Z[i]===16&&deg[i]===1), 2);   // C=O, C=S
+  // an all-carbon ring when nothing else is unsaturated
+  if(u>0 && !ringMade && carbons.length>=5 && hetero.length===0){ const a=carbons[0], b=carbons[Math.min(5,carbons.length)-1]; if(cap(a)>=1&&cap(b)>=1){ bond(a,b,1); u--; ringMade=true; } }
+  if(u>0) tryMultiple((i,j)=>isC(i)&&isC(j), 2);
+  if(u>0) tryMultiple((i,j)=>isC(i)&&isC(j), 3);
+  if(u>0) tryMultiple(()=>true, 2);
+  // remaining unsaturation: close rings between atoms 4–5 bonds apart (five- and six-membered rings)
+  for(let guard=0; u>0 && guard<20; guard++){
+    let made=false;
+    const free=backbone.filter(i=>cap(i)>=1);
+    for(let x=0;x<free.length && !made;x++) for(let y=x+1;y<free.length && !made;y++){ const a=free[x], b=free[y]; if(bo[key(a,b)]!==undefined) continue; bond(a,b,1); u--; made=true; }
+    if(!made) break;
+  }
+  if(u!==0) return null;
+  // halogens, then hydrogens, into the remaining valences
+  monov.forEach(z=>{ let host=-1;
+    const pool=z===1 ? backbone : carbons.concat(hetero);
+    let bs=-Infinity; pool.forEach(i=>{ if(cap(i)<1) return; const s=(z===1?0:(isC(i)?2:0))+cap(i); if(s>bs){ bs=s; host=i; } });
+    if(host<0) return;
+    const hI=push(z); charge.push(0); deg.push(0); bond(host,hI,1); });
+  if(Z.length!==pf.n) return null;
+  if(Z.some((z,i)=>deg[i]!==val[i])) return null;
+  return {Z, bonds, P:null, q:charge, label:'possible'};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SMILES, offline — read any SMILES string into atoms + bonds (with implicit
+// hydrogens, aromatic rings turned into alternating bonds, @/@@ stereocentres
+// and / \ cis-trans), and write a structure back out as SMILES.
+// ══════════════════════════════════════════════════════════════════════
+const B_ORGANIC={B:[3],C:[4],N:[3,5],O:[2],P:[3,5],S:[2,4,6],F:[1],Cl:[1],Br:[1],I:[1]};
+function bParseSmiles(src){
+  const s=String(src||'').trim();
+  if(!s || /\s/.test(s)) return null;
+  const A=[], B=[], ringOpen={};
+  let i=0, prev=-1, pendingBond=null, pendingDir=null;
+  const stack=[];
+  const addAtom=a=>{ A.push(Object.assign({nb:[], ringRefs:[]}, a)); return A.length-1; };
+  const link=(x,y,o,dir,arom)=>{ B.push({a:x,b:y,o,arom:!!arom,dir:dir||null,dirAt:x}); A[x].nb.push(y); A[y].nb.push(x); };
+  while(i<s.length){
+    const c=s[i];
+    if(c==='('){ stack.push(prev); i++; continue; }
+    if(c===')'){ prev=stack.pop(); if(prev===undefined) return null; i++; continue; }
+    if(c==='-'||c==='='||c==='#'||c===':'||c==='$'){ pendingBond={'-':1,'=':2,'#':3,':':1.5,'$':4}[c]; i++; continue; }
+    if(c==='/'||c==='\\'){ pendingDir=c; pendingBond=pendingBond||1; i++; continue; }
+    if(c==='.'){ prev=-1; i++; continue; }
+    if(/[0-9%]/.test(c)){
+      let n; if(c==='%'){ n=+s.slice(i+1,i+3); i+=3; } else { n=+c; i++; }
+      if(prev<0 || isNaN(n)) return null;
+      if(ringOpen[n]){ const r=ringOpen[n]; delete ringOpen[n];
+        const o=pendingBond||r.o||null, ar=!o && A[prev].arom && A[r.at].arom;
+        link(r.at,prev,o||(ar?1.5:1),pendingDir||r.dir, ar||o===1.5);
+        A[prev].ringRefs.push(r.at); A[r.at].ringRefs[r.slot]=prev;
+      } else { ringOpen[n]={at:prev,o:pendingBond,dir:pendingDir,slot:A[prev].ringRefs.length}; A[prev].ringRefs.push(null); }
+      pendingBond=null; pendingDir=null; continue;
+    }
+    let atom=null;
+    if(c==='['){
+      const j=s.indexOf(']',i); if(j<0) return null;
+      const m=s.slice(i+1,j).match(/^(\d*)([A-Z][a-z]?|[cnospb]|se|as)(@{1,2})?(H(\d?))?([+\-]+|[+\-]\d+)?(?::\d+)?$/);
+      if(!m) return null;
+      const arom=/^[a-z]/.test(m[2]), sym=arom?m[2][0].toUpperCase()+m[2].slice(1):m[2], Z=bSymZ(sym); if(!Z) return null;
+      let q=0; if(m[6]){ q=/\d/.test(m[6]) ? +m[6].slice(1)*(m[6][0]==='+'?1:-1) : m[6].length*(m[6][0]==='+'?1:-1); }
+      atom={Z, arom, q, hExplicit:m[4]?(m[5]?+m[5]:1):0, bracket:true, chir:m[3]?m[3].length:0};
+      i=j+1;
+    } else {
+      const two=s.slice(i,i+2);
+      let sym=null, arom=false;
+      if(two==='Cl'||two==='Br'){ sym=two; i+=2; }
+      else if('BCNOPSFI'.includes(c)){ sym=c; i++; }
+      else if('bcnops'.includes(c)){ sym=c.toUpperCase(); arom=true; i++; }
+      else return null;
+      atom={Z:bSymZ(sym), sym, arom, q:0, hExplicit:0, bracket:false, chir:0};
+    }
+    const k=addAtom(atom);
+    if(prev>=0){ const ar=!pendingBond && A[prev].arom && atom.arom; link(prev,k,pendingBond||(ar?1.5:1),pendingDir, ar||pendingBond===1.5); }
+    pendingBond=null; pendingDir=null; prev=k;
+  }
+  if(Object.keys(ringOpen).length || stack.length) return null;
+  // aromatic rings -> alternating single/double bonds (a perfect matching over the atoms that still need a double bond)
+  const ab=B.filter(b=>b.arom);
+  if(ab.length){
+    const need=A.map((a,idx)=>{ if(!a.arom) return false;
+      const sym=bZSym(a.Z), hasDouble=B.some(b=>!b.arom && (b.a===idx||b.b===idx) && b.o>=2);   // c(=O): already has its double bond
+      if(hasDouble) return false;
+      if(sym==='C'||sym==='Si') return a.q===0;
+      if(sym==='N'||sym==='P'||sym==='As') return a.q===0 ? (a.nb.length===2 && !a.hExplicit) : a.q===1 ? (a.nb.length+(a.hExplicit||0))===3 : false;
+      if(sym==='B') return a.q===-1;
+      return false; });
+    const mate=new Array(A.length).fill(-1);
+    const nbAr=A.map((_,x)=>ab.filter(b=>b.a===x||b.b===x).map(b=>b.a===x?b.b:b.a));
+    const augment=(u,seen)=>{ for(const v of nbAr[u]){ if(!need[v]||seen[v]) continue; seen[v]=true; if(mate[v]<0 || augment(mate[v],seen)){ mate[u]=v; mate[v]=u; return true; } } return false; };
+    for(let x=0;x<A.length;x++) if(need[x] && mate[x]<0) augment(x,{});
+    if(A.some((a,x)=>need[x] && mate[x]<0)) return null;           // not a valid aromatic system
+    ab.forEach(b=>{ b.o = (mate[b.a]===b.b) ? 2 : 1; });
+  }
+  // implicit hydrogens on organic-subset atoms; explicit ones from brackets
+  const Z=[], q=[], bonds=[];
+  A.forEach(a=>{ Z.push(a.Z); q.push(a.q); });
+  B.forEach(b=>bonds.push([b.a,b.b,Math.round(b.o)]));
+  const hydro=[];
+  A.forEach((a,x)=>{
+    let h=0;
+    if(a.bracket) h=a.hExplicit;
+    else { const used=B.reduce((t,b)=>t+((b.a===x||b.b===x)?Math.round(b.o):0),0), vals=B_ORGANIC[bZSym(a.Z)]||[0];
+      const v=vals.find(v=>v>=used); h=v!==undefined ? v-used : 0; }
+    for(let k=0;k<h;k++){ Z.push(1); q.push(0); bonds.push([x,Z.length-1,1]); hydro.push([x,Z.length-1]); }
+    a.hIdx=hydro.filter(p=>p[0]===x).map(p=>p[1]);
+  });
+  // stereocentres: @ = the neighbours after the first are anticlockwise when viewed from the first
+  const chiral=[];
+  A.forEach((a,x)=>{
+    if(!a.chir) return;
+    // neighbour order as written: preceding atom, then implicit/bracket H, then ring closures, then following atoms
+    const preceding=B.find(b=>b.b===x && !A[x].ringRefs.includes(b.a) && b.a<x);
+    const order=[];
+    if(preceding) order.push(preceding.a);
+    a.hIdx.forEach(h=>order.push(h));
+    a.ringRefs.forEach(r=>{ if(r!==null && r!==undefined) order.push(r); });
+    a.nb.forEach(y=>{ if(!order.includes(y)) order.push(y); });
+    if(!preceding && a.hIdx.length){ /* leading atom with H: H counts as the first neighbour after "from" */ }
+    if(order.length<4) return;                                      // 3-coordinate stereocentres (sulfoxides) not handled
+    const [f,n1,n2,n3]=order;
+    chiral.push({c:x, nb:[n1,n2,n3], from:f, sign: a.chir===1 ? -1 : 1});
+  });
+  // cis/trans from / and \
+  const ez=[];
+  B.forEach(db=>{ if(db.o!==2) return;
+    const side=(x,other)=>{ for(const b of B){ if(!b.dir || b===db) continue; if(b.a===x && b.b!==other) return {n:b.b, up:(b.dir==='/')}; if(b.b===x && b.a!==other) return {n:b.a, up:(b.dir==='\\')}; } return null; };
+    const L=side(db.a,db.b), R=side(db.b,db.a);
+    if(!L||!R) return;
+    // written order: for a bond before the double bond the direction is read from the substituent towards the alkene carbon
+    const lUp = (B.find(b=>b.dir&&((b.a===L.n&&b.b===db.a)))) ? (B.find(b=>b.a===L.n&&b.b===db.a).dir==='/') : !L.up;
+    const rUp = (B.find(b=>b.dir&&b.a===db.b&&b.b===R.n)) ? (B.find(b=>b.a===db.b&&b.b===R.n).dir==='/') : !R.up;
+    ez.push({a:L.n, i:db.a, j:db.b, b:R.n, cis: lUp!==rUp});
+  });
+  return {Z, bonds, q, chiral, ez};
+}
+
+// ── Coordination complexes, any ligand: each ligand is a SMILES recipe ──
+// donors: atom indices (in the SMILES order), or element symbols ('N', 'P', 'O-' = negatively charged O).
+// hapto: the ring binds through all its atoms (Cp, benzene). mer: a tridentate ligand that lies flat (terpy).
+const B_LIG2={
+  CN:{smi:'[C-]#N',don:[0]}, NC:{smi:'[N-]=[C]',don:[0]}, CO:{smi:'[C-]#[O+]',don:[0]}, NO:{smi:'[N+]#[O]',don:[0]}, CS:{smi:'[C-]#[S+]',don:[0]},
+  NH3:{smi:'N',don:[0]}, H3N:{alias:'NH3'}, H2O:{smi:'O',don:[0]}, OH2:{alias:'H2O'}, aq:{alias:'H2O'}, OH:{smi:'[OH-]',don:[0]}, HO:{alias:'OH'},
+  F:{smi:'[F-]',don:[0]}, Cl:{smi:'[Cl-]',don:[0]}, Br:{smi:'[Br-]',don:[0]}, I:{smi:'[I-]',don:[0]}, H:{smi:'[H-]',don:[0]},
+  O:{smi:'[O-2]',don:[0],bo:2}, S:{smi:'[S-2]',don:[0]}, N:{smi:'[N-3]',don:[0],bo:3},
+  NO2:{smi:'N(=O)[O-]',don:[0]}, ONO:{smi:'[O-]N=O',don:[0]}, NO3:{smi:'[O-][N+](=O)[O-]',don:[0]}, N3:{smi:'[N-]=[N+]=[N-]',don:[0]},
+  SCN:{smi:'[S-]C#N',don:[0]}, NCS:{smi:'[N-]=C=S',don:[0]}, CH3:{smi:'[CH3-]',don:[0]}, Me:{alias:'CH3'}, NH2:{smi:'[NH2-]',don:[0]},
+  PH3:{smi:'P',don:[0]}, PF3:{smi:'FP(F)F',don:[1]}, PCl3:{smi:'ClP(Cl)Cl',don:[1]}, PMe3:{smi:'CP(C)C',don:[1]}, PEt3:{smi:'CCP(CC)CC',don:[2]},
+  PPh3:{smi:'P(c1ccccc1)(c1ccccc1)c1ccccc1',don:[0]}, PCy3:{smi:'P(C1CCCCC1)(C1CCCCC1)C1CCCCC1',don:[0]}, 'P(OMe)3':{smi:'COP(OC)OC',don:[2]},
+  'P(OPh)3':{smi:'P(Oc1ccccc1)(Oc1ccccc1)Oc1ccccc1',don:[0]}, AsPh3:{smi:'[As](c1ccccc1)(c1ccccc1)c1ccccc1',don:[0]},
+  py:{smi:'n1ccccc1',don:[0]}, C5H5N:{alias:'py'}, MeCN:{smi:'CC#N',don:[2]}, CH3CN:{alias:'MeCN'}, thf:{smi:'C1CCOC1',don:[3]}, THF:{alias:'thf'},
+  DMSO:{smi:'CS(C)=O',don:[3]}, dmso:{alias:'DMSO'}, OAc:{smi:'CC(=O)[O-]',don:[3]}, CH3COO:{alias:'OAc'}, CO3:{smi:'[O-]C(=O)[O-]',don:[0,3]},
+  en:{smi:'NCCN',don:[0,3]}, ox:{smi:'[O-]C(=O)C(=O)[O-]',don:[0,5]}, C2O4:{alias:'ox'}, acac:{smi:'[O-]C(C)=CC(C)=O',don:[0,6]}, gly:{smi:'[O-]C(=O)CN',don:[0,4]},
+  bipy:{smi:'n1ccccc1-c1ccccn1',don:'N'}, bpy:{alias:'bipy'}, phen:{smi:'c1cnc2c(c1)ccc1cccnc12',don:'N'},
+  dppe:{smi:'P(c1ccccc1)(c1ccccc1)CCP(c1ccccc1)c1ccccc1',don:'P'}, dppm:{smi:'P(c1ccccc1)(c1ccccc1)CP(c1ccccc1)c1ccccc1',don:'P'},
+  dien:{smi:'NCCNCCN',don:'N'}, terpy:{smi:'n1ccccc1-c1cccc(n1)-c1ccccn1',don:'N',mer:true}, tpy:{alias:'terpy'},
+  edta:{smi:'[O-]C(=O)CN(CC(=O)[O-])CCN(CC(=O)[O-])CC(=O)[O-]',don:'N,O-'}, EDTA:{alias:'edta'},
+  Cp:{smi:'[cH-]1cccc1',hapto:'ring'}, C5H5:{alias:'Cp'}, 'Cp*':{smi:'C[c-]1c(C)c(C)c(C)c1C',hapto:'ring'}, C5Me5:{alias:'Cp*'},
+  C6H6:{smi:'c1ccccc1',hapto:'ring'}, bz:{alias:'C6H6'},
+};
+const bLig2=k=>{ let L=B_LIG2[k]; if(L&&L.alias) L=B_LIG2[L.alias]; return L||null; };
+const B_LIG2_CACHE={};
+function bLigandModel(key){
+  if(B_LIG2_CACHE[key]) return B_LIG2_CACHE[key];
+  const L=bLig2(key); if(!L) return null;
+  const g=bParseSmiles(L.smi); if(!g) return null;
+  const heavy=g.Z.map((z,i)=>i).filter(i=>g.Z[i]!==1 || g.Z.length===1);
+  let don;
+  if(L.hapto) don=[];
+  else if(Array.isArray(L.don)) don=L.don;
+  else { const want=L.don.split(','); don=heavy.filter(i=>want.some(w=>{ const neg=w.endsWith('-'), sym=w.replace('-',''); return bZSym(g.Z[i])===sym && (!neg || g.q[i]<0); })); }
+  const ring = L.hapto ? heavy.filter(i=>{ const sym=bZSym(g.Z[i]); return sym==='C' && g.bonds.filter(b=>(b[0]===i||b[1]===i)).some(b=>{ const o=b[0]===i?b[1]:b[0]; return g.Z[o]===6 && heavy.includes(o); }) && L.smi.includes('c'); }) : [];
+  const ringAtoms = L.hapto ? (()=>{ // the aromatic ring itself: carbons with two ring-carbon neighbours
+      const cs=heavy.filter(i=>g.Z[i]===6); return cs.filter(i=>g.bonds.filter(b=>b[0]===i||b[1]===i).filter(b=>{ const o=b[0]===i?b[1]:b[0]; return g.Z[o]===6 && cs.includes(o) && g.bonds.filter(bb=>bb[0]===o||bb[1]===o).filter(bb=>g.Z[bb[0]===o?bb[1]:bb[0]]===6).length>=2; }).length>=2); })() : [];
+  const P=bEmbed3D(g.Z, g.bonds, null, {seed:11});
+  const m={g, P, don, ringAtoms, hapto:!!L.hapto, mer:!!L.mer, bo:L.bo||1, net:g.q.reduce((s,v)=>s+v,0), dent:L.hapto?1:don.length};
+  B_LIG2_CACHE[key]=m; return m;
+}
+
+// rotation that best maps points A onto points B (both centred), as a 3x3 matrix (Horn's quaternion method)
+function bBestRotation(A,B){
+  const S=[[0,0,0],[0,0,0],[0,0,0]];
+  A.forEach((a,i)=>{ for(let x=0;x<3;x++) for(let y=0;y<3;y++) S[x][y]+=a[x]*B[i][y]; });
+  const [[xx,xy,xz],[yx,yy,yz],[zx,zy,zz]]=S;
+  const N=[[xx+yy+zz,yz-zy,zx-xz,xy-yx],[yz-zy,xx-yy-zz,xy+yx,zx+xz],[zx-xz,xy+yx,-xx+yy-zz,yz+zy],[xy-yx,zx+xz,yz+zy,-xx-yy+zz]];
+  const sh=Math.abs(xx)+Math.abs(yy)+Math.abs(zz)+Math.abs(xy)+Math.abs(xz)+Math.abs(yx)+Math.abs(yz)+Math.abs(zx)+Math.abs(zy)+1;
+  let v=[1,0.1,0.2,0.3]; for(let it=0;it<200;it++){ const w=N.map((r,i)=>r.reduce((s,x,j)=>s+x*v[j],0)+sh*v[i]); const l=Math.hypot(...w)||1; v=w.map(x=>x/l); }
+  const [q0,q1,q2,q3]=v;
+  return [[q0*q0+q1*q1-q2*q2-q3*q3, 2*(q1*q2-q0*q3), 2*(q1*q3+q0*q2)],
+          [2*(q1*q2+q0*q3), q0*q0-q1*q1+q2*q2-q3*q3, 2*(q2*q3-q0*q1)],
+          [2*(q1*q3-q0*q2), 2*(q2*q3+q0*q1), q0*q0-q1*q1-q2*q2+q3*q3]];
+}
+const bRot=(R,p)=>[R[0][0]*p[0]+R[0][1]*p[1]+R[0][2]*p[2], R[1][0]*p[0]+R[1][1]*p[1]+R[1][2]*p[2], R[2][0]*p[0]+R[2][1]*p[1]+R[2][2]*p[2]];
+
+function bParseComplexCore2(t){
+  const keys=Object.keys(B_LIG2).sort((a,b)=>b.length-a.length);
+  const ligs=[];
+  // leading ring ligands ("Cp", "Cp*", "(C5H5)") before the metal symbol
+  for(let guard=0; guard<3; guard++){
+    let mm=t.match(/^\(([^()]+)\)(\d*)/);
+    if(mm && bLig2(mm[1]) && /^[A-Z]/.test(t.slice(mm[0].length))){ ligs.push([mm[1], +(mm[2]||1)]); t=t.slice(mm[0].length); continue; }
+    const k=keys.find(k=>bLig2(k) && bLig2(k).hapto && t.startsWith(k));
+    if(k){ const c=t.slice(k.length).match(/^\d*/)[0]; ligs.push([k, +(c||1)]); t=t.slice(k.length+c.length); continue; }
+    break;
+  }
+  const m=t.match(/^([A-Z][a-z]?)(.*)$/); if(!m) return null;
+  const M=bSymZ(m[1]); if(!M || !B_TM(M)) return null;
+  let rest=m[2];
+  while(rest.length){
+    let mm;
+    if((mm=rest.match(/^\(([^()]+(?:\([^()]*\)\d*)?[^()]*)\)(\d*)/))){ if(!bLig2(mm[1])) return null; ligs.push([mm[1], +(mm[2]||1)]); rest=rest.slice(mm[0].length); continue; }
+    const k=keys.find(k=>rest.startsWith(k) && !/^[a-z]/.test(rest.slice(k.length)));
+    if(!k) return null;
+    rest=rest.slice(k.length); const c=rest.match(/^\d*/)[0]; rest=rest.slice(c.length); ligs.push([k, +(c||1)]);
+  }
+  return ligs.length ? {M, ligs} : null;
+}
+
+function bBuildComplex2(C){
+  const models=[]; let lq=0, sites=0;
+  for(const [k,n] of C.ligs){ const m=bLigandModel(k); if(!m || (!m.hapto && !m.dent)) return null; for(let i=0;i<n;i++){ models.push({k,m}); lq+=m.net; sites+=m.dent; } }
+  if(sites<1 || sites>9) return null;
+  const ox=C.charge-lq, dcount=bGroupOf(C.M)-ox;
+  const halideOnly=C.ligs.every(([k])=>['F','Cl','Br','I'].includes(k));
+  const sq=(sites===4 && !models.some(x=>x.m.hapto) && (dcount===8 || (C.M===29 && ox===2 && !halideOnly)));
+  const slots=bCoordSlots(sites, sq), used=new Array(slots.length).fill(false), dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  // site choice: big ligands first; each polydentate on mutually cis sites (or meridional), monodentates by kind (cis/fac by default)
+  const order=models.map((x,i)=>i).sort((a,b)=>(models[b].m.dent-models[a].m.dent)||((models[b].m.hapto?1:0)-(models[a].m.hapto?1:0)));
+  const assign={}, byKind={};
+  const pickSites=(d,mer)=>{
+    let best=null, bestScore=-Infinity;
+    const free=slots.map((_,i)=>i).filter(i=>!used[i]);
+    const combos=(arr,k,start=0,acc=[])=>{ if(acc.length===k){ yield_(acc.slice()); return; } for(let i=start;i<arr.length;i++){ acc.push(arr[i]); combos(arr,k,i+1,acc); acc.pop(); } };
+    const yield_=c=>{ let sc=0;
+      for(let a=0;a<c.length;a++) for(let b=a+1;b<c.length;b++){ const d2=dot(slots[c[a]],slots[c[b]]); sc += mer ? (d2<-0.9?2:(Math.abs(d2)<0.3?1:-5)) : (d2>-0.5?1:-5); }
+      if(sc>bestScore){ bestScore=sc; best=c; } };
+    if(free.length<d) return null;
+    if(d===free.length) return free;
+    combos(free,d);
+    return best;
+  };
+  for(const idx of order){
+    const x=models[idx];
+    if(x.m.dent>1){ const s=pickSites(x.m.dent, x.m.mer); if(!s) return null; s.forEach(i=>used[i]=true); assign[idx]=s; continue; }
+    const prev=byKind[x.k]||(byKind[x.k]=[]);
+    let best=-1, bs=Infinity;
+    for(let i=0;i<slots.length;i++){ if(used[i]) continue;
+      let sc=0; prev.forEach(p=>{ const d=dot(slots[i],slots[p]); sc += (C.iso==='trans'||C.iso==='mer') ? (prev.length===1?d:-Math.abs(d)) : -d; });
+      if(C.iso==='mer' && prev.length===2) sc=prev.reduce((a,p)=>a+Math.abs(dot(slots[i],slots[p])),0);
+      if(sc<bs-1e-6){ bs=sc; best=i; } }
+    if(best<0) return null; used[best]=true; prev.push(best); assign[idx]=[best];
+  }
+  // place every ligand rigidly on its sites
+  const Z=[C.M], q=[ox], P=[[0,0,0]], bonds=[], extra=[], donorIdx=[], lenOv={}, linear=[];
+  const Mlen=z=>b3BondLen(C.M,z,1)*1.06;
+  models.forEach((x,idx)=>{
+    const g=x.m.g, LP=x.m.P, base=Z.length, s=assign[idx];
+    g.Z.forEach((z,i)=>{ Z.push(z); q.push(g.q[i]); });
+    g.bonds.forEach(([a,b,o])=>bonds.push([base+a,base+b,o]));
+    let placed;
+    if(x.m.hapto){
+      const R=x.m.ringAtoms, cen=[0,1,2].map(k=>R.reduce((t,i)=>t+LP[i][k],0)/R.length);
+      const u=LP[R[0]].map((v,k)=>v-cen[k]), w=LP[R[1]].map((v,k)=>v-cen[k]);
+      let nrm=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]]; const l=Math.hypot(...nrm)||1; nrm=nrm.map(v=>v/l);
+      const d=slots[s[0]], h=R.length===5?1.66:1.62;
+      // rotate the ring so its normal points at the metal
+      const A=[nrm, u.map(v=>v/(Math.hypot(...u)||1))], perp=Math.abs(d[2])<0.9?[0,0,1]:[1,0,0];
+      const e2=[d[1]*perp[2]-d[2]*perp[1], d[2]*perp[0]-d[0]*perp[2], d[0]*perp[1]-d[1]*perp[0]]; const le=Math.hypot(...e2)||1;
+      const Rm=bBestRotation(A,[d.map(v=>-v), e2.map(v=>v/le)]);
+      placed=LP.map(p=>{ const r=bRot(Rm,p.map((v,k)=>v-cen[k])); return r.map((v,k)=>v+d[k]*h); });
+      const rr=Math.hypot(...u); R.forEach(i=>extra.push([0, base+i, Math.sqrt(h*h+rr*rr), 10]));
+      donorIdx.push({atoms:R.map(i=>base+i), dir:d});
+    } else {
+      const D=x.m.don, cenL=[0,1,2].map(k=>LP.reduce((t,p)=>t+p[k],0)/LP.length);
+      const target=D.map((di,j)=>slots[s[j]].map(v=>v*Mlen(g.Z[di])));
+      if(D.length===1){
+        // donor -> rest of the ligand points away from the metal
+        const out=cenL.map((v,k)=>v-LP[D[0]][k]); const lo=Math.hypot(...out);
+        const from=lo>1e-3?out.map(v=>v/lo):[1,0,0], to=slots[s[0]];
+        const perpF=Math.abs(from[2])<0.9?[0,0,1]:[1,0,0], perpT=Math.abs(to[2])<0.9?[0,0,1]:[1,0,0];
+        const cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+        const Rm=bBestRotation([from, cr(from,perpF)], [to, cr(to,perpT)]);
+        placed=LP.map(p=>bRot(Rm,p.map((v,k)=>v-LP[D[0]][k])).map((v,k)=>v+target[0][k]));
+      } else {
+        // the donors onto their sites, the bulk of the ligand outward
+        const out=[0,1,2].map(k=>s.reduce((t,i)=>t+slots[i][k],0)); const lo=Math.hypot(...out)||1;
+        const srcPts=D.map(di=>LP[di]).concat([cenL]), dstPts=target.concat([out.map(v=>v/lo*(Mlen(g.Z[D[0]])+2.2))]);
+        const cs=[0,1,2].map(k=>srcPts.reduce((t,p)=>t+p[k],0)/srcPts.length), cd=[0,1,2].map(k=>dstPts.reduce((t,p)=>t+p[k],0)/dstPts.length);
+        const Rm=bBestRotation(srcPts.map(p=>p.map((v,k)=>v-cs[k])), dstPts.map(p=>p.map((v,k)=>v-cd[k])));
+        placed=LP.map(p=>bRot(Rm,p.map((v,k)=>v-cs[k])).map((v,k)=>v+cd[k]));
+      }
+      D.forEach(di=>{ bonds.push([0, base+di, x.m.bo]); lenOv[base+di]=Mlen(g.Z[di]); });
+      donorIdx.push({atoms:D.map(di=>base+di), dir:null, slots:s});
+    }
+    placed.forEach(p=>P.push(p));
+  });
+  // the metal's angles come from the chosen sites, exactly (also with ring ligands that have no single donor atom)
+  const siteAtom=[]; donorIdx.forEach(d=>{ if(d.slots) d.atoms.forEach((a,j)=>siteAtom.push([a,slots[d.slots[j]]])); });
+  for(let a=0;a<siteAtom.length;a++) for(let b=a+1;b<siteAtom.length;b++){
+    const [i,u]=siteAtom[a], [j,w]=siteAtom[b], li=Mlen(Z[i]), lj=Mlen(Z[j]);          // ideal metal–donor lengths, not the rough first placement
+    const cos=Math.max(-1,Math.min(1,dot(u,w))); extra.push([i,j,Math.sqrt(li*li+lj*lj-2*li*lj*cos),10]);
+    if(cos<-0.98) linear.push([0,i,j,li,lj,8]); }
+  // counter-ions around the complex
+  const nC=C.counter.reduce((t,c)=>t+c.n,0); let ci=0; const far=Math.max(...P.map(p=>Math.hypot(...p)))+3.0;
+  C.counter.forEach(c=>{ for(let i=0;i<c.n;i++,ci++){ const z=1-2*(ci+.5)/Math.max(nC,1), a=ci*2.4+0.6; Z.push(c.Z); q.push(c.q); P.push([Math.sqrt(1-z*z)*Math.cos(a)*far, Math.sqrt(1-z*z)*Math.sin(a)*far, z*far]); } });
+  const lenOverride=lenOv;   // the builder keys bond (0, j) as j: one agreed metal–donor length
+  const X=bEmbed3D(Z, bonds, P, {seed:3, d8:new Set(sq?[0]:[]), extra, fixedCentres:new Set([0]), iters:1200, lenOverride, linear});
+  const shapeKey = models.some(x=>x.m.hapto) ? null : sites===2?'sim.molecules.linear':sites===3?'sim.molecules.trigonal_planar':sites===4?(sq?'sim.molecules.square_planar':'sim.molecules.tetrahedral'):sites===5?'sim.molecules.trigonal_bipyramidal':sites===6?'sim.molecules.octahedral':null;
+  const kinds=C.ligs.filter(([k])=>bLigandModel(k).dent===1 && !bLigandModel(k).hapto).map(([,n])=>n);
+  const canIsomer=(sq || sites===6) && C.ligs.length>=2;
+  const isomerShown = canIsomer ? (C.iso || (sites===6 && kinds.includes(3) ? 'fac' : kinds.includes(2) ? 'cis' : null)) : null;
+  return {Z, bonds, P:X, q, shapeKey, isomer:C.iso, isomerShown, ox, cn:sites, label:'complex'};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ISOMERS, offline — every reasonable structure for a formula, ranked
+// Random valid bond networks are generated many times, duplicates removed
+// (a canonical fingerprint), implausible ones pushed down (O–O, N–O, small
+// rings, enols, allenes ...), library molecules named. Each choice carries
+// its SMILES, so tapping it builds exactly that structure.
+// ══════════════════════════════════════════════════════════════════════
+const B_ISO_VAL={1:1,9:1,17:1,35:1,53:1,8:2,16:2,7:3,15:3,5:3,6:4,14:4};
+function bGraphKey(Z,bonds,q){
+  const n=Z.length, adj=Z.map(()=>[]); bonds.forEach(([i,j,o])=>{ adj[i].push([j,o]); adj[j].push([i,o]); });
+  let lab=Z.map((z,i)=>z+'|'+(q?q[i]:0)+'|'+adj[i].length);
+  for(let r=0;r<Math.min(n,8);r++){
+    lab=lab.map((l,i)=>l+'('+adj[i].map(([j,o])=>o+':'+lab[j]).sort().join(',')+')');
+    const uniq=[...new Set(lab)].sort(); lab=lab.map(l=>String(uniq.indexOf(l)));   // compress
+    if(r===Math.min(n,8)-1) return Z.map((z,i)=>z+'.'+lab[i]).sort().join(' ')+'#'+bonds.map(([i,j,o])=>[lab[i],lab[j]].sort().join('-')+'^'+o).sort().join(',');
+  }
+  return lab.join(',');
+}
+function bIsomerAttempt(pf, rnd){
+  const c=pf.counts; if(pf.order.some(z=>!(z in B_ISO_VAL))) return null;
+  const Z=[], val=[], q=[];
+  const add=z=>{ Z.push(z); val.push(B_ISO_VAL[z]); q.push(0); return Z.length-1; };
+  const heavy=[]; [6,14,7,15,5,8,16].forEach(z=>{ for(let i=0;i<(c[z]||0);i++) heavy.push(add(z)); });
+  if(pf.charge){ const cand=heavy.filter(i=>(pf.charge>0&&Z[i]===7)||(pf.charge<0&&(Z[i]===8||Z[i]===16))); if(!cand.length || Math.abs(pf.charge)>1) return null; const k=cand[Math.floor(rnd()*cand.length)]; q[k]=pf.charge; val[k]+=pf.charge>0?1:-1; }
+  const mono=[]; [9,17,35,53,1].forEach(z=>{ for(let i=0;i<(c[z]||0);i++) mono.push(z); });
+  if(heavy.length<2) return null;
+  const V=heavy.reduce((s,i)=>s+val[i],0); if((V-mono.length)%2) return null;
+  let u=(V-mono.length)/2-(heavy.length-1); if(u<0) return null;
+  const deg=new Array(Z.length).fill(0), bonds=[], has={};
+  const k2=(i,j)=>i<j?i+'_'+j:j+'_'+i;
+  const bond=(i,j,o)=>{ bonds.push([i,j,o]); deg[i]+=o; deg[j]+=o; has[k2(i,j)]=bonds.length-1; };
+  const cap=i=>val[i]-deg[i];
+  // sometimes start from a benzene ring (random linking almost never closes one by chance)
+  const carbons=heavy.filter(i=>Z[i]===6);
+  let ringDone=false;
+  if(carbons.length>=6 && u>=4 && rnd()<0.4){
+    const r=carbons.slice(0,6); for(let t=0;t<6;t++) bond(r[t], r[(t+1)%6], t%2?1:2); u-=4; ringDone=true;
+  }
+  // random spanning tree, carbon-carbon links favoured
+  const order=heavy.slice().sort(()=>rnd()-0.5); order.sort((a,b)=>(Z[a]===6?0:1)-(Z[b]===6?0:1) || (rnd()-0.5)*0.0);
+  if(rnd()<0.5) order.sort(()=>rnd()-0.5);
+  const placed=ringDone ? carbons.slice(0,6) : [order[0]];
+  for(const x of order.filter(x=>!placed.includes(x))){
+    const opts=placed.filter(p=>cap(p)>=1 && !(val[p]===1));
+    if(!opts.length) return null;
+    const w=opts.map(p=>(Z[p]===6?3:1)*(Z[x]===6||Z[p]===6?1:0.15)*(cap(p)));
+    let r=rnd()*w.reduce((s,v)=>s+v,0), pick=opts[0]; for(let t=0;t<opts.length;t++){ r-=w[t]; if(r<=0){ pick=opts[t]; break; } }
+    bond(pick,x,1); placed.push(x);
+  }
+  // unsaturation: multiple bonds or ring closures
+  for(let guard=0; u>0 && guard<60; guard++){
+    if(rnd()<0.6){
+      const cands=bonds.filter(b=>cap(b[0])>=1 && cap(b[1])>=1 && b[2]<3);
+      if(cands.length){ const b=cands[Math.floor(rnd()*cands.length)]; b[2]++; deg[b[0]]++; deg[b[1]]++; u--; continue; }
+    }
+    const free=heavy.filter(i=>cap(i)>=1);
+    if(free.length<2) break;
+    const a=free[Math.floor(rnd()*free.length)], b=free[Math.floor(rnd()*free.length)];
+    if(a===b || has[k2(a,b)]!==undefined) continue;
+    bond(a,b,1); u--;
+  }
+  if(u) return null;
+  for(const z of mono){
+    const hosts=heavy.filter(i=>cap(i)>=1); if(!hosts.length) return null;
+    const pref=z===1?hosts:hosts.filter(i=>Z[i]===6); const pool=pref.length?pref:hosts;
+    const h=pool[Math.floor(rnd()*pool.length)]; const k=add(z); deg.push(0); bond(h,k,1);
+  }
+  if(Z.some((z,i)=>deg[i]!==val[i])) return null;
+  return {Z, bonds, q};
+}
+// lower = more plausible
+function bIsomerPenalty(g){
+  const {Z,bonds}=g, n=Z.length, adj=Z.map(()=>[]); bonds.forEach(([i,j,o])=>{ adj[i].push([j,o]); adj[j].push([i,o]); });
+  let p=0;
+  bonds.forEach(([i,j,o])=>{ const a=Z[i], b=Z[j]; if(a===1||b===1) return;
+    if(a!==6&&b!==6){ p+= (a===8&&b===8)?6 : ((a===7||b===7)&&(a===8||b===8))?3 : (a===7&&b===7)?2 : 2.5; }
+    if(o===3 && !((a===6&&b===6)||(a===6&&b===7)||(a===7&&b===6))) p+=4;
+    if(o===2 && a===6 && b===6){ [i,j].forEach(x=>{ if(adj[x].some(([y,oo])=>oo===1&&Z[y]===8&&adj[y].some(([h])=>Z[h]===1))) p+=2.5; }); }   // enol
+    if(o===2 && a===6 && b===8) p-=0.6;   // carbonyls are common
+    if(o===3 && [i,j].some(x=>adj[x].some(([y,oo])=>oo===1 && Z[y]!==6 && Z[y]!==1))) p+=3;   // heteroatom on a triple bond
+  });
+  Z.forEach((z,i)=>{ const dbl=adj[i].filter(([,o])=>o===2).length; if(z===6 && dbl>=2) p+=3; if(z===6 && adj[i].some(([,o])=>o===2) && adj[i].some(([,o])=>o===3)) p+=4; });
+  // carboxylic acids and esters: C(=O)–O
+  Z.forEach((z,i)=>{ if(z!==6) return; const so=adj[i].filter(([y,o])=>o===1&&Z[y]===8); if(adj[i].some(([y,o])=>o===2&&Z[y]===8) && so.length){ p-=1.5; if(so.some(([y])=>adj[y].some(([h])=>Z[h]===1))) p-=0.6; } });
+  // aromatic six-rings of alternating bonds
+  (()=>{ const C=Z.map((z,i)=>i).filter(i=>Z[i]===6);
+    C.forEach(a=>{ const path=[a]; const go=(x)=>{ if(path.length===6){ if(adj[x].some(([y])=>y===a)){ const ord=path.map((v,k)=>adj[v].find(([y])=>y===path[(k+1)%6])[1]); if(ord.every((o,k)=>o!==ord[(k+1)%6])) p-=5/6; } return; }
+      adj[x].forEach(([y])=>{ if(Z[y]===6 && !path.includes(y)){ path.push(y); go(y); path.pop(); } }); }; go(a); }); })();
+  // small rings
+  bonds.forEach(([i,j])=>{ adj[i].forEach(([a])=>{ if(a===j) return; if(adj[j].some(([b])=>b===a)) p+=1.5; }); });
+  // ring count (fewer rings, unless aromatic six-ring)
+  const heavyB=bonds.filter(([i,j])=>Z[i]!==1&&Z[j]!==1).length, heavyN=Z.filter(z=>z!==1).length; p+=0.3*(heavyB-heavyN+1);
+  // charges on carbon
+  if(g.q && g.q.some((v,i)=>v && Z[i]===6)) p+=5;
+  // branching: slight preference for unbranched chains
+  p+=0.1*Z.filter((z,i)=>z===6 && adj[i].filter(([y])=>Z[y]!==1).length>=3).length;
+  return p;
+}
+// structure -> SMILES (Kekulé, hydrogens implicit where the default valence gives them)
+function bWriteSmiles(g){
+  const {Z,bonds}=g, q=g.q||Z.map(()=>0), n=Z.length;
+  const adj=Z.map(()=>[]); bonds.forEach(([i,j,o])=>{ if(Z[i]!==1&&Z[j]!==1){ adj[i].push([j,o]); adj[j].push([i,o]); } });
+  const hcount=Z.map((z,i)=>bonds.filter(([a,b])=>(a===i&&Z[b]===1)||(b===i&&Z[a]===1)).length);
+  const heavy=Z.map((z,i)=>i).filter(i=>Z[i]!==1);
+  if(!heavy.length) return null;
+  const seen=new Set(), ringNum={}, closures=[]; let next=1;
+  // find ring-closure bonds with a DFS
+  const vis=new Set(), tree=new Set(); const dfs=(x,p)=>{ vis.add(x); adj[x].forEach(([y])=>{ if(y===p) return; if(!vis.has(y)){ tree.add(x<y?x+'_'+y:y+'_'+x); dfs(y,x); } }); };
+  const comps=[]; heavy.forEach(h=>{ if(!vis.has(h)){ comps.push(h); dfs(h,-1); } });
+  const ringBonds=bonds.filter(([i,j])=>Z[i]!==1&&Z[j]!==1&&!tree.has(i<j?i+'_'+j:j+'_'+i));
+  const atomRings=Z.map(()=>[]);
+  ringBonds.forEach(([i,j,o])=>{ const d=next++; atomRings[i].push([d,o]); atomRings[j].push([d,o]); });
+  const bs=o=>o===2?'=':o===3?'#':'';
+  const atomStr=i=>{ const sym=bZSym(Z[i]), val={5:3,6:4,7:3,8:2,9:1,15:3,16:2,17:1,35:1,53:1}[Z[i]], used=adj[i].reduce((s,[,o])=>s+o,0);
+    if(!q[i] && val!==undefined && hcount[i]===val-used) return sym;
+    return '['+sym+(hcount[i]?'H'+(hcount[i]>1?hcount[i]:''):'')+(q[i]?(q[i]>0?'+':'-')+(Math.abs(q[i])>1?Math.abs(q[i]):''):'')+']'; };
+  const out=[]; const done=new Set();
+  const walk=(x,p)=>{ done.add(x); let s=atomStr(x)+atomRings[x].map(([d,o])=>(seen.has(d)?bs(o):'')+(d>9?'%'+d:d)).join(''); atomRings[x].forEach(([d])=>seen.add(d));
+    const kids=adj[x].filter(([y])=>y!==p && !done.has(y) && tree.has(x<y?x+'_'+y:y+'_'+x));
+    kids.forEach(([y,o],k)=>{ const sub=bs(o)+walk(y,x); s+= k<kids.length-1 ? '('+sub+')' : sub; });
+    return s; };
+  comps.forEach(cmp=>out.push(walk(cmp,-1)));
+  return out.join('.');
+}
+// readable condensed formula for chain molecules: "CH3–CH2–OH", "CH3–C(=O)–OH"
+function bCondensed(g){
+  const {Z,bonds}=g, adj=Z.map(()=>[]); bonds.forEach(([i,j,o])=>{ adj[i].push([j,o]); adj[j].push([i,o]); });
+  const heavy=Z.map((z,i)=>i).filter(i=>Z[i]!==1);
+  const hb=bonds.filter(([i,j])=>Z[i]!==1&&Z[j]!==1); if(hb.length!==heavy.length-1) return null;   // rings: no condensed form
+  const H=i=>adj[i].filter(([y])=>Z[y]===1).length, nbH=i=>adj[i].filter(([y])=>Z[y]!==1);
+  const grp=i=>{ const h=H(i), s=bZSym(Z[i]); return s+(h?'H'+(h>1?h:''):''); };
+  // longest heavy-atom path as the main chain
+  const far=(s)=>{ const d={[s]:0}, pr={}, qq=[s]; while(qq.length){ const x=qq.shift(); nbH(x).forEach(([y])=>{ if(d[y]===undefined){ d[y]=d[x]+1; pr[y]=x; qq.push(y); } }); } let b=s; Object.keys(d).forEach(k=>{ if(d[k]>d[b]) b=+k; }); return [b,pr]; };
+  const [a]=far(heavy[0]), [b,pr]=far(a); const chain=[b]; while(chain[chain.length-1]!==a) chain.push(pr[chain[chain.length-1]]);
+  if(chain.length>1 && Z[chain[0]]!==6 && Z[chain[chain.length-1]]===6) chain.reverse();
+  const inChain=new Set(chain), bsym=o=>o===2?'=':o===3?'≡':'–';
+  const side=(x,p)=>{ const kids=nbH(x).filter(([y])=>y!==p); return grp(x)+kids.map(([y,o])=>'('+(o>1?bsym(o):'')+side(y,x)+')').join(''); };
+  let s='';
+  chain.forEach((x,k)=>{ const prev=k?chain[k-1]:-1; const sub=nbH(x).filter(([y])=>y!==prev && !inChain.has(y));
+    s+=grp(x)+sub.map(([y,o])=>'('+(o>1?bsym(o):'')+side(y,x)+')').join('');
+    if(k<chain.length-1){ const o=nbH(x).find(([y])=>y===chain[k+1])[1]; s+=bsym(o); } });
+  return s.replace(/C\(=O\)\(OH\)/g,'COOH').replace(/CH\(=O\)/g,'CHO');
+}
+function bIsomerChoices(pf, max){
+  max=max||6;
+  let seed=1234567; const rnd=()=>{ seed=(seed*1103515245+12345)>>>0; return seed/4294967296; };
+  const found=new Map();
+  for(let t=0;t<900 && found.size<60;t++){ const g=bIsomerAttempt(pf,rnd); if(!g) continue; const k=bGraphKey(g.Z,g.bonds,g.q); if(!found.has(k)) found.set(k,g); }
+  if(!found.size) return [];
+  // library molecules with this formula are named
+  const lib={};
+  (typeof MOLECULES!=='undefined'?MOLECULES:[]).forEach(m=>{ try{ if(!m.atoms||!m.bonds||m.builtBy) return;
+    const cnt={}; m.atoms.forEach(a=>cnt[a.Z]=(cnt[a.Z]||0)+1); if(Object.keys(cnt).length!==Object.keys(pf.counts).length || Object.keys(cnt).some(z=>cnt[z]!==pf.counts[z])) return;
+    lib[bGraphKey(m.atoms.map(a=>a.Z), m.bonds.filter(b=>b[2]>0), m.atoms.map(a=>a.formalCharge||0))]=m; }catch(e){} });
+  const list=[...found.values()].map(g=>{ const k=bGraphKey(g.Z,g.bonds,g.q), named=lib[k];
+    return {g, named, pen:bIsomerPenalty(g)-(named?10:0)}; }).sort((a,b)=>a.pen-b.pen).slice(0,max);
+  return list.map(x=>{ const smi=bWriteSmiles(x.g);
+    return {label: x.named ? x.named.name : (bCondensed(x.g)||smi), value: x.named ? x.named.name : smi, graph:x.g}; }).filter(x=>x.value);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PROTEINS AND OTHER LARGE STRUCTURES — Protein Data Bank (RCSB)
+// "1CRN", "pdb 4hhb", "protein insulin" or a protein named in any language
+// (via Wikidata's PDB-structure link). The experimental coordinates are used
+// as they are; bonds come from distances. Structures too big to draw every
+// atom on a phone are shown as a backbone trace (one bead per amino acid /
+// nucleotide, linked along each chain) plus every bound ligand atom.
+// ══════════════════════════════════════════════════════════════════════
+const B_PDB_FULL_LIMIT=6000;        // above this many atoms: backbone trace (the app's own 100-base-pair DNA helix has 5,948 atoms)
+function bParsePdb(text){
+  const A=[]; let models=0, title='';
+  for(const line of String(text).split(/\r?\n/)){
+    const rec=line.slice(0,6);
+    if(rec==='MODEL '){ models++; if(models>1) break; continue; }
+    if(rec==='ENDMDL'){ if(models>=1) break; continue; }
+    if(rec==='TITLE ' && title.length<120) title=(title+' '+line.slice(10).trim()).trim();
+    if(rec!=='ATOM  ' && rec!=='HETATM') continue;
+    const alt=line[16]; if(alt!==' ' && alt!=='A' && alt!==undefined) continue;
+    const res=line.slice(17,20).trim(); if(res==='HOH'||res==='WAT'||res==='DOD') continue;
+    const name=line.slice(12,16).trim();
+    let el=line.slice(76,78).trim();
+    if(!el){ el=name.replace(/[^A-Za-z]/g,''); el=el.length>1 && bSymZ(el[0]+el[1].toLowerCase()) && /^(CL|BR|FE|ZN|MG|NA|CA|MN|CU|CO|NI|SE)$/.test(el.slice(0,2).toUpperCase()) ? el.slice(0,2) : el[0]; }
+    el=el.length>1 ? el[0].toUpperCase()+el.slice(1).toLowerCase() : el.toUpperCase();
+    const Z=bSymZ(el); if(!Z) continue;
+    const x=+line.slice(30,38), y=+line.slice(38,46), z=+line.slice(46,54);
+    if(!isFinite(x)||!isFinite(y)||!isFinite(z)) continue;
+    A.push({Z, p:[x,y,z], name, res, chain:line[21], seq:+line.slice(22,26)||0, het:rec==='HETATM'});
+  }
+  return {atoms:A, title:title.replace(/\s+/g,' ').toLowerCase().replace(/(^|[\s(-])([a-z])/g,(m,a,b)=>a+b.toUpperCase())};
+}
+// bonds from distances, with a spatial grid so it stays fast for thousands of atoms
+function bBondsByDistance(Z, P){
+  const n=Z.length, cell=2.4, grid=new Map(), key=(a,b,c)=>a+','+b+','+c, bonds=[];
+  for(let i=0;i<n;i++){ const k=key(Math.floor(P[i][0]/cell),Math.floor(P[i][1]/cell),Math.floor(P[i][2]/cell)); if(!grid.has(k)) grid.set(k,[]); grid.get(k).push(i); }
+  for(let i=0;i<n;i++){
+    const cx=Math.floor(P[i][0]/cell), cy=Math.floor(P[i][1]/cell), cz=Math.floor(P[i][2]/cell);
+    for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++) for(let dz=-1;dz<=1;dz++){
+      const list=grid.get(key(cx+dx,cy+dy,cz+dz)); if(!list) continue;
+      for(const j of list){ if(j<=i) continue; if(Z[i]===1 && Z[j]===1) continue;
+        const d=Math.hypot(P[i][0]-P[j][0],P[i][1]-P[j][1],P[i][2]-P[j][2]);
+        const lim=(b3Radius(Z[i])+b3Radius(Z[j]))*1.15+0.1;
+        if(d>0.4 && d<lim) bonds.push([i,j,1]); }
+    }
+  }
+  return bonds;
+}
+// a parsed PDB file -> atoms, bonds and coordinates to draw
+function bPdbToGraph(parsed){
+  let A=parsed.atoms;
+  if(!A.length) return null;
+  let trace=false;
+  if(A.length>B_PDB_FULL_LIMIT){
+    // hydrogens first (NMR structures carry them), then the backbone trace
+    const heavy=A.filter(a=>a.Z!==1);
+    if(heavy.length<=B_PDB_FULL_LIMIT) A=heavy;
+    else {
+      trace=true;
+      const beads=A.filter(a=>!a.het && (a.name==='CA' || a.name==='P'));
+      const lig=A.filter(a=>a.het && a.Z!==1);
+      const Z=[], P=[], bonds=[];
+      beads.forEach((a,i)=>{ Z.push(a.Z); P.push(a.p); const b=beads[i-1];
+        if(b && b.chain===a.chain && a.seq-b.seq<=1 && Math.hypot(a.p[0]-b.p[0],a.p[1]-b.p[1],a.p[2]-b.p[2])< (a.name==='P'?8:4.3)) bonds.push([i-1,i,1]); });
+      const base=Z.length, lz=lig.map(a=>a.Z), lp=lig.map(a=>a.p);
+      bBondsByDistance(lz,lp).forEach(([i,j,o])=>bonds.push([base+i,base+j,o]));
+      lig.forEach(a=>{ Z.push(a.Z); P.push(a.p); });
+      if(Z.length>6000) return null;
+      return {Z, P, bonds, q:Z.map(()=>0), trace:true, nAtoms:parsed.atoms.length, nChains:new Set(parsed.atoms.map(a=>a.chain)).size};
+    }
+  }
+  const Z=A.map(a=>a.Z), P=A.map(a=>a.p);
+  return {Z, P, bonds:bBondsByDistance(Z,P), q:Z.map(()=>0), trace, nAtoms:parsed.atoms.length, nChains:new Set(A.map(a=>a.chain)).size};
+}
+
+// ── Protein Data Bank lookups ──
+const B_RCSB='https://files.rcsb.org/download/';
+function bPdbIdOf(raw){
+  const m=String(raw||'').trim().match(/^(?:pdb[\s:#-]*)?([1-9][A-Za-z0-9]{3})$/i);
+  if(!m) return null;
+  if(!/^pdb/i.test(raw.trim()) && !/[A-Za-z]/.test(m[1])) return null;        // "1234" is not an ID
+  return m[1].toUpperCase();
+}
+async function bResolvePdb(id, displayName){
+  let text=null;
+  try{ const r=await fetch(B_RCSB+id+'.pdb'); if(r.ok) text=await r.text(); }catch(e){ text=null; }
+  if(!text) return null;
+  const parsed=bParsePdb(text), g=bPdbToGraph(parsed);
+  if(!g) return {status:'notfound', reason:'toolarge'};
+  const name=displayName || (parsed.title ? parsed.title.slice(0,60) : 'PDB '+id);
+  const res=bRegisterGraph({Z:g.Z, bonds:g.bonds, q:g.q, P:g.P, exact:true, label:'pdb'}, name, 'pdb-'+id.toLowerCase(), {offline:'pdb', pdb:id, trace:g.trace, pdbAtoms:g.nAtoms});
+  if(res && res.mol && g.trace) res.mol.formula=bFormulaString(bCountFormula(parsed.atoms.map(a=>({Z:a.Z, sym:bZSym(a.Z)}))));
+  return res;
+}
+// free-text search of the Protein Data Bank ("insulin", "hemoglobin") -> best entry ID
+async function bRcsbSearch(text){
+  const q={query:{type:'terminal',service:'full_text',parameters:{value:String(text)}},return_type:'entry',request_options:{paginate:{start:0,rows:1}}};
+  const d=await bJson('https://search.rcsb.org/rcsbsearch/v2/query?json='+encodeURIComponent(JSON.stringify(q)));
+  return d?.result_set?.[0]?.identifier || null;
+}
+
+// ── Glue: any built structure -> the same path PubChem results take ──
+function bRecordFromGraph(Z, bonds, P, q){
+  const real=bonds.filter(b=>b[2]>0);                     // order-0 links (metallocene ring links, ion pairs) are geometry only
+  return {PC_Compounds:[{ atoms:{aid:Z.map((_,i)=>i+1), element:Z.slice(), charge:(q||[]).map((v,i)=>v?{aid:i+1,value:v}:null).filter(Boolean)},
+    bonds:{aid1:real.map(b=>b[0]+1), aid2:real.map(b=>b[1]+1), order:real.map(b=>b[2])},
+    coords:[{aid:Z.map((_,i)=>i+1), conformers:[{x:P.map(p=>p[0]), y:P.map(p=>p[1]), z:P.map(p=>p[2])}]}] }]};
+}
+// "[Fe(CN)6]4-" -> "[Fe(CN)₆]⁴⁻"
+function bPrettyFormulaText(t){
+  t=String(t||'').trim().replace(/\s+/g,'').replace(/[<>&"'`]/g,'');
+  let charge='', m=t.match(/^(.*[\]\)A-Za-z])\^?(\d*)([+\-])$/);
+  if(m && !/^(cis|trans|fac|mer)-$/i.test(m[1])){ t=m[1]; charge=bSupCharge((m[2]?+m[2]:1)*(m[3]==='+'?1:-1)); }
+  return t.replace(/([A-Za-z\)\]])(\d+)/g,(_,a,d)=>a+bSubDigits(+d))+charge;
+}
+function bRegisterGraph(r, name, slug, extra){
+  const P=r.P || bEmbed3D(r.Z, r.bonds, null, {seed:5, cage:!(r.chiral&&r.chiral.length), chiral:r.chiral, ez:r.ez});
+  if(!P || P.some(p=>!p || p.some(v=>!isFinite(v)))) return null;
+  const built=bConvertPubChemRecord(bRecordFromGraph(r.Z, r.bonds, P, r.q), {keep3D:true});
+  if(!built) return null;
+  const key='build:'+slug;
+  const netQ=(r.q||[]).reduce((s,v)=>s+(v||0),0);
+  const mol=Object.assign({ key, formula:bFormulaString(bCountFormula(built.atoms))+bSupCharge(netQ), name, geometry:qaT("sim.categorize.complex"),
+    atoms:built.atoms, bonds:built.bonds, realXyz:built.realXyz, srcIndex:built.srcIndex, flat:false, parts:built.parts, covalentBonds:true, builtBy:'tier3', offline:r.label||'built' }, extra||{});
+  bRegisterMolecule(mol);
+  return {status:'rendered', key, mol};
+}
+function bResolveComplexOffline(cx, raw){
+  let r=null; try{ r=bBuildComplex2(cx) || bBuildComplex(cx); }catch(e){ console.warn('[Build] complex:', e); try{ r=bBuildComplex(cx); }catch(e2){} }
+  if(!r) return null;
+  const slug='cx-'+(String(raw).toLowerCase().replace(/[^a-z0-9+\-]+/g,'-').replace(/^-+|-+$/g,'')||'x');
+  const shape=r.shapeKey ? qaT(r.shapeKey) : qaT("sim.categorize.complex");
+  return bRegisterGraph(r, bPrettyFormulaText(raw), slug, {geometry: shape+(r.isomerShown?' · '+r.isomerShown:''), offline:'complex'});
+}
+function bResolveCageOffline(pf){
+  let r=null; try{ r=bCageFromFormula(pf); }catch(e){ console.warn('[Build] cage:', e); }
+  if(!r) return null;
+  const geo = (r.label==='cage' && r.Z.length===4) ? qaT("sim.molecules.tetrahedral") : qaT("sim.categorize.complex");
+  return bRegisterGraph(r, pf.display, 'f-'+pf.hill.toLowerCase(), {geometry:geo});
+}
+function bResolveGenericOffline(pf){
+  let r=null; try{ r=bGenericFromFormula(pf); }catch(e){ console.warn('[Build] formula:', e); }
+  if(!r) return null;
+  return bRegisterGraph(r, pf.display, 'g-'+pf.hill.toLowerCase()+(pf.charge?(pf.charge>0?'p':'m')+Math.abs(pf.charge):''), {});
+}
+// SMILES -> registered molecule, offline (stereocentres and cis/trans kept)
+function bResolveSmilesOffline(raw){
+  let g=null; try{ g=bParseSmiles(raw); }catch(e){ g=null; }
+  if(!g || g.Z.length<1 || g.Z.length>2500) return null;
+  const pfName=bFormulaString(bCountFormula(g.Z.map(z=>({Z:z,sym:bZSym(z)}))));
+  return bRegisterGraph({Z:g.Z, bonds:g.bonds, q:g.q, P:null, chiral:g.chiral, ez:g.ez, label:'smiles'}, raw.length<=40?raw:pfName, 'smi-'+bGraphKey(g.Z,g.bonds,g.q).length+'-'+Math.abs([...raw].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,7)), {offline:'smiles'});
+}
+// formula with several possible molecules, offline: tappable choices (each carries its SMILES or library name)
+function bIsomerChooserOffline(pf){
+  let list=[]; try{ list=bIsomerChoices(pf, 6); }catch(e){ list=[]; }
+  if(list.length>=2) return {status:'choices', choices:list.map(x=>({label:x.label, value:x.value}))};
+  if(list.length===1){ const v=list[0].value; return /^[A-Za-z]/.test(v)&&bTier1Lookup(bNormalize(v)) ? {status:'rendered', key:bTier1Lookup(bNormalize(v)).key, mol:bTier1Lookup(bNormalize(v))} : bResolveSmilesOffline(v); }
+  return null;
+}
+function bBuildNote(m){
+  if(m.offline==='pdb'){ let t=' '+bT("sim.runbuild.pdb_note","Experimental structure from the Protein Data Bank (PDB {id}).").replace('{id}',m.pdb);
+    if(m.trace) t+=' '+bT("sim.runbuild.trace_note","It has {n} atoms, too many to draw one by one on a phone, so it is shown as a backbone trace.").replace('{n}',String(m.pdbAtoms));
+    return t; }
+  if(m.offline==='possible') return ' '+bT("sim.runbuild.possible_note","Built offline from the formula alone: this is one possible structure, and other molecules share this formula.");
+  if(m.embedded && m.atoms.length>2) return ' '+bT("sim.runbuild.embedded_note","PubChem has no 3D structure for this one, so its 3D shape was computed on your device.");
+  if(m.flat && m.atoms.length>3) return ' '+bT("sim.runbuild.flat_layout_note","No 3D structure is available for this one, so it is shown as a flat diagram.");
+  return '';
 }
 
 // Everything that needs the network. Returns a rendered molecule, an element, a list of choices, a suggestion, or null.
 async function bResolveOnline(raw, norm, pf){
   const titleOf=async cid=>{ const t=await bJson(`${B_PUG}/cid/${cid}/property/Title/JSON`); return t?.PropertyTable?.Properties?.[0]?.Title || ('CID '+cid); };
+  const pdbId=bPdbIdOf(raw);
+  if(pdbId){ const r=await bResolvePdb(pdbId); if(r) return r; }
+  let pm=raw.match(/^(?:protein|enzyme|pdb)[\s:]+(.{2,60})$/i);
+  if(pm){ const id=await bRcsbSearch(pm[1]); if(id){ const r=await bResolvePdb(id, bDisplayName(pm[1])); if(r) return r; } }
   // 1. explicit identifiers: "cid 2244", or an InChIKey
   let m=raw.match(/^cid[\s:#]*(\d{1,10})$/i);
   if(m) return await bBuildFromCid(+m[1], await titleOf(+m[1]));
@@ -49095,10 +50314,12 @@ async function bResolveOnline(raw, norm, pf){
     try{ const res=await fetch(`${B_PUG}/name/${encodeURIComponent(raw)}/cids/JSON`); nameAnswered=true;
       if(res.ok){ const d=await res.json(); cid=d?.IdentifierList?.CID?.[0]||null; } }catch(e){ if(!navigator.onLine) throw e; }
     if(!cid && bLooksLikeSmiles(raw)){
-      const d=await bJson(`${B_PUG}/smiles/cids/JSON?smiles=${encodeURIComponent(raw)}`);
+      let d=null; try{ const r=await fetch(`${B_PUG}/smiles/cids/JSON`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'smiles='+encodeURIComponent(raw)}); if(r.ok) d=await r.json(); }catch(e){ d=null; }
       cid=d?.IdentifierList?.CID?.[0]||null; viaSmiles=!!cid;
     }
-    if(cid){ const r=await bBuildFromCid(cid, viaSmiles?raw:bDisplayName(raw), viaSmiles?null:bAsciiSlug(norm)); if(r) return r; }
+    if(cid){ const r=await bBuildFromCid(cid, viaSmiles?await titleOf(cid):bDisplayName(raw), viaSmiles?null:bAsciiSlug(norm));
+      if(r && r.status==='notfound' && r.reason==='toolarge'){ const id=await bRcsbSearch(raw); if(id){ const p=await bResolvePdb(id, bDisplayName(raw)); if(p && p.status==='rendered') return p; } }
+      if(r) return r; }
   }
   // 4. a condensed formula nobody lists as a name: fall back to its molecular formula
   if(pf && pf.condensed && !pf.charge){ const r=await byFormula(); if(r) return r; }
@@ -49116,6 +50337,7 @@ async function bResolveOnline(raw, norm, pf){
         }
       }
       if(w.Z){ const el=ELS.find(e=>e.Z===w.Z); if(el) return {status:'element', Z:el.Z, name:el.name}; }
+      if(w.pdb){ const r=await bResolvePdb(w.pdb, bDisplayName(raw)); if(r && r.status==='rendered') return r; }
       if(w.cid){ const r=await bBuildFromCid(w.cid, bDisplayName(raw), bAsciiSlug(norm)); if(r) return r; }
     }
   }
@@ -49132,7 +50354,11 @@ async function resolveMolecule(rawInput){
   if(!trimmed) return {status:'notfound', reason:'empty'};
   if(trimmed.length>(bLooksLikeSmiles(trimmed)?240:80)) return {status:'notfound', reason:'toolong'};
   const norm=bNormalize(trimmed);
-  const pf=bParseFormulaInput(trimmed);
+  // "4HHB", "1CRN": a four-character code starting with a digit is a Protein Data Bank ID, not "4 × H2B"
+  const pf=(bPdbIdOf(trimmed) && /^[1-9]/.test(trimmed)) ? null : bParseFormulaInput(trimmed);
+  // coordination complexes are assembled offline, exactly: "[Fe(CN)6]4-", "K4[Fe(CN)6]", "Ni(CO)4", "trans-[Pt(NH3)2Cl2]"
+  const cx=bParseComplexInput(trimmed);
+  if(cx){ const r=bResolveComplexOffline(cx, trimmed); if(r) return r; }
   // A formula typed with its capitals means the compound, never a look-alike element symbol:
   // "CO" is carbon monoxide and "Co" cobalt; "NO" nitric oxide and "No" nobelium.
   const formulaTyped=!!(pf && !pf.lower && pf.n>=2);
@@ -49155,6 +50381,8 @@ async function resolveMolecule(rawInput){
   // (C2H6O: ethanol or dimethyl ether) are better answered online, where the user can choose —
   // the built-in solver is then only the offline fallback.
   const isomerProne=!!(pf && ((pf.counts[6]||0)>=3 || ((pf.counts[6]||0)>=2 && pf.order.length>=3)));
+  if(pf){ const cg=bResolveCageOffline(pf); if(cg) return cg; }            // P4, S8, P4O10, C60, B2H6, ferrocene ...
+  if(pf && isomerProne && !navigator.onLine){ const ch=bIsomerChooserOffline(pf); if(ch) return ch; }
   if(pf && !(isomerProne && navigator.onLine)){ const f=bResolveFormulaOffline(pf); if(f) return f; }
 
   // A near-miss against a LOCAL name used to short-circuit here, before
@@ -49164,18 +50392,23 @@ async function resolveMolecule(rawInput){
   // suggestion is now only a fallback when the lookup finds nothing.
   const suggestion=(norm && !pf) ? bNearestKnownName(norm) : null;
   if(!navigator.onLine){
-    if(pf){ const f=bResolveFormulaOffline(pf); if(f) return f; }
+    if(!pf && bLooksLikeSmiles(trimmed)){ const sm=bResolveSmilesOffline(trimmed); if(sm) return sm; }
+    if(pf){ const f=bResolveFormulaOffline(pf)||bResolveGenericOffline(pf); if(f) return f; }
     return suggestion ? {status:'suggestion', suggestion} : {status:'notfound', reason:'offline'};
   }
   try{
     const t3=await bResolveOnline(trimmed, norm, pf);
     if(t3 && (t3.status==='rendered' || t3.status==='element' || t3.status==='choices')) return t3;
-    if(pf){ const f=bResolveFormulaOffline(pf); if(f) return f; }
+    if(!pf && bLooksLikeSmiles(trimmed)){ const sm=bResolveSmilesOffline(trimmed); if(sm) return sm; }
+    if(pf && isomerProne){ const ch=bIsomerChooserOffline(pf); if(ch) return ch; }
+    if(pf){ const f=bResolveFormulaOffline(pf)||bResolveGenericOffline(pf); if(f) return f; }
     if(suggestion) return {status:'suggestion', suggestion};
     if(t3) return t3;
   }catch(err){
     console.warn('[Build] online lookup failed:', err);
-    if(pf){ const f=bResolveFormulaOffline(pf); if(f) return f; }
+    if(!pf && bLooksLikeSmiles(trimmed)){ const sm=bResolveSmilesOffline(trimmed); if(sm) return sm; }
+    if(pf && isomerProne){ const ch=bIsomerChooserOffline(pf); if(ch) return ch; }
+    if(pf){ const f=bResolveFormulaOffline(pf)||bResolveGenericOffline(pf); if(f) return f; }
     if(suggestion) return {status:'suggestion', suggestion};
     return {status:'notfound', reason:'network'};
   }
@@ -49217,7 +50450,7 @@ function bFrameBuiltMolecule(){
   if(!curMoleculeAtoms||!curMoleculeAtoms.length) return;
   let rx=0, ry=0, rz=0;
   // an atom's cloud reaches past its nucleus by about its valence-shell radius: ~41 for carbon, over 1000 for iodine or xenon
-  curMoleculeAtoms.forEach(a=>{ let r=48; try{ r=Math.max(30,valenceR(a.Z)*1.05); }catch(e){}
+  curMoleculeAtoms.forEach(a=>{ let r=48; try{ r=Math.max(30,valenceR(a.Z)*(a.Z>18?1.4:1.05)); }catch(e){}   // heavier atoms' outer s clouds reach further than their nominal radius
     rx=Math.max(rx,Math.abs(a.pos[0])+r); ry=Math.max(ry,Math.abs(a.pos[1])+r); rz=Math.max(rz,Math.abs(a.pos[2])+r*.5); });
   const cloud=0;
   const half=camera.fov*Math.PI/360, tanV=Math.tan(half), tanH=tanV*camera.aspect;
@@ -49245,6 +50478,8 @@ function bFrameBuiltMolecule(){
 window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.runbuild.flat_layout_note":d[k]});})({"en": "No 3D structure is available for this one, so it is shown as a flat diagram.", "ar": "لا توجد بنية ثلاثية الأبعاد متاحة لهذا الجزيء، لذلك يُعرض كمخطط مسطّح.", "bn": "এই অণুর কোনো 3D গঠন পাওয়া যায়নি, তাই এটি সমতল নকশা হিসেবে দেখানো হয়েছে।", "de": "Für dieses Molekül gibt es keine 3D-Struktur, daher wird es als flaches Diagramm gezeigt.", "el": "Δεν υπάρχει διαθέσιμη τρισδιάστατη δομή για αυτό το μόριο, γι’ αυτό εμφανίζεται ως επίπεδο διάγραμμα.", "es": "No hay estructura 3D disponible para esta molécula, así que se muestra como un diagrama plano.", "fr": "Aucune structure 3D n’est disponible pour cette molécule ; elle est donc affichée sous forme de schéma plat.", "hi": "इस अणु की कोई 3D संरचना उपलब्ध नहीं है, इसलिए इसे समतल आरेख के रूप में दिखाया गया है।", "it": "Per questa molecola non è disponibile una struttura 3D, quindi è mostrata come diagramma piatto.", "ja": "この分子には 3D 構造データがないため、平面図として表示しています。", "ko": "이 분자는 3D 구조 자료가 없어 평면 그림으로 표시됩니다.", "ru": "Для этой молекулы нет трёхмерной структуры, поэтому она показана в виде плоской схемы.", "zh": "这个分子没有可用的三维结构，因此显示为平面示意图。"});
 window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.build_examples_note.or_type_any_of_the":d[k]});try{QA_I18N.applyDom&&QA_I18N.applyDom(document.getElementById("build-view"));}catch(e){}})({"en": "Type a name in any language, a formula (H2SO4), an ion (SO4 2-), a SMILES string or a PubChem CID. Simple formulas are built on your device; everything else is looked up online.", "de": "Gib einen Namen in beliebiger Sprache, eine Formel (H2SO4), ein Ion (SO4 2-), einen SMILES-Code oder eine PubChem-CID ein. Einfache Formeln werden direkt auf deinem Gerät gebaut, alles andere wird online nachgeschlagen.", "fr": "Saisissez un nom dans n’importe quelle langue, une formule (H2SO4), un ion (SO4 2-), un code SMILES ou un CID PubChem. Les formules simples sont construites sur votre appareil ; tout le reste est recherché en ligne.", "es": "Escribe un nombre en cualquier idioma, una fórmula (H2SO4), un ion (SO4 2-), un código SMILES o un CID de PubChem. Las fórmulas sencillas se construyen en tu dispositivo; todo lo demás se busca en línea.", "it": "Scrivi un nome in qualsiasi lingua, una formula (H2SO4), uno ione (SO4 2-), una stringa SMILES o un CID di PubChem. Le formule semplici vengono costruite sul tuo dispositivo; tutto il resto viene cercato online.", "el": "Πληκτρολογήστε ένα όνομα σε οποιαδήποτε γλώσσα, έναν χημικό τύπο (H2SO4), ένα ιόν (SO4 2-), μια συμβολοσειρά SMILES ή ένα PubChem CID. Οι απλοί τύποι κατασκευάζονται στη συσκευή σας· όλα τα άλλα αναζητούνται στο διαδίκτυο.", "ru": "Введите название на любом языке, формулу (H2SO4), ион (SO4 2-), строку SMILES или PubChem CID. Простые формулы строятся прямо на устройстве, всё остальное ищется в интернете.", "ar": "اكتب اسمًا بأي لغة، أو صيغة (H2SO4)، أو أيونًا (SO4 2-‎)، أو سلسلة SMILES، أو رقم PubChem CID. تُبنى الصيغ البسيطة على جهازك، وكل ما عداها يُبحث عنه عبر الإنترنت.", "bn": "যেকোনো ভাষায় নাম, সংকেত (H2SO4), আয়ন (SO4 2-), SMILES বা PubChem CID লিখুন। সহজ সংকেতগুলো আপনার ডিভাইসেই তৈরি হয়; বাকি সব অনলাইনে খোঁজা হয়।", "hi": "किसी भी भाषा में नाम, सूत्र (H2SO4), आयन (SO4 2-), SMILES या PubChem CID लिखें। सरल सूत्र आपके डिवाइस पर ही बनते हैं; बाकी सब ऑनलाइन खोजा जाता है।", "ja": "名前（どの言語でも可）、化学式（H2SO4）、イオン（SO4 2-）、SMILES、PubChem CID を入力できます。簡単な化学式は端末内で組み立て、それ以外はオンラインで検索します。", "ko": "어떤 언어로든 이름을 입력하거나 화학식(H2SO4), 이온(SO4 2-), SMILES, PubChem CID를 입력하세요. 간단한 화학식은 기기에서 바로 만들고, 나머지는 온라인에서 찾습니다.", "zh": "可输入任意语言的名称、化学式（H2SO4）、离子（SO4 2-）、SMILES 或 PubChem CID。简单的化学式直接在设备上构建，其余的会联网查询。"});
 window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.runbuild.pick_formula":d[k]});})({"en": "🧪 Several molecules share this formula. Pick one:", "de": "🧪 Mehrere Moleküle haben diese Formel. Wähle eines:", "fr": "🧪 Plusieurs molécules ont cette formule. Choisissez-en une :", "es": "🧪 Varias moléculas comparten esta fórmula. Elige una:", "it": "🧪 Più molecole hanno questa formula. Scegline una:", "el": "🧪 Πολλά μόρια έχουν αυτόν τον τύπο. Διαλέξτε ένα:", "ru": "🧪 У нескольких молекул такая формула. Выберите одну:", "ar": "🧪 عدة جزيئات لها هذه الصيغة. اختر واحدًا:", "bn": "🧪 একাধিক অণুর এই সংকেত আছে। একটি বেছে নিন:", "hi": "🧪 कई अणुओं का यही सूत्र है। एक चुनें:", "ja": "🧪 この化学式をもつ分子は複数あります。1つ選んでください：", "ko": "🧪 이 화학식을 가진 분자가 여러 개 있습니다. 하나를 고르세요:", "zh": "🧪 有多种分子具有这个化学式，请选择一种："});
+window.QA_I18N&&(function(d){for(var k in d.embedded)QA_I18N.add(k,{"sim.runbuild.embedded_note":d.embedded[k],"sim.runbuild.possible_note":d.possible[k]});})({"embedded": {"en": "PubChem has no 3D structure for this one, so its 3D shape was computed on your device.", "de": "PubChem hat für dieses Molekül keine 3D-Struktur, daher wurde seine 3D-Form auf deinem Gerät berechnet.", "fr": "PubChem n’a pas de structure 3D pour cette molécule ; sa forme 3D a donc été calculée sur votre appareil.", "es": "PubChem no tiene estructura 3D para esta molécula, así que su forma 3D se calculó en tu dispositivo.", "it": "PubChem non ha una struttura 3D per questa molecola, quindi la sua forma 3D è stata calcolata sul tuo dispositivo.", "el": "Το PubChem δεν έχει τρισδιάστατη δομή για αυτό το μόριο, οπότε το τρισδιάστατο σχήμα του υπολογίστηκε στη συσκευή σας.", "ru": "В PubChem нет трёхмерной структуры этой молекулы, поэтому её форма рассчитана на вашем устройстве.", "ar": "لا تتوفر في PubChem بنية ثلاثية الأبعاد لهذا الجزيء، لذلك حُسب شكله ثلاثي الأبعاد على جهازك.", "bn": "PubChem-এ এই অণুর কোনো 3D গঠন নেই, তাই এর 3D আকৃতি আপনার ডিভাইসেই হিসাব করা হয়েছে।", "hi": "PubChem में इस अणु की कोई 3D संरचना नहीं है, इसलिए इसका 3D आकार आपके डिवाइस पर ही गणना करके बनाया गया।", "ja": "PubChem にはこの分子の 3D 構造がないため、3D の形を端末内で計算しました。", "ko": "PubChem에 이 분자의 3D 구조가 없어, 3D 모양을 기기에서 직접 계산했습니다.", "zh": "PubChem 没有这个分子的三维结构，因此它的三维形状是在你的设备上计算得到的。"}, "possible": {"en": "Built offline from the formula alone: this is one possible structure, and other molecules share this formula.", "de": "Offline nur aus der Formel gebaut: Das ist eine mögliche Struktur, auch andere Moleküle haben diese Formel.", "fr": "Construit hors ligne à partir de la seule formule : c’est une structure possible, et d’autres molécules ont la même formule.", "es": "Construido sin conexión solo a partir de la fórmula: es una estructura posible, y otras moléculas comparten esta fórmula.", "it": "Costruita offline solo dalla formula: è una struttura possibile, e altre molecole hanno la stessa formula.", "el": "Κατασκευάστηκε χωρίς σύνδεση μόνο από τον τύπο: είναι μία πιθανή δομή, και άλλα μόρια έχουν τον ίδιο τύπο.", "ru": "Построено без интернета только по формуле: это одна из возможных структур, у других молекул может быть та же формула.", "ar": "بُني دون اتصال من الصيغة وحدها: هذه بنية محتملة واحدة، وتشترك جزيئات أخرى في الصيغة نفسها.", "bn": "শুধু সংকেত থেকে অফলাইনে তৈরি: এটি একটি সম্ভাব্য গঠন, অন্য অণুরও একই সংকেত থাকতে পারে।", "hi": "सिर्फ़ सूत्र से ऑफ़लाइन बनाया गया: यह एक संभावित संरचना है, दूसरे अणुओं का भी यही सूत्र हो सकता है।", "ja": "化学式だけからオフラインで組み立てた構造です。これは考えられる構造の 1 つで、同じ化学式の分子はほかにもあります。", "ko": "화학식만으로 오프라인에서 만든 구조입니다. 가능한 구조 중 하나이며, 같은 화학식을 가진 다른 분자도 있습니다.", "zh": "仅根据化学式离线构建：这是一种可能的结构，其他分子也可能具有相同的化学式。"}});
+window.QA_I18N&&(function(d){for(var k in d.pdb)QA_I18N.add(k,{"sim.runbuild.pdb_note":d.pdb[k],"sim.runbuild.trace_note":d.trace[k]});})({"pdb": {"en": "Experimental structure from the Protein Data Bank (PDB {id}).", "de": "Experimentell bestimmte Struktur aus der Protein Data Bank (PDB {id}).", "fr": "Structure expérimentale issue de la Protein Data Bank (PDB {id}).", "es": "Estructura experimental del Protein Data Bank (PDB {id}).", "it": "Struttura sperimentale dalla Protein Data Bank (PDB {id}).", "el": "Πειραματική δομή από την Protein Data Bank (PDB {id}).", "ru": "Экспериментальная структура из банка данных Protein Data Bank (PDB {id}).", "ar": "بنية تجريبية من بنك بيانات البروتين Protein Data Bank (PDB {id}).", "bn": "প্রোটিন ডেটা ব্যাংক থেকে নেওয়া পরীক্ষালব্ধ গঠন (PDB {id})।", "hi": "प्रोटीन डेटा बैंक से ली गई प्रायोगिक संरचना (PDB {id})।", "ja": "Protein Data Bank の実験構造です（PDB {id}）。", "ko": "Protein Data Bank의 실험 구조입니다 (PDB {id}).", "zh": "来自蛋白质数据库（Protein Data Bank）的实验结构（PDB {id}）。"}, "trace": {"en": "It has {n} atoms, too many to draw one by one on a phone, so it is shown as a backbone trace: one bead per amino acid or nucleotide, plus every bound ligand atom.", "de": "Sie hat {n} Atome – zu viele, um jedes einzeln auf einem Handy zu zeichnen. Deshalb wird das Rückgrat gezeigt: eine Perle pro Aminosäure oder Nukleotid, dazu alle gebundenen Liganden-Atome.", "fr": "Elle compte {n} atomes, trop pour les dessiner un par un sur un téléphone ; elle est donc montrée sous forme de squelette : une perle par acide aminé ou nucléotide, plus tous les atomes des ligands liés.", "es": "Tiene {n} átomos, demasiados para dibujarlos uno a uno en un móvil, así que se muestra su esqueleto: una cuenta por aminoácido o nucleótido, más todos los átomos de los ligandos unidos.", "it": "Ha {n} atomi, troppi da disegnare uno per uno su un telefono, quindi è mostrata come traccia della catena principale: una perla per amminoacido o nucleotide, più tutti gli atomi dei ligandi legati.", "el": "Έχει {n} άτομα, πάρα πολλά για να σχεδιαστούν ένα ένα σε κινητό, γι’ αυτό εμφανίζεται ο σκελετός της: μία χάντρα ανά αμινοξύ ή νουκλεοτίδιο, συν όλα τα άτομα των δεσμευμένων προσδεμάτων.", "ru": "В ней {n} атомов — слишком много, чтобы рисовать каждый на телефоне, поэтому показан остов: одна бусина на аминокислоту или нуклеотид и все атомы связанных лигандов.", "ar": "تحتوي على {n} ذرة، وهذا أكثر من أن تُرسم واحدةً واحدة على الهاتف، لذلك يُعرض هيكلها الأساسي: حبة لكل حمض أميني أو نيوكليوتيد، إضافة إلى كل ذرات الربائط المرتبطة.", "bn": "এতে {n}টি পরমাণু আছে, ফোনে একটি একটি করে আঁকার পক্ষে খুব বেশি, তাই এর মূল কাঠামো দেখানো হয়েছে: প্রতিটি অ্যামিনো অ্যাসিড বা নিউক্লিওটাইডের জন্য একটি পুঁতি, সঙ্গে যুক্ত লিগ্যান্ডের সব পরমাণু।", "hi": "इसमें {n} परमाणु हैं, फ़ोन पर एक-एक करके बनाने के लिए बहुत ज़्यादा, इसलिए इसका मुख्य ढाँचा दिखाया गया है: हर अमीनो अम्ल या न्यूक्लियोटाइड के लिए एक मनका, साथ में जुड़े लिगैंड के सभी परमाणु।", "ja": "原子が {n} 個あり、スマートフォンで 1 つずつ描くには多すぎるため、主鎖のトレースで表示しています（アミノ酸またはヌクレオチドごとに 1 つの玉と、結合したリガンドのすべての原子）。", "ko": "원자가 {n}개로 휴대폰에서 하나씩 그리기에는 너무 많아, 주사슬만 표시합니다. 아미노산이나 뉴클레오타이드마다 구슬 하나, 그리고 결합한 리간드의 모든 원자입니다.", "zh": "它有 {n} 个原子，在手机上逐个绘制太多，因此以主链轨迹显示：每个氨基酸或核苷酸一个珠子，外加所有结合配体的原子。"}});
 const bT=(key,fallback,vars)=>{ let v; try{ v=qaT(key,vars); }catch(e){} return (v && v!==key) ? v : fallback; };
 async function runBuild(query){
   const input=document.getElementById('build-input');
@@ -49264,7 +50499,7 @@ async function runBuild(query){
     // each atom's own point-cloud, so this is a heads-up about pace, not
     // a capability question.
     const big = outcome.mol.atoms.length>150;
-    bShowBuildStatus((outcome.mol.name===outcome.mol.formula ? qaT("sim.runbuild.built_name",{name:outcome.mol.name}) : qaT("sim.runbuild.built_name_formula_p1",{name:outcome.mol.name,formula:outcome.mol.formula,p1:big?" "+qaT("sim.runbuild.large_molecule_may_render_a"):''}))+(outcome.mol.flat&&outcome.mol.atoms.length>3?" "+bT("sim.runbuild.flat_layout_note","No 3D structure is available for this one, so it is shown as a flat diagram."):''), 'ok');
+    bShowBuildStatus((outcome.mol.name===outcome.mol.formula ? qaT("sim.runbuild.built_name",{name:outcome.mol.name}) : qaT("sim.runbuild.built_name_formula_p1",{name:outcome.mol.name,formula:outcome.mol.formula,p1:big?" "+qaT("sim.runbuild.large_molecule_may_render_a"):''}))+bBuildNote(outcome.mol), 'ok');
     updateBuildURL(raw);
   } else if(outcome.status==='choices'){
     bShowBuildStatus(bT("sim.runbuild.pick_formula","🧪 Several molecules share this formula. Pick one:"), 'info', outcome.choices);
@@ -49381,6 +50616,66 @@ window.runFormulaSelfTest=function(){
   console.log(failed.length===0 ? '✅ All formula tests passed' : `❌ ${failed.length} formula test(s) failed`);
   return results;
 };
+
+// Offline structure self-test: run window.runStructureSelfTest() in the console.
+// Each row: [input, kind of check, expected]. 'angles' = the set of donor–metal–donor angles (rounded to 5°).
+const STRUCTURE_GOLDEN_TESTS=[
+  ['[Fe(CN)6]4-','angles','90,180'], ['Ni(CO)4','angles','110'], ['[Ni(CN)4]2-','angles','90,180'], ['Fe(CO)5','angles','90,120,180'],
+  ['[Ag(NH3)2]+','angles','180'], ['[Pt(NH3)2Cl2]','clcl','90'], ['trans-[Pt(NH3)2Cl2]','clcl','180'],
+  ['[Cu(acac)2]','angles','90,180'], ['[RhCl(PPh3)3]','angles','90,180'], ['[Co(edta)]-','angles','90,180'], ['CpFe(CO)2Cl','atoms',16],
+  ['[Co(NH3)3Cl3]','clcl','90,90,90'], ['mer-[Co(NH3)3Cl3]','clcl','90,90,180'],
+  ['P4','atoms',4], ['S8','atoms',8], ['P4O10','atoms',14], ['C60','atoms',60], ['B2H6','atoms',8], ['Fe(C5H5)2','atoms',21], ['C7H8','atoms',15]
+];
+window.runStructureSelfTest=function(){
+    const results=STRUCTURE_GOLDEN_TESTS.map(([inp,kind,exp])=>{
+    let r=null; try{ const cx=bParseComplexInput(inp); if(cx) r=bBuildComplex2(cx)||bBuildComplex(cx); else { const pf=bParseFormulaInput(inp); r=pf&&(bCageFromFormula(pf)||bGenericFromFormula(pf)); } }catch(e){}
+    if(!r) return {input:inp, pass:false, detail:'not built'};
+    const P=r.P||bEmbed3D(r.Z,r.bonds,null,{seed:5,cage:true});
+    const ang=(a,b)=>{ const u=P[a].map((v,k)=>v-P[0][k]), w=P[b].map((v,k)=>v-P[0][k]); return Math.acos(Math.max(-1,Math.min(1,(u[0]*w[0]+u[1]*w[1]+u[2]*w[2])/(Math.hypot(...u)*Math.hypot(...w)))))*180/Math.PI; };
+    const don=r.bonds.filter(b=>b[2]>0&&(b[0]===0||b[1]===0)).map(b=>b[0]===0?b[1]:b[0]);
+    if(kind==='atoms') return {input:inp, pass:r.Z.length===exp, detail:String(r.Z.length)};
+    // every measured angle within 7° of an ideal one (real complexes spread by a few degrees too)
+    const set=kind==='clcl'?don.filter(d=>r.Z[d]===17):don, a=[]; for(let i=0;i<set.length;i++) for(let j=i+1;j<set.length;j++) a.push(ang(set[i],set[j]));
+    const ideal=String(exp).split(',').map(Number);
+    const pass = kind==='clcl'
+      ? (a.length===ideal.length && a.slice().sort((x,y)=>x-y).every((v,k)=>Math.abs(v-ideal.slice().sort((x,y)=>x-y)[k])<=7))
+      : a.every(v=>ideal.some(t=>Math.abs(v-t)<=7)) && ideal.every(t=>a.some(v=>Math.abs(v-t)<=7));
+    return {input:inp, pass, detail:a.map(v=>Math.round(v)).sort((x,y)=>x-y).join(',')};
+  });
+  console.table(results);
+  const failed=results.filter(x=>!x.pass);
+  console.log(failed.length===0 ? '✅ All structure tests passed' : `❌ ${failed.length} structure test(s) failed`);
+  return results;
+};
+
+// ── Live self-test against the real online services ──
+// Open the simulator with ?selftest=live (works on a phone), or run window.runLiveSelfTest() in the console.
+const B_LIVE_TESTS=['paclitaxel','sodium acetate','[Fe(CN)6]4-','C60','aspirin','cid 2519','Koffein','পানি','カフェイン','C2H6O','CC(=O)Oc1ccccc1C(=O)O','1A8O','protein insulin'];
+window.runLiveSelfTest=async function(show){
+  const rows=[];
+  const out=show ? (()=>{ const d=document.createElement('div'); d.id='qa-live-test';
+      d.style.cssText='position:fixed;inset:auto 8px 8px 8px;max-height:70vh;overflow:auto;z-index:99999;background:rgba(10,8,6,.96);color:#f3e9e0;font:12px/1.45 ui-monospace,monospace;padding:12px;border-radius:12px;border:1px solid #ff6a1f;white-space:pre-wrap';
+      d.textContent='Live self-test: contacting PubChem, Wikidata and the Protein Data Bank…\n'; document.body.appendChild(d); return d; })() : null;
+  for(const q of B_LIVE_TESTS){
+    const t0=performance.now(); let r, line;
+    try{ r=await resolveMolecule(q); }catch(e){ r={status:'error', reason:String(e&&e.message||e)}; }
+    const ms=Math.round(performance.now()-t0);
+    if(r.status==='rendered'){ const m=r.mol;
+      const how = m.offline==='pdb' ? 'PDB '+m.pdb+(m.trace?' (trace)':'') : m.embedded ? 'PubChem 2D → 3D computed on device' : m.cid ? 'PubChem measured 3D' : m.offline ? 'built offline ('+m.offline+')' : m.builtBy ? 'built ('+m.builtBy+')' : 'app library';
+      line=`✅ ${q} → ${m.name} · ${m.atoms.length} atoms · ${how} · ${ms} ms`; }
+    else if(r.status==='choices') line=`✅ ${q} → ${r.choices.length} choices: ${r.choices.map(c=>c.label).join(' | ')} · ${ms} ms`;
+    else if(r.status==='element') line=`✅ ${q} → element ${r.name} · ${ms} ms`;
+    else line=`❌ ${q} → ${r.status}${r.reason?' ('+r.reason+')':''}${r.suggestion?' — did you mean '+r.suggestion:''} · ${ms} ms`;
+    rows.push(line); console.log(line);
+    if(out) out.textContent+=line+'\n';
+  }
+  const ok=rows.filter(l=>l.startsWith('✅')).length;
+  const sum=`${ok} of ${rows.length} passed${navigator.onLine?'':' (the device reports it is offline)'}`;
+  console.log(sum); if(out) out.textContent+='\n'+sum+'\n(tap to close)';
+  if(out) out.onclick=()=>out.remove();
+  return rows;
+};
+try{ if(/[?&#]selftest=live\b/.test(location.search+location.hash)) window.addEventListener('load',()=>setTimeout(()=>window.runLiveSelfTest(true),2500)); }catch(e){}
 
 function setLeftMode(mode){
   const isEl=mode==='elements', isMol=mode==='molecules', isBuild=mode==='build', isHypo=mode==='hypo';
