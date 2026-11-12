@@ -261,6 +261,31 @@ Type the name or formula of **anything** and the simulator resolves it into real
 - **Real coordinates, face-on:** fetched molecules keep PubChem's actual 3D coordinates (rings close exactly), are centred, turned to face the viewer and zoomed to fit.
 - **Self-tests:** `runBuildSelfTest()`, `runFormulaSelfTest()` and `runStructureSelfTest()` in the browser console; open the simulator with `?selftest=live` (also on a phone) to test the live PubChem, Wikidata and Protein Data Bank lookups.
 
+### Reaction physics (ΔG panel)
+
+Every reaction has a **ΔG** button that opens an energy panel:
+
+- **Thermodynamics from physics** — entropy from statistical mechanics on each molecule's 3D shape (translation, rotation with the symmetry number found in 3D, vibrations, spin): mean error 2.2 J/(mol·K) against measured values for 34 gases, radicals and atoms. Formation enthalpies from tables, then Benson group additivity (mean error 0.7 kJ/mol over 30 organics), then bond energies.
+- **ΔG at any temperature** (200–3000 K slider), equilibrium constant K, and the temperature where the sign of ΔG flips.
+- **Kinetics** — Eyring transition-state theory with the activation entropy of the computed transition state; the half-life of the slowest step and a verdict: fast, *allowed but needs a spark, heat or a catalyst*, or not spontaneous.
+- **Real reaction paths** — each elementary step is solved as a valence-bond (EVB) energy surface and its minimum-energy path found with the nudged elastic band (climbing image), giving the transition-state geometry and the energy diagram.
+
+Example: the Haber process gives ΔG° = −35 kJ/mol (measured −33), spontaneous only below about 480 K, and kinetically blocked at room temperature — which is why it needs an iron catalyst.
+- **Phases** — gas phase, or standard states from the formation table (liquid water, solid salts): 2 H₂ + O₂ → 2 H₂O(l) gives ΔH° −572, ΔS° −327, ΔG° −474 (measured −572, −327, −474).
+- **Light** — 550, 400, 300 or 250 nm. A photon carries hc/λ (299 kJ/mol at 400 nm); when that exceeds a bond, the bond-breaking step needs no heat and the radicals start a chain. H₂ + Cl₂: stable in the dark, half-life ≈ 40 µs under violet light.
+- **Catalyst slider** — lowers the overall barrier, to explore how much a catalyst must do at a given temperature.
+- **Measured barriers** — 17 elementary gas steps use experimental activation energies (marked ✓ on the diagram) instead of estimates.
+- **Animation on the real path** — reactions you type now animate along the computed minimum-energy path, aligned to the start and end of each step.
+- **Validation** — `runReactionValidation()`: 20 gas reactions against NIST/CODATA data. Mean error ΔH° 0.2 kJ/mol, ΔS° 5.2 J/(mol·K), ΔG° 1.8 kJ/mol; sign of ΔG correct for all 20.
+
+### Product prediction
+
+Type only the reactants and chemistry rules decide the products before the planner balances and animates the equation: combustion; metals with oxygen, halogens, acids and water (standard electrode potentials: Zn + HCl reacts, Cu + HCl does not); neutralisation; acid + carbonate; precipitation (solubility rules: AgNO₃ + NaCl → AgCl↓, NaCl + KNO₃ → no reaction); metal and halogen displacement; hydrogenation; halogenation; oxides with water or acids; common thermal decompositions. All 44 classroom cases in the test set give the textbook answer.
+
+**Organic chemistry at the reactive sites.** When no classroom rule applies, each reactant (name, formula or SMILES) is read as a bond graph, its functional groups are found, and the textbook transformation is applied there, so molecule size does not matter: esterification, amide formation, ester hydrolysis and saponification, additions to C=C and C≡C (H₂, X₂, HX with Markovnikov orientation, H₂O), substitution of alkyl halides (OH⁻, NH₃, CN⁻), alcohols with HX and their dehydration (Zaitsev), reduction of C=O, aromatic halogenation and nitration, Diels–Alder, amine salts, and combustion of any organic molecule. Examples: oleic acid + H₂ → stearic acid; cholesterol + Br₂ adds across its ring double bond.
+
+**Every reaction animates along computed paths.** Typed reactions follow their computed minimum-energy path; built-in reactions keep their hand-authored stages and timing, while the atoms whose bonds change follow the computed path's bend (spectator atoms keep their authored motion).
+
 Friendly extras: **"Did you mean…?"** suggestions for typos (checked against the local library, then PubChem's autocomplete), **quick-example chips**, a friendly message when you're offline, a **large-molecule warning**, and a **500+ atom** device guard. A successful build updates the URL (`?build=caffeine`), and opening that link re-runs the search, so **you can share any molecule as a link**.
 Every mode (Ultra, Smooth, Spherical, Antimatter…) applies to whatever you build, automatically.
 **Solves:** No curated library can contain every molecule. Build mode means the answer to "can I see *that* one?" is almost always yes.

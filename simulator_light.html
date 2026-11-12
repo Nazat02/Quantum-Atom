@@ -48409,6 +48409,21 @@ function bLiftFlatHydrogens(pos, elements, adj){
   }
 }
 
+// Safety net: when the classic layout routine cannot place a molecule (ring atoms with several substituents,
+// fused or bridged systems), its shape comes from the 3D builder instead. Molecules that already work are untouched.
+const _rmaClassic=resolveMoleculeAtoms;
+resolveMoleculeAtoms=function(mol){
+  try{ return _rmaClassic(mol); }
+  catch(err){
+    try{
+      const A=mol.atoms||[], Z=A.map(a=>a.Z||(ELS.find(e=>e.sym===a.sym)||{Z:6}).Z), bonds=(mol.bonds||[]).map(b=>[b[0],b[1],b[2]==null?1:b[2]]).filter(b=>b[2]>0);
+      const P=bEmbed3D(Z,bonds,null,{seed:5,q:A.map(a=>a.formalCharge||0)});
+      const tmp=Object.assign({},mol,{realXyz:bOrientPoints(P,Z.map(z=>z!==1))});
+      const S=bRealScenePositions(tmp);
+      return A.map((a,i)=>({Z:Z[i], sym:a.sym||bZSym(Z[i]), pos:S[i], formalCharge:a.formalCharge||0}));
+    }catch(e2){ throw err; }
+  }
+};
 function bConvertPubChemRecord(rec, opts){
   const compound=rec?.PC_Compounds?.[0];
   if(!compound) return null;
@@ -48550,7 +48565,7 @@ async function bFetchPubChemCid(cid){
 // Looks like a SMILES string rather than a name: no spaces, only SMILES characters, and at least one
 // character a plain name or formula would not contain.
 function bLooksLikeSmiles(s){
-  return /^[A-Za-z0-9@+\-\[\]()=#$%\\/.:*]+$/.test(s) && /[=#()\[\]@\\/]/.test(s) && /[A-Za-z]/.test(s);
+  return /^[A-Za-z0-9@+\-\[\]()=#$%\\/.:*]+$/.test(s) && (/[=#()\[\]@\\/]/.test(s) || /[cnos][0-9]/.test(s)) && /[A-Za-z]/.test(s);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -49056,8 +49071,13 @@ function bEmbed3D(Z, bonds, init, opts){
   const bonded=(a,b)=>ord[K(a,b)]!==undefined;
   const common=(a,b,c)=>nb[a].some(x=>x!==c && nb[b].includes(x));
 
+  // lone pairs on main-group atoms (needs charges): steric number = neighbours + lone pairs decides the shape (VSEPR)
+  const VE_={1:1,5:3,6:4,7:5,8:6,9:7,14:4,15:5,16:6,17:7,33:5,34:6,35:7,52:6,53:7,54:8};
+  const lonePairs=c=>{ const v=VE_[Z[c]]; if(v===undefined) return null; const q=(opts.q&&opts.q[c])||0, bo=nb[c].reduce((s,j)=>s+ord[K(c,j)],0); const e=v-q-bo; return e>=0 ? Math.floor(e/2) : 0; };
   const hyb=Z.map((z,c)=>{
     const os=nb[c].map(j=>ord[K(c,j)]);
+    const lp=lonePairs(c);
+    if(lp && (os.includes(3) || os.filter(o=>o===2).length>=2)){ const sn=nb[c].length+lp; return sn>=4 ? 'sp3' : sn===3 ? 'sp2' : 'sp'; }   // SO2, O3: bent despite two double bonds
     if(os.includes(3) || os.filter(o=>o===2).length>=2) return 'sp';
     if(os.includes(2)) return 'sp2';
     if((z===5||z===13) && nb[c].length===3) return 'sp2';
@@ -50247,7 +50267,16 @@ async function bResolveOnline(raw, norm, pf){
 // Orchestrator — the only entry point the UI calls
 // ══════════════════════════════════════════════════════════════════════
 async function resolveMolecule(rawInput){
-  const trimmed=String(rawInput||'').trim();
+  let trimmed=String(rawInput||'').trim(), smilesFirst=false;
+  if(/^smiles:/i.test(trimmed)){ trimmed=trimmed.replace(/^smiles:\s*/i,''); smilesFirst=true; }
+  else if(/^[A-Za-z0-9@+\-\[\]()=#$%\\/.:*]+$/.test(trimmed) && (/[=#@\[\]\/\\]/.test(trimmed) || /[cnos][0-9]/.test(trimmed)) && !bParseComplexInput(trimmed)){
+    try{ smilesFirst=!!bParseSmiles(trimmed); }catch(e){ smilesFirst=false; } }
+  if(smilesFirst){
+    // PubChem first (its measured 3D), the offline SMILES reader otherwise
+    if(navigator.onLine){ try{ const r=await bResolveOnline(trimmed, bNormalize(trimmed), null); if(r && r.status==='rendered') return r; }catch(e){} }
+    const sm=bResolveSmilesOffline(trimmed); if(sm) return sm;
+    return {status:'notfound', reason:'unknown'};
+  }
   if(!trimmed) return {status:'notfound', reason:'empty'};
   if(trimmed.length>(bLooksLikeSmiles(trimmed)?240:80)) return {status:'notfound', reason:'toolong'};
   const norm=bNormalize(trimmed);
@@ -50377,6 +50406,9 @@ window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.build_examples_n
 window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,{"sim.runbuild.pick_formula":d[k]});})({"en": "🧪 Several molecules share this formula. Pick one:", "de": "🧪 Mehrere Moleküle haben diese Formel. Wähle eines:", "fr": "🧪 Plusieurs molécules ont cette formule. Choisissez-en une :", "es": "🧪 Varias moléculas comparten esta fórmula. Elige una:", "it": "🧪 Più molecole hanno questa formula. Scegline una:", "el": "🧪 Πολλά μόρια έχουν αυτόν τον τύπο. Διαλέξτε ένα:", "ru": "🧪 У нескольких молекул такая формула. Выберите одну:", "ar": "🧪 عدة جزيئات لها هذه الصيغة. اختر واحدًا:", "bn": "🧪 একাধিক অণুর এই সংকেত আছে। একটি বেছে নিন:", "hi": "🧪 कई अणुओं का यही सूत्र है। एक चुनें:", "ja": "🧪 この化学式をもつ分子は複数あります。1つ選んでください：", "ko": "🧪 이 화학식을 가진 분자가 여러 개 있습니다. 하나를 고르세요:", "zh": "🧪 有多种分子具有这个化学式，请选择一种："});
 window.QA_I18N&&(function(d){for(var k in d.embedded)QA_I18N.add(k,{"sim.runbuild.embedded_note":d.embedded[k],"sim.runbuild.possible_note":d.possible[k]});})({"embedded": {"en": "PubChem has no 3D structure for this one, so its 3D shape was computed on your device.", "de": "PubChem hat für dieses Molekül keine 3D-Struktur, daher wurde seine 3D-Form auf deinem Gerät berechnet.", "fr": "PubChem n’a pas de structure 3D pour cette molécule ; sa forme 3D a donc été calculée sur votre appareil.", "es": "PubChem no tiene estructura 3D para esta molécula, así que su forma 3D se calculó en tu dispositivo.", "it": "PubChem non ha una struttura 3D per questa molecola, quindi la sua forma 3D è stata calcolata sul tuo dispositivo.", "el": "Το PubChem δεν έχει τρισδιάστατη δομή για αυτό το μόριο, οπότε το τρισδιάστατο σχήμα του υπολογίστηκε στη συσκευή σας.", "ru": "В PubChem нет трёхмерной структуры этой молекулы, поэтому её форма рассчитана на вашем устройстве.", "ar": "لا تتوفر في PubChem بنية ثلاثية الأبعاد لهذا الجزيء، لذلك حُسب شكله ثلاثي الأبعاد على جهازك.", "bn": "PubChem-এ এই অণুর কোনো 3D গঠন নেই, তাই এর 3D আকৃতি আপনার ডিভাইসেই হিসাব করা হয়েছে।", "hi": "PubChem में इस अणु की कोई 3D संरचना नहीं है, इसलिए इसका 3D आकार आपके डिवाइस पर ही गणना करके बनाया गया।", "ja": "PubChem にはこの分子の 3D 構造がないため、3D の形を端末内で計算しました。", "ko": "PubChem에 이 분자의 3D 구조가 없어, 3D 모양을 기기에서 직접 계산했습니다.", "zh": "PubChem 没有这个分子的三维结构，因此它的三维形状是在你的设备上计算得到的。"}, "possible": {"en": "Built offline from the formula alone: this is one possible structure, and other molecules share this formula.", "de": "Offline nur aus der Formel gebaut: Das ist eine mögliche Struktur, auch andere Moleküle haben diese Formel.", "fr": "Construit hors ligne à partir de la seule formule : c’est une structure possible, et d’autres molécules ont la même formule.", "es": "Construido sin conexión solo a partir de la fórmula: es una estructura posible, y otras moléculas comparten esta fórmula.", "it": "Costruita offline solo dalla formula: è una struttura possibile, e altre molecole hanno la stessa formula.", "el": "Κατασκευάστηκε χωρίς σύνδεση μόνο από τον τύπο: είναι μία πιθανή δομή, και άλλα μόρια έχουν τον ίδιο τύπο.", "ru": "Построено без интернета только по формуле: это одна из возможных структур, у других молекул может быть та же формула.", "ar": "بُني دون اتصال من الصيغة وحدها: هذه بنية محتملة واحدة، وتشترك جزيئات أخرى في الصيغة نفسها.", "bn": "শুধু সংকেত থেকে অফলাইনে তৈরি: এটি একটি সম্ভাব্য গঠন, অন্য অণুরও একই সংকেত থাকতে পারে।", "hi": "सिर्फ़ सूत्र से ऑफ़लाइन बनाया गया: यह एक संभावित संरचना है, दूसरे अणुओं का भी यही सूत्र हो सकता है।", "ja": "化学式だけからオフラインで組み立てた構造です。これは考えられる構造の 1 つで、同じ化学式の分子はほかにもあります。", "ko": "화학식만으로 오프라인에서 만든 구조입니다. 가능한 구조 중 하나이며, 같은 화학식을 가진 다른 분자도 있습니다.", "zh": "仅根据化学式离线构建：这是一种可能的结构，其他分子也可能具有相同的化学式。"}});
 window.QA_I18N&&(function(d){for(var k in d.pdb)QA_I18N.add(k,{"sim.runbuild.pdb_note":d.pdb[k],"sim.runbuild.trace_note":d.trace[k]});})({"pdb": {"en": "Experimental structure from the Protein Data Bank (PDB {id}).", "de": "Experimentell bestimmte Struktur aus der Protein Data Bank (PDB {id}).", "fr": "Structure expérimentale issue de la Protein Data Bank (PDB {id}).", "es": "Estructura experimental del Protein Data Bank (PDB {id}).", "it": "Struttura sperimentale dalla Protein Data Bank (PDB {id}).", "el": "Πειραματική δομή από την Protein Data Bank (PDB {id}).", "ru": "Экспериментальная структура из банка данных Protein Data Bank (PDB {id}).", "ar": "بنية تجريبية من بنك بيانات البروتين Protein Data Bank (PDB {id}).", "bn": "প্রোটিন ডেটা ব্যাংক থেকে নেওয়া পরীক্ষালব্ধ গঠন (PDB {id})।", "hi": "प्रोटीन डेटा बैंक से ली गई प्रायोगिक संरचना (PDB {id})।", "ja": "Protein Data Bank の実験構造です（PDB {id}）。", "ko": "Protein Data Bank의 실험 구조입니다 (PDB {id}).", "zh": "来自蛋白质数据库（Protein Data Bank）的实验结构（PDB {id}）。"}, "trace": {"en": "It has {n} atoms, too many to draw one by one on a phone, so it is shown as a backbone trace: one bead per amino acid or nucleotide, plus every bound ligand atom.", "de": "Sie hat {n} Atome – zu viele, um jedes einzeln auf einem Handy zu zeichnen. Deshalb wird das Rückgrat gezeigt: eine Perle pro Aminosäure oder Nukleotid, dazu alle gebundenen Liganden-Atome.", "fr": "Elle compte {n} atomes, trop pour les dessiner un par un sur un téléphone ; elle est donc montrée sous forme de squelette : une perle par acide aminé ou nucléotide, plus tous les atomes des ligands liés.", "es": "Tiene {n} átomos, demasiados para dibujarlos uno a uno en un móvil, así que se muestra su esqueleto: una cuenta por aminoácido o nucleótido, más todos los átomos de los ligandos unidos.", "it": "Ha {n} atomi, troppi da disegnare uno per uno su un telefono, quindi è mostrata come traccia della catena principale: una perla per amminoacido o nucleotide, più tutti gli atomi dei ligandi legati.", "el": "Έχει {n} άτομα, πάρα πολλά για να σχεδιαστούν ένα ένα σε κινητό, γι’ αυτό εμφανίζεται ο σκελετός της: μία χάντρα ανά αμινοξύ ή νουκλεοτίδιο, συν όλα τα άτομα των δεσμευμένων προσδεμάτων.", "ru": "В ней {n} атомов — слишком много, чтобы рисовать каждый на телефоне, поэтому показан остов: одна бусина на аминокислоту или нуклеотид и все атомы связанных лигандов.", "ar": "تحتوي على {n} ذرة، وهذا أكثر من أن تُرسم واحدةً واحدة على الهاتف، لذلك يُعرض هيكلها الأساسي: حبة لكل حمض أميني أو نيوكليوتيد، إضافة إلى كل ذرات الربائط المرتبطة.", "bn": "এতে {n}টি পরমাণু আছে, ফোনে একটি একটি করে আঁকার পক্ষে খুব বেশি, তাই এর মূল কাঠামো দেখানো হয়েছে: প্রতিটি অ্যামিনো অ্যাসিড বা নিউক্লিওটাইডের জন্য একটি পুঁতি, সঙ্গে যুক্ত লিগ্যান্ডের সব পরমাণু।", "hi": "इसमें {n} परमाणु हैं, फ़ोन पर एक-एक करके बनाने के लिए बहुत ज़्यादा, इसलिए इसका मुख्य ढाँचा दिखाया गया है: हर अमीनो अम्ल या न्यूक्लियोटाइड के लिए एक मनका, साथ में जुड़े लिगैंड के सभी परमाणु।", "ja": "原子が {n} 個あり、スマートフォンで 1 つずつ描くには多すぎるため、主鎖のトレースで表示しています（アミノ酸またはヌクレオチドごとに 1 つの玉と、結合したリガンドのすべての原子）。", "ko": "원자가 {n}개로 휴대폰에서 하나씩 그리기에는 너무 많아, 주사슬만 표시합니다. 아미노산이나 뉴클레오타이드마다 구슬 하나, 그리고 결합한 리간드의 모든 원자입니다.", "zh": "它有 {n} 个原子，在手机上逐个绘制太多，因此以主链轨迹显示：每个氨基酸或核苷酸一个珠子，外加所有结合配体的原子。"}});
+window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,d[k]);})({"en": {"sim.rxe.energy_profile": "Energy profile", "sim.rxe.temperature": "Temperature", "sim.rxe.k_eq": "Equilibrium constant K", "sim.rxe.half_life": "Half-life (slowest step)", "sim.rxe.years": "years", "sim.rxe.computing": "Computing the reaction path…", "sim.rxe.v_fast": "Spontaneous and fast at this temperature.", "sim.rxe.v_slow": "Allowed, but too slow on its own at this temperature: it needs a spark, heat or a catalyst.", "sim.rxe.v_uphill": "Not spontaneous at this temperature.", "sim.rxe.v_above": "It becomes spontaneous above about {T}.", "sim.rxe.v_below": "It is spontaneous only below about {T}.", "sim.rxe.note": "Gas phase, 1 bar. Entropy from statistical mechanics on the 3D shapes; enthalpy from tables, group additivity or bond energies; barriers from the reaction finder, paths from a valence-bond model (nudged elastic band)."}, "de": {"sim.rxe.energy_profile": "Energieprofil", "sim.rxe.temperature": "Temperatur", "sim.rxe.k_eq": "Gleichgewichtskonstante K", "sim.rxe.half_life": "Halbwertszeit (langsamster Schritt)", "sim.rxe.years": "Jahre", "sim.rxe.computing": "Reaktionsweg wird berechnet …", "sim.rxe.v_fast": "Bei dieser Temperatur freiwillig und schnell.", "sim.rxe.v_slow": "Erlaubt, aber bei dieser Temperatur von selbst zu langsam: Es braucht einen Funken, Wärme oder einen Katalysator.", "sim.rxe.v_uphill": "Bei dieser Temperatur nicht freiwillig.", "sim.rxe.v_above": "Oberhalb von etwa {T} wird sie freiwillig.", "sim.rxe.v_below": "Sie ist nur unterhalb von etwa {T} freiwillig.", "sim.rxe.note": "Gasphase, 1 bar. Entropie aus statistischer Mechanik an den 3D-Formen; Enthalpie aus Tabellen, Gruppenadditivität oder Bindungsenergien; Barrieren vom Reaktionsfinder, Wege aus einem Valenzbindungsmodell (Nudged Elastic Band)."}, "fr": {"sim.rxe.energy_profile": "Profil énergétique", "sim.rxe.temperature": "Température", "sim.rxe.k_eq": "Constante d’équilibre K", "sim.rxe.half_life": "Demi-vie (étape la plus lente)", "sim.rxe.years": "ans", "sim.rxe.computing": "Calcul du chemin réactionnel…", "sim.rxe.v_fast": "Spontanée et rapide à cette température.", "sim.rxe.v_slow": "Permise, mais trop lente d’elle-même à cette température : il faut une étincelle, de la chaleur ou un catalyseur.", "sim.rxe.v_uphill": "Non spontanée à cette température.", "sim.rxe.v_above": "Elle devient spontanée au-dessus d’environ {T}.", "sim.rxe.v_below": "Elle n’est spontanée qu’en dessous d’environ {T}.", "sim.rxe.note": "Phase gazeuse, 1 bar. Entropie par mécanique statistique sur les formes 3D ; enthalpie issue de tables, d’additivité de groupes ou d’énergies de liaison ; barrières du moteur de réactions, chemins d’un modèle de liaison de valence (nudged elastic band)."}, "es": {"sim.rxe.energy_profile": "Perfil energético", "sim.rxe.temperature": "Temperatura", "sim.rxe.k_eq": "Constante de equilibrio K", "sim.rxe.half_life": "Vida media (paso más lento)", "sim.rxe.years": "años", "sim.rxe.computing": "Calculando la ruta de reacción…", "sim.rxe.v_fast": "Espontánea y rápida a esta temperatura.", "sim.rxe.v_slow": "Permitida, pero demasiado lenta por sí sola a esta temperatura: necesita una chispa, calor o un catalizador.", "sim.rxe.v_uphill": "No espontánea a esta temperatura.", "sim.rxe.v_above": "Se vuelve espontánea por encima de unos {T}.", "sim.rxe.v_below": "Solo es espontánea por debajo de unos {T}.", "sim.rxe.note": "Fase gaseosa, 1 bar. Entropía por mecánica estadística sobre las formas 3D; entalpía de tablas, aditividad de grupos o energías de enlace; barreras del buscador de reacciones, rutas de un modelo de enlace de valencia (nudged elastic band)."}, "it": {"sim.rxe.energy_profile": "Profilo energetico", "sim.rxe.temperature": "Temperatura", "sim.rxe.k_eq": "Costante di equilibrio K", "sim.rxe.half_life": "Tempo di dimezzamento (passo più lento)", "sim.rxe.years": "anni", "sim.rxe.computing": "Calcolo del percorso di reazione…", "sim.rxe.v_fast": "Spontanea e veloce a questa temperatura.", "sim.rxe.v_slow": "Permessa, ma troppo lenta da sola a questa temperatura: serve una scintilla, calore o un catalizzatore.", "sim.rxe.v_uphill": "Non spontanea a questa temperatura.", "sim.rxe.v_above": "Diventa spontanea sopra circa {T}.", "sim.rxe.v_below": "È spontanea solo sotto circa {T}.", "sim.rxe.note": "Fase gassosa, 1 bar. Entropia dalla meccanica statistica sulle forme 3D; entalpia da tabelle, additività di gruppo o energie di legame; barriere dal motore di reazioni, percorsi da un modello di legame di valenza (nudged elastic band)."}, "el": {"sim.rxe.energy_profile": "Ενεργειακό προφίλ", "sim.rxe.temperature": "Θερμοκρασία", "sim.rxe.k_eq": "Σταθερά ισορροπίας K", "sim.rxe.half_life": "Χρόνος ημιζωής (πιο αργό βήμα)", "sim.rxe.years": "έτη", "sim.rxe.computing": "Υπολογισμός της πορείας της αντίδρασης…", "sim.rxe.v_fast": "Αυθόρμητη και γρήγορη σε αυτή τη θερμοκρασία.", "sim.rxe.v_slow": "Επιτρέπεται, αλλά είναι πολύ αργή από μόνη της σε αυτή τη θερμοκρασία: χρειάζεται σπινθήρα, θερμότητα ή καταλύτη.", "sim.rxe.v_uphill": "Μη αυθόρμητη σε αυτή τη θερμοκρασία.", "sim.rxe.v_above": "Γίνεται αυθόρμητη πάνω από περίπου {T}.", "sim.rxe.v_below": "Είναι αυθόρμητη μόνο κάτω από περίπου {T}.", "sim.rxe.note": "Αέρια φάση, 1 bar. Εντροπία από στατιστική μηχανική στα τρισδιάστατα σχήματα· ενθαλπία από πίνακες, προσθετικότητα ομάδων ή ενέργειες δεσμών· φράγματα από τη μηχανή αντιδράσεων, πορείες από μοντέλο δεσμού σθένους (nudged elastic band)."}, "ru": {"sim.rxe.energy_profile": "Энергетический профиль", "sim.rxe.temperature": "Температура", "sim.rxe.k_eq": "Константа равновесия K", "sim.rxe.half_life": "Период полупревращения (самая медленная стадия)", "sim.rxe.years": "лет", "sim.rxe.computing": "Расчёт пути реакции…", "sim.rxe.v_fast": "При этой температуре идёт самопроизвольно и быстро.", "sim.rxe.v_slow": "Разрешена, но при этой температуре сама по себе слишком медленная: нужна искра, нагрев или катализатор.", "sim.rxe.v_uphill": "При этой температуре не идёт самопроизвольно.", "sim.rxe.v_above": "Становится самопроизвольной выше примерно {T}.", "sim.rxe.v_below": "Самопроизвольна только ниже примерно {T}.", "sim.rxe.note": "Газовая фаза, 1 бар. Энтропия — статистической механикой по трёхмерным формам; энтальпия — из таблиц, групповой аддитивности или энергий связей; барьеры — от поиска реакций, пути — из модели валентных связей (nudged elastic band)."}, "ar": {"sim.rxe.energy_profile": "مخطط الطاقة", "sim.rxe.temperature": "درجة الحرارة", "sim.rxe.k_eq": "ثابت الاتزان K", "sim.rxe.half_life": "عمر النصف (أبطأ خطوة)", "sim.rxe.years": "سنة", "sim.rxe.computing": "جارٍ حساب مسار التفاعل…", "sim.rxe.v_fast": "تلقائي وسريع عند درجة الحرارة هذه.", "sim.rxe.v_slow": "مسموح، لكنه بطيء جدًا وحده عند درجة الحرارة هذه: يحتاج إلى شرارة أو حرارة أو محفّز.", "sim.rxe.v_uphill": "غير تلقائي عند درجة الحرارة هذه.", "sim.rxe.v_above": "يصبح تلقائيًا فوق نحو {T}.", "sim.rxe.v_below": "يكون تلقائيًا فقط تحت نحو {T}.", "sim.rxe.note": "الطور الغازي، 1 بار. الإنتروبيا من الميكانيكا الإحصائية على الأشكال ثلاثية الأبعاد؛ والإنثالبي من الجداول أو جمع المجموعات أو طاقات الروابط؛ والحواجز من محرك التفاعلات، والمسارات من نموذج رابطة التكافؤ (nudged elastic band)."}, "bn": {"sim.rxe.energy_profile": "শক্তি প্রোফাইল", "sim.rxe.temperature": "তাপমাত্রা", "sim.rxe.k_eq": "সাম্যধ্রুবক K", "sim.rxe.half_life": "অর্ধায়ু (সবচেয়ে ধীর ধাপ)", "sim.rxe.years": "বছর", "sim.rxe.computing": "বিক্রিয়ার পথ হিসাব করা হচ্ছে…", "sim.rxe.v_fast": "এই তাপমাত্রায় স্বতঃস্ফূর্ত ও দ্রুত।", "sim.rxe.v_slow": "সম্ভব, কিন্তু এই তাপমাত্রায় নিজে থেকে খুব ধীর: স্ফুলিঙ্গ, তাপ বা অনুঘটক লাগে।", "sim.rxe.v_uphill": "এই তাপমাত্রায় স্বতঃস্ফূর্ত নয়।", "sim.rxe.v_above": "প্রায় {T}-এর উপরে স্বতঃস্ফূর্ত হয়।", "sim.rxe.v_below": "শুধু প্রায় {T}-এর নিচে স্বতঃস্ফূর্ত।", "sim.rxe.note": "গ্যাস দশা, 1 বার। 3D আকৃতি থেকে পরিসংখ্যানিক বলবিদ্যায় এনট্রপি; সারণি, গ্রুপ যোগফল বা বন্ধন শক্তি থেকে এনথালপি; বিক্রিয়া-অনুসন্ধানী থেকে বাধা, যোজ্যতা-বন্ধন মডেল (nudged elastic band) থেকে পথ।"}, "hi": {"sim.rxe.energy_profile": "ऊर्जा प्रोफ़ाइल", "sim.rxe.temperature": "तापमान", "sim.rxe.k_eq": "साम्य स्थिरांक K", "sim.rxe.half_life": "अर्ध-आयु (सबसे धीमा चरण)", "sim.rxe.years": "वर्ष", "sim.rxe.computing": "अभिक्रिया का मार्ग गणना किया जा रहा है…", "sim.rxe.v_fast": "इस तापमान पर स्वतः और तेज़।", "sim.rxe.v_slow": "संभव है, पर इस तापमान पर अपने आप बहुत धीमा: चिंगारी, ऊष्मा या उत्प्रेरक चाहिए।", "sim.rxe.v_uphill": "इस तापमान पर स्वतः नहीं।", "sim.rxe.v_above": "लगभग {T} से ऊपर स्वतः हो जाती है।", "sim.rxe.v_below": "केवल लगभग {T} से नीचे स्वतः है।", "sim.rxe.note": "गैस अवस्था, 1 बार। 3D आकृतियों पर सांख्यिकीय यांत्रिकी से एन्ट्रॉपी; सारणियों, समूह योगात्मकता या बंध ऊर्जाओं से एन्थैल्पी; अभिक्रिया-खोजक से अवरोध, संयोजकता-बंध मॉडल (nudged elastic band) से मार्ग।"}, "ja": {"sim.rxe.energy_profile": "エネルギー図", "sim.rxe.temperature": "温度", "sim.rxe.k_eq": "平衡定数 K", "sim.rxe.half_life": "半減期（最も遅い段階）", "sim.rxe.years": "年", "sim.rxe.computing": "反応経路を計算しています…", "sim.rxe.v_fast": "この温度では自発的に速く進みます。", "sim.rxe.v_slow": "起こり得ますが、この温度では自然には遅すぎます。火花・加熱・触媒が必要です。", "sim.rxe.v_uphill": "この温度では自発的に起こりません。", "sim.rxe.v_above": "約 {T} より高温で自発的になります。", "sim.rxe.v_below": "約 {T} より低温でのみ自発的です。", "sim.rxe.note": "気相・1 bar。エントロピーは 3D 形状からの統計力学、エンタルピーは表・原子団加成性・結合エネルギー、障壁は反応探索から、経路は原子価結合モデル（nudged elastic band）から。"}, "ko": {"sim.rxe.energy_profile": "에너지 도표", "sim.rxe.temperature": "온도", "sim.rxe.k_eq": "평형 상수 K", "sim.rxe.half_life": "반감기 (가장 느린 단계)", "sim.rxe.years": "년", "sim.rxe.computing": "반응 경로를 계산하는 중…", "sim.rxe.v_fast": "이 온도에서 자발적이고 빠르게 일어납니다.", "sim.rxe.v_slow": "가능하지만 이 온도에서는 저절로 일어나기에 너무 느립니다. 불꽃, 열 또는 촉매가 필요합니다.", "sim.rxe.v_uphill": "이 온도에서는 자발적이지 않습니다.", "sim.rxe.v_above": "약 {T} 이상에서 자발적이 됩니다.", "sim.rxe.v_below": "약 {T} 이하에서만 자발적입니다.", "sim.rxe.note": "기체상, 1 bar. 엔트로피는 3D 구조의 통계역학, 엔탈피는 표·원자단 가산성·결합 에너지, 장벽은 반응 탐색기, 경로는 원자가 결합 모델(nudged elastic band)에서 얻습니다."}, "zh": {"sim.rxe.energy_profile": "能量图", "sim.rxe.temperature": "温度", "sim.rxe.k_eq": "平衡常数 K", "sim.rxe.half_life": "半衰期（最慢步骤）", "sim.rxe.years": "年", "sim.rxe.computing": "正在计算反应路径…", "sim.rxe.v_fast": "在此温度下自发且迅速。", "sim.rxe.v_slow": "可以发生，但在此温度下自行进行太慢：需要火花、加热或催化剂。", "sim.rxe.v_uphill": "在此温度下不自发。", "sim.rxe.v_above": "高于约 {T} 时变为自发。", "sim.rxe.v_below": "仅在低于约 {T} 时自发。", "sim.rxe.note": "气相，1 bar。熵由三维结构的统计力学得到；焓来自数据表、基团加和或键能；能垒来自反应搜索器，路径来自价键模型（nudged elastic band）。"}});
+window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,d[k]);})({"en": {"sim.rxp.predicted": "Products predicted by chemistry rules: {eq}", "sim.rxp.no_metal": "No reaction: {a} is less reactive than {b} (standard electrode potentials).", "sim.rxp.no_metal_water": "No reaction: {a} does not react with water at room temperature.", "sim.rxp.no_soluble": "No reaction: every possible product stays dissolved, so nothing precipitates.", "sim.rxp.no_halogen": "No reaction: {a} is less reactive than {b}, so it cannot displace it."}, "de": {"sim.rxp.predicted": "Produkte nach chemischen Regeln vorhergesagt: {eq}", "sim.rxp.no_metal": "Keine Reaktion: {a} ist weniger reaktiv als {b} (Standardpotentiale).", "sim.rxp.no_metal_water": "Keine Reaktion: {a} reagiert bei Raumtemperatur nicht mit Wasser.", "sim.rxp.no_soluble": "Keine Reaktion: Alle möglichen Produkte bleiben gelöst, es fällt nichts aus.", "sim.rxp.no_halogen": "Keine Reaktion: {a} ist weniger reaktiv als {b} und kann es nicht verdrängen."}, "fr": {"sim.rxp.predicted": "Produits prédits par les règles de la chimie : {eq}", "sim.rxp.no_metal": "Pas de réaction : {a} est moins réactif que {b} (potentiels standard d’électrode).", "sim.rxp.no_metal_water": "Pas de réaction : {a} ne réagit pas avec l’eau à température ambiante.", "sim.rxp.no_soluble": "Pas de réaction : tous les produits possibles restent dissous, rien ne précipite.", "sim.rxp.no_halogen": "Pas de réaction : {a} est moins réactif que {b} et ne peut pas le déplacer."}, "es": {"sim.rxp.predicted": "Productos predichos por reglas químicas: {eq}", "sim.rxp.no_metal": "No hay reacción: {a} es menos reactivo que {b} (potenciales estándar de electrodo).", "sim.rxp.no_metal_water": "No hay reacción: {a} no reacciona con el agua a temperatura ambiente.", "sim.rxp.no_soluble": "No hay reacción: todos los productos posibles siguen disueltos, así que nada precipita.", "sim.rxp.no_halogen": "No hay reacción: {a} es menos reactivo que {b}, así que no puede desplazarlo."}, "it": {"sim.rxp.predicted": "Prodotti previsti dalle regole della chimica: {eq}", "sim.rxp.no_metal": "Nessuna reazione: {a} è meno reattivo di {b} (potenziali standard di elettrodo).", "sim.rxp.no_metal_water": "Nessuna reazione: {a} non reagisce con l’acqua a temperatura ambiente.", "sim.rxp.no_soluble": "Nessuna reazione: tutti i prodotti possibili restano disciolti, quindi nulla precipita.", "sim.rxp.no_halogen": "Nessuna reazione: {a} è meno reattivo di {b}, quindi non può spostarlo."}, "el": {"sim.rxp.predicted": "Προϊόντα που προβλέφθηκαν με χημικούς κανόνες: {eq}", "sim.rxp.no_metal": "Καμία αντίδραση: το {a} είναι λιγότερο δραστικό από το {b} (κανονικά δυναμικά ηλεκτροδίου).", "sim.rxp.no_metal_water": "Καμία αντίδραση: το {a} δεν αντιδρά με νερό σε θερμοκρασία δωματίου.", "sim.rxp.no_soluble": "Καμία αντίδραση: όλα τα πιθανά προϊόντα μένουν διαλυμένα, οπότε τίποτα δεν καταβυθίζεται.", "sim.rxp.no_halogen": "Καμία αντίδραση: το {a} είναι λιγότερο δραστικό από το {b}, οπότε δεν μπορεί να το εκτοπίσει."}, "ru": {"sim.rxp.predicted": "Продукты предсказаны по химическим правилам: {eq}", "sim.rxp.no_metal": "Реакции нет: {a} менее активен, чем {b} (стандартные электродные потенциалы).", "sim.rxp.no_metal_water": "Реакции нет: {a} не реагирует с водой при комнатной температуре.", "sim.rxp.no_soluble": "Реакции нет: все возможные продукты остаются растворёнными, осадок не выпадает.", "sim.rxp.no_halogen": "Реакции нет: {a} менее активен, чем {b}, и не может его вытеснить."}, "ar": {"sim.rxp.predicted": "نواتج متوقعة وفق قواعد الكيمياء: {eq}", "sim.rxp.no_metal": "لا تفاعل: {a} أقل نشاطًا من {b} (جهود الأقطاب القياسية).", "sim.rxp.no_metal_water": "لا تفاعل: لا يتفاعل {a} مع الماء في درجة حرارة الغرفة.", "sim.rxp.no_soluble": "لا تفاعل: تبقى كل النواتج الممكنة ذائبة، فلا يتكون راسب.", "sim.rxp.no_halogen": "لا تفاعل: {a} أقل نشاطًا من {b}، فلا يستطيع إزاحته."}, "bn": {"sim.rxp.predicted": "রসায়নের নিয়ম অনুযায়ী অনুমিত উৎপাদ: {eq}", "sim.rxp.no_metal": "বিক্রিয়া হয় না: {a}, {b}-এর চেয়ে কম সক্রিয় (প্রমাণ তড়িৎদ্বার বিভব)।", "sim.rxp.no_metal_water": "বিক্রিয়া হয় না: ঘরের তাপমাত্রায় {a} পানির সঙ্গে বিক্রিয়া করে না।", "sim.rxp.no_soluble": "বিক্রিয়া হয় না: সম্ভাব্য সব উৎপাদ দ্রবীভূত থাকে, তাই কোনো অধঃক্ষেপ পড়ে না।", "sim.rxp.no_halogen": "বিক্রিয়া হয় না: {a}, {b}-এর চেয়ে কম সক্রিয়, তাই একে প্রতিস্থাপন করতে পারে না।"}, "hi": {"sim.rxp.predicted": "रसायन के नियमों से अनुमानित उत्पाद: {eq}", "sim.rxp.no_metal": "कोई अभिक्रिया नहीं: {a}, {b} से कम सक्रिय है (मानक इलेक्ट्रोड विभव)।", "sim.rxp.no_metal_water": "कोई अभिक्रिया नहीं: कमरे के तापमान पर {a} पानी से अभिक्रिया नहीं करता।", "sim.rxp.no_soluble": "कोई अभिक्रिया नहीं: सभी संभावित उत्पाद घुले रहते हैं, इसलिए कोई अवक्षेप नहीं बनता।", "sim.rxp.no_halogen": "कोई अभिक्रिया नहीं: {a}, {b} से कम सक्रिय है, इसलिए उसे विस्थापित नहीं कर सकता।"}, "ja": {"sim.rxp.predicted": "化学の規則から予測した生成物：{eq}", "sim.rxp.no_metal": "反応しません：{a} は {b} よりイオン化傾向が小さいためです（標準電極電位）。", "sim.rxp.no_metal_water": "反応しません：{a} は室温では水と反応しません。", "sim.rxp.no_soluble": "反応しません：生成しうる物質はすべて溶けたままで、沈殿ができません。", "sim.rxp.no_halogen": "反応しません：{a} は {b} より反応性が低いため、置換できません。"}, "ko": {"sim.rxp.predicted": "화학 규칙으로 예측한 생성물: {eq}", "sim.rxp.no_metal": "반응하지 않습니다: {a}는 {b}보다 반응성이 작습니다 (표준 전극 전위).", "sim.rxp.no_metal_water": "반응하지 않습니다: {a}는 상온에서 물과 반응하지 않습니다.", "sim.rxp.no_soluble": "반응하지 않습니다: 가능한 생성물이 모두 녹아 있어 침전이 생기지 않습니다.", "sim.rxp.no_halogen": "반응하지 않습니다: {a}는 {b}보다 반응성이 작아 치환할 수 없습니다."}, "zh": {"sim.rxp.predicted": "按化学规律预测的产物：{eq}", "sim.rxp.no_metal": "不反应：{a} 的活泼性低于 {b}（标准电极电势）。", "sim.rxp.no_metal_water": "不反应：{a} 在室温下不与水反应。", "sim.rxp.no_soluble": "不反应：所有可能的产物都保持溶解，没有沉淀生成。", "sim.rxp.no_halogen": "不反应：{a} 的活泼性低于 {b}，不能将其置换。"}});
+window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,d[k]);})({"en": {"sim.rxe.phase": "Phase", "sim.rxe.gas": "Gas phase", "sim.rxe.std": "Standard states (liquids, solids)", "sim.rxe.light": "Light", "sim.rxe.none": "none", "sim.rxe.catalyst": "Catalyst: barriers lower by", "sim.rxe.light_note": "Light at {nm} nm carries {E} kJ/mol per photon: enough to break the {bond} bond ({D} kJ/mol), so the first step needs no heat.", "sim.rxe.measured": "measured"}, "de": {"sim.rxe.phase": "Phase", "sim.rxe.gas": "Gasphase", "sim.rxe.std": "Standardzustände (Flüssigkeiten, Feststoffe)", "sim.rxe.light": "Licht", "sim.rxe.none": "keins", "sim.rxe.catalyst": "Katalysator: Barrieren sinken um", "sim.rxe.light_note": "Licht von {nm} nm trägt {E} kJ/mol pro Photon – genug, um die {bond}-Bindung ({D} kJ/mol) zu spalten; der erste Schritt braucht keine Wärme.", "sim.rxe.measured": "gemessen"}, "fr": {"sim.rxe.phase": "Phase", "sim.rxe.gas": "Phase gazeuse", "sim.rxe.std": "États standard (liquides, solides)", "sim.rxe.light": "Lumière", "sim.rxe.none": "aucune", "sim.rxe.catalyst": "Catalyseur : barrières abaissées de", "sim.rxe.light_note": "La lumière à {nm} nm apporte {E} kJ/mol par photon : assez pour rompre la liaison {bond} ({D} kJ/mol), la première étape n’a donc pas besoin de chaleur.", "sim.rxe.measured": "mesurée"}, "es": {"sim.rxe.phase": "Fase", "sim.rxe.gas": "Fase gaseosa", "sim.rxe.std": "Estados estándar (líquidos, sólidos)", "sim.rxe.light": "Luz", "sim.rxe.none": "ninguna", "sim.rxe.catalyst": "Catalizador: barreras más bajas en", "sim.rxe.light_note": "La luz de {nm} nm aporta {E} kJ/mol por fotón: suficiente para romper el enlace {bond} ({D} kJ/mol), así que el primer paso no necesita calor.", "sim.rxe.measured": "medida"}, "it": {"sim.rxe.phase": "Fase", "sim.rxe.gas": "Fase gassosa", "sim.rxe.std": "Stati standard (liquidi, solidi)", "sim.rxe.light": "Luce", "sim.rxe.none": "nessuna", "sim.rxe.catalyst": "Catalizzatore: barriere più basse di", "sim.rxe.light_note": "La luce a {nm} nm porta {E} kJ/mol per fotone: abbastanza per rompere il legame {bond} ({D} kJ/mol), quindi il primo passo non richiede calore.", "sim.rxe.measured": "misurata"}, "el": {"sim.rxe.phase": "Φάση", "sim.rxe.gas": "Αέρια φάση", "sim.rxe.std": "Πρότυπες καταστάσεις (υγρά, στερεά)", "sim.rxe.light": "Φως", "sim.rxe.none": "κανένα", "sim.rxe.catalyst": "Καταλύτης: τα φράγματα μειώνονται κατά", "sim.rxe.light_note": "Το φως των {nm} nm μεταφέρει {E} kJ/mol ανά φωτόνιο: αρκετό για να σπάσει τον δεσμό {bond} ({D} kJ/mol), οπότε το πρώτο βήμα δεν χρειάζεται θερμότητα.", "sim.rxe.measured": "μετρημένο"}, "ru": {"sim.rxe.phase": "Фаза", "sim.rxe.gas": "Газовая фаза", "sim.rxe.std": "Стандартные состояния (жидкости, твёрдые)", "sim.rxe.light": "Свет", "sim.rxe.none": "нет", "sim.rxe.catalyst": "Катализатор: барьеры ниже на", "sim.rxe.light_note": "Свет с длиной волны {nm} нм несёт {E} кДж/моль на фотон — достаточно, чтобы разорвать связь {bond} ({D} кДж/моль), поэтому первой стадии не нужен нагрев.", "sim.rxe.measured": "измерено"}, "ar": {"sim.rxe.phase": "الطور", "sim.rxe.gas": "الطور الغازي", "sim.rxe.std": "الحالات القياسية (سوائل، مواد صلبة)", "sim.rxe.light": "الضوء", "sim.rxe.none": "لا شيء", "sim.rxe.catalyst": "المحفّز: تنخفض الحواجز بمقدار", "sim.rxe.light_note": "يحمل الضوء عند {nm} نانومتر {E} كيلوجول/مول لكل فوتون، وهذا يكفي لكسر الرابطة {bond} ({D} كيلوجول/مول)، فلا تحتاج الخطوة الأولى إلى حرارة.", "sim.rxe.measured": "مقيس"}, "bn": {"sim.rxe.phase": "দশা", "sim.rxe.gas": "গ্যাস দশা", "sim.rxe.std": "প্রমাণ অবস্থা (তরল, কঠিন)", "sim.rxe.light": "আলো", "sim.rxe.none": "নেই", "sim.rxe.catalyst": "অনুঘটক: বাধা কমে", "sim.rxe.light_note": "{nm} nm আলোর প্রতিটি ফোটনে {E} kJ/mol শক্তি থাকে: {bond} বন্ধন ({D} kJ/mol) ভাঙার জন্য যথেষ্ট, তাই প্রথম ধাপে তাপ লাগে না।", "sim.rxe.measured": "পরিমাপিত"}, "hi": {"sim.rxe.phase": "अवस्था", "sim.rxe.gas": "गैस अवस्था", "sim.rxe.std": "मानक अवस्थाएँ (द्रव, ठोस)", "sim.rxe.light": "प्रकाश", "sim.rxe.none": "कोई नहीं", "sim.rxe.catalyst": "उत्प्रेरक: अवरोध घटते हैं", "sim.rxe.light_note": "{nm} nm के प्रकाश के प्रति फ़ोटॉन में {E} kJ/mol होता है: {bond} बंध ({D} kJ/mol) तोड़ने के लिए पर्याप्त, इसलिए पहले चरण को ऊष्मा नहीं चाहिए।", "sim.rxe.measured": "मापा गया"}, "ja": {"sim.rxe.phase": "相", "sim.rxe.gas": "気相", "sim.rxe.std": "標準状態（液体・固体）", "sim.rxe.light": "光", "sim.rxe.none": "なし", "sim.rxe.catalyst": "触媒：障壁の低下", "sim.rxe.light_note": "{nm} nm の光は光子 1 個あたり {E} kJ/mol をもち、{bond} 結合（{D} kJ/mol）を切るのに十分なので、最初の段階に熱は不要です。", "sim.rxe.measured": "実測"}, "ko": {"sim.rxe.phase": "상", "sim.rxe.gas": "기체상", "sim.rxe.std": "표준 상태 (액체, 고체)", "sim.rxe.light": "빛", "sim.rxe.none": "없음", "sim.rxe.catalyst": "촉매: 장벽 감소", "sim.rxe.light_note": "{nm} nm 빛은 광자당 {E} kJ/mol을 가져 {bond} 결합({D} kJ/mol)을 끊기에 충분하므로, 첫 단계에 열이 필요 없습니다.", "sim.rxe.measured": "측정값"}, "zh": {"sim.rxe.phase": "物态", "sim.rxe.gas": "气相", "sim.rxe.std": "标准状态（液体、固体）", "sim.rxe.light": "光照", "sim.rxe.none": "无", "sim.rxe.catalyst": "催化剂：能垒降低", "sim.rxe.light_note": "{nm} nm 的光每个光子携带 {E} kJ/mol，足以断开 {bond} 键（{D} kJ/mol），因此第一步无需加热。", "sim.rxe.measured": "实测"}});
 const bT=(key,fallback,vars)=>{ let v; try{ v=qaT(key,vars); }catch(e){} return (v && v!==key) ? v : fallback; };
 async function runBuild(query){
   const input=document.getElementById('build-input');
@@ -50573,6 +50605,45 @@ window.runLiveSelfTest=async function(show){
   return rows;
 };
 try{ if(/[?&#]selftest=live\b/.test(location.search+location.hash)) window.addEventListener('load',()=>setTimeout(()=>window.runLiveSelfTest(true),2500)); }catch(e){}
+
+// Reaction validation set: gas phase, 298.15 K, 1 bar. Measured ΔrH° and ΔrG° (kJ/mol) from NIST / CODATA formation values.
+const RX_VALIDATION=[
+  ['2 H2 + O2 → 2 H2O', [['[H][H]',2],['O=O',1]], [['O',2]], -483.6, -457.2],
+  ['H2 + Cl2 → 2 HCl', [['[H][H]',1],['ClCl',1]], [['Cl',2]], -184.6, -190.6],
+  ['N2 + 3 H2 → 2 NH3', [['N#N',1],['[H][H]',3]], [['N',2]], -91.8, -32.8],
+  ['N2 + O2 → 2 NO', [['N#N',1],['O=O',1]], [['[N]=O',2]], 180.5, 173.1],
+  ['CH4 + 2 O2 → CO2 + 2 H2O', [['C',1],['O=O',2]], [['O=C=O',1],['O',2]], -802.3, -800.8],
+  ['2 CO + O2 → 2 CO2', [['[C-]#[O+]',2],['O=O',1]], [['O=C=O',2]], -566.0, -514.4],
+  ['C2H4 + H2 → C2H6', [['C=C',1],['[H][H]',1]], [['CC',1]], -136.3, -101.2],
+  ['2 SO2 + O2 → 2 SO3', [['O=S=O',2],['O=O',1]], [['O=S(=O)=O',2]], -197.8, -141.7],
+  ['CO + H2O → CO2 + H2', [['[C-]#[O+]',1],['O',1]], [['O=C=O',1],['[H][H]',1]], -41.2, -28.6],
+  ['CH4 + H2O → CO + 3 H2', [['C',1],['O',1]], [['[C-]#[O+]',1],['[H][H]',3]], 206.1, 142.1],
+  ['2 NO + O2 → 2 NO2', [['[N]=O',2],['O=O',1]], [['[O][N]=O',2]], -114.1, -70.6],
+  ['2 O3 → 3 O2', [['[O-][O+]=O',2]], [['O=O',3]], -285.4, -326.4],
+  ['C2H2 + 2 H2 → C2H6', [['C#C',1],['[H][H]',2]], [['CC',1]], -311.4, -242.0],
+  ['3 C2H2 → C6H6', [['C#C',3]], [['c1ccccc1',1]], -597.2, -497.9],
+  ['C2H4 + H2O → C2H5OH', [['C=C',1],['O',1]], [['CCO',1]], -45.8, -8.3],
+  ['H2 + I2 → 2 HI', [['[H][H]',1],['II',1]], [['I',2]], -9.4, -15.9],
+  ['CH4 + Cl2 → CH3Cl + HCl', [['C',1],['ClCl',1]], [['CCl',1],['Cl',1]], -99.6, -103.3],
+  ['N2O4 → 2 NO2', [['O=[N+]([O-])[N+](=O)[O-]',1]], [['[O][N]=O',2]], 57.2, 4.7],
+  ['2 H2O2 → 2 H2O + O2', [['OO',2]], [['O',2],['O=O',1]], -211.0, -246.0],
+  ['C3H8 + 5 O2 → 3 CO2 + 4 H2O', [['CCC',1],['O=O',5]], [['O=C=O',3],['O',4]], -2043.1, -2074.1],
+];
+window.runReactionValidation=function(){
+  const TH=window.ReactionThermo, RC=window.ReactionCore, rows=[];
+  const sp=smi=>{ const g=bParseSmiles(smi); return {atoms:g.Z.map(z=>(ELS.find(e=>e.Z===z)||{}).sym), bonds:g.bonds, charges:g.q}; };
+  for(const [name,R,P,dHx,dGx] of RX_VALIDATION){
+    const side=list=>list.flatMap(([smi,n])=>Array.from({length:n},()=>sp(smi)));
+    const a=TH.setThermo(side(R),298.15,RC), b=TH.setThermo(side(P),298.15,RC);
+    const dH=b.H-a.H, dS=b.S-a.S, dG=b.G-a.G, dSx=(dHx-dGx)/298.15*1000;
+    rows.push({reaction:name, dH:+dH.toFixed(1), dH_exp:dHx, dS:+dS.toFixed(1), dS_exp:+dSx.toFixed(1), dG:+dG.toFixed(1), dG_exp:dGx});
+  }
+  const mae=k=>rows.reduce((s,r)=>s+Math.abs(r[k]-r[k+'_exp']),0)/rows.length;
+  const summary={reactions:rows.length, MAE_dH:+mae('dH').toFixed(1), MAE_dS:+mae('dS').toFixed(1), MAE_dG:+mae('dG').toFixed(1),
+    signOK:rows.filter(r=>Math.sign(r.dG)===Math.sign(r.dG_exp)).length};
+  try{ console.table(rows); }catch(e){} console.log('Reaction validation:', JSON.stringify(summary));
+  return {rows, summary};
+};
 
 function setLeftMode(mode){
   const isEl=mode==='elements', isMol=mode==='molecules', isBuild=mode==='build', isHypo=mode==='hypo';
@@ -53390,6 +53461,394 @@ check('estimates never invent chemistry: NaOH + NaOH and Na+ + Cl- give no react
   const api = { selfTest, netReaction, thermoOfUnit, plan, balanceEquation, bestStoichiometry, countsOf, unitCounts, fromMolecularFormula, condensed, isPolarSystem, ionSpecies, parseFormula, unpaired: openV, fromSpecies, explore, pathTo, pathToProducts, mostStable, energy, charges, describe, spinAllowed, couple, D, EL };
   return api;
 });
+/* =====================================================================
+   reaction-thermo.js — statistical thermodynamics for the reaction engine
+   ---------------------------------------------------------------------
+   Gas-phase standard state (1 bar). For one molecule (a bond graph):
+   - ΔfH°(298): tabulated value > radical table > Benson group additivity
+     (C, H, O, N, Cl organics) > bond-enthalpy estimate from atoms.
+   - S°(T), H(T)−H(298) from statistical mechanics on its 3D shape:
+       translation (Sackur–Tetrode), rigid rotor (moments of inertia and
+       the rotational symmetry number found from the 3D structure),
+       harmonic vibrations (frequencies estimated per bond / bend /
+       torsion type), electronic spin degeneracy 2S+1.
+   - ΔG(T) = ΔH(T) − TΔS(T); K = exp(−ΔG/RT); Eyring rate constants.
+   ===================================================================== */
+(function(root){
+'use strict';
+const R=8.314462618, KB=1.380649e-23, H_PL=6.62607015e-34, NA=6.02214076e23, C_CM=2.99792458e10, AMU=1.66053906660e-27, P0=1e5;
+const MASS={H:1.008,He:4.003,Li:6.94,Be:9.012,B:10.81,C:12.011,N:14.007,O:15.999,F:18.998,Ne:20.18,Na:22.99,Mg:24.305,Al:26.982,Si:28.085,P:30.974,S:32.06,Cl:35.45,Ar:39.948,K:39.098,Ca:40.078,
+  Fe:55.845,Cu:63.546,Zn:65.38,Br:79.904,Kr:83.798,Ag:107.868,I:126.904,Xe:131.293,Ba:137.327,Pb:207.2,Se:78.971,As:74.922,Ge:72.63,Sn:118.71,Ti:47.867,Cr:51.996,Mn:54.938,Co:58.933,Ni:58.693};
+// ΔfH°(g, 298 K) of gaseous atoms, kJ/mol (CODATA / ATcT)
+const ATOM_H={H:217.998,C:716.68,N:472.68,O:249.18,F:79.38,Cl:121.30,Br:111.87,I:106.76,S:277.17,P:316.5,Si:450.0,B:565.0,Na:107.5,K:89.0,Li:159.3,Mg:147.1,Ca:177.8,Al:330.0,Se:227.1};
+// small radicals and atoms that the formation-enthalpy table lacks (ATcT, kJ/mol)
+const RADICAL_H={'H':217.998,'O':249.18,'N':472.68,'C':716.68,'F':79.38,'Cl':121.30,'Br':111.87,'I':106.76,'HO':37.5,'CH3':146.4,'HO2':12.3,'S':277.17};
+
+/* ---------- Benson group additivity (kJ/mol, 298 K, gas) ---------- */
+// group key: centre type + sorted neighbour types. Types: C (sp3 carbon), Cd (alkene C), Ct (alkyne C), Cb (aromatic C), CO (carbonyl C), O, N, Cl, H
+const BENSON={
+  'C|C,H,H,H':-42.2,'C|C,C,H,H':-20.7,'C|C,C,C,H':-7.9,'C|C,C,C,C':2.1,'C|H,H,H,H':-74.8,
+  'C|Cd,H,H,H':-42.2,'C|Cb,H,H,H':-42.2,'C|Ct,H,H,H':-42.2,'C|CO,H,H,H':-42.2,'C|H,H,H,O':-42.2,'C|H,H,H,N':-42.2,
+  'C|C,Cd,H,H':-19.9,'C|C,Cb,H,H':-20.3,'C|C,CO,H,H':-21.8,'C|C,Ct,H,H':-19.8,
+  'C|C,H,H,O':-33.9,'C|C,C,H,O':-30.1,'C|C,C,C,O':-27.6,'C|C,H,H,N':-27.6,'C|C,C,H,N':-21.8,
+  'C|Cl,H,H,H':-81.9,'C|C,Cl,H,H':-69.9,'C|C,C,Cl,H':-61.9,
+  'Cd|H,H':26.2,'Cd|C,H':36.0,'Cd|C,C':43.3,'Cd|Cd,H':28.3,'Cd|Cb,H':28.3,'Cd|CO,H':20.9,'Cd|H,O':36.0,
+  'Ct|H':112.7,'Ct|C':115.3,'Ct|Cd':122.3,'Ct|Cb':122.3,
+  'Cb|H':13.8,'Cb|C':23.0,'Cb|Cd':23.8,'Cb|Cb':20.8,'Cb|O':-3.8,'Cb|CO':15.5,'Cb|N':-2.1,'Cb|Cl':-15.9,
+  'O|C,H':-158.6,'O|C,C':-97.1,'O|Cb,H':-158.6,'O|CO,H':-243.1,'O|C,CO':-180.4,'O|Cd,H':-188.3,'O|H,H':-241.8,
+  'CO|C,H':-121.8,'CO|C,C':-131.4,'CO|C,O':-146.9,'CO|H,O':-134.3,'CO|H,H':-108.6,'CO|Cb,H':-121.8,'CO|C,Cb':-131.4,'CO|Cb,O':-146.9,'CO|C,N':-137.2,'CO|H,N':-123.8,'CO|N,N':-137.2,
+  'N|C,H,H':20.1,'N|C,C,H':64.4,'N|C,C,C':102.1,'N|Cb,H,H':20.1,'N|CO,H,H':-62.8,'N|C,CO,H':-18.4,
+};
+const RING_CORR={3:115.5,4:110.4,5:26.4,6:0,7:26.8,8:41.4};   // cycloalkane strain, kJ/mol
+
+function graphOf(sp){ const n=sp.atoms.length, adj=sp.atoms.map(()=>[]); (sp.bonds||[]).forEach(([i,j,o])=>{ if(o>0){ adj[i].push([j,o]); adj[j].push([i,o]); } }); return {n, z:sp.atoms, adj}; }
+function bensonType(g,i){
+  const z=g.z[i], a=g.adj[i];
+  if(z!=='C') return z;
+  if(a.some(([j,o])=>o===2 && g.z[j]==='O')) return 'CO';
+  if(a.some(([,o])=>o===3)) return 'Ct';
+  if(a.some(([,o])=>o===2)) return g.arom&&g.arom[i] ? 'Cb' : 'Cd';
+  if(g.arom&&g.arom[i]) return 'Cb';
+  return 'C';
+}
+function aromaticAtoms(g){   // carbons of six-rings with alternating bonds
+  const ar=new Array(g.n).fill(false);
+  for(let s=0;s<g.n;s++){ if(g.z[s]!=='C') continue;
+    const path=[s]; const go=x=>{ if(path.length===6){ if(g.adj[x].some(([y])=>y===s)){ const o=path.map((v,k)=>(g.adj[v].find(([y])=>y===path[(k+1)%6])||[0,0])[1]); if(o.every((v,k)=>v!==o[(k+1)%6])) path.forEach(v=>ar[v]=true); } return; }
+      g.adj[x].forEach(([y])=>{ if(g.z[y]==='C' && !path.includes(y)){ path.push(y); go(y); path.pop(); } }); }; go(s); }
+  return ar;
+}
+function smallestRings(g){   // sizes of rings through each bond (simple cycle basis, heavy atoms only)
+  const sizes=[], seen=new Set();
+  for(let i=0;i<g.n;i++) for(const [j] of g.adj[i]){ if(j<i||g.z[i]==='H'||g.z[j]==='H') continue;
+    // shortest path from i to j not using the bond i-j
+    const prev={[i]:-1}, q=[i];
+    while(q.length){ const x=q.shift(); for(const [y] of g.adj[x]){ if(x===i&&y===j) continue; if(prev[y]===undefined){ prev[y]=x; q.push(y); } } }
+    if(prev[j]===undefined) continue;
+    const ring=[j]; let x=prev[j]; while(x!==-1){ ring.push(x); x=prev[x]; }
+    const key=ring.slice().sort((a,b)=>a-b).join(','); if(!seen.has(key)){ seen.add(key); sizes.push(ring.length); } }
+  return sizes;
+}
+function bensonH(sp){
+  const g=graphOf(sp);
+  if(g.z.some(z=>!['C','H','O','N','Cl'].includes(z))) return null;
+  if(!g.z.includes('C')) return null;
+  g.arom=aromaticAtoms(g);
+  let H=0;
+  for(let i=0;i<g.n;i++){
+    const z=g.z[i]; if(z==='H'||z==='Cl') continue;
+    if(z==='O' && g.adj[i].length===1 && g.adj[i][0][1]===2 && g.z[g.adj[i][0][0]]==='C') continue;   // carbonyl O: part of the CO group
+    const t=bensonType(g,i);
+    let nb=g.adj[i].map(([j,o])=>{ const tj=bensonType(g,j); return (t==='Cd'||t==='Cb'||t==='Ct') && (g.adj[i].find(([y])=>y===j)[1]>=2 && tj!=='CO') && !(t==='Cb' && tj==='Cb' && false) ? null : tj; });
+    // a double/triple partner of Cd/Ct is implied by the group name; aromatic Cb lists only its substituent
+    if(t==='Cd'||t==='Ct') nb=nb.filter(x=>x!==null);
+    if(t==='Cb') nb=g.adj[i].filter(([j])=>!(g.arom[j])).map(([j])=>bensonType(g,j));
+    if(t==='CO') nb=g.adj[i].filter(([j,o])=>!(o===2&&g.z[j]==='O')).map(([j])=>bensonType(g,j));
+    const key=t+'|'+nb.slice().sort().join(',');
+    let v=BENSON[key];
+    if(v===undefined && t==='Cb' && nb.length===0) v=BENSON['Cb|H'];
+    if(v===undefined) return null;
+    H+=v;
+  }
+  // ring strain for non-aromatic carbocycles
+  smallestRings(g).forEach(s=>{ if(RING_CORR[s]!==undefined) H+=RING_CORR[s]; });
+  if(g.arom.some(x=>x)) H-=smallestRings(g).filter(s=>s===6).length*0;   // aromatic rings carry no strain term
+  return H;
+}
+
+/* ---------- 3D-based statistical mechanics ---------- */
+function principalMoments(P,m){
+  const M=m.reduce((a,b)=>a+b,0), c=[0,1,2].map(k=>P.reduce((s,p,i)=>s+m[i]*p[k],0)/M);
+  const I=[[0,0,0],[0,0,0],[0,0,0]];
+  P.forEach((p,i)=>{ const x=p[0]-c[0],y=p[1]-c[1],z=p[2]-c[2];
+    I[0][0]+=m[i]*(y*y+z*z); I[1][1]+=m[i]*(x*x+z*z); I[2][2]+=m[i]*(x*x+y*y);
+    I[0][1]-=m[i]*x*y; I[0][2]-=m[i]*x*z; I[1][2]-=m[i]*y*z; });
+  I[1][0]=I[0][1]; I[2][0]=I[0][2]; I[2][1]=I[1][2];
+  // Jacobi eigenvalues
+  const A=I.map(r=>r.slice());
+  for(let sw=0;sw<50;sw++){ let p=0,q=1,mx=Math.abs(A[0][1]); if(Math.abs(A[0][2])>mx){p=0;q=2;mx=Math.abs(A[0][2]);} if(Math.abs(A[1][2])>mx){p=1;q=2;mx=Math.abs(A[1][2]);} if(mx<1e-12) break;
+    const th=(A[q][q]-A[p][p])/(2*A[p][q]), t=(th<0?-1:1)/(Math.abs(th)+Math.sqrt(th*th+1)), cs=1/Math.sqrt(t*t+1), sn=t*cs;
+    for(let k=0;k<3;k++){ const x=A[k][p],y=A[k][q]; A[k][p]=cs*x-sn*y; A[k][q]=sn*x+cs*y; } for(let k=0;k<3;k++){ const x=A[p][k],y=A[q][k]; A[p][k]=cs*x-sn*y; A[q][k]=sn*x+cs*y; } }
+  return [A[0][0],A[1][1],A[2][2]].sort((a,b)=>a-b);    // amu·Å²
+}
+// rotational symmetry number: proper rotations that map the 3D structure onto itself (graph automorphisms checked in 3D)
+function symmetryNumber(sp,P){
+  const g=graphOf(sp), n=g.n; if(n<2) return 1;
+  let col=g.z.map((z,i)=>z+g.adj[i].length);
+  for(let r=0;r<4;r++){ const nx=col.map((c,i)=>c+'('+g.adj[i].map(([j])=>col[j]).sort().join(',')+')'); const u=[...new Set(nx)].sort(); col=nx.map(c=>String(u.indexOf(c))); }
+  const ord=[...Array(n).keys()].sort((a,b)=>g.adj[b].length-g.adj[a].length);
+  const map=new Array(n).fill(-1), used=new Array(n).fill(false); let count=0, calls=0;
+  const cen=[0,1,2].map(k=>P.reduce((s,p)=>s+p[k],0)/n), Q=P.map(p=>p.map((v,k)=>v-cen[k]));
+  const check=()=>{ const A=Q, B=map.map(j=>Q[j]);
+    const S=[[0,0,0],[0,0,0],[0,0,0]]; A.forEach((a,i)=>{ for(let x=0;x<3;x++) for(let y=0;y<3;y++) S[x][y]+=a[x]*B[i][y]; });
+    const [[xx,xy,xz],[yx,yy,yz],[zx,zy,zz]]=S;
+    const N=[[xx+yy+zz,yz-zy,zx-xz,xy-yx],[yz-zy,xx-yy-zz,xy+yx,zx+xz],[zx-xz,xy+yx,-xx+yy-zz,yz+zy],[xy-yx,zx+xz,yz+zy,-xx-yy+zz]];
+    let v=[1,.2,.3,.1]; const sh=A.reduce((s,a)=>s+a[0]*a[0]+a[1]*a[1]+a[2]*a[2],0)+1;
+    for(let it=0;it<120;it++){ const w=N.map((r,i)=>r.reduce((s,x,j)=>s+x*v[j],0)+sh*v[i]); const l=Math.hypot(...w); v=w.map(x=>x/l); }
+    const [q0,q1,q2,q3]=v, Rm=[[q0*q0+q1*q1-q2*q2-q3*q3,2*(q1*q2-q0*q3),2*(q1*q3+q0*q2)],[2*(q1*q2+q0*q3),q0*q0-q1*q1+q2*q2-q3*q3,2*(q2*q3-q0*q1)],[2*(q1*q3-q0*q2),2*(q2*q3+q0*q1),q0*q0-q1*q1-q2*q2+q3*q3]];
+    let e=0; A.forEach((a,i)=>{ const r=[0,1,2].map(k=>Rm[k][0]*a[0]+Rm[k][1]*a[1]+Rm[k][2]*a[2]); e+=(r[0]-B[i][0])**2+(r[1]-B[i][1])**2+(r[2]-B[i][2])**2; });
+    return Math.sqrt(e/n)<0.2; };
+  const rec=k=>{ if(++calls>60000) return; if(k===n){ if(check()) count++; return; }
+    const i=ord[k];
+    for(let c=0;c<n;c++){ if(used[c]||col[c]!==col[i]) continue;
+      let ok=true; for(const [j] of g.adj[i]){ if(map[j]>=0){ const e=g.adj[c].find(([y])=>y===map[j]); if(!e){ ok=false; break; } } } if(!ok) continue;
+      map[i]=c; used[c]=true; rec(k+1); used[c]=false; map[i]=-1; } };
+  rec(0);
+  return calls>60000 ? 1 : Math.max(1,count);
+}
+// vibrational wavenumbers (cm⁻¹) estimated per internal coordinate: stretches by bond type, bends, torsions
+function stretchWavenumber(a,b,o){
+  const k=[a,b].sort().join('')+o;
+  const T={CH1:2950,HN1:3350,HO1:3650,HS1:2600,ClH1:2990,BrH1:2650,FH1:4140,HI1:2310,HH1:4400,HP1:2320,HSi1:2200,BH1:2500,
+    CC1:1000,CC2:1650,CC3:2150,CN1:1100,CN2:1650,CN3:2250,CO1:1080,CO2:1740,CO3:2143,NN1:1000,NN2:1550,NN3:2359,NO1:1000,NO2:1600,NO3:1904,OO1:880,OO2:1556,
+    ClC1:720,BrC1:600,CI1:500,CF1:1100,CS1:700,CS2:1150,OS1:900,OS2:1250,ClCl1:560,BrBr1:325,II1:214,FF1:917,OP1:1000,OP2:1250,OSi1:1050,ClP1:500,ClS1:500,ClO1:700,ClO2:950};
+  if(T[k]) return T[k];
+  const ma=MASS[a]||30, mb=MASS[b]||30, mu=ma*mb/(ma+mb), kf=[0,4.5,9.5,15.5][Math.min(o,3)]*((a==='H'||b==='H')?1:0.8);
+  return 1302.8*Math.sqrt(kf/mu);
+}
+function vibrationModes(sp,linear){
+  const g=graphOf(sp), n=g.n; if(n<2) return [];
+  const total=3*n-(linear?5:6), modes=[];
+  (sp.bonds||[]).forEach(([i,j,o])=>{ if(o>0) modes.push(stretchWavenumber(sp.atoms[i],sp.atoms[j],o)); });
+  // ring bonds (stiff ring modes) vs open single bonds (internal rotations)
+  const inRing=(i,j)=>{ const prev={[i]:-1}, q=[i]; while(q.length){ const x=q.shift(); for(const [y] of g.adj[x]){ if(x===i&&y===j) continue; if(prev[y]===undefined){ prev[y]=x; q.push(y); if(y===j) return true; } } } return false; };
+  const rotors=[];
+  (sp.bonds||[]).forEach(([i,j,o])=>{ if(o!==1 || g.adj[i].length<2 || g.adj[j].length<2 || inRing(i,j)) return;
+    const heavyEnd=x=>g.adj[x].filter(([y])=>g.z[y]!=='H').length>=2;
+    rotors.push(heavyEnd(i)&&heavyEnd(j) ? 120 : 200); });                         // skeletal torsion / methyl-type rotor
+  let rest=total-modes.length;
+  rotors.slice(0,Math.max(0,rest)).forEach(v=>modes.push(linear?0:v)); rest-=Math.min(rotors.length,Math.max(0,rest));
+  if(rest>0){
+    // bends: those moving a hydrogen are stiff (~1150 cm⁻¹); heavy-atom bends scale with the masses that move
+    const angs=[]; g.adj.forEach((a,c)=>{ for(let x=0;x<a.length;x++) for(let y=x+1;y<a.length;y++){ const zi=g.z[a[x][0]], zj=g.z[a[y][0]];
+      angs.push(zi==='H'||zj==='H' ? 1150 : 450*Math.sqrt(14/Math.max(12,((MASS[zi]||30)+(MASS[zj]||30))/2))); } });
+    angs.sort((p,q)=>q-p);
+    // keep the right number of bends, spread over the angle types present
+    for(let t=0;t<rest;t++){ const k=angs.length ? angs[Math.floor((t+0.5)*angs.length/rest)] : 450; modes.push(linear&&n===3 ? 640*Math.sqrt(14/Math.max(12,MASS[g.z[0]]||14)) : k); }
+  }
+  modes.conformers=rotors.filter(v=>v===120).length;
+  const out=modes.slice(0,total).filter(v=>v>0); out.conformers=modes.conformers||0; return out;
+}
+function unpairedElectrons(sp){
+  // closed-shell unless the electron count is odd (radicals); drawings without formal charges (O=O–O) stay closed-shell
+  const VE={H:1,Li:1,Na:1,K:1,Be:2,Mg:2,Ca:2,B:3,Al:3,C:4,Si:4,N:5,P:5,O:6,S:6,Se:6,F:7,Cl:7,Br:7,I:7};
+  let e=0; for(const a of sp.atoms){ if(VE[a]===undefined) return 0; e+=VE[a]; }
+  const q=(sp.charges||[]).reduce((s,v)=>s+(v||0),0);
+  return Math.abs(e-q)%2;
+}
+function molecularThermo(sp, opts){
+  opts=opts||{};
+  const T=opts.T||298.15, n=sp.atoms.length, m=sp.atoms.map(a=>MASS[a]||30), M=m.reduce((a,b)=>a+b,0);
+  // translation
+  const mk=M*AMU, Lt=Math.pow(2*Math.PI*mk*KB*T/(H_PL*H_PL),1.5)*KB*T/P0;
+  let S=R*(Math.log(Lt)+2.5), Hth=2.5*R*T;
+  let linear=false, sigma=1;
+  if(n>=2){
+    const P=opts.P || sp.P || (typeof bEmbed3D==='function' ? bEmbed3D(sp.atoms.map(s=>SYMZ[s]||6), (sp.bonds||[]).filter(b=>b[2]>0), null, {seed:5, q:sp.charges}) : null);
+    if(P){
+      const I=principalMoments(P,m);
+      linear = n===2 || I[0] < 0.02*I[2];
+      sigma = opts.sigma || symmetryNumber(sp,P);
+      const th=I.map(v=>v>1e-6 ? H_PL*H_PL/(8*Math.PI*Math.PI*v*AMU*1e-20*KB) : 0);
+      if(linear){ const thL=H_PL*H_PL/(8*Math.PI*Math.PI*I[2]*AMU*1e-20*KB); S+=R*(Math.log(T/(sigma*thL))+1); Hth+=R*T; }
+      else { S+=R*(Math.log(Math.sqrt(Math.PI)/sigma*Math.sqrt(T*T*T/(th[0]*th[1]*th[2])))+1.5); Hth+=1.5*R*T; }
+    }
+    const vm=vibrationModes(sp,linear);
+    // each skeletal torsion has three staggered shapes (anti + two gauche, ~3.5 kJ/mol higher): conformational entropy
+    for(let t=0;t<(vm.conformers||0);t++){ const e=Math.exp(-3500/(R*T)), qc=1+2*e; S+=R*Math.log(qc)+2*3500*e/(qc*T); Hth+=2*3500*e/qc; }
+    vm.forEach(nu=>{ const x=1.4387769*nu/T; S+=R*(x/(Math.exp(x)-1)-Math.log(1-Math.exp(-x))); Hth+=R*T*x/(Math.exp(x)-1); });
+  }
+  const ATOM_SEL={H:5.763,C:18.2,N:11.53,O:17.7,F:13.1,Cl:11.84,Br:11.5,I:11.5,S:15.7,Si:18.0,P:11.5};
+  if(n===1 && ATOM_SEL[sp.atoms[0]]!==undefined && !opts.mult){ S+=ATOM_SEL[sp.atoms[0]]; return {S,Hth,sigma:1,linear:false,mult:0,M}; }
+  const PI_RAD={HO:4,HS:4,NO:4,ClO:4};
+  const mult = opts.mult || PI_RAD[radKey(sp)] || (sp.formula==='O2'||(n===2&&sp.atoms[0]==='O'&&sp.atoms[1]==='O'&&(sp.bonds[0]||[])[2]===2) ? 3 : unpairedElectrons(sp)+1);
+  S+=R*Math.log(mult);
+  return {S, Hth, sigma, linear, mult, M};     // S in J/(mol·K), Hth = H(T) − H(0 K) thermal part, J/mol
+}
+const SYMZ={H:1,He:2,Li:3,Be:4,B:5,C:6,N:7,O:8,F:9,Ne:10,Na:11,Mg:12,Al:13,Si:14,P:15,S:16,Cl:17,Ar:18,K:19,Ca:20,Fe:26,Cu:29,Zn:30,Se:34,Br:35,Ag:47,I:53,Xe:54,Ba:56,Pb:82};
+
+// ΔfH°(298, gas) with its source
+function formationH(sp, RC){
+  const f=formulaOf(sp);
+  if(RC && RC.thermoOfUnit){ try{ const t=RC.thermoOfUnit([sp],'g'); if(t && t.h!=null) return {h:t.h, src:'table'}; }catch(e){} }
+  const key=radKey(sp); if(RADICAL_H[key]!==undefined) return {h:RADICAL_H[key], src:'table'};
+  const b=bensonH(sp); if(b!==null && unpairedElectrons(sp)===0) return {h:b, src:'groups'};
+  // atoms minus bonds: the engine's own bond enthalpies
+  if(RC && RC.D){ let h=0; for(const a of sp.atoms){ if(ATOM_H[a]===undefined) return null; h+=ATOM_H[a]; }
+    for(const [i,j,o] of (sp.bonds||[])){ if(o>0){ const d=RC.D(sp.atoms[i],sp.atoms[j],o); if(!(d>0)) return null; h-=d; } }
+    return {h, src:'bonds'}; }
+  return null;
+}
+function formulaOf(sp){ const c={}; sp.atoms.forEach(a=>c[a]=(c[a]||0)+1); const k=Object.keys(c).sort((a,b)=>(a==='C'?-1:b==='C'?1:a==='H'?-1:b==='H'?1:a<b?-1:1)); return k.map(e=>e+(c[e]>1?c[e]:'')).join(''); }
+function radKey(sp){ const c={}; sp.atoms.forEach(a=>c[a]=(c[a]||0)+1); return Object.keys(c).sort().map(e=>e+(c[e]>1?c[e]:'')).join(''); }
+
+// a set of molecules at temperature T: H(T) relative to elements at 298 K (kJ/mol), S (J/mol/K), G (kJ/mol)
+function setThermo(list, T, RC){
+  let H=0, S=0, srcs=new Set(), ok=true;
+  for(const sp of list){
+    const f=formationH(sp,RC); if(!f){ ok=false; continue; } srcs.add(f.src);
+    const a=molecularThermo(sp,{T}), b=molecularThermo(sp,{T:298.15});
+    H+=f.h+(a.Hth-b.Hth)/1000; S+=a.S;
+  }
+  return {ok, H, S, G:H-T*S/1000, sources:[...srcs]};
+}
+const api={stretchWavenumber, molecularThermo, formationH, bensonH, symmetryNumber, vibrationModes, setThermo, principalMoments,
+  K:(dG,T)=>Math.exp(-dG*1000/(R*T)),
+  eyring:(dGact,T)=>KB*T/H_PL*Math.exp(-dGact*1000/(R*T)),     // s⁻¹ (unimolecular) or with c° for bimolecular
+  R, MASS};
+if(typeof module==='object'&&module.exports) module.exports=api; else root.ReactionThermo=api;
+})(typeof self!=='undefined'?self:this);
+
+/* =====================================================================
+   reaction-path.js — real 3D paths for elementary reaction steps
+   ---------------------------------------------------------------------
+   Two diabatic surfaces over the same atoms, in kJ/mol and Å:
+     V_R: the bonding pattern before the step, V_P: after (offset by ΔH)
+     each = Σ Morse bonds (D = bond enthalpy, stiffness from the bond's
+     vibration) + angle terms (VSEPR targets) + atom–atom repulsion.
+   Empirical valence bond (EVB) mixing gives one smooth surface:
+     E = ½(V_R+V_P) − ½√((V_R−V_P)² + 4H₁₂²)
+   The minimum-energy path between the two geometries is found with the
+   nudged elastic band (climbing image), and H₁₂ is calibrated so the
+   barrier equals the planner's barrier. Result: the true transition-
+   state geometry, a physical energy curve and the frames to animate.
+   ===================================================================== */
+(function(root){
+'use strict';
+function build(opts){
+  const TH=opts.thermo, RC=opts.RC;
+  const syms=opts.z, n=syms.length, Z=syms.map(s=>opts.symZ(s));
+  const NA=6.02214076e23, C=2.99792458e10, AMU=1.66053906660e-27;
+  const mass=syms.map(s=>TH.MASS[s]||30);
+  const key=(i,j)=>i<j?i*n+j:j*n+i;
+  function surface(bonds, offset){
+    const nb=Z.map(()=>[]), ord={};
+    bonds.forEach(([i,j,o])=>{ nb[i].push(j); nb[j].push(i); ord[key(i,j)]=o; });
+    const morse=bonds.map(([i,j,o])=>{
+      const D=Math.max(60, (RC&&RC.D)?RC.D(syms[i],syms[j],o)||300:300);
+      const nu=TH.stretchWavenumber(syms[i],syms[j],o), mu=mass[i]*mass[j]/(mass[i]+mass[j])*AMU;
+      const k=mu*Math.pow(2*Math.PI*C*nu,2)*NA/1000*1e-20;          // kJ/mol/Å²
+      return [i,j,D,Math.sqrt(k/(2*D)),opts.bondLen(Z[i],Z[j],o)]; });
+    // angle surrogate: 1-3 distances at the VSEPR angle
+    const VE={1:1,5:3,6:4,7:5,8:6,9:7,14:4,15:5,16:6,17:7,35:7,53:7};
+    const ang=[];
+    for(let c=0;c<n;c++){ const m=nb[c]; if(m.length<2) continue;
+      const bo=m.reduce((s,j)=>s+ord[key(c,j)],0), v=VE[Z[c]]; const lp=v!==undefined?Math.max(0,Math.floor((v-((opts.q&&opts.q[c])||0)-bo)/2)):0;
+      const sn=m.length+lp, os=m.map(j=>ord[key(c,j)]);
+      let th = (os.includes(3)||os.filter(o=>o===2).length>=2)&&!lp ? 180 : sn<=2 ? 180 : sn===3 ? 120 : sn===4 ? (lp===2?104.5:lp===1?107:109.47) : 90;
+      for(let a=0;a<m.length;a++) for(let b=a+1;b<m.length;b++){ const i=m[a], j=m[b], li=opts.bondLen(Z[c],Z[i],ord[key(c,i)]), lj=opts.bondLen(Z[c],Z[j],ord[key(c,j)]);
+        ang.push([i,j,Math.sqrt(li*li+lj*lj-2*li*lj*Math.cos(th*Math.PI/180)),120]); } }
+    // repulsion between atoms not bonded and not sharing a neighbour in THIS bonding pattern
+    const rep=[];
+    for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ if(ord[key(i,j)]!==undefined) continue; if(nb[i].some(x=>nb[j].includes(x))) continue;
+      const hh=(Z[i]===1)+(Z[j]===1); rep.push([i,j,[2.9,2.4,2.0][hh]]); }
+    return {morse, ang, rep, offset};
+  }
+  function evalSurface(S,P,G){
+    let E=S.offset;
+    for(const [i,j,D,a,r0] of S.morse){ const dx=P[i][0]-P[j][0],dy=P[i][1]-P[j][1],dz=P[i][2]-P[j][2], r=Math.sqrt(dx*dx+dy*dy+dz*dz)||1e-6, ex=Math.exp(-a*(r-r0));
+      E+=D*(1-ex)*(1-ex); if(G){ const f=2*D*a*ex*(1-ex)/r; G[i][0]+=f*dx; G[i][1]+=f*dy; G[i][2]+=f*dz; G[j][0]-=f*dx; G[j][1]-=f*dy; G[j][2]-=f*dz; } }
+    for(const [i,j,t,k] of S.ang){ const dx=P[i][0]-P[j][0],dy=P[i][1]-P[j][1],dz=P[i][2]-P[j][2], r=Math.sqrt(dx*dx+dy*dy+dz*dz)||1e-6, e=r-t;
+      E+=0.5*k*e*e; if(G){ const f=k*e/r; G[i][0]+=f*dx; G[i][1]+=f*dy; G[i][2]+=f*dz; G[j][0]-=f*dx; G[j][1]-=f*dy; G[j][2]-=f*dz; } }
+    for(const [i,j,rm] of S.rep){ const dx=P[i][0]-P[j][0],dy=P[i][1]-P[j][1],dz=P[i][2]-P[j][2], d2=dx*dx+dy*dy+dz*dz; if(d2>=rm*rm) continue;
+      const r=Math.sqrt(d2)||1e-6, e=rm-r; E+=40*e*e; if(G){ const f=-80*e/r; G[i][0]+=f*dx; G[i][1]+=f*dy; G[i][2]+=f*dz; G[j][0]-=f*dx; G[j][1]-=f*dy; G[j][2]-=f*dz; } }
+    return E;
+  }
+  return {surface, evalSurface, n};
+}
+// EVB energy and gradient
+function evb(ctx, SR, SP, H12, P, G){
+  const n=P.length, GR=G?P.map(()=>[0,0,0]):null, GP=G?P.map(()=>[0,0,0]):null;
+  const vr=ctx.evalSurface(SR,P,GR), vp=ctx.evalSurface(SP,P,GP), d=vr-vp, sq=Math.sqrt(d*d+4*H12*H12);
+  if(G) for(let i=0;i<n;i++) for(let k=0;k<3;k++){ const gr=GR[i][k], gp=GP[i][k]; G[i][k]=0.5*(gr+gp)-0.5*d*(gr-gp)/sq; }
+  return 0.5*(vr+vp)-0.5*sq;
+}
+// FIRE (fast inertial relaxation engine): robust for stiff bonds. forceFn fills F (the force, −gradient) for the coordinate arrays.
+function fire(X, forceFn, iters, tol){
+  const m=X.length, V=X.map(p=>p.map(()=>0)), F=X.map(p=>p.map(()=>0));
+  let dt=0.01, alpha=0.1, npos=0;
+  for(let it=0;it<iters;it++){
+    forceFn(X,F);
+    let P=0, fn=0, vn=0;
+    for(let i=0;i<m;i++) for(let k=0;k<X[i].length;k++){ P+=F[i][k]*V[i][k]; fn+=F[i][k]*F[i][k]; vn+=V[i][k]*V[i][k]; }
+    fn=Math.sqrt(fn); vn=Math.sqrt(vn);
+    if(tol && fn/Math.sqrt(m)<tol) break;
+    if(P>0){ for(let i=0;i<m;i++) for(let k=0;k<X[i].length;k++) V[i][k]=(1-alpha)*V[i][k]+alpha*vn*F[i][k]/(fn||1);
+      if(++npos>5){ dt=Math.min(dt*1.1,0.05); alpha*=0.99; } }
+    else { npos=0; dt*=0.5; alpha=0.1; for(const v of V) v.fill(0); }
+    for(let i=0;i<m;i++) for(let k=0;k<X[i].length;k++){ V[i][k]+=dt*F[i][k]; let dx=dt*V[i][k]; if(dx>0.1) dx=0.1; else if(dx<-0.1) dx=-0.1; X[i][k]+=dx; }
+  }
+  return X;
+}
+function minimize(f, P, iters){
+  const G=P.map(()=>[0,0,0]);
+  return fire(P,(X,F)=>{ for(const g of G) g[0]=g[1]=g[2]=0; f(X,G); for(let i=0;i<X.length;i++) for(let k=0;k<3;k++) F[i][k]=-G[i][k]; }, iters, 0.05);
+}
+// nudged elastic band with a climbing image
+function neb(E, A, B, nImg, iters){
+  const n=A.length, imgs=[];
+  for(let k=0;k<nImg;k++){ const t=k/(nImg-1); imgs.push(A.map((p,i)=>p.map((v,d)=>v+(B[i][d]-v)*t))); }
+  const G=imgs.map(()=>A.map(()=>[0,0,0])), en=new Array(nImg).fill(0), K=80;
+  const sub=(X,Y)=>X.map((p,i)=>p.map((v,d)=>v-Y[i][d])), dot=(X,Y)=>X.reduce((s,p,i)=>s+p[0]*Y[i][0]+p[1]*Y[i][1]+p[2]*Y[i][2],0), norm=X=>Math.sqrt(dot(X,X))||1e-9;
+  // the moving images as one flat set of coordinates for FIRE
+  const X=[]; for(let k=1;k<nImg-1;k++) imgs[k].forEach(p=>X.push(p));
+  let it=0;
+  const forces=(XX,F)=>{
+    it++;
+    for(let k=0;k<nImg;k++){ for(const g of G[k]) g[0]=g[1]=g[2]=0; en[k]=E(imgs[k],(k===0||k===nImg-1)?null:G[k]); }
+    let top=1; for(let k=1;k<nImg-1;k++) if(en[k]>en[top]) top=k;
+    let row=0;
+    for(let k=1;k<nImg-1;k++){
+      const tp=sub(imgs[k+1],imgs[k]), tm=sub(imgs[k],imgs[k-1]);
+      let tau;
+      if(en[k+1]>en[k] && en[k]>en[k-1]) tau=tp; else if(en[k+1]<en[k] && en[k]<en[k-1]) tau=tm;
+      else { const dmax=Math.max(Math.abs(en[k+1]-en[k]),Math.abs(en[k-1]-en[k])), dmin=Math.min(Math.abs(en[k+1]-en[k]),Math.abs(en[k-1]-en[k]));
+        tau = en[k+1]>en[k-1] ? tp.map((p,i)=>p.map((v,d)=>v*dmax+tm[i][d]*dmin)) : tp.map((p,i)=>p.map((v,d)=>v*dmin+tm[i][d]*dmax)); }
+      const ln=norm(tau); tau=tau.map(p=>p.map(v=>v/ln));
+      const gpar=dot(G[k],tau), climb=it>iters*0.35 && k===top, springF=K*(norm(tp)-norm(tm));
+      for(let i=0;i<n;i++,row++) for(let d=0;d<3;d++){
+        let f=-(G[k][i][d]-gpar*tau[i][d]);
+        f+= climb ? gpar*tau[i][d] : springF*tau[i][d];
+        F[row][d]=f; } }
+  };
+  fire(X, forces, iters, 0);
+  for(let k=0;k<nImg;k++) en[k]=E(imgs[k],null);
+  let top=0; for(let k=1;k<nImg;k++) if(en[k]>en[top]) top=k;
+  return {imgs, en, top};
+}
+/* one elementary step: bonds before/after (same atoms), ΔH and the barrier to reproduce.
+   Returns frames, energies (kJ/mol, relative to the start), the transition state index and geometry. */
+function stepPath(o){
+  const ctx=build(o), n=ctx.n;
+  const SR=ctx.surface(o.bondsA,0), SP=ctx.surface(o.bondsB,o.dH);
+  // end geometries: each minimised on its own surface (the starting point keeps both ends consistent)
+  const A=minimize((P,G)=>ctx.evalSurface(SR,P,G), o.PA.map(p=>p.slice()), 1500);
+  const Bg=minimize((P,G)=>ctx.evalSurface(SP,P,G), (o.PB||o.PA).map(p=>p.slice()), 1500);
+  // align the product frame onto the reactant frame (rigid, all atoms) so nothing spins along the path
+  const target=Math.max(o.ea, Math.max(o.dH,0));
+  const nImg=o.images||13, iters=o.iters||500;
+  const run=H=>{ const r=neb((P,G)=>evb(ctx,SR,SP,H,P,G), A, Bg, nImg, iters);
+    // energies relative to the separated reactants on their own surface (V_R at the start = 0)
+    const e0=ctx.evalSurface(SR,A,null); r.rel=r.en.map(e=>e-e0); r.barrier=Math.max(...r.rel); r.H12=H; return r; };
+  let res=null;
+  if(target<=Math.max(o.dH,0)+3){ res=run(5); }                    // no barrier beyond the energy change (bond breaking, radical recombination): weak coupling keeps both ends exact
+  if(!res || res.barrier>target+Math.max(5,0.1*target)){
+    // more coupling = lower barrier: bracketed search on log(H12)
+    let lo=Math.log(0.5), hi=Math.log(400), best=res;
+    for(let pass=0;pass<7;pass++){ const mid=(lo+hi)/2, r=run(Math.exp(mid));
+      if(!best || Math.abs(r.barrier-target)<Math.abs(best.barrier-target)) best=r;
+      if(Math.abs(r.barrier-target)<Math.max(2,0.04*target)) break;
+      if(r.barrier>target) lo=mid; else hi=mid; }
+    res=best;
+  }
+  let top=0; res.rel.forEach((e,k)=>{ if(e>res.rel[top]) top=k; });
+  return {frames:res.imgs, energy:res.rel, ts:top, tsGeom:res.imgs[top], barrier:res.rel[top], H12:res.H12, dH:res.rel[res.rel.length-1]};
+}
+const api={stepPath, build, evb, neb};
+if(typeof module==='object'&&module.exports) module.exports=api; else root.ReactionPath=api;
+})(typeof self!=='undefined'?self:this);
+
+
 
 </script>
 <script id="reaction-mode">
@@ -53416,19 +53875,24 @@ const ReactionMode=(function(){
 
   /* ================= reaction library (declarative: atoms + stages; geometry/path are computed by the engine) ================= */
   const HO2A=52.25*D2R;
+  const A_NH2=103.4/2*D2R,A_HCO=124.4*D2R,A_NNO=97*D2R;
+  // species added after SPC live in their own live objects: a language refresh rebuilds SPC from its factory and would drop them
+  const SPC_EXTRA=[];
+  const spcGet=k=>{ if(SPC[k]) return SPC[k]; for(const x of SPC_EXTRA){ if(x[k]) return x[k]; } return undefined; };
   const SPC=QA_I18N.live(()=>({
     oh:{formula:'OH',name:qaT("sim.spc.hydroxyl_radical"),atoms:[{Z:8,sym:'O',dir:[0,0,0]},{Z:1,sym:'H',dir:[1,0,0]}],bonds:[[0,1]]},
     ho2:{formula:'HO₂',name:qaT("sim.spc.hydroperoxyl_radical"),atoms:[{Z:8,sym:'O',dir:[0,0,0]},{Z:1,sym:'H',dir:[Math.sin(HO2A),-Math.cos(HO2A),0]},{Z:8,sym:'O',dir:[-Math.sin(HO2A),-Math.cos(HO2A),0]}],bonds:[[0,1],[0,2]]},
-    ch3:{formula:'CH₃',name:qaT("sim.spc.methyl_radical"),atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:1,sym:'H',dir:[1,0,0]},{Z:1,sym:'H',dir:[-.5,.866,0]},{Z:1,sym:'H',dir:[-.5,-.866,0]}],bonds:[[0,1],[0,2],[0,3]]}
-  }));
-  const A_NH2=103.4/2*D2R,A_HCO=124.4*D2R,A_NNO=97*D2R;
-  Object.assign(SPC,{
+    ch3:{formula:'CH₃',name:qaT("sim.spc.methyl_radical"),atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:1,sym:'H',dir:[1,0,0]},{Z:1,sym:'H',dir:[-.5,.866,0]},{Z:1,sym:'H',dir:[-.5,-.866,0]}],bonds:[[0,1],[0,2],[0,3]]},
+    // (these used to be added afterwards with Object.assign, which the live object discarded on every language refresh)
+
     nh:{formula:'NH',name:qaT("sim.reactionmode.imidogen_radical"),atoms:[{Z:7,sym:'N',dir:[0,0,0]},{Z:1,sym:'H',dir:[1,0,0]}],bonds:[[0,1]]},
     nh2:{formula:'NH₂',name:qaT("sim.reactionmode.amidogen_radical"),atoms:[{Z:7,sym:'N',dir:[0,0,0]},{Z:1,sym:'H',dir:[Math.sin(A_NH2),-Math.cos(A_NH2),0]},{Z:1,sym:'H',dir:[-Math.sin(A_NH2),-Math.cos(A_NH2),0]}],bonds:[[0,1],[0,2]]},
     hco:{formula:'HCO',name:qaT("sim.reactionmode.formyl_radical"),atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:8,sym:'O',dir:[1,0,0]},{Z:1,sym:'H',dir:[Math.cos(A_HCO),Math.sin(A_HCO),0]}],bonds:[[0,1,2],[0,2]]},
-    n2o2:{formula:'(NO)₂',name:qaT("sim.reactionmode.nitric_oxide_dimer_cis_onno"),atoms:[{Z:7,sym:'N',dir:[0,0,0]},{Z:8,sym:'O',dir:[Math.cos(A_NNO),Math.sin(A_NNO),0]},{Z:7,sym:'N',dir:[1,0,0]},{Z:8,sym:'O',dir:[-Math.cos(A_NNO),Math.sin(A_NNO),0]}],bonds:[[0,1,2],[0,2],[2,3,2]]}
-  });
-  const S=s=>s.split(' ').map(x=>{const[k,a]=x.split(':');return{k,a:a.split(',').map(Number)};});
+    n2o2:{formula:'(NO)₂',name:qaT("sim.reactionmode.nitric_oxide_dimer_cis_onno"),atoms:[{Z:7,sym:'N',dir:[0,0,0]},{Z:8,sym:'O',dir:[Math.cos(A_NNO),Math.sin(A_NNO),0]},{Z:7,sym:'N',dir:[1,0,0]},{Z:8,sym:'O',dir:[-Math.cos(A_NNO),Math.sin(A_NNO),0]}],bonds:[[0,1,2],[0,2],[2,3,2]]},
+  }));
+  
+  
+  const S=s=>s.split(' ').map(x=>{const c=x.lastIndexOf(':'),k=x.slice(0,c),a=x.slice(c+1);return{k,a:a.split(',').map(Number)};});   // split on the LAST colon: built molecules have keys like "build:smi-…"
   // R(id,title,atoms,[[species,stageLabel,equation,text],…]) — one timeline per stage, bond-exchange window between stages
   function R(id,title,atoms,steps,species,opts){
     const kf=[];
@@ -53491,7 +53955,7 @@ const ReactionMode=(function(){
      Every π electron is already there from the start: the C≡C spindles open into C=C lobes, and those lobes (not
      new density) flow into the ring-shaped π cloud (see absorbExtras). Rest geometries are the simulator's own library
      shapes, so there is no jump at the stage hand-over. */
-  Object.assign(SPC,{
+  SPC_EXTRA.push(QA_I18N.live(()=>({
     c2h2:{formula:'C₂H₂',name:qaT("sim.reactionmode.acetylene"),
       atoms:[{Z:6,sym:'C',dir:[0,0,0]},{Z:6,sym:'C',dir:[1,0,0]},{Z:1,sym:'H',dir:[-1,0,0]},{Z:1,sym:'H',dir:[1,0,0]}],
       bonds:[[0,1,3],[0,2],[1,3]],tripleBonds:[{atoms:[0,1]}]},
@@ -53501,12 +53965,12 @@ const ReactionMode=(function(){
       bonds:[[0,1,2],[1,2],[2,3,2],[0,4],[1,5],[2,6],[3,7]],piBonds:[{atoms:[0,1]},{atoms:[2,3]}]},
     c6h6k:(()=>{const b=MOLECULES.find(m=>m.key==='c6h6');   // same ring, but with the π bonds still LOCALISED (Kekulé cyclohexatriene): no aromatic ring cloud yet
       return{formula:'C₆H₆',name:qaT("sim.reactionmode.cyclohexa_1_3_5_triene"),atoms:b.atoms,bonds:b.bonds,aromaticRings:[],piBonds:[{atoms:[0,1]},{atoms:[2,3]},{atoms:[4,5]}]};})()
-  });
+  })));
   function buildBenzenePath(spec){
     const hw=resolveMoleculeAtoms(MOLECULES.find(m=>m.key==='h2o')),
       sc=Math.hypot(hw[1].pos[0]-hw[0].pos[0],hw[1].pos[1]-hw[0].pos[1],hw[1].pos[2]-hw[0].pos[2])/0.958;   // sim units per Å (keyframes are stored in Å)
     const mk=d=>resolveMoleculeAtoms(Object.assign({key:'rx_benzene_'+d.formula,geometry:'—'},d)).map(a=>a.pos);
-    const bz=resolveMoleculeAtoms(MOLECULES.find(m=>m.key==='c6h6')).map(a=>a.pos),ac=mk(SPC.c2h2);
+    const bz=resolveMoleculeAtoms(MOLECULES.find(m=>m.key==='c6h6')).map(a=>a.pos),ac=mk(spcGet('c2h2'));
     const sstep=x=>{x=Math.min(1,Math.max(0,x));return x*x*x*(x*(x*6-15)+10);};
     const d3=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]);
     const LT=d3(ac[0],ac[1]),LH=d3(ac[0],ac[2]);                       // library C≡C and C–H lengths
@@ -53556,7 +54020,7 @@ const ReactionMode=(function(){
   /* ================= spec → validation → compile ================= */
   function register(spec){REGISTRY.set(spec.id,spec);}
   function symZ(sym){const e=ELS.find(x=>x.sym===sym);return e?e.Z:0;}
-  function speciesDef(spec,k){return (spec.species&&spec.species[k])||MOLECULES.find(m=>m.key===k)||null;}
+  function speciesDef(spec,k){return (spec.species&&spec.species[k])||(spec.species===SPC?spcGet(k):null)||MOLECULES.find(m=>m.key===k)||null;}
   function validate(spec){
     const err=[],n=spec.atoms.length,Z=spec.atoms.map(symZ);fit(spec);
     Z.forEach((z,i)=>{if(!z)err.push(qaT("sim.validate.atom_i_unknown_element_p1",{i:i,p1:spec.atoms[i]}));});
@@ -54589,10 +55053,205 @@ const ReactionMode=(function(){
 
   /* ================= load / enter / exit ================= */
   function teardownReaction(){
+    try{rxEnergyDetach();}catch(e){}
     [...built.keys()].forEach(releaseStage);[...OV.keys()].forEach(ovRelease);[...pairs.keys()].forEach(disposePair);data.clear();
     nuclei.splice(0).forEach(n=>{rg.remove(n);disposeTree(n);});timeUniforms.length=0;
     geomCache={};oriCache={};molCache={};ready=false;warming=false;curP=null;
   }
+/* ---- Energy panel: thermodynamics + kinetics + real reaction paths for the reaction on screen ---- */
+let RXE=null;
+const B_MEASURED_EA={'H+H2>H+H2':40,'H+O2>HO+O':70,'H2+O>H+HO':33,'H2+HO>H+H2O':22,'CH4+Cl>CH3+HCl':16,'Cl+H2>H+HCl':23,'Cl2+H>Cl+HCl':8,'Br+H2>H+HBr':78,'Br2+H>Br+HBr':4,
+  'NO+O3>NO2+O2':10,'CH4+HO>CH3+H2O':20,'O+O3>O2+O2':17,'CO+HO>CO2+H':4,'H+HO2>HO+HO':4,'CH4+H>CH3+H2':49,'CH4+O>CH3+HO':38,'H2+O2>H+HO2':240};
+function rxEnergyDetach(){ if(RXE){ RXE.cancel=true; if(RXE.btn) RXE.btn.remove(); if(RXE.card) RXE.card.remove(); } RXE=null; }
+function rxEnergyAttach(spec){
+  rxEnergyDetach();
+  const RC=window.ReactionCore, TH=window.ReactionThermo, RP=window.ReactionPath;
+  if(!RC||!TH||!RP||!ui||!STAGES||STAGES.length<2) return;
+  const T_=k=>qaT(k);
+  const graphOf=k=>{ const d=speciesDef(spec,k); if(!d||!d.atoms) return null;
+    return {atoms:d.atoms.map(a=>a.sym||(ELS.find(e=>e.Z===a.Z)||{}).sym), bonds:(d.bonds||[]).filter(b=>(b[2]==null?1:b[2])>0).map(b=>[b[0],b[1],b[2]==null?1:b[2]]), charges:d.atoms.map(a=>a.formalCharge||0)}; };
+  const stageList=si=>STAGES[si].species.map(sp=>graphOf(sp.k)).filter(Boolean);
+  const reac=stageList(0), prod=stageList(STAGES.length-1);
+  if(!reac.length||!prod.length) return;
+  const hill=g=>{ const c={}; g.atoms.forEach(a=>c[a]=(c[a]||0)+1); return Object.keys(c).sort((a,b)=>(a==='C'?-1:b==='C'?1:a==='H'?-1:b==='H'?1:a<b?-1:1)).map(e=>e+(c[e]>1?c[e]:'')).join(''); };
+  const st={T:298.15, path:null, phys:null, cancel:false};
+  RXE=st;
+  // the button in the player's top row
+  const top=ui.el.querySelector('.rx-top')||ui.el;
+  const btn=document.createElement('button'); btn.type='button'; btn.className='rx-energy-btn'; btn.textContent='ΔG';
+  btn.title=T_("sim.rxe.energy_profile"); btn.setAttribute('aria-label',T_("sim.rxe.energy_profile"));
+  top.appendChild(btn); st.btn=btn;
+  const card=document.createElement('div'); card.id='rx-energy'; card.hidden=true;
+  if(ui.el.classList.contains('rx-light')) card.classList.add('light');
+  card.innerHTML='<div class="rxe-h"><b>'+T_("sim.rxe.energy_profile")+'</b><button type="button" class="rxe-x" aria-label="×">×</button></div>'+
+    '<svg class="rxe-svg" viewBox="0 0 360 170" preserveAspectRatio="none" role="img"></svg>'+
+    '<label class="rxe-t">'+T_("sim.rxe.temperature")+' <input type="range" min="0" max="1000" value="147"> <span></span></label>'+
+    '<div class="rxe-c"><label>'+T_("sim.rxe.phase")+' <select class="rxe-ph"><option value="g">'+T_("sim.rxe.gas")+'</option><option value="std">'+T_("sim.rxe.std")+'</option></select></label>'+
+    '<label>'+T_("sim.rxe.light")+' <select class="rxe-hv"><option value="0">'+T_("sim.rxe.none")+'</option><option value="550">550 nm</option><option value="400">400 nm</option><option value="300">300 nm (UV)</option><option value="250">250 nm (UV)</option></select></label>'+
+    '<label class="rxe-cat">'+T_("sim.rxe.catalyst")+' <input type="range" min="0" max="150" step="5" value="0"> <span>0 kJ/mol</span></label></div>'+
+    '<div class="rxe-out"></div><div class="rxe-v"></div><div class="rxe-l"></div><div class="rxe-n">'+T_("sim.rxe.note")+'</div>';
+  document.body.appendChild(card); st.card=card;
+  if(!document.getElementById('rxe-style')){ const css=document.createElement('style'); css.id='rxe-style';
+    css.textContent='.rx-energy-btn{margin-left:6px;min-width:40px;height:32px;border-radius:16px;border:1px solid rgba(255,140,60,.6);background:rgba(255,106,31,.16);color:inherit;font:600 13px/1 system-ui,sans-serif;cursor:pointer}'+
+    '#rx-energy{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 74px);width:min(560px,calc(100vw - 16px));max-height:calc(100vh - 230px);overflow:auto;z-index:2147483000;padding:12px 14px;border-radius:16px;background:rgba(14,10,8,.95);color:#f4ebe3;border:1px solid rgba(255,120,50,.45);font:13px/1.45 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45)}'+
+    '#rx-energy.light{background:rgba(255,255,255,.97);color:#1d1830;border-color:rgba(110,90,230,.4)}'+
+    '#rx-energy .rxe-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}#rx-energy .rxe-x{background:none;border:0;color:inherit;font-size:22px;line-height:1;cursor:pointer;padding:0 4px}'+
+    '#rx-energy .rxe-svg{width:100%;height:170px;display:block}#rx-energy .rxe-t{display:flex;gap:8px;align-items:center;margin:6px 0}#rx-energy .rxe-t input{flex:1}'+
+    '#rx-energy .rxe-c{display:flex;flex-wrap:wrap;gap:6px 14px;margin:2px 0 8px;font-size:12.5px}#rx-energy .rxe-c select{font:inherit;color:inherit;background:transparent;border:1px solid currentColor;border-radius:8px;padding:1px 4px}#rx-energy .rxe-c select option{color:#000}#rx-energy .rxe-cat{display:flex;gap:6px;align-items:center;flex:1 1 100%}#rx-energy .rxe-cat input{flex:1}#rx-energy .rxe-l{margin-top:4px;font-size:12.5px;opacity:.9}'+
+    '#rx-energy .rxe-out{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-variant-numeric:tabular-nums}#rx-energy .rxe-v{margin-top:8px;font-weight:600}#rx-energy .rxe-n{margin-top:8px;opacity:.7;font-size:11.5px}';
+    document.head.appendChild(css); }
+  const phSel=card.querySelector('.rxe-ph'), hvSel=card.querySelector('.rxe-hv'), catIn=card.querySelector('.rxe-cat input'), catLab=card.querySelector('.rxe-cat span'), lightOut=card.querySelector('.rxe-l');
+  phSel.onchange=()=>render(); hvSel.onchange=()=>render(); catIn.oninput=()=>{ catLab.textContent=catIn.value+' kJ/mol'; render(); };
+  const svg=card.querySelector('svg'), slider=card.querySelector('.rxe-t input'), tlab=card.querySelector('.rxe-t span'), out=card.querySelector('.rxe-out'), verdict=card.querySelector('.rxe-v');
+  btn.onclick=()=>{ card.hidden=!card.hidden; if(!card.hidden) compute(); };
+  card.querySelector('.rxe-x').onclick=()=>{ card.hidden=true; };
+  const Tof=v=>200*Math.pow(15,v/1000);                    // 200 K … 3000 K
+  slider.oninput=()=>{ st.T=Tof(+slider.value); render(); };
+  const fmtK=k=>{ if(!isFinite(k)) return k>0?'> 10³⁰⁸':'0'; if(k===0) return '< 10⁻³⁰⁸'; const e=Math.floor(Math.log10(k)); return Math.abs(e)<3 ? k.toPrecision(3) : (k/Math.pow(10,e)).toFixed(2)+' × 10'+String(e).replace(/-/,'⁻').replace(/\d/g,d=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[d]); };
+  const fmtT=s=>{ if(!isFinite(s)||s>3.15e16) return '> 10⁹ '+T_("sim.rxe.years"); if(s<1e-9) return '< 1 ns'; if(s<1e-3) return (s*1e6).toPrecision(2)+' µs'; if(s<1) return (s*1e3).toPrecision(2)+' ms'; if(s<120) return s.toPrecision(2)+' s'; if(s<7200) return (s/60).toPrecision(2)+' min'; if(s<172800) return (s/3600).toPrecision(2)+' h'; if(s<3.15e7*2) return (s/86400).toPrecision(2)+' d'; return (s/3.15e7).toPrecision(2)+' '+T_("sim.rxe.years"); };
+  function compute(){
+    if(st.phys||st.computing) { render(); return; }
+    st.computing=true; verdict.textContent=T_("sim.rxe.computing");
+    setTimeout(()=>{ if(st.cancel) return;
+      // 1. the route: the reaction finder's elementary steps for these reactants -> products
+      let path=null;
+      if(spec.id==='custom' && lastAutoPath && lastAutoPath.stages.length===STAGES.length){ path=lastAutoPath; st.ownPath=true; }   // only a typed reaction owns the route auto() planned
+      else try{ const G=g=>({unit:[g], n:1, explicit:true, label:hill(g), pair:RC.parseFormula(hill(g)), isSalt:false});
+        const pl=RC.plan(reac.map(G), prod.map(G), {timeMs:3000}); if(pl&&pl.ok&&pl.path&&!pl.noReaction) path=pl.path; }catch(e){ path=null; }
+      st.path=path;
+      // 2. a real path for every step (EVB + nudged elastic band), one step per tick
+      const steps=[]; let i=0;
+      const symZ=s=>(ELS.find(e=>e.sym===s)||{Z:6}).Z;
+      const bondsOf=s=>{ const b=[]; for(let a=0;a<s.n;a++) for(let c=a+1;c<s.n;c++){ const o=s.B[a*s.n+c]; if(o) b.push([a,c,o]); } return b; };
+      const next=()=>{ if(st.cancel) return;
+        if(!path || i>=path.steps.length){ st.phys={steps}; st.computing=false; if(st.ownPath){ try{ rxFollowPath(steps); }catch(e){ console.warn('[Energy] animation path not applied:',e); } } render(); return; }
+        const s0=path.stages[i].state, s1=path.stages[i+1].state, stp=path.steps[i];
+        try{ const Z=s0.z.map(symZ), bA=bondsOf(s0), bB=bondsOf(s1);
+          const kA=new Set(bA.map(b=>b[0]+'_'+b[1])), kB=new Set(bB.map(b=>b[0]+'_'+b[1]));
+          const forming=bB.filter(b=>!kA.has(b[0]+'_'+b[1])), breaking=bA.filter(b=>!kB.has(b[0]+'_'+b[1]));
+          const PA=bEmbed3D(Z,bA,null,{seed:3,extra:forming.map(([a,c,o])=>[a,c,b3BondLen(Z[a],Z[c],o)+2.5,10]),q:Array.from(s0.q)});
+          const PB=bEmbed3D(Z,bB,PA,{seed:3,extra:breaking.map(([a,c,o])=>[a,c,b3BondLen(Z[a],Z[c],o)+2.5,10]),q:Array.from(s1.q)});
+          const r=RP.stepPath({z:s0.z, symZ, thermo:TH, RC, bondLen:b3BondLen, bondsA:bA, bondsB:bB, PA, PB, dH:stp.deltaH, ea:stp.barrier, q:Array.from(s0.q), iters:420});
+          // the transition state as one species: the fragments that react, with every bond made or broken
+          const atomsIn=new Set(); forming.concat(breaking).forEach(([a,c])=>{ atomsIn.add(a); atomsIn.add(c); });
+          const comps=RC.describe(s0).filter(d=>d.atoms.some(a=>atomsIn.has(a)));
+          const idx=[...new Set(comps.flatMap(d=>d.atoms))].sort((a,b)=>a-b), loc={}; idx.forEach((a,k)=>loc[a]=k);
+          const tsBonds=[]; const seen=new Set(); bA.concat(bB).forEach(([a,c,o])=>{ if(loc[a]===undefined||loc[c]===undefined) return; const kk=a+'_'+c; if(seen.has(kk)) return; seen.add(kk); tsBonds.push([loc[a],loc[c],o]); });
+          const tsSpecies={atoms:idx.map(a=>s0.z[a]), bonds:tsBonds, P:idx.map(a=>r.tsGeom[a])};
+          const reactingSpecies=comps.map(d=>{ const l={}; d.atoms.forEach((a,k)=>l[a]=k); const b=[]; bA.forEach(([a,c,o])=>{ if(l[a]!==undefined&&l[c]!==undefined) b.push([l[a],l[c],o]); }); return {atoms:d.atoms.map(a=>s0.z[a]), bonds:b}; });
+          // a measured barrier for this elementary step, when one exists
+          const prodComps=RC.describe(s1).filter(d=>d.atoms.some(a=>atomsIn.has(a)));
+          const mkey=comps.map(d=>d.formula).sort().join('+')+'>'+prodComps.map(d=>d.formula).sort().join('+');
+          const meas=B_MEASURED_EA[mkey];
+          const homo=breaking.length===1 && forming.length===0 ? breaking[0] : null;
+          steps.push({r, ts:tsSpecies, reacting:reactingSpecies, dH:stp.deltaH, ea:meas!==undefined?Math.max(meas,stp.deltaH):stp.barrier, eaEst:stp.barrier, measured:meas!==undefined,
+            homolysis: homo ? {bond:s0.z[homo[0]]+(['','–','=','≡'][homo[2]]||'–')+s0.z[homo[1]], D:stp.deltaH} : null, label:path.stages[i+1].species.map(d=>d.formula).join(' + ')});
+        }catch(e){ console.warn('[Energy] path for step',i+1,'failed:',e); steps.push({r:null, dH:stp.deltaH, ea:stp.barrier, label:path.stages[i+1].species.map(d=>d.formula).join(' + ')}); }
+        i++; verdict.textContent=T_("sim.rxe.computing")+' '+i+'/'+path.steps.length; setTimeout(next,0); };
+      next();
+    },30);
+  }
+  function render(){
+    const T=st.T; tlab.textContent=Math.round(T)+' K ('+Math.round(T-273.15)+' °C)';
+    let a=TH.setThermo(reac,T,RC), b=TH.setThermo(prod,T,RC);
+    if(phSel.value==='std'){
+      // standard states: tabulated ΔfH and ΔfG of each species in its normal phase (liquid water, solid salts …); ΔS from them
+      const std=list=>{ let H=0,G=0,okk=true; list.forEach(g=>{ let t=null; try{ t=RC.thermoOfUnit([g],null); }catch(e){} if(!t||t.h==null||t.g==null){ okk=false; return; } H+=t.h; G+=t.g; }); return {ok:okk,H,S:(H-G)/298.15*1000}; };
+      const sa=std(reac), sb=std(prod);
+      if(sa.ok&&sb.ok){ a={ok:true,H:sa.H,S:sa.S,G:sa.H-T*sa.S/1000}; b={ok:true,H:sb.H,S:sb.S,G:sb.H-T*sb.S/1000}; }
+    }
+    const lam=+hvSel.value, Ephot=lam?119627/lam:0, cat=+catIn.value;
+    const rows=[];
+    let dH=null, dS=null, dG=null;
+    if(a.ok&&b.ok){ dH=b.H-a.H; dS=b.S-a.S; dG=b.G-a.G; }
+    else if(st.path){ dH=st.path.deltaH; }
+    const f=(v,u,d)=>v==null?'—':(v>0?'+':'')+v.toFixed(d==null?0:d)+' '+u;
+    rows.push(['ΔH°',f(dH,'kJ/mol')],['ΔS°',f(dS,'J/(mol·K)')],['ΔG ('+Math.round(T)+' K)',f(dG,'kJ/mol')]);
+    if(dG!=null) rows.push([T_("sim.rxe.k_eq"),fmtK(TH.K(dG,T))]);
+    // kinetics: highest transition state above the start, in free energy (energetic span)
+    let half=null;
+    if(st.phys && st.phys.steps.length){
+      let Gcur=0, worst=-Infinity, minBefore=0;
+      st.phys.steps.forEach(s=>{
+        let dSact=0;
+        if(s.ts && s.r){ try{ const Sts=TH.molecularThermo(s.ts,{T,P:s.ts.P}).S, Sre=s.reacting.reduce((t,g)=>t+TH.molecularThermo(g,{T}).S,0); dSact=Sts-Sre; }catch(e){} }
+        // light: a photon with at least the bond energy breaks the bond, so a bond-breaking step needs no thermal barrier
+        const byLight = s.homolysis && Ephot>=s.homolysis.D;
+        const ea = s.ea;
+        const Gts=Gcur+(byLight?0:ea)-T*(byLight?0:dSact)/1000;
+        worst=Math.max(worst, Gts-minBefore);
+        Gcur+= s.dH; minBefore=Math.min(minBefore,Gcur);
+        if(byLight){ worst=-Infinity; minBefore=Gcur; }      // the photon delivers this step: the radicals it makes are the new starting point (a photochemical chain)
+      });
+      // a catalyst provides a lower route through the whole process: it lowers the overall barrier (never below zero)
+      if(isFinite(worst)) worst=Math.max(0, worst-cat); else worst=0;
+      const k=TH.eyring(worst,T); half=Math.LN2/k;
+      const lit=st.phys.steps.find(s=>s.homolysis && Ephot>=s.homolysis.D);
+      lightOut.textContent = lit ? '💡 '+T_("sim.rxe.light_note").replace('{nm}',lam).replace('{E}',Math.round(Ephot)).replace('{bond}',lit.homolysis.bond).replace('{D}',Math.round(lit.homolysis.D)) : '';
+      rows.push([T_("sim.rxe.half_life"),fmtT(half)]);
+    }
+    out.innerHTML=rows.map(([k,v])=>'<span>'+k+'</span><span>'+v+'</span>').join('');
+    // verdict
+    let v='';
+    if(dG!=null){
+      if(dG<0) v = (half!=null && half>86400) ? T_("sim.rxe.v_slow") : T_("sim.rxe.v_fast");
+      else v = T_("sim.rxe.v_uphill");
+      if(dH!=null && dS!=null && Math.abs(dS)>1e-6){ const Tx=dH*1000/dS; if(Tx>50 && Tx<6000){
+        if(dH>0 && dS>0) v+=' '+T_("sim.rxe.v_above").replace('{T}',Math.round(Tx)+' K');
+        if(dH<0 && dS<0) v+=' '+T_("sim.rxe.v_below").replace('{T}',Math.round(Tx)+' K'); } }
+    }
+    if(!st.computing) verdict.textContent=v;
+    drawProfile();
+  }
+  function drawProfile(){
+    const W=360, H=170, padL=8, padR=8, padT=16, padB=26;
+    const ps=st.phys && st.phys.steps.length ? st.phys.steps : null;
+    const parts=[], labels=[];
+    if(ps){
+      let e=0; const n=ps.length;
+      ps.forEach((s,k)=>{ const prof=s.r ? s.r.energy : [0, Math.max(s.ea,Math.max(s.dH,0)), s.dH];
+        const scale = s.r && Math.abs(s.r.dH)>1 ? s.dH/s.r.dH : 1;
+        prof.forEach((y,j)=>parts.push([k+j/(prof.length-1), e+(j===prof.length-1? s.dH : Math.min(y*scale, Math.max(y, s.ea)))]));
+        labels.push([k, e, s.ea, k===0]); e+=s.dH; labels.push([k+1, e, null, true, s.label]); });
+    } else if(st.path){ let e=0; st.path.steps.forEach((s,k)=>{ parts.push([k,e],[k+0.5,e+Math.max(s.barrier,Math.max(s.deltaH,0))]); e+=s.deltaH; parts.push([k+1,e]); }); }
+    else { svg.innerHTML=''; return; }
+    const xs=parts.map(p=>p[0]), ys=parts.map(p=>p[1]);
+    const x0=Math.min(...xs), x1=Math.max(...xs)||1, y0=Math.min(0,...ys), y1=Math.max(0,...ys)||1;
+    const X=x=>padL+(x-x0)/(x1-x0||1)*(W-padL-padR), Y=y=>padT+(y1-y)/(y1-y0||1)*(H-padT-padB);
+    const col=card.classList.contains('light')?'#6b5ce7':'#ff7a33', ink=card.classList.contains('light')?'#1d1830':'#f4ebe3';
+    let d=''; parts.forEach((p,i)=>{ d+=(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1); });
+    let g='<line x1="'+padL+'" x2="'+(W-padR)+'" y1="'+Y(0).toFixed(1)+'" y2="'+Y(0).toFixed(1)+'" stroke="'+ink+'" stroke-opacity=".25" stroke-dasharray="3 3"/>';
+    g+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linejoin="round"/>';
+    if(ps){ let e=0; ps.forEach((s,k)=>{ const prof=s.r?s.r.energy:null; const peak=e+Math.max(s.ea,Math.max(s.dH,0));
+        if(s.ea>Math.max(s.dH,0)+2){ const xt=k+(s.r?s.r.ts/(s.r.energy.length-1):0.5); g+='<text x="'+X(xt).toFixed(1)+'" y="'+(Y(peak)-4).toFixed(1)+'" fill="'+ink+'" font-size="9.5" text-anchor="middle">'+Math.round(s.ea)+(s.measured?' ✓':'')+'</text>'; }
+        e+=s.dH; });
+      // stage formulas along the bottom, every stage when there is room
+      const nS=ps.length+1, every=Math.ceil(nS/5);
+      for(let k=0;k<nS;k+=every){ const lab=k===0?reac.map(hill).join('+'):ps[k-1].label; g+='<text x="'+X(k).toFixed(1)+'" y="'+(H-8)+'" fill="'+ink+'" fill-opacity=".8" font-size="9" text-anchor="'+(k===0?'start':k===nS-1?'end':'middle')+'">'+lab.replace(/</g,'')+'</text>'; }
+    }
+    g+='<text x="'+padL+'" y="10" fill="'+ink+'" fill-opacity=".6" font-size="9">kJ/mol</text>';
+    svg.innerHTML=g;
+  }
+  render();
+  // typed reactions: work out the real path straight away, so the animation can follow it
+  if(spec.id==='custom') setTimeout(()=>{ if(!st.cancel && !st.phys && !st.computing) compute(); }, 600);
+  else setTimeout(()=>{ try{ rxFollowStages(spec, st); }catch(e){ console.warn('[Energy] built-in path not applied:',e); } }, 900);
+}
+// Replace the in-between keyframes of each step with the computed minimum-energy path (aligned to the
+// animation's own start and end poses, so the stages themselves do not move).
+function rxFollowPath(steps){
+  if(!SPEC || SPEC.id!=='custom') return;
+  const n=NA;
+  steps.forEach((s,i)=>{
+    if(!s.r || !s.r.frames || i+1>=STAGES.length) return;
+    const r0=STAGES[i].rest, r1=STAGES[i+1].rest; if(r1-r0<2) return;
+    const F=s.r.frames; if(!F.length || F[0].length!==n) return;
+    rxApplyPath(r0, r1, F, null);
+  });
+  buildSimKF();
+  if(SPEC){ SPEC.followsPath=true; console.info('[Energy] animation now follows the computed reaction path ('+steps.filter(x=>x.r).length+' steps)'); }
+}
+
   function load(id){
     const spec=REGISTRY.get(id);if(!spec)return;
     if(spec.build)spec.build(spec);   // hand-authored paths generate their keyframes from the simulator's own geometry
@@ -54607,7 +55266,7 @@ const ReactionMode=(function(){
     for(let g=0;g<NA;g++){const el=ELS.find(e=>e.Z===ATOM_Z[g]);const n=makeNucleus(ATOM_Z[g],el?el.n:0);n.visible=false;if(diffuseMode){const dg=makeDiffuseGlow(getEffectiveConfig(ATOM_Z[g]));dg.userData.diffuseGlow.halo.material.opacity=Math.min(1,1.8/Math.sqrt(ATOM_Z.length));n.add(dg);n.userData.dgl=dg.userData.diffuseGlow;}rg.add(n);nuclei.push(n);}   // hidden until the first frame is built & positioned: no stacked-at-origin dot while loading
     MORPH=!ultraMode&&!smoothMode;
     if(MORPH){try{morphMaterial().dispose();timeUniforms.pop();}catch(e){console.warn('[Reaction] morph unavailable, cross-fading instead:',e);MORPH=false;}}
-    t=0;playing=true;shownKF=-1;rgOff.set(0,0,0);rg.position.set(0,0,0);setPlayIcon();ui.setSel(id);makeChips();
+    t=0;playing=true;shownKF=-1;rgOff.set(0,0,0);rg.position.set(0,0,0);setPlayIcon();ui.setSel(id);makeChips();try{rxEnergyAttach(spec);}catch(e){console.warn('[Energy] panel unavailable:',e);}
     let ext=0;simKF.forEach(K=>K.forEach(p=>{ext=Math.max(ext,Math.hypot(p[0],p[1]));}));ext=Math.max(ext+Math.max(...ATOM_Z.map(z=>Math.max(...getEffectiveConfig(z).map(o=>o.R)))),4*scale);
     maxZoomDist=Math.max(4000,ext*8);camera.far=maxZoomDist*1.2;camera.updateProjectionMatrix();
     sl.value=Math.max(1,Math.min(600,600*Math.log(ext*2.4/Math.min(1,innerWidth/innerHeight)/maxZoomDist)/Math.log(5/maxZoomDist)));applyZoom();
@@ -54714,6 +55373,7 @@ const ReactionMode=(function(){
         while(b<t.length&&!/[\s+]/.test(t[b]))b++;
         const tok=t.slice(a,b);
         if(RC&&tok.length>1&&/[A-Za-z0-9)]=[A-Za-z0-9(]/.test(tok)&&RC.ionSpecies(tok))continue;   // a real condensed formula: keep the double bond
+        if(tok.length>2&&/[A-Za-z0-9)\]]=[A-Za-z0-9(\[]/.test(tok)&&typeof bParseSmiles==='function'&&bParseSmiles(tok.replace(/^smiles:/i,'')))continue;   // a SMILES double bond (C=C, CC(=O)O)
         i=k;break;
       }
     }
@@ -54721,8 +55381,360 @@ const ReactionMode=(function(){
     return[t.slice(0,i),t.slice(i+1).replace(/^[=>\s]+/,'')];
   }
   let lastAutoMsg='';
+/* ---- Product prediction by reaction class (formula level) ----
+   When only reactants are typed, chemistry rules decide the products: combustion, metals with O2 / halogens /
+   acids / water (standard electrode potentials), neutralisation, acid + carbonate, precipitation (solubility
+   rules), metal and halogen displacement, hydrogenation, halogenation, oxides with water or acid, and common
+   thermal decompositions. The planner then balances and animates the equation. */
+const RXP=(function(){
+  const E0={Li:-3.04,K:-2.93,Rb:-2.98,Cs:-3.03,Ba:-2.91,Sr:-2.89,Ca:-2.87,Na:-2.71,Mg:-2.37,Al:-1.66,Mn:-1.18,Zn:-0.76,Cr:-0.74,Fe:-0.44,Co:-0.28,Ni:-0.25,Sn:-0.14,Pb:-0.13,H:0,Cu:0.34,Ag:0.80,Hg:0.85,Pt:1.18,Au:1.50};
+  const VAL={Li:1,Na:1,K:1,Rb:1,Cs:1,Ag:1,Mg:2,Ca:2,Sr:2,Ba:2,Zn:2,Fe:2,Ni:2,Sn:2,Pb:2,Cu:2,Hg:2,Mn:2,Co:2,Al:3,Cr:3,Au:3,Pt:2};
+  const OXVAL={Fe:3,Cu:2,Cr:3,Mn:2,Co:2,Sn:2,Pb:2,Hg:2,Ag:1,Au:3};               // oxides, chlorides with Cl2
+  const ANION={F:-1,Cl:-1,Br:-1,I:-1,OH:-1,NO3:-1,CH3COO:-1,HCO3:-1,SO4:-2,CO3:-2,S:-2,O:-2,SO3:-2,PO4:-3};
+  const ACID={HF:'F',HCl:'Cl',HBr:'Br',HI:'I',HNO3:'NO3',H2SO4:'SO4',H3PO4:'PO4',H2CO3:'CO3',CH3COOH:'CH3COO',H2S:'S'};
+  const HALO={F2:'F',Cl2:'Cl',Br2:'Br',I2:'I'}, HALORANK={F:4,Cl:3,Br:2,I:1};
+  const ALKALI=new Set(['Li','Na','K','Rb','Cs']), WATERMETAL=new Set(['Li','Na','K','Rb','Cs','Ca','Sr','Ba']);
+  // solubility rules (in water)
+  const insoluble=(m,a)=>{
+    if(ALKALI.has(m)||m==='NH4') return false;
+    if(a==='NO3'||a==='CH3COO') return false;
+    if(['Cl','Br','I'].includes(a)) return ['Ag','Pb','Hg'].includes(m);
+    if(a==='SO4') return ['Ba','Pb','Sr','Ca'].includes(m);
+    if(a==='F') return ['Ca','Mg','Ba','Pb'].includes(m);
+    if(a==='OH') return !['Ba','Sr','Ca'].includes(m);
+    return true;                                                   // CO3, PO4, S, SO3, O: insoluble except alkali / NH4
+  };
+  const gcd=(a,b)=>b?gcd(b,a%b):a;
+  const salt=(m,v,a)=>{ const c=-ANION[a], g=gcd(v,c), nm=c/g, na=v/g;
+    const poly=a.length>2||(a.length===2&&!/^[A-Z][a-z]$/.test(a));
+    const mp=m==='NH4'?(nm>1?'(NH4)'+nm:'NH4'):m+(nm>1?nm:'');
+    return mp+(na>1?(poly?'('+a+')'+na:a+na):a); };
+  const oxide=(m,v)=>salt(m,v,'O');
+  // parse a typed species: counts and a light classification
+  function parse(t){
+    const s=t.replace(/\s+/g,'').replace(/^\d+(?=[A-Z(])/,'').replace(/\((aq|s|l|g)\)$/,'');
+    const r={raw:s};
+    if(ACID[s]) return Object.assign(r,{kind:'acid',anion:ACID[s]});
+    if(HALO[s]) return Object.assign(r,{kind:'halogen',x:HALO[s]});
+    if(['O2','H2','N2','H2O','NH3','O3','H2O2'].includes(s)) return Object.assign(r,{kind:s});
+    if(/^[A-Z][a-z]?$/.test(s) && E0[s]!==undefined) return Object.assign(r,{kind:'metal',m:s});
+    // C/H/O molecules in any written order ("C2H5OH", "CH3COCH3", "C6H12O6")
+    if(/^[CHO\d()]+$/.test(s) && /C/.test(s) && /H/.test(s) && !ACID[s]){ const c={C:0,H:0,O:0}; let ok2=true;
+      s.replace(/([CHO])(\d*)/g,(_,e,n)=>{ c[e]+=+(n||1); return ''; });
+      if(ok2) return Object.assign(r,{kind:'organic',c:c.C,h:c.H,o:c.O}); }
+    if(['CO2','SO2','SO3','N2O5','P4O10','NO2'].includes(s)) return Object.assign(r,{kind:'nmoxide'});
+    // salts, hydroxides, oxides: metal (or NH4) + count + one known anion (optionally in parentheses) + count
+    const mm=s.match(/^(\(NH4\)|NH4|[A-Z][a-z]?)(\d*)(.+)$/);
+    if(mm){ const met=mm[1].replace(/[()]/g,''), nm=+(mm[2]||1); let rest=mm[3], an=null, na=1;
+      const names=Object.keys(ANION).sort((x,y)=>y.length-x.length);
+      let pm=rest.match(/^\(([A-Za-z0-9]+)\)(\d*)$/);
+      if(pm && ANION[pm[1]]!==undefined){ an=pm[1]; na=+(pm[2]||1); }
+      else { const nmx=names.find(n=>rest.startsWith(n) && /^\d*$/.test(rest.slice(n.length))); if(nmx){ an=nmx; na=+(rest.slice(nmx.length)||1); } }
+      if(an && (E0[met]!==undefined||met==='NH4')){
+        const kind=an==='OH'?'base':an==='O'?'moxide':an==='CO3'?'carbonate':'salt';
+        return Object.assign(r,{kind,m:met,a:an,v:Math.round(-ANION[an]*na/nm)}); } }
+    return Object.assign(r,{kind:'other'});
+  }
+  const ok=(products,rule)=>({products,rule});
+  const no=(reason,args)=>({none:true,reason,args});
+  function predict(lhs){
+    const parts=lhs.split(/\s*\+\s*/).map(x=>x.trim()).filter(Boolean);
+    const S=parts.map(parse), K=S.map(x=>x.kind), has=k=>S.find(x=>x.kind===k), two=S.length===2;
+    // single reactant: thermal decomposition
+    if(S.length===1){ const x=S[0];
+      if(x.kind==='carbonate' && !ALKALI.has(x.m)) return ok([oxide(x.m,x.v),'CO2'],'decomposition');
+      if(x.raw==='H2O2') return ok(['H2O','O2'],'decomposition');
+      if(x.raw==='KClO3') return ok(['KCl','O2'],'decomposition');
+      if(x.raw==='NH4Cl') return ok(['NH3','HCl'],'decomposition');
+      if(x.raw==='O3') return ok(['O2'],'decomposition');
+      return null; }
+    if(!two) return null;
+    const [a,b]=S;
+    const pick=k=>S.find(x=>x.kind===k), other=x=>S.find(y=>y!==x);
+    // combustion
+    if(has('O2') && has('organic')) return ok(['CO2','H2O'],'combustion');
+    if(has('O2') && has('H2')) return ok(['H2O'],'combustion');
+    if(has('O2') && has('metal')){ const m=pick('metal').m; return ok([oxide(m,OXVAL[m]||VAL[m])],'metal+oxygen'); }
+    // halogens
+    if(has('halogen') && has('H2')) return ok(['H'+pick('halogen').x],'synthesis');
+    if(has('halogen') && has('metal')){ const m=pick('metal').m, x=pick('halogen').x; return ok([salt(m,OXVAL[m]||VAL[m],x)],'metal+halogen'); }
+    if(has('halogen') && has('salt')){ const x=pick('halogen').x, s=pick('salt');
+      if(HALORANK[s.a]===undefined) return null;
+      return HALORANK[x]>HALORANK[s.a] ? ok([salt(s.m,s.v,x), s.a+'2'],'halogen displacement') : no('halogen',[x,s.a]); }
+    if(has('halogen') && has('organic')){ const o=pick('organic'), x=pick('halogen').x;
+      if(o.o===0 && o.h===2*o.c+2) return ok(['C'+(o.c>1?o.c:'')+'H'+(o.h-1)+x,'H'+x],'substitution (light)');
+      if(o.o===0 && o.h===2*o.c) return ok(['C'+o.c+'H'+o.h+x+'2'],'addition'); }
+    // hydrogenation and ammonia
+    if(has('H2') && has('organic')){ const o=pick('organic'); if(o.o===0 && o.h<2*o.c+2) return ok(['C'+(o.c>1?o.c:'')+'H'+(o.h+2)],'hydrogenation'); }
+    if(has('H2') && has('N2')) return ok(['NH3'],'synthesis');
+    // metals with acids and water
+    if(has('metal') && has('acid')){ const m=pick('metal').m, A=pick('acid').anion;
+      if(A==='NO3') return null;                                   // oxidising acid: not a simple H2 reaction
+      return E0[m]<0 ? ok([salt(m,VAL[m],A),'H2'],'metal+acid') : no('metal',[m,'H']); }
+    if(has('metal') && has('H2O')){ const m=pick('metal').m; return WATERMETAL.has(m) ? ok([salt(m,VAL[m],'OH'),'H2'],'metal+water') : no('metal_water',[m]); }
+    // single displacement: metal + salt
+    if(has('metal') && (has('salt')||has('base'))){ const m=pick('metal').m, s=pick('salt')||pick('base');
+      if(E0[m]<E0[s.m]) return ok([salt(m,VAL[m],s.a),s.m],'displacement'); return no('metal',[m,s.m]); }
+    // acids with bases, carbonates, ammonia, metal oxides
+    if(has('acid') && has('base')){ const s=pick('base'), A=pick('acid').anion; return ok([salt(s.m,s.v,A),'H2O'],'neutralisation'); }
+    if(has('acid') && has('NH3')) return ok([salt('NH4',1,pick('acid').anion)],'neutralisation');
+    if(has('acid') && has('carbonate')){ const s=pick('carbonate'), A=pick('acid').anion; return ok([salt(s.m,s.v,A),'H2O','CO2'],'acid+carbonate'); }
+    if(has('acid') && has('moxide')){ const s=pick('moxide'), A=pick('acid').anion; return ok([salt(s.m,s.v,A),'H2O'],'acid+oxide'); }
+    // oxides with water
+    if(has('H2O') && has('moxide')){ const s=pick('moxide'); if(WATERMETAL.has(s.m)) return ok([salt(s.m,s.v,'OH')],'oxide+water'); }
+    if(has('H2O') && has('nmoxide')){ const o=pick('nmoxide').raw, map={CO2:'H2CO3',SO2:'H2SO3',SO3:'H2SO4',N2O5:'HNO3',P4O10:'H3PO4'}; if(map[o]) return ok([map[o]],'oxide+water'); }
+    if(has('base') && has('nmoxide') && pick('nmoxide').raw==='CO2'){ const s=pick('base'); return ok([salt(s.m,s.v,'CO3'),'H2O'],'base+CO2'); }
+    // two salts in water: precipitation (or nothing)
+    const ionic=x=>['salt','base','carbonate'].includes(x.kind);
+    if(ionic(a) && ionic(b) && a.m!==b.m && a.a!==b.a){
+      const p1=[a.m,a.v,b.a], p2=[b.m,b.v,a.a];
+      const i1=insoluble(p1[0],p1[2]), i2=insoluble(p2[0],p2[2]);
+      if(i1||i2) return ok([salt(...p1),salt(...p2)],'precipitation');
+      return no('soluble',[]); }
+    return null;
+  }
+  return {predict, parse, salt};
+})();
+
+/* ---- Organic reactions at their reactive sites (graph level) ----
+   Functional groups are found in each reactant and the textbook transformation is applied there, so it works
+   for molecules of any size: esterification, amide formation, ester hydrolysis / saponification, additions to
+   C=C and C≡C (H2, X2, HX with Markovnikov orientation, H2O), substitution of alkyl halides (OH⁻, NH3, CN⁻),
+   alcohols with HX and their dehydration (Zaitsev), reduction of C=O, aromatic halogenation and nitration,
+   Diels–Alder, acid–base of acids and amines, and combustion of any organic molecule. */
+const RXO=(function(){
+  const cl=g=>({atoms:g.atoms.slice(), bonds:g.bonds.map(b=>[b[0],b[1],b[2]==null?1:b[2]]), q:(g.q||g.charges||g.atoms.map(()=>0)).slice()});
+  const nb=(g,i)=>g.bonds.filter(b=>b[0]===i||b[1]===i).map(b=>({j:b[0]===i?b[1]:b[0],o:b[2]}));
+  const hs=(g,i)=>nb(g,i).filter(x=>g.atoms[x.j]==='H').map(x=>x.j);
+  const bondIdx=(g,i,j)=>g.bonds.findIndex(b=>(b[0]===i&&b[1]===j)||(b[0]===j&&b[1]===i));
+  const cut=(g,i,j)=>{ const k=bondIdx(g,i,j); if(k>=0) g.bonds.splice(k,1); };
+  const link=(g,i,j,o)=>{ const k=bondIdx(g,i,j); if(k>=0) g.bonds[k][2]=o; else g.bonds.push([i,j,o]); };
+  const merge=(a,b)=>{ const off=a.atoms.length; return {g:{atoms:a.atoms.concat(b.atoms), bonds:a.bonds.concat(b.bonds.map(x=>[x[0]+off,x[1]+off,x[2]])), q:a.q.concat(b.q)}, off}; };
+  const addH=(g,to)=>{ g.atoms.push('H'); g.q.push(0); g.bonds.push([to,g.atoms.length-1,1]); return g.atoms.length-1; };
+  const arom=g=>{ const ar=new Set(); g.atoms.forEach((a,s)=>{ if(a!=='C') return; const path=[s];
+    const go=x=>{ if(path.length===6){ if(nb(g,x).some(y=>y.j===s)){ const o=path.map((v,k)=>(nb(g,v).find(y=>y.j===path[(k+1)%6])||{o:0}).o); if(o.every((v,k)=>v!==o[(k+1)%6])) path.forEach(v=>ar.add(v)); } return; }
+      nb(g,x).forEach(y=>{ if(g.atoms[y.j]==='C' && !path.includes(y.j)){ path.push(y.j); go(y.j); path.pop(); } }); }; go(s); }); return ar; };
+  // functional groups
+  function groups(g){
+    const A=g.atoms, ar=arom(g), out={acid:[],alcohol:[],amine:[],alkene:[],alkyne:[],halide:[],ester:[],carbonyl:[],aromH:[],diene:[]};
+    A.forEach((a,c)=>{
+      if(a!=='C') return; const n=nb(g,c);
+      const dO=n.find(x=>A[x.j]==='O'&&x.o===2), sO=n.filter(x=>A[x.j]==='O'&&x.o===1);
+      if(dO){ const oh=sO.find(x=>hs(g,x.j).length===1), or=sO.find(x=>nb(g,x.j).some(y=>y.j!==c&&A[y.j]==='C'));
+        if(oh) out.acid.push({c,o:oh.j,h:hs(g,oh.j)[0],dO:dO.j});
+        else if(or) out.ester.push({c,o:or.j,r:nb(g,or.j).find(y=>y.j!==c&&A[y.j]==='C').j,dO:dO.j});
+        else if(!n.some(x=>A[x.j]==='N')) out.carbonyl.push({c,o:dO.j}); }
+      n.forEach(x=>{ if(['Cl','Br','I'].includes(A[x.j]) && x.o===1 && !ar.has(c) && !n.some(y=>y.o>1)) out.halide.push({c,x:x.j}); });
+      if(ar.has(c) && hs(g,c).length===1) out.aromH.push({c,h:hs(g,c)[0]});
+    });
+    A.forEach((a,o)=>{ if(a!=='O') return; const n=nb(g,o); const h=hs(g,o); const C=n.find(x=>A[x.j]==='C');
+      if(h.length===1 && C && !nb(g,C.j).some(y=>A[y.j]==='O'&&y.o===2) && !ar.has(C.j) && !nb(g,C.j).some(y=>y.o>1)) out.alcohol.push({o,h:h[0],c:C.j}); });
+    A.forEach((a,nn)=>{ if(a!=='N') return; const n=nb(g,nn); if(n.some(x=>x.o>1)) return; const h=hs(g,nn); const C=n.find(x=>A[x.j]==='C');
+      if(h.length>=1 && C && !nb(g,C.j).some(y=>A[y.j]==='O'&&y.o===2)) out.amine.push({n:nn,h:h[0],c:C.j}); });
+    g.bonds.forEach(([i,j,o])=>{ if(A[i]!=='C'||A[j]!=='C'||ar.has(i)||ar.has(j)) return; if(o===2) out.alkene.push({a:i,b:j}); if(o===3) out.alkyne.push({a:i,b:j}); });
+    // conjugated diene: C=C–C=C
+    out.alkene.forEach(e1=>out.alkene.forEach(e2=>{ if(e1===e2) return; [[e1.a,e1.b],[e1.b,e1.a]].forEach(([t1,m1])=>[[e2.a,e2.b],[e2.b,e2.a]].forEach(([m2,t2])=>{
+      if(bondIdx(g,m1,m2)>=0 && g.bonds[bondIdx(g,m1,m2)][2]===1 && t1<t2) out.diene.push({t1,m1,m2,t2}); })); }));
+    return out;
+  }
+  const comps=g=>{ const seen=new Array(g.atoms.length).fill(false), out=[];
+    for(let s=0;s<g.atoms.length;s++){ if(seen[s]) continue; const st=[s], idx=[]; seen[s]=true;
+      while(st.length){ const x=st.pop(); idx.push(x); nb(g,x).forEach(y=>{ if(!seen[y.j]){ seen[y.j]=true; st.push(y.j); } }); }
+      idx.sort((a,b)=>a-b); const map={}; idx.forEach((v,k)=>map[v]=k);
+      out.push({atoms:idx.map(i=>g.atoms[i]), q:idx.map(i=>g.q[i]), bonds:g.bonds.filter(b=>map[b[0]]!==undefined&&map[b[1]]!==undefined).map(b=>[map[b[0]],map[b[1]],b[2]])}); }
+    return out; };
+  // product text: a small inorganic species by its formula, anything with carbon as SMILES
+  const SMALL={'H2O':'H2O','H2':'H2','HCl':'HCl','HBr':'HBr','HI':'HI','CO2':'CO2','N2':'N2','O2':'O2','SO2':'SO2','NaCl':'NaCl','NaBr':'NaBr','NaI':'NaI','KCl':'KCl','KBr':'KBr','KI':'KI','HCN':'HCN'};
+  const hill=c=>{ const k={}; c.atoms.forEach(a=>k[a]=(k[a]||0)+1); const keys=Object.keys(k).sort((a,b)=>(a==='C'?-1:b==='C'?1:a==='H'?-1:b==='H'?1:a<b?-1:1)); return keys.map(e=>e+(k[e]>1?k[e]:'')).join(''); };
+  const symZ=s=>(typeof ELS!=='undefined'?(ELS.find(e=>e.sym===s)||{Z:6}).Z:6);
+  function text(c){
+    const f=hill(c), alt={'ClNa':'NaCl','BrNa':'NaBr','INa':'NaI','ClK':'KCl','BrK':'KBr','IK':'KI','ClH':'HCl','BrH':'HBr','HI':'HI','CHN':'HCN','H2O':'H2O','H2':'H2','CO2':'CO2','N2':'N2','O2':'O2','O2S':'SO2'}[f];
+    if(alt) return alt;
+    if(!c.atoms.includes('C')) return f;
+    return 'smiles:'+bWriteSmiles({Z:c.atoms.map(symZ), bonds:c.bonds, q:c.q});
+  }
+  const result=(g,rule)=>{ const parts=comps(g);
+    const neutral=parts.filter(c=>!c.q.some(v=>v)), ions=parts.filter(c=>c.q.some(v=>v)).map(c=>({c, q:c.q.reduce((t,v)=>t+v,0)}));
+    const out=neutral.map(text);
+    // pair cations with anions into neutral salts ("CC(=O)[O-].[Na+]"); a monatomic pair becomes its formula ("NaBr")
+    const cat=ions.filter(x=>x.q>0), an=ions.filter(x=>x.q<0);
+    while(cat.length && an.length){ const c=cat.shift(), a=an.shift();
+      const sm=x=>bWriteSmiles({Z:x.c.atoms.map(symZ), bonds:x.c.bonds, q:x.c.q});
+      if(c.c.atoms.length===1 && a.c.atoms.length===1) out.push(c.c.atoms[0]+a.c.atoms[0]);
+      else out.push('smiles:'+sm(a)+'.'+sm(c)); }
+    cat.concat(an).forEach(x=>out.push('smiles:'+bWriteSmiles({Z:x.c.atoms.map(symZ), bonds:x.c.bonds, q:x.c.q})));
+    return {products:out, rule}; };
+  // reagents recognised by formula
+  const isF=(g,f)=>hill(g)===f;
+  function predict(R){             // R: list of reactant graphs {atoms,bonds,q}
+    if(R.length<1 || R.length>2) return null;
+    const G=R.map(cl), GR=G.map(groups);
+    const find=k=>G.findIndex((g,i)=>GR[i][k].length);
+    const reagent=f=>G.findIndex(g=>isF(g,f));
+    const other=i=>i===0?1:0;
+    // combustion of any organic molecule (C, H, O, N, S, halogens)
+    const o2=reagent('O2');
+    if(o2>=0 && R.length===2){ const fuel=G[other(o2)]; if(fuel.atoms.includes('C') && fuel.atoms.length>5){
+      const pr=['CO2','H2O']; if(fuel.atoms.includes('N')) pr.push('N2'); if(fuel.atoms.includes('S')) pr.push('SO2');
+      ['Cl','Br'].forEach(x=>{ if(fuel.atoms.includes(x)) pr.push('H'+x); }); return {products:pr, rule:'combustion'}; } }
+    if(R.length===2){
+      const [A,B]=[0,1];
+      // acid + alcohol → ester + water;  acid + amine → amide + water
+      for(const [ia,nuc] of [[find('acid'),'alcohol'],[find('acid'),'amine']]){
+        if(ia<0) continue; const ib=other(ia); const s=GR[ib][nuc][0]; if(!s) continue;
+        const a=GR[ia].acid[0]; const {g,off}=merge(G[ia],G[ib]);
+        const n=(nuc==='alcohol'?s.o:s.n)+off, hN=s.h+off;
+        cut(g,a.c,a.o); cut(g,n,hN); link(g,a.c,n,1); link(g,a.o,hN,1);         // OH of the acid leaves with the H of the nucleophile as water
+        return result(g, nuc==='alcohol'?'esterification':'amide formation'); }
+      // ester + water / hydroxide
+      { const ie=find('ester'); if(ie>=0){ const io=other(ie), e=GR[ie].ester[0];
+        if(isF(G[io],'H2O')||['HNaO','HKO'].includes(hill(G[io]))){ const base=!isF(G[io],'H2O'); const {g,off}=merge(G[ie],G[io]);
+          const ow=g.atoms.findIndex((a,k)=>k>=off&&a==='O'), hw=hs(g,ow)[0];
+          cut(g,e.c,e.o); cut(g,ow,hw); link(g,e.c,ow,1); link(g,e.o,hw,1);        // acyl–O bond breaks; water/hydroxide O joins the acyl carbon
+          if(base){ const m=g.atoms.findIndex((a,k)=>k>=off&&(a==='Na'||a==='K')); cut(g,ow,m); g.q[m]=1; g.q[ow]=-1; }   // carboxylate + Na⁺; the alcohol takes the H
+          return result(g, base?'saponification':'ester hydrolysis'); } } }
+      // additions to C=C / C≡C
+      const ie=find('alkene')>=0?find('alkene'):find('alkyne');
+      if(ie>=0){ const ir=other(ie), rg=G[ir], f=hill(rg), e=(GR[ie].alkene[0]||GR[ie].alkyne[0]), triple=!GR[ie].alkene[0];
+        // Diels–Alder: a conjugated diene + an alkene
+        const idn=G.findIndex((g,i)=>GR[i].diene.length), idp=idn>=0?other(idn):-1;
+        if(idn>=0 && GR[idp].alkene.length && !GR[idp].diene.length){ const d=GR[idn].diene[0], p=GR[idp].alkene[0]; const {g,off}=merge(G[idn],G[idp]);
+          link(g,d.t1,d.m1,1); link(g,d.m1,d.m2,2); link(g,d.m2,d.t2,1); link(g,p.a+off,p.b+off,1); link(g,d.t1,p.a+off,1); link(g,d.t2,p.b+off,1);
+          return result(g,'Diels–Alder'); }
+        const {g,off}=merge(G[ie],G[ir]);
+        const hc=[e.a,e.b].map(c=>hs(g,c).length);                                   // Markovnikov: H goes to the carbon with more H
+        const [cH,cX]=hc[0]>=hc[1]?[e.a,e.b]:[e.b,e.a];
+        const drop=n=>{ link(g,e.a,e.b,n); };
+        if(f==='H2'){ const h1=off, h2=off+1; cut(g,h1,h2); drop(triple?2:1); link(g,e.a,h1,1); link(g,e.b,h2,1);
+          return result(g, 'hydrogenation'); }
+        if(['Cl2','Br2','I2'].includes(f)){ const x1=off, x2=off+1; cut(g,x1,x2); drop(triple?2:1); link(g,e.a,x1,1); link(g,e.b,x2,1); return result(g,'halogen addition'); }
+        if(['HCl','HBr','HI'].includes(f)){ const h=g.atoms.findIndex((a,k)=>k>=off&&a==='H'), x=g.atoms.findIndex((a,k)=>k>=off&&a!=='H'); cut(g,h,x); drop(triple?2:1); link(g,cH,h,1); link(g,cX,x,1); return result(g,'HX addition (Markovnikov)'); }
+        if(f==='H2O'){ const o=g.atoms.findIndex((a,k)=>k>=off&&a==='O'), h=hs(g,o)[0]; cut(g,o,h); drop(triple?2:1); link(g,cH,h,1); link(g,cX,o,1); return result(g,'hydration (Markovnikov)'); }
+      }
+      // alkyl halides: substitution
+      { const ih=find('halide'); if(ih>=0){ const ir=other(ih), f=hill(G[ir]), x=GR[ih].halide[0];
+        const {g,off}=merge(G[ih],G[ir]);
+        if(['HNaO','HKO'].includes(f)){ const m=g.atoms.findIndex((a,k)=>k>=off&&(a==='Na'||a==='K')), o=g.atoms.findIndex((a,k)=>k>=off&&a==='O');
+          cut(g,x.c,x.x); cut(g,o,m); link(g,x.c,o,1); g.q[o]=0; g.q[m]=1; g.q[x.x]=-1; return result(g,'substitution (SN2)'); }
+        if(f==='H3N'){ const n=off, h=hs(g,n)[0]; cut(g,x.c,x.x); cut(g,n,h); link(g,x.c,n,1); link(g,h,x.x,1); return result(g,'substitution (amine)'); }
+        if(['CKN','CNNa'].includes(f)){ const m=g.atoms.findIndex((a,k)=>k>=off&&(a==='Na'||a==='K')), c=g.atoms.findIndex((a,k)=>k>=off&&a==='C');
+          cut(g,x.c,x.x); g.bonds=g.bonds.filter(b=>!(b.includes(m))); link(g,x.c,c,1); g.q[c]=0; g.q[m]=1; g.q[x.x]=-1; return result(g,'substitution (nitrile)'); } } }
+      // alcohols with HX
+      { const ia=find('alcohol'); if(ia>=0){ const ir=other(ia), f=hill(G[ir]); if(['HCl','HBr','HI'].includes(f)){ const s=GR[ia].alcohol[0]; const {g,off}=merge(G[ia],G[ir]);
+          const h=off+G[ir].atoms.indexOf('H'), x=off+G[ir].atoms.findIndex(a=>a!=='H'); cut(g,s.c,s.o); cut(g,h,x); link(g,s.c,x,1); link(g,s.o,h,1); return result(g,'alcohol + HX'); } } }
+      // carbonyl reduction
+      { const ic=find('carbonyl'); if(ic>=0 && isF(G[other(ic)],'H2')){ const s=GR[ic].carbonyl[0]; const {g,off}=merge(G[ic],G[other(ic)]); cut(g,off,off+1); link(g,s.c,s.o,1); link(g,s.c,off,1); link(g,s.o,off+1,1); return result(g,'reduction of C=O'); } }
+      // aromatic substitution
+      { const iar=find('aromH'); if(iar>=0){ const ir=other(iar), f=hill(G[ir]); const s=GR[iar].aromH[0];
+        if(['Cl2','Br2'].includes(f)){ const {g,off}=merge(G[iar],G[ir]); cut(g,off,off+1); cut(g,s.c,s.h); link(g,s.c,off,1); link(g,s.h,off+1,1); return result(g,'aromatic halogenation'); }
+        if(f==='HNO3'){ const {g,off}=merge(G[iar],G[ir]); const n=g.atoms.findIndex((a,k)=>k>=off&&a==='N'); const oh=nb(g,n).map(y=>y.j).find(o=>hs(g,o).length===1);
+          cut(g,n,oh); cut(g,s.c,s.h); link(g,s.c,n,1); link(g,oh,s.h,1); return result(g,'nitration'); } } }
+      // acid–base: carboxylic acids with hydroxides, amines with acids
+      { const ia=find('acid'); if(ia>=0){ const ir=other(ia), f=hill(G[ir]); if(['HNaO','HKO'].includes(f)){ const a=GR[ia].acid[0]; const {g,off}=merge(G[ia],G[ir]);
+          const m=g.atoms.findIndex((x,k)=>k>=off&&(x==='Na'||x==='K')), o=g.atoms.findIndex((x,k)=>k>=off&&x==='O');
+          cut(g,a.o,a.h); cut(g,o,m); link(g,o,a.h,1); g.q[o]=0; g.q[a.o]=-1; g.q[m]=1; return result(g,'neutralisation'); } } }
+      { const im=find('amine'); if(im>=0){ const ir=other(im), f=hill(G[ir]); if(['HCl','HBr'].includes(f)){ const s=GR[im].amine[0]; const {g,off}=merge(G[im],G[ir]);
+          const h=off+G[ir].atoms.indexOf('H'), x=off+G[ir].atoms.findIndex(a=>a!=='H'); cut(g,h,x); link(g,s.n,h,1); g.q[s.n]=1; g.q[x]=-1; return result(g,'amine + acid → ammonium salt'); } } }
+    }
+    // one reactant + nothing: alcohol dehydration needs H2SO4 written as the second reactant
+    if(R.length===2){ const ia=find('alcohol'), is=reagent('H2O4S'); if(ia>=0 && is>=0){ const s=GR[ia].alcohol[0], g=cl(G[ia]);
+        // Zaitsev: remove H from the neighbouring carbon with fewer H (the more substituted alkene)
+        const cand=nb(g,s.c).filter(y=>g.atoms[y.j]==='C' && hs(g,y.j).length).sort((p,q)=>hs(g,p.j).length-hs(g,q.j).length);
+        if(cand.length){ const c2=cand[0].j, h2=hs(g,c2)[0]; cut(g,s.c,s.o); cut(g,c2,h2); link(g,s.c,c2,2); link(g,s.o,h2,1);
+          const r=result(g,'dehydration (Zaitsev)'); r.products.push('H2SO4'); return r; } } }
+    return null;
+  }
+  return {predict, groups};
+})();
+
+// Built-in reactions: every hand-authored step that makes or breaks bonds gets a computed minimum-energy
+// path between that step's own start and end bonding; it replaces the in-between keyframes (start and end
+// poses unchanged). Steps without a bond change (approach, drift apart) keep their authored motion.
+// Put a computed path into the keyframes between two stage rests, keeping the stages exactly where they are:
+// each moving atom goes from its start pose to its end pose plus the path's own bend away from a straight
+// line (capped at 0.6 Å). Only the atoms in `only` move this way; every other atom keeps its authored motion.
+function rxApplyPath(r0, r1, F, only){
+  const n=NA, P0=KF[r0].pos.map(p=>[p[0],p[1],p[2]||0]), P1=KF[r1].pos.map(p=>[p[0],p[1],p[2]||0]);
+  const M=only && only.length ? only : [...Array(n).keys()];
+  const cen=(Q,idx)=>[0,1,2].map(d=>idx.reduce((t,a)=>t+Q[a][d],0)/idx.length);
+  const cF=cen(F[0],M), cK=cen(P0,M);
+  const Rm=bBestRotation(M.map(a=>F[0][a].map((v,d)=>v-cF[d])), M.map(a=>P0[a].map((v,d)=>v-cK[d])));
+  const A=F.map(fr=>fr.map(p=>bRot(Rm,p.map((v,d)=>v-cF[d])))), last=A.length-1;
+  const dev=(j,a,u)=>{ const lin=A[0][a].map((v,d)=>v+(A[last][a][d]-v)*u); return A[j][a].map((v,d)=>v-lin[d]); };
+  for(let k=r0+1;k<r1;k++){
+    const u=(k-r0)/(r1-r0), x=u*last, j=Math.min(last-1,Math.floor(x)), w=x-j, uj=j/last, uj1=(j+1)/last;
+    const pos=KF[k].pos.map(p=>[p[0],p[1],p[2]||0]);
+    M.forEach(a=>{ const d0=dev(j,a,uj), d1=dev(j+1,a,uj1); let dv=d0.map((v,d)=>v+(d1[d]-v)*w);
+      const L=Math.hypot(...dv); if(L>0.6) dv=dv.map(v=>v*0.6/L);   // real atom-transfer bends are a few tenths of an ångström
+      pos[a]=P0[a].map((v,d)=>v+(P1[a][d]-v)*u+dv[d]); });
+    KF[k].pos=pos;
+  }
+}
+function rxFollowStages(spec, st){
+  if(!SPEC || SPEC!==spec || spec.id==='custom' || !window.ReactionPath || !window.ReactionThermo) return;
+  const RP=window.ReactionPath, TH=window.ReactionThermo, RC=window.ReactionCore, n=NA, syms=spec.atoms.slice();
+  const symZ_=s=>(ELS.find(e=>e.sym===s)||{Z:6}).Z;
+  const stageInfo=si=>{ const B=[], q=new Array(n).fill(0), list=[];
+    STAGES[si].species.forEach(sp=>{ const d=speciesDef(spec,sp.k); if(!d) return;
+      (d.bonds||[]).forEach(b=>{ const o=b[2]==null?1:b[2]; if(o>0) B.push([sp.a[b[0]],sp.a[b[1]],o]); });
+      (d.atoms||[]).forEach((a,k)=>{ if(a.formalCharge) q[sp.a[k]]=a.formalCharge; });
+      list.push({atoms:(d.atoms||[]).map(a=>a.sym||(ELS.find(e=>e.Z===a.Z)||{}).sym), bonds:(d.bonds||[]).filter(b=>(b[2]==null?1:b[2])>0).map(b=>[b[0],b[1],b[2]==null?1:b[2]]), charges:(d.atoms||[]).map(a=>a.formalCharge||0)}); });
+    return {B, q, list}; };
+  const key=B=>B.map(([a,b,o])=>(a<b?a+'_'+b:b+'_'+a)+':'+o).sort().join(',');
+  let i=0, changed=0;
+  // quality numbers (Å): the biggest jump of any atom between neighbouring keyframes, and the scene's size, before and after
+  const stats=()=>{ let jump=0, ext=0; for(let k=0;k<KF.length;k++){ const P=KF[k].pos; if(!P) continue; const c=[0,1,2].map(d=>P.reduce((t,p)=>t+(p[d]||0),0)/P.length);
+      P.forEach(p=>{ ext=Math.max(ext,Math.hypot(p[0]-c[0],p[1]-c[1],(p[2]||0)-c[2])); });
+      if(k){ const Q=KF[k-1].pos; if(Q) P.forEach((p,a)=>{ jump=Math.max(jump,Math.hypot(p[0]-Q[a][0],p[1]-Q[a][1],(p[2]||0)-(Q[a][2]||0))); }); } }
+    return {jump:+jump.toFixed(2), ext:+ext.toFixed(2)}; };
+  const before=stats();
+  const next=()=>{
+    if(st.cancel || SPEC!==spec) return;
+    if(i>=STAGES.length-1){ if(changed){ buildSimKF(); const after=stats(); console.info('[Energy] built-in animation now follows computed paths ('+changed+' steps) · largest frame-to-frame jump '+before.jump+' → '+after.jump+' Å · scene size '+before.ext+' → '+after.ext+' Å'); } return; }
+    try{
+      const A=stageInfo(i), Bn=stageInfo(i+1), r0=STAGES[i].rest, r1=STAGES[i+1].rest;
+      if(key(A.B)!==key(Bn.B) && r1-r0>=2){
+        let dH=0; try{ const a=TH.setThermo(A.list,298.15,RC), b=TH.setThermo(Bn.list,298.15,RC); if(a.ok&&b.ok) dH=b.H-a.H; }catch(e){}
+        const PA=KF[r0].pos.map(p=>[p[0],p[1],p[2]||0]), PB=KF[r1].pos.map(p=>[p[0],p[1],p[2]||0]);
+        // the path's shape needs a barrier height; an intrinsic 25 kJ/mol above the energy change is used (shape only)
+        const r=RP.stepPath({z:syms, symZ:symZ_, thermo:TH, RC, bondLen:b3BondLen, bondsA:A.B, bondsB:Bn.B, PA, PB, dH, ea:Math.max(dH,0)+25, q:A.q, iters:320, images:11});
+        const F=r.frames;
+        if(F && F.length && F[0].length===n){
+          const ka=new Set(A.B.map(([x,y,o])=>(x<y?x+'_'+y:y+'_'+x)+':'+o)), kb=new Set(Bn.B.map(([x,y,o])=>(x<y?x+'_'+y:y+'_'+x)+':'+o)), mv=new Set();
+          A.B.concat(Bn.B).forEach(([x,y,o])=>{ const k=(x<y?x+'_'+y:y+'_'+x)+':'+o; if(!(ka.has(k)&&kb.has(k))){ mv.add(x); mv.add(y); } });
+          [...mv].forEach(a=>A.B.concat(Bn.B).forEach(([x,y])=>{ if(x===a) mv.add(y); if(y===a) mv.add(x); }));
+          rxApplyPath(r0, r1, F, [...mv]);
+          changed++;
+        }
+      }
+    }catch(e){ console.warn('[Energy] step',i+1,'keeps its authored motion:',e); }
+    i++; setTimeout(next,0);
+  };
+  next();
+}
+
+  let lastAutoPath=null;
   async function auto(text,opt){
-    lastAutoMsg='';
+    lastAutoMsg=''; lastAutoPath=null;
+    // only reactants typed: chemistry rules decide the products first (the planner still balances and animates)
+    try{ const sd=splitEquation(text);
+      if(sd && !(sd[1]&&sd[1].trim())){ const pr=RXP.predict(sd[0]);
+        const H=x=>x==='H'?'H₂':x;
+        if(pr && pr.none){ const k=pr.reason==='metal'?'no_metal':pr.reason==='metal_water'?'no_metal_water':pr.reason==='soluble'?'no_soluble':'no_halogen';
+          const m='ℹ️ '+qaT('sim.rxp.'+k).replace('{a}',H(pr.args[0]||'')).replace('{b}',H(pr.args[1]||''));
+          lastAutoMsg=m; if(typeof showToast==='function') showToast(m); return false; }
+        if(pr && pr.products){ text=sd[0]+' -> '+pr.products.join(' + ');
+          if(typeof showToast==='function') showToast('🧪 '+qaT('sim.rxp.predicted').replace('{eq}',text.replace('->','→'))); }
+        if(!pr){
+          // organic chemistry at the reactive sites: each reactant as its bond graph (names, formulas or SMILES)
+          const toks=sd[0].split(/\s*\+\s*(?=[0-9A-Za-z(\[])/).filter(t=>t.trim()), graphs=[];
+          for(const t of toks){ const g=await autoSpecies(t); const G={atoms:[],bonds:[],q:[]};
+            (g.unit||[]).forEach(u=>{ const off=G.atoms.length; (u.atoms||[]).forEach((a,k)=>{ G.atoms.push(typeof a==='string'?a:(a.sym||symOfZ(a.Z))); G.q.push((u.charges&&u.charges[k])||(a&&a.formalCharge)||0); });
+              (u.bonds||[]).forEach(b=>G.bonds.push([b[0]+off,b[1]+off,b[2]==null?1:b[2]])); });
+            graphs.push(G); }
+          const or=RXO.predict(graphs);
+          if(or && or.products && or.products.length){ text=sd[0]+' -> '+or.products.join(' + ');
+            if(typeof showToast==='function') showToast('🧪 '+qaT('sim.rxp.predicted').replace('{eq}',text.replace('->','→').replace(/smiles:/g,''))); } } } }catch(e){ console.warn('[Reaction] prediction skipped:',e); }
     try{
       const RC=window.ReactionCore;if(!RC)throw new Error('ReactionCore is not loaded');
       const sides=splitEquation(text),RG=[],PG=[];
@@ -54825,7 +55837,7 @@ const ReactionMode=(function(){
       if(mech){
         const path=pl.path,polar=pl.polar,kJ=v=>(v>0?'+':'')+v+' kJ/mol',unit=polar?'ΔG':'ΔH';
         const basisNote=s=>s.basis==='table'?" "+qaT("sim.basisnote.tabulated_aqueous_free_energies"):s.basis==='estimate'?" "+qaT("sim.basisnote.estimated_by_born_haber_indicative"):'';
-        z=path.stages[0].state.z;
+        z=path.stages[0].state.z; lastAutoPath=path;
         steps=path.stages.map((g,i)=>{
           const st=g.state,spStr=stageStr(st,null);
           let label,txt;
