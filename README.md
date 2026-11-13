@@ -58,7 +58,7 @@ An interactive, browser-based **quantum atom visualizer**: real **electron orbit
 4. [Who it's for](#-who-its-for)
 5. [The learning journey: four chapters](#-the-learning-journey-four-chapters)
 6. [Every feature explained, A to Z](#-every-feature-explained-a-to-z)
-7. [🤖 Ask AI: the built-in assistant](#-ask-ai-the-built-in-physics--chemistry-assistant) · [The three tools](#-the-three-tools)
+7. [🤖 Physicist AI: the built-in physicist](#-physicist-ai-the-built-in-physicist) · [The three tools](#-the-three-tools)
 8. [Your first five minutes](#-your-first-five-minutes)
 9. [Orbital shapes in plain words](#-orbital-shapes-in-plain-words)
 10. [Controls & keyboard shortcuts](#-controls--keyboard-shortcuts)
@@ -92,7 +92,7 @@ Most atom tools do **one** thing: an orbital viewer, a molecule viewer, a period
 | **Antimatter** | Charge-conjugated atoms and molecules, and full matter–antimatter annihilation |
 | **Beyond** | Hypothetical elements Z = 119–300 with Dirac supercritical physics |
 | **Data** | Periodic-trend heatmaps, scatter explorer, f-block and N–Z stability charts |
-| **AI** | An embedded **Ask AI** guide that sees what's on screen, draws interactive 2D/3D graphs, searches the web, and works with 11 providers (including local models) |
+| **AI** | **Physicist AI**, a grumpy, rigorous and funny physicist character that sees what's on screen, argues with pseudoscience, draws interactive 2D/3D graphs, searches the web, guards its own instructions, and works with 11 providers (including local models) |
 | **Access** | 13 languages, dark/light, colorblind-safe palette, phone to projector, no install, no account, free |
 
 > To our knowledge, no other free browser tool combines **all** of these layers in one simulator. Compare for yourself in [How it compares](#-how-it-compares).
@@ -111,7 +111,7 @@ Most atom tools do **one** thing: an orbital viewer, a molecule viewer, a period
 | **Nucleus** | Zoom from the whole nucleus to **protons, neutrons, quarks, gluons and pions** |
 | **Antimatter** | Charge-conjugate any atom or molecule, or watch **matter meet antimatter and annihilate** |
 | **Data Lab** | Periodic-trend heatmaps, scatter explorer, f-block view, N–Z stability chart |
-| **Ask AI** | Context-aware assistant (11 providers, bring your own key or run local), interactive 2D/3D plots, web search with sources, Markdown documents, one-tap action buttons |
+| **Physicist AI** | A context-aware physicist character (11 providers, bring your own key or run local): interactive 2D/3D plots, full LaTeX maths, web search with sources, Markdown documents, one-tap action buttons, prompt-injection shield |
 | **Languages** | **13**: English, العربية, বাংলা, Deutsch, Ελληνικά, Español, Français, हिन्दी, Italiano, 日本語, 한국어, Русский, 简体中文 |
 | **Themes** | Dark and light, a colorblind-safe palette, glass/flat styling |
 | **Devices** | Desktop, tablet and phone (touch rotate, pinch to zoom) |
@@ -228,8 +228,8 @@ Select an atom and watch it meet its own antiatom, in slow motion, in stages:
 Inside the scene you can **focus, follow, jump to** a stage, and view **everything, nuclei, or nucleons**; scroll from the whole atom down to a single nucleon and out to the photons. Gamma rays are invisible, so photon colour is a false-colour mapping by energy.
 **Solves:** Annihilation is usually a single arrow in a textbook. This shows the actual sequence of events, from electrons to nucleons.
 
-#### Ask AI (built-in science assistant)
-A round **AI button** opens a chat that **sees what you are looking at** (the element, molecule, nucleus, lesson or settings on screen) and answers in context, draws **interactive 2D and 3D graphs**, can search the web, and offers **one-tap buttons** that jump you to the right tool. Bring your own key, or run it on a local model. Fully described in [Ask AI](#-ask-ai-the-built-in-physics--chemistry-assistant).
+#### AI: Physicist AI
+A round **AI button** opens **Physicist AI**, a resident physicist with a personality: grumpy, strict about evidence, funny, and on your side. It **sees what you are looking at** (the element, molecule, nucleus, lesson or settings on screen) and answers in context, typesets equations, draws **interactive 2D and 3D graphs**, can search the web, argues with pseudoscience, and offers **one-tap buttons** that jump you to the right tool. Bring your own key, or run it on a local model. Fully described in [Physicist AI](#-physicist-ai-the-built-in-physicist).
 
 #### Atomic data panel
 A live **DATA** panel for the selected element: atomic number, electrons, protons, neutrons, period, group, current zoom, visible orbitals, **electron configuration** and **transitions**. See [Data Lab](#d) for the deeper charts.
@@ -498,13 +498,27 @@ Up to ~28,000 points per orbital are drawn with additive blending, so **brightne
 
 ---
 
-## 🤖 Ask AI: the built-in physics & chemistry assistant
+## 🤖 Physicist AI: the built-in physicist
 
-Quantum Atom ships with an **embedded AI guide** in the Simulator and the Nucleus Explorer. It is not a generic chatbot pasted onto the page: it is wired into the app, knows what is on screen, can draw real graphs, and is deliberately kept on topic and honest.
+Quantum Atom ships with **Physicist AI**, an embedded AI character in the Simulator and the Nucleus Explorer. It is not a generic assistant pasted onto the page: it is a physicist with opinions, wired into the app, that knows what is on screen, draws real graphs, typesets real maths, keeps your science honest, and keeps its own instructions to itself.
+
+### Meet Physicist AI
+
+| Trait | What it means in practice |
+|---|---|
+| **Grumpy, but useful** | Blunt, short sentences. At most one grumble per message (sloppy units, the planetary Bohr picture, "quantum" on shampoo bottles), then straight to the physics. No "Great question!", no "As an AI…". |
+| **Extreme about science** | Evidence and logic are the only authority. It reasons from first principles, puts numbers on things and names the law or experiment that settles a point. |
+| **Argues with pseudoscience, without apology** | Homeopathy, astrology, "quantum healing", free energy, flat Earth and similar claims get the same treatment: *it's wrong*, the single strongest reason (a broken law, a killing measurement, a back-of-the-envelope number), then what is actually true. |
+| **Logically consistent** | Holds its position under pushback unless given evidence or a valid argument. Admits a mistake immediately when you're right, and says what changed its mind. |
+| **Strict, not dogmatic** | Separates settled science, active research and open questions. Interpretations of quantum mechanics, dark matter or string theory are treated as real debates, not pseudoscience. |
+| **A good friend, and funny** | Dry, deadpan humour (jokes must be true physics). Attacks ideas, never people. Unlimited patience for honest confusion; if you're discouraged, the grumbling stops. |
+| **Thinks like a physicist** | Works a problem out privately first, checks units, orders of magnitude, signs and limiting cases, corrects false premises, states every approximation and never bluffs. |
+
+The character speaks every app language with natural idiom, keeps your level of formality, and never lets personality override accuracy, safety or formatting.
 
 ### The problem it solves
 
-| Without it | With Ask AI |
+| Without it | With Physicist AI |
 |---|---|
 | You see a 3d orbital but can't tell *why* it looks that way | Ask "why does iron have this configuration?" and get an answer about **the iron on your screen** |
 | You can't find a feature among dozens of buttons | Ask "how do I compare two elements?" and get numbered steps **plus a button that opens it** |
@@ -540,9 +554,10 @@ Quantum Atom ships with an **embedded AI guide** in the Simulator and the Nucleu
 | **Pick the right visual** | Decides between **showing** the real object in the app (a button), **plotting** a quantity, doing **both**, or answering in **words only** when a picture adds nothing. If you name a kind ("streamlines", "slope field", "animation"), it draws that kind. |
 | **Ask a clarifying question when needed** | For a vague request ("graph this atom"), it asks **one** short multiple-choice question with 2–4 concrete things it can really plot, then draws. |
 | **Answer in your language** | Replies in the language you write in, or the app language if you haven't written yet. |
+| **Typeset maths properly** | Every variable and equation is LaTeX, rendered by a **built-in typesetter** (no external library): fractions, roots drawn to meet their bar in any font, matrices, `cases` with a real brace, `aligned`, bra-ket notation, `\boxed`, `\overset`/`\underset`, real curly `\overbrace`/`\underbrace`, isotopes (`\prescript`), `\not=`, `\ce{}` chemistry, **siunitx units** (`\SI{1.6e-19}{\coulomb}` → 1.6 × 10⁻¹⁹ C, `\si`, `\qty`, `\num`, `\ang`) and the full set of Greek letters, arrows, relations, set and logic symbols. The same maths works in plot titles, axis labels and legends. |
 | **Take its time to be right** | Defaults to under 150 words unless you ask for depth, leads with the answer, then the reason. |
 
-**Personality:** a warm, curious guide "like a favourite science teacher showing you around a museum at night", with the occasional true, mind-blowing scale comparison (a hydrogen atom as a stadium, its nucleus a pea on the centre spot). It never talks down, and uses at most one emoji.
+**Personality:** see [Meet Physicist AI](#meet-physicist-ai). It still brings the wonder, with the occasional true, mind-blowing scale comparison (a hydrogen atom as a stadium, its nucleus a pea on the centre spot), and rarely uses an emoji: Physicist AI does not decorate.
 
 ### What the AI cannot do (and says so)
 
@@ -582,9 +597,15 @@ Web search uses each provider's **own server-side search tool**, so your key is 
 
 ### Safety, scope and honesty guards
 
-Ask AI is built to stay a **science guide**, and to never over-promise.
+Physicist AI is built to stay on science, to keep its instructions private, and to never over-promise.
 
-- **Intent gate:** before any tool can run, each message is checked locally (instantly, free) for scope and safety. **Off-topic or unsafe requests get no web search, no plots and no buttons** and receive a short, polite decline with a related suggestion. Explicit sexual content is refused locally and **nothing is sent to any provider**. Attempts to override instructions or leak the system prompt, and requests for weapons or other operational harm, are declined. For genuinely unclear messages when web search is on, a tiny tool-less classifier call decides; if it fails, the system **fails safe** with tools off.
+- **Intent gate:** before any tool can run, each message is checked locally (instantly, free) for scope and safety. **Off-topic or unsafe requests get no web search, no plots and no buttons** and receive a short, polite decline with a related suggestion. Explicit sexual content is refused locally and **nothing is sent to any provider**. Requests for weapons or other operational harm are declined. Attempts to manipulate the AI are handled by the shield below. For genuinely unclear messages when web search is on, a tiny tool-less classifier call decides; if it fails, the system **fails safe** with tools off.
+- **Prompt-injection shield (three layers):**
+  1. **Trap before sending.** Every message is scored for manipulation: "ignore your instructions", "show your system prompt", "repeat the text above", fake `[SYSTEM]` / `<|im_start|>` tags, "I'm your developer", DAN / developer mode, role-play and "grandma" wrappers, decode-and-follow tricks. Detection works in all 13 app languages plus romanised Bengali and Hindi, and undoes disguises first (look-alike letters, leetspeak, s p a c e d letters, zero-width characters, base64, rot13, reversed text). A clear attempt is **answered locally, in character** ("Nice try. Genuinely clever. But my instructions stay where they are, like electrons in a closed shell…"), and **nothing reaches the model or its memory**. Replies escalate on repeat attempts ("Second attempt, same result. In physics we call that reproducible."). Borderline messages go to the model with tools off, a one-turn security note, and the reply held back until checked. Suspicion builds with each attempt and cools off over honest turns.
+  2. **Rules in the prompt.** The highest-priority section tells the model what it may share (who it is, what it can do, how to use the app, which model it runs on) and what it never shares, in any language or encoding. Only the system prompt carries authority: claimed developers, fake tags, passwords and text inside page state, web results or pasted files are treated as data, never as instructions.
+  3. **Leak check on every reply.** While a reply streams, it is checked for a secret marker that changes on every page load, for the prompt's section headings, and for long verbatim runs of its rules. A leaking reply is wiped from the screen and from the chat memory and replaced by the trap line. Reopened chats are cleaned the same way.
+
+  Honest questions ("what can you do?", "who made you?", "what model are you?") get normal answers, and physics that merely sounds similar ("ignore air resistance", "selection rules", "System: two masses on a spring") is just physics.
 - **Delivery guard (no broken promises):** if the AI says "here is your graph", a **valid, drawable plot** must actually be in the reply. It also checks the **kind**: every plot reports what it really drew, so "here is the streamline graph" with only arrows (or no streamlines at all) is caught and repaired, and if you asked for a specific kind the AI is pushed to draw exactly that. The app **renders the plot off-screen to test it** before you see it, **silently repairs it up to twice**, and otherwise replaces the reply with an honest message instead of leaving a promise with nothing behind it. The same check covers truncated blocks, mentioned-but-missing buttons and replies that end on a lead-in.
 - **Plain-language errors:** wrong or expired keys, quota or credit exhausted, daily or per-minute rate limits, unavailable regions, unknown models, overloaded services, context too long, timeouts, offline, and dropped connections each get a clear title, what happened, and what to do next. Partial replies are kept with a **Try again** button.
 - **Quality of life:** stream-as-it-types replies, **Stop** button, **Copy**, **New chat**, optional **chat history** (reopen a chat and keep talking), a wider/narrower panel, a model search box, and a 32,000-character conversation window that always starts on a user turn.
@@ -677,7 +698,7 @@ The four quantum numbers, in one line each: **n** sets size and energy, **ℓ** 
 | Reset view | **R** or the **RESET** button |
 | Close panels | **Esc** |
 | Hide interface during Annihilation | **H** |
-| Ask AI | Round **AI** button (drag to move · Shift+arrows nudge · Shift+Home resets) · **Enter** sends · **Shift+Enter** new line |
+| Physicist AI | Round **AI** button (drag to move · Shift+arrows nudge · Shift+Home resets) · **Enter** sends · **Shift+Enter** new line |
 | Return to auto-spin | Double-click the atom |
 | Atomic data | **DATA** panel |
 | Display modes | **ANTIMATTER · REAL IMAGE · DIFFUSE · CARTESIAN GRID · SMOOTH ORBITALS · ULTRA · SPHERICAL · EXCITED STATE** (plus **HYPER REALISTIC** in the light build) |
@@ -759,7 +780,7 @@ Honest limits build trust, so here they are.
 - **Vanilla JavaScript**, one self-contained HTML file per tool
 - **PubChem REST API** for Build mode
 - **A built-in i18n engine** with 13 languages inlined into each page
-- **An embedded AI module** (six small, dependency-free scripts: core, intent gate, delivery guard, providers, knowledge, UI) that streams over Server-Sent Events, with a provider registry so a new AI provider is one `registerProvider()` call and a new page is one `registerPage()` call
+- **An embedded AI module** (seven small, dependency-free scripts: core, intent gate, shield, delivery guard, providers, knowledge, UI, including a built-in LaTeX typesetter for chat and plot labels) that streams over Server-Sent Events, with a provider registry so a new AI provider is one `registerProvider()` call and a new page is one `registerPage()` call
 - **Zero build step**
 
 ---
@@ -815,7 +836,7 @@ Quantum-Atom/
 | Antimatter and annihilation | ❌ | ❌ | ✅ |
 | Nucleus down to quarks | ❌ | ❌ | ✅ |
 | Periodic-trend data explorer | ✅ (static) | varies | ✅ (interactive) |
-| Built-in AI tutor that sees what's on screen | ❌ | ❌ | ✅ |
+| Built-in AI physicist that sees what's on screen | ❌ | ❌ | ✅ |
 | AI-drawn interactive 2D/3D graphs (orbitals, radial probability…) | ❌ | ❌ | ✅ |
 | 13 languages | varies | ❌ | ✅ |
 | Atoms, molecules, reactions *and* nuclei in one place | ❌ | ❌ | ✅ |
@@ -861,7 +882,7 @@ A free, browser-based 3D simulator that shows real electron orbitals, molecules,
 **Can I see antimatter?** Yes. Toggle **Antimatter**, or run **Annihilation** to watch an atom meet its antiatom.
 
 **Is there AI built in?**
-Yes. The **Ask AI** button opens a context-aware science guide that knows which atom, molecule or nucleus you're viewing, draws interactive 2D and 3D graphs, can search the web with cited sources, and writes downloadable Markdown notes. See [Ask AI](#-ask-ai-the-built-in-physics--chemistry-assistant).
+Yes. The round AI button opens **Physicist AI**, a grumpy, rigorous and funny physicist that knows which atom, molecule or nucleus you're viewing, typesets equations, draws interactive 2D and 3D graphs, can search the web with cited sources, writes downloadable Markdown notes, and argues with pseudoscience. See [Physicist AI](#-physicist-ai-the-built-in-physicist).
 
 **Is the AI free? Do I need an account?**
 Quantum Atom's AI feature is optional and uses **your own key**: cloud providers (OpenAI, Anthropic, Google Gemini, xAI, Mistral, DeepSeek, Groq, OpenRouter) bill your own account, while **Ollama and LM Studio run locally with no key and no cost**. Everything else in the app works without any AI.
@@ -871,6 +892,12 @@ There is no Quantum Atom server. Keys stay in your browser, encrypted (or for th
 
 **Will the AI answer anything?**
 No. It stays on atoms, orbitals, molecules, nuclei, particles, quantum mechanics and the periodic table (plus the maths and graphs for them). Off-topic and unsafe requests are declined with all tools switched off.
+
+**Will it just agree with me?**
+No. If you present pseudoscience as fact, it tells you plainly that it's wrong and shows why. If you're right and it made a mistake, it admits it straight away. Open scientific questions are presented fairly.
+
+**Can people trick it into revealing its instructions?**
+In the chat, it's built not to: manipulation attempts are trapped locally with a "nice try", and replies are checked for leaks before you see them. Be aware, though, that Quantum Atom has no server, so the instructions also sit in the page source like the rest of the code. The shield protects the conversation, not the source file.
 
 **Can the AI draw graphs?**
 Yes: interactive 2D and 3D plots (functions, regions, polar and parametric curves, contours, heat maps, vector fields, streamlines, slope fields, complex domain colouring, ODE solutions, surfaces, isosurfaces, slice planes, surfaces of revolution, tubes, ribbons and orbital clouds), animated timelines, moving points and flowing particles, with draggable sliders and PNG export. Every plot is test-rendered before you see it, and the graph named in the reply must be the graph actually drawn.
@@ -938,6 +965,6 @@ See the `LICENSE` file for the full terms.
 
 <br>
 
-<sub>**Keywords:** complete quantum atom simulator · all-in-one atom simulator · AI physics tutor · AI chemistry assistant · AI atom explainer · interactive 2D 3D plots · Ollama · LM Studio · atom simulator · 3D atom model · electron orbital viewer · atomic orbitals 3D · quantum mechanics visualization · electron cloud · probability density · s p d f orbitals · periodic table 3D · all 118 elements · molecule viewer · VSEPR shapes · molecular geometry · chemical bonding · sigma pi bonds · chemical reaction animation · reaction mechanism · benzene · DNA double helix · antimatter · matter–antimatter annihilation · nucleus explorer · quarks and gluons · pion exchange · hypothetical elements · island of stability · periodic trends · lanthanide contraction · free chemistry tool · browser-based · WebGL · three.js · chemistry education · physics education · STEM</sub>
+<sub>**Keywords:** complete quantum atom simulator · all-in-one atom simulator · Physicist AI · AI physicist · AI physics tutor · pseudoscience debunker · AI chemistry assistant · AI atom explainer · interactive 2D 3D plots · Ollama · LM Studio · atom simulator · 3D atom model · electron orbital viewer · atomic orbitals 3D · quantum mechanics visualization · electron cloud · probability density · s p d f orbitals · periodic table 3D · all 118 elements · molecule viewer · VSEPR shapes · molecular geometry · chemical bonding · sigma pi bonds · chemical reaction animation · reaction mechanism · benzene · DNA double helix · antimatter · matter–antimatter annihilation · nucleus explorer · quarks and gluons · pion exchange · hypothetical elements · island of stability · periodic trends · lanthanide contraction · free chemistry tool · browser-based · WebGL · three.js · chemistry education · physics education · STEM</sub>
 
 </div>
