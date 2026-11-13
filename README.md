@@ -488,11 +488,13 @@ Bond angles and geometries come from **real VSEPR logic** (electron-pair repulsi
 ### W
 
 #### Wavefunction-accurate orbitals
-Each orbital type has its own sampler:
-- **s:** spherical shells with real **radial nodes** (2s has one, 3s has two).
-- **p:** three dumbbell lobes along x, y, z with a nodal plane.
-- **d:** five shapes (four cloverleaves, plus **dz² with its equatorial torus**), with **colour-coded sub-lobes** for opposite wavefunction sign.
-- **f:** seven multi-lobe shapes.
+Two looks, one button. By default the simulator shows the **classic simplified orbital shapes** (clear lobes, easy to read). Switch on **99% ACCURATE** and every orbital is drawn from its real wavefunction **ψ = R(r)·Y(θ,φ)** instead:
+- **Radial part R(r):** hydrogen and one-electron ions use the **exact analytic solution**. Every other element's radial functions are computed in the browser by a **self-consistent numerical solution of the Schrödinger equation** for that atom (local spin-density exchange–correlation with Perdew–Zunger self-interaction correction, Numerov integration on a log grid). Every **radial node** and inner penetration lobe comes out of the equation (2s has one node, 3s two, 4f none).
+- **Angular part Y(θ,φ):** exact **real spherical harmonics** for every l (s, p, d, f, and g/h for hypothetical elements).
+- **Sampling:** points are drawn with probability **exactly |ψ|²**, so point density *is* the probability density. Lobe colours follow the true sign of ψ, including the sign flips across radial nodes.
+- **Ultra mode:** the true **90 % boundary surface** of each orbital, with the + and − phases as separate surfaces (the dz² collar, nested s shells and f lobes all fall out of ψ).
+- **Scale:** each orbital's 90 % radius matches the app's display radius, so shells stay visible when you zoom; shapes and node positions inside an orbital are physical.
+- **Molecules (Accurate · computed):** in 99% ACCURATE mode a molecule's electrons are rebuilt as real molecular orbitals made from the atoms' own exact orbitals: localized **σ bond orbitals** (hybrids along the true bond directions, polarized by Pauling electronegativity), **lone pairs** placed by VSEPR repulsion, **Hückel π molecular orbitals** delocalized over every conjugated system (benzene, fused aromatics, heteroaromatics), and exact atomic **core shells**; ions and d/f-block atoms keep exact atomic orbitals. Bonds take their physical lengths (Cordero covalent radii, real PubChem coordinates as-is), and every orbital is drawn at its true size on the same scale — so hydrogen clouds are as large as they really are. This is a valence-bond/Hückel-level model: shapes, nodes and phases are real; it is not a full ab-initio calculation.
 
 Up to ~28,000 points per orbital are drawn with additive blending, so **brightness literally encodes probability density**.
 
@@ -770,7 +772,7 @@ Honest limits build trust, so here they are.
 **Three steps from Schrödinger to screen:**
 
 1. **Aufbau configuration.** Selecting an element computes which subshells are occupied and by how many electrons.
-2. **Wavefunction sampling.** Each orbital type has a custom Monte Carlo sampler weighted by probability density: radial shells for s, lobes with nodal planes for p, orthonormal-basis cloverleaves and a **toroidal-coordinate dz² ring** for d, and multi-lobe shapes for f.
+2. **Wavefunction sampling.** Classic mode uses fast shape samplers. In **99% ACCURATE** mode the radial functions are solved self-consistently for the selected atom (exact hydrogenic solution for one-electron systems) and combined with exact real spherical harmonics; points are drawn exactly from |ψ|² by inverse-CDF sampling of |u(r)|² and the angular density.
 3. **WebGL rendering.** Up to ~28,000 points per orbital go to the GPU as buffer geometry. A custom **GLSL vertex shader** sizes points by distance; a **fragment shader** renders soft Gaussian discs. **Additive blending** makes dense regions brighter.
 
 **Stack**
