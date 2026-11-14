@@ -31669,7 +31669,7 @@ html[data-glass="off"] :is(#ol-badge,.ol-stat,.ol-stp button,#ol-chev){backgroun
 #qa-exact-notice .qen-fig{margin:0;border-radius:18px;border:1px solid rgba(var(--cyan-rgb),.2);background:var(--qen-tile);overflow:hidden;display:flex;flex-direction:column}
 #qa-exact-notice .qen-fig-a{border-color:rgba(var(--cyan-rgb),.6);box-shadow:0 0 0 1px rgba(var(--cyan-rgb),.18) inset}
 /* the app styles every <canvas> as the full-screen 3D view (position:fixed; inset:0) — undo that here */
-#qa-exact-notice canvas.qen-cv{position:static !important;inset:auto !important;z-index:auto !important;display:block !important;width:100% !important;height:auto !important;aspect-ratio:1/1;transform:none !important;pointer-events:none}
+#qa-exact-notice canvas.qen-cv{position:static !important;inset:auto !important;z-index:auto !important;display:block !important;width:100% !important;height:auto !important;aspect-ratio:1/1;transform:none !important}
 #qa-exact-notice figcaption{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;border-top:1px solid rgba(var(--cyan-rgb),.14)}
 #qa-exact-notice figcaption b{font-family:var(--qen-ui);font-weight:500;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--qen-mute)}
 #qa-exact-notice .qen-fig-a figcaption b{color:var(--cyan)}
@@ -52239,35 +52239,101 @@ function qaExactNotice(onGo){
   qaNoticeDraw(ov);
   setTimeout(function(){ ov.querySelector('.qen-sheet').focus({preventScroll:true}); },30);
 }
-// The two thumbnails ARE the message: the same 2p orbital, Classic shape vs the exact |ψ|² cloud.
+// The two thumbnails ARE the message: the same 2p orbital in 3D, slowly turning (drag to turn it yourself):
+// Classic's crisp lobes vs the exact |ψ|² cloud. Upper colour = + phase of ψ, lower = − phase.
 function qaNoticeDraw(ov){
-  var cs=getComputedStyle(ov), acc=(cs.getPropertyValue('--cyan')||'#ff5500').trim();
-  var rgb=(cs.getPropertyValue('--cyan-rgb')||'255,85,0').trim();
+  var cs=getComputedStyle(ov);
+  var acc=(cs.getPropertyValue('--cyan-rgb')||'255,85,0').split(',').map(function(v){ return +v; });
   var light=(cs.getPropertyValue('--qen-light')||'').trim()==='1';
-  function setup(cv){ var d=Math.min(2.5,window.devicePixelRatio||1), w=cv.clientWidth||140, h=cv.clientHeight||140;
-    cv.width=Math.round(w*d); cv.height=Math.round(h*d); var c=cv.getContext('2d'); c.scale(d,d); return {c:c,w:w,h:h}; }
-  function dot(c,x,y,r,a){ c.globalAlpha=a; c.beginPath(); c.arc(x,y,r,0,6.2832); c.fill(); }
-  function nucleus(c,w,h){ c.globalAlpha=1; c.fillStyle=light?'#1c1740':'#fff'; c.beginPath(); c.arc(w/2,h/2,1.8,0,6.2832); c.fill(); }
-  // Classic: two crisp teardrop lobes, hollow at the nucleus (the app's simplified look)
-  var A=setup(ov.querySelector('.qen-cv-c')), c=A.c, w=A.w, h=A.h, L=h*0.44;
-  c.fillStyle='rgb('+rgb+')'; c.globalCompositeOperation=light?'source-over':'lighter';
-  var y0=0.1, Wm=L*0.3;
-  for(var i=0;i<7000;i++){ var s=i&1?1:-1, t, x, wq;
-    do{ t=y0+(1-y0)*Math.random(); var q=(t-y0)/(1-y0); wq=Wm*Math.pow(Math.sin(Math.PI*q),0.75)*Math.pow(q,0.3); x=(Math.random()*2-1)*Wm; }while(Math.abs(x)>wq);
-    dot(c,w/2+x,h/2-s*t*L,0.8,light?0.3:0.24); }
-  nucleus(c,w,h);
-  // 99% Accurate: exact hydrogen 2p_z — r ~ r⁴e^(−r) (Gamma 5), cosθ ~ cos²θ, projected
-  var B=setup(ov.querySelector('.qen-cv-a')); c=B.c; w=B.w; h=B.h;
-  var sc=h*0.36/8.0; c.globalCompositeOperation=light?'source-over':'lighter';
-  for(var j=0;j<16000;j++){
-    var r=0; for(var k=0;k<5;k++) r-=Math.log(1-Math.random());
-    var ct; do{ ct=2*Math.random()-1; }while(Math.random()>ct*ct);
-    var st=Math.sqrt(1-ct*ct), ph=6.2832*Math.random();
-    var x2=w/2+r*st*Math.cos(ph)*sc, y2=h/2-r*ct*sc;
-    c.fillStyle=ct>0?'rgb('+rgb+')':(light?'rgba(88,146,238,1)':'rgba(255,190,120,1)');   // + / − phase
-    dot(c,x2,y2,0.75,light?0.2:0.22);
+  var POS=light?[236,72,153]:acc, NEG=light?[59,130,246]:[255,205,150];   // light: pink + / blue −
+  // ── point sets in orbital units (lobe length 1, orbital axis = z) ──
+  function classicPts(n){ var P=new Float32Array(n*4), y0=0.1, Wm=0.3;
+    for(var i=0;i<n;i++){ var s=i&1?1:-1, t, x, y, wq;
+      do{ t=y0+(1-y0)*Math.random(); var q=(t-y0)/(1-y0); wq=Wm*Math.pow(Math.sin(Math.PI*q),0.75)*Math.pow(q,0.3);
+          x=(Math.random()*2-1)*Wm; y=(Math.random()*2-1)*Wm; }while(x*x+y*y>wq*wq);
+      P[i*4]=x; P[i*4+1]=y; P[i*4+2]=s*t; P[i*4+3]=s; }
+    return P; }
+  function exactPts(n){ var P=new Float32Array(n*4), k=0.36/8/0.44;          // exact hydrogen 2p_z
+    for(var i=0;i<n;i++){ var r=0; for(var j=0;j<5;j++) r-=Math.log(1-Math.random());   // r⁴e^(−r)
+      var ct; do{ ct=2*Math.random()-1; }while(Math.random()>ct*ct);                    // cos²θ
+      var st=Math.sqrt(1-ct*ct), ph=6.2832*Math.random();
+      P[i*4]=r*st*Math.cos(ph)*k; P[i*4+1]=r*st*Math.sin(ph)*k; P[i*4+2]=r*ct*k; P[i*4+3]=ct>0?1:-1; }
+    return P; }
+  function view(cv,pts,base,glowK){
+    var d=Math.min(2,window.devicePixelRatio||1), w=Math.max(60,cv.clientWidth||140), h=Math.max(60,cv.clientHeight||140);
+    var W=Math.round(w*d), H=Math.round(h*d); cv.width=W; cv.height=H;
+    var c=cv.getContext('2d'), img=c.createImageData(W,H), N=W*H;
+    var R=new Float32Array(N), G=new Float32Array(N), B=new Float32Array(N), A=new Float32Array(N);
+    // glow: additive light gathered on a 1/4-resolution grid, blurred, then laid under the points (bloom)
+    var GS=4, gw=Math.ceil(W/GS)+1, gh=Math.ceil(H/GS)+1, GN=gw*gh;
+    var gR=new Float32Array(GN), gG=new Float32Array(GN), gB=new Float32Array(GN), tmp=new Float32Array(GN);
+    var gcv=document.createElement('canvas'); gcv.width=gw; gcv.height=gh; var gctx=gcv.getContext('2d'), gimg=gctx.createImageData(gw,gh);
+    function blur(a){ var r=3, x, y, s, i;                       // two separable box passes ≈ gaussian
+      for(var pass=0;pass<2;pass++){
+        for(y=0;y<gh;y++){ s=0; for(x=-r;x<=r;x++) s+=a[y*gw+Math.min(gw-1,Math.max(0,x))];
+          for(x=0;x<gw;x++){ tmp[y*gw+x]=s/(2*r+1); s+=a[y*gw+Math.min(gw-1,x+r+1)]-a[y*gw+Math.max(0,x-r)]; } }
+        for(x=0;x<gw;x++){ s=0; for(y=-r;y<=r;y++) s+=tmp[Math.min(gh-1,Math.max(0,y))*gw+x];
+          for(y=0;y<gh;y++){ a[y*gw+x]=s/(2*r+1); s+=tmp[Math.min(gh-1,y+r+1)*gw+x]-tmp[Math.max(0,y-r)*gw+x]; } }
+      } }
+    var sz=d>=1.5?2:1;
+    return {draw:function(yaw){
+      R.fill(0); G.fill(0); B.fill(0); A.fill(0); gR.fill(0); gG.fill(0); gB.fill(0);
+      var cp=Math.cos(0.42), sp=Math.sin(0.42), ca=Math.cos(yaw), sa=Math.sin(yaw), S=Math.min(W,H)*0.44, cx=W/2, cy=H/2, pers=3.2;
+      for(var i=0;i<pts.length;i+=4){
+        var x=pts[i], y=pts[i+1], z=pts[i+2];
+        var y1=y*cp-z*sp, z1=y*sp+z*cp;               // fixed tilt toward the viewer
+        var x2=x*ca+y1*sa, dep=-x*sa+y1*ca;           // turn around the vertical
+        var f=pers/(pers-dep), X=(cx+x2*S*f)|0, Y=(cy-z1*S*f)|0;
+        if(X<0||Y<0||X>=W-sz||Y>=H-sz) continue;
+        var a=base*(0.55+0.45*Math.min(1,Math.max(0,(dep+1.2)/2.4))), col=pts[i+3]>0?POS:NEG;
+        var gq=((Y/GS)|0)*gw+((X/GS)|0); gR[gq]+=col[0]*a; gG[gq]+=col[1]*a; gB[gq]+=col[2]*a;
+        for(var oy=0;oy<sz;oy++) for(var ox=0;ox<sz;ox++){ var q=(Y+oy)*W+X+ox;
+          if(light){ var k=1-a; R[q]=R[q]*k+col[0]*a; G[q]=G[q]*k+col[1]*a; B[q]=B[q]*k+col[2]*a; A[q]=A[q]*k+a; }   // paint over
+          else { R[q]+=col[0]*a; G[q]+=col[1]*a; B[q]+=col[2]*a; } }                                                // glow (additive)
+      }
+      blur(gR); blur(gG); blur(gB);
+      // points → full-resolution image
+      var D=img.data;
+      for(var q=0,o=0;q<N;q++,o+=4){
+        if(light){ var pa=A[q]; if(pa<=0){ D[o+3]=0; continue; } D[o]=R[q]/pa; D[o+1]=G[q]/pa; D[o+2]=B[q]/pa; D[o+3]=pa*255; }
+        else { var cr=R[q], cg=G[q], cb=B[q], m=cr>cg?(cr>cb?cr:cb):(cg>cb?cg:cb);
+          if(m>255){ var tm=(255+(m-255)*0.25)/m, wh=Math.min(0.55,(m-255)/900); cr=cr*tm; cg=cg*tm; cb=cb*tm; cr+=(255-cr)*wh; cg+=(255-cg)*wh; cb+=(255-cb)*wh; }
+          D[o]=cr; D[o+1]=cg; D[o+2]=cb; D[o+3]=255; } }
+      // glow → small image; the GPU scales it up smoothly (bilinear) and blends it
+      var E=gimg.data, gk=glowK/(sz*sz);
+      for(var gi=0,go=0;gi<GN;gi++,go+=4){ var hr=gR[gi]*gk, hg=gG[gi]*gk, hb=gB[gi]*gk;
+        if(light){ var hi=hr>hg?(hr>hb?hr:hb):(hg>hb?hg:hb); if(hi<=0){ E[go+3]=0; continue; }
+          E[go]=hr/hi*255; E[go+1]=hg/hi*255; E[go+2]=hb/hi*255; E[go+3]=Math.min(0.55,hi/255*0.9)*255; }
+        else { E[go]=hr; E[go+1]=hg; E[go+2]=hb; E[go+3]=255; } }
+      gctx.putImageData(gimg,0,0);
+      c.putImageData(img,0,0);
+      c.imageSmoothingEnabled=true; c.globalCompositeOperation=light?'destination-over':'lighter';
+      c.drawImage(gcv,0,0,gw-1,gh-1,0,0,(gw-1)*GS,(gh-1)*GS);
+      c.globalCompositeOperation='source-over';
+      // nucleus with a small halo
+      var nr=1.8*d, gr=c.createRadialGradient(cx,cy,0,cx,cy,nr*4);
+      gr.addColorStop(0,light?'rgba(28,23,64,.95)':'rgba(255,255,255,1)'); gr.addColorStop(light?0.3:0.35,light?'rgba(28,23,64,.12)':'rgba(255,255,255,.35)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+      c.fillStyle=gr; c.beginPath(); c.arc(cx,cy,nr*4,0,6.2832); c.fill();
+    }};
   }
-  nucleus(c,w,h);
+  var vC=view(ov.querySelector('.qen-cv-c'),classicPts(9000),light?0.32:0.2,light?0.9:1.6);
+  var vA=view(ov.querySelector('.qen-cv-a'),exactPts(20000),light?0.18:0.12,light?0.9:1.6);
+  var yaw=0.6, drag=null, last=0, still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function frame(t){
+    if(!ov.isConnected||ov.classList.contains('qen-out')) return;
+    if(last&&t-last<30&&!drag){ requestAnimationFrame(frame); return; }   // ~30 fps is plenty for a slow turn and spares the battery
+    if(!drag&&!still) yaw+=Math.min(0.08,(t-(last||t))/1000)*0.55;
+    last=t;
+    vC.draw(yaw); vA.draw(yaw);
+    if(!still||drag) requestAnimationFrame(frame);
+  }
+  ov.querySelectorAll('.qen-cv').forEach(function(cv){
+    cv.style.pointerEvents='auto'; cv.style.touchAction='pan-y'; cv.style.cursor='grab';
+    cv.addEventListener('pointerdown',function(e){ drag={x:e.clientX,y0:yaw}; try{cv.setPointerCapture(e.pointerId);}catch(_){} if(still) requestAnimationFrame(frame); });
+    cv.addEventListener('pointermove',function(e){ if(drag){ yaw=drag.y0+(e.clientX-drag.x)*0.02; if(still){ vC.draw(yaw); vA.draw(yaw); } } });
+    var end=function(){ drag=null; }; cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  });
+  requestAnimationFrame(frame);
 }
 function qaSetExact(on){
   exactMode=on;
