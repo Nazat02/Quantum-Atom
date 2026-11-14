@@ -8,7 +8,7 @@
 
 **Everything you were taught about the atom was a drawing. This is the real thing.**
 
-An interactive, browser-based **quantum atom visualizer**: real **electron orbital** probability clouds, **VSEPR molecule geometry**, animated **chemical reactions**, **matter–antimatter annihilation**, and a **nucleus-to-quark zoom**. No install. No account. No ads. Free.
+An interactive, browser-based **quantum atom simulator**: electron orbitals **computed from the Schrödinger equation in your browser** (one tap on **99% ACCURATE**), real probability clouds, **VSEPR molecule geometry**, animated **chemical reactions**, **matter–antimatter annihilation**, and a **nucleus-to-quark zoom**. No install. No account. No ads. Free.
 
 [**▶ Launch the Simulator**](https://nazat02.github.io/Quantum-Atom/) &nbsp;·&nbsp; [The Problem](#-the-problem-chemistry-is-taught-with-pictures-that-are-wrong) &nbsp;·&nbsp; [How It Solves It](#-how-quantum-atom-solves-it) &nbsp;·&nbsp; [Features A–Z](#-every-feature-explained-a-to-z) &nbsp;·&nbsp; [Controls](#-controls--keyboard-shortcuts) &nbsp;·&nbsp; [FAQ](#-faq) &nbsp;·&nbsp; [**Support**](#-support-the-project)
 
@@ -63,12 +63,12 @@ An interactive, browser-based **quantum atom visualizer**: real **electron orbit
 9. [Orbital shapes in plain words](#-orbital-shapes-in-plain-words)
 10. [Controls & keyboard shortcuts](#-controls--keyboard-shortcuts)
 11. [Languages](#-languages)
-12. [Accuracy: what is real and what is simplified](#-accuracy-what-is-real-and-what-is-simplified)
+12. [Accuracy: computed, not drawn](#-accuracy-computed-not-drawn)
 13. [How it works under the hood](#-how-it-works-under-the-hood)
 14. [Run it locally](#-run-it-locally)
 15. [Project structure](#-project-structure)
 16. [Comparison with other tools](#-how-it-compares)
-17. [Roadmap](#-roadmap)
+17. [Roadmap: toward a full-scale virtual lab](#-roadmap-toward-a-full-scale-virtual-lab)
 18. [FAQ](#-faq)
 19. [Support the project](#-support-the-project)
 20. [License & credit](#-license--credit)
@@ -83,7 +83,7 @@ Most atom tools do **one** thing: an orbital viewer, a molecule viewer, a period
 
 | Layer | What you get |
 |---|---|
-| **Electron** | Real s, p, d and f orbital probability clouds for all 118 elements |
+| **Electron** | Real s, p, d and f orbital probability clouds for all 118 elements, **solved from ψ = R(r)·Y(θ,φ)** in 99% ACCURATE mode |
 | **Atom** | Aufbau configuration, orbital box diagrams, excited states, transitions |
 | **Bond** | VSEPR geometry, σ/π bonds, ionic and polar bonds, 140+ molecules, DNA |
 | **Molecule** | Build anything by name via PubChem, with a full analysis report |
@@ -93,7 +93,7 @@ Most atom tools do **one** thing: an orbital viewer, a molecule viewer, a period
 | **Beyond** | Hypothetical elements Z = 119–300 with Dirac supercritical physics |
 | **Data** | Periodic-trend heatmaps, scatter explorer, f-block and N–Z stability charts |
 | **AI** | **Physicist AI**, a grumpy, rigorous and funny physicist character that sees what's on screen, argues with pseudoscience, draws interactive 2D/3D graphs, searches the web, guards its own instructions, and works with 11 providers (including local models) |
-| **Access** | 13 languages, dark/light, colorblind-safe palette, phone to projector, no install, no account, free |
+| **Access** | 13 languages, dark/light, ✦ Luxury mode, colorblind-safe palette, phone to projector, no install, no account, free |
 
 > To our knowledge, no other free browser tool combines **all** of these layers in one simulator. Compare for yourself in [How it compares](#-how-it-compares).
 
@@ -105,7 +105,8 @@ Most atom tools do **one** thing: an orbital viewer, a molecule viewer, a period
 |---|---|
 | **What it is** | A free, browser-based 3D simulator of atoms, molecules, reactions and nuclei |
 | **Elements** | All **118** (hydrogen to oganesson) + **hypothetical elements Z = 119–300** |
-| **Orbitals** | **s, p, d and f**, sampled from real probability densities (up to ~28,000 points per orbital) |
+| **Orbitals** | **s, p, d and f**, sampled exactly from \|ψ\|² (up to ~28,000 points per orbital) |
+| **Physics engine** | **99% ACCURATE** mode: exact hydrogenic solutions for one-electron atoms; a **self-consistent radial eigen-solver** (Numerov, local spin-density exchange–correlation with Perdew–Zunger self-interaction correction) for every other atom, computed in the browser; real molecular orbitals for molecules |
 | **Molecules** | **140+ curated** (VSEPR-accurate) + **Build mode** for anything else, including a 588-atom **DNA double helix** |
 | **Reactions** | **280+ animated reactions** in 13 categories, plus **type-your-own-equation** |
 | **Nucleus** | Zoom from the whole nucleus to **protons, neutrons, quarks, gluons and pions** |
@@ -113,7 +114,7 @@ Most atom tools do **one** thing: an orbital viewer, a molecule viewer, a period
 | **Data Lab** | Periodic-trend heatmaps, scatter explorer, f-block view, N–Z stability chart |
 | **Physicist AI** | A context-aware physicist character (11 providers, bring your own key or run local): interactive 2D/3D plots, full LaTeX maths, web search with sources, Markdown documents, one-tap action buttons, prompt-injection shield |
 | **Languages** | **13**: English, العربية, বাংলা, Deutsch, Ελληνικά, Español, Français, हिन्दी, Italiano, 日本語, 한국어, Русский, 简体中文 |
-| **Themes** | Dark and light, a colorblind-safe palette, glass/flat styling |
+| **Themes** | Dark and light, each with a **✦ Luxury mode** (Apple-style), a colorblind-safe palette, glass/flat styling |
 | **Devices** | Desktop, tablet and phone (touch rotate, pinch to zoom) |
 | **Install / account / cost** | None / none / free |
 | **Tech** | three.js r128 · custom GLSL shaders · vanilla JavaScript · zero build step |
@@ -157,6 +158,7 @@ Quantum Atom replaces memorization with **seeing**. Every shape on screen is gen
 | The old way | The Quantum Atom way |
 |---|---|
 | Dots on rails | **Glowing probability clouds** sampled from |ψ|², dense where the electron is likely, sparse where it isn't |
+| "This is roughly what an orbital looks like" | **The orbital itself**: in 99% ACCURATE mode every radial node, inner lobe and phase comes out of the solved wavefunction, not an artist's shape |
 | Flat orbital diagrams | **Rotate, zoom and orbit** s, p, d and f orbitals in real 3D, with each lobe colour-coded by wavefunction sign |
 | Memorized "2, 8, 8, 18" | **Step element by element** (← →) and watch shells and subshells fill |
 | Lewis structures | **3D molecules** with bond angles computed from VSEPR theory, σ and π bonds drawn distinctly |
@@ -371,6 +373,25 @@ A microscopy-style view where every cloud becomes a **grey-to-black density grad
 #### Light and dark themes
 Every page ships in both. The theme follows your choice and is remembered.
 
+#### Luxury mode ✦
+A minimal, Apple-style look for **both** themes, switched on with the **✦** button in the toolbar of every page. It switches live (no reload) and is remembered across the landing page, the Simulator and the Nucleus Explorer.
+- **Dark luxury:** true black, iOS system greys and the app's own orange cloud. **Light luxury:** paper grey and white with a blue-violet accent.
+- One system font (SF Pro on Apple devices, Inter elsewhere), frosted toolbars, Settings-style grouped data lists, iOS segmented controls and sliders, pill buttons, golden-ratio spacing.
+- Labels drop their all-capitals styling (Title Case in German), in every language.
+- The landing-page gallery switches to luxury mockups of the app (dark or light) while it is on.
+- Opens with no flash of the normal theme. While luxury is on it replaces the glass/flat switch; your glass setting comes back when you turn it off.
+
+<table>
+<tr>
+<td><img src="images/quantum-atom-simulator-3d-electron-cloud-lux-dark-1200.jpg" alt="Quantum Atom Simulator in dark Luxury mode: carbon electron cloud on desktop and neon on an iPhone, true-black Apple-style interface with orange accent"></td>
+<td><img src="images/quantum-atom-simulator-3d-electron-cloud-lux-light-1200.jpg" alt="Quantum Atom Simulator in light Luxury mode: carbon electron cloud on desktop and neon on an iPhone, white Apple-style interface with blue-violet accent"></td>
+</tr>
+<tr>
+<td><img src="images/quantum-atom-simulator-water-molecule-h2o-lux-dark-1200.jpg" alt="Water molecule H2O in dark Luxury mode on desktop and phone"></td>
+<td><img src="images/quantum-atom-simulator-mobile-app-screens-lux-light-1200.jpg" alt="Three iPhone screens of Quantum Atom in light Luxury mode: carbon, Cloud Studio controls and water"></td>
+</tr>
+</table>
+
 ### M
 
 #### Molecules tab (140+ curated molecules)
@@ -488,7 +509,7 @@ Bond angles and geometries come from **real VSEPR logic** (electron-pair repulsi
 ### W
 
 #### Wavefunction-accurate orbitals
-Two looks, one button. By default the simulator shows the **classic simplified orbital shapes** (clear lobes, easy to read). Switch on **99% ACCURATE** and every orbital is drawn from its real wavefunction **ψ = R(r)·Y(θ,φ)** instead:
+Two models, one button. **Classic** (the default) is the teaching view: clear lobes, easy to read. Switch on **99% ACCURATE** and the simulator stops illustrating and starts **computing**: every orbital is solved and drawn from its real wavefunction **ψ = R(r)·Y(θ,φ)** instead:
 - **Radial part R(r):** hydrogen and one-electron ions use the **exact analytic solution**. Every other element's radial functions are computed in the browser by a **self-consistent numerical solution of the Schrödinger equation** for that atom (local spin-density exchange–correlation with Perdew–Zunger self-interaction correction, Numerov integration on a log grid). Every **radial node** and inner penetration lobe comes out of the equation (2s has one node, 3s two, 4f none).
 - **Angular part Y(θ,φ):** exact **real spherical harmonics** for every l (s, p, d, f, and g/h for hypothetical elements).
 - **Sampling:** points are drawn with probability **exactly |ψ|²**, so point density *is* the probability density. Lobe colours follow the true sign of ψ, including the sign flips across radial nodes.
@@ -649,7 +670,7 @@ Choose any of the 118 elements and **zoom continuously from the whole nucleus do
 - **Three zoom regimes:** whole nucleus (**MACRO**), **nucleon pair with the residual force (pion exchange)**, and **quark scale** with gluons.
 - **Colour legend:** proton, neutron, up quark, down quark, pion.
 - **ELEMENTS** picker with search (H → Og), **previous / next** buttons, and **← →** arrow keys.
-- Built-in **help** card, **reset camera**, and light/dark and glass toggles.
+- Built-in **help** card, **reset camera**, and light/dark, glass and **✦ Luxury** toggles.
 
 **Solves:** Textbooks stop at "protons and neutrons". This lets you keep zooming until you reach the quarks.
 
@@ -706,6 +727,7 @@ The four quantum numbers, in one line each: **n** sets size and energy, **ℓ** 
 | Display modes | **ANTIMATTER · REAL IMAGE · DIFFUSE · CARTESIAN GRID · SMOOTH ORBITALS · ULTRA · SPHERICAL · EXCITED STATE** (plus **HYPER REALISTIC** in the light build) |
 | Tools | Toolbar icons: Nucleus · Annihilation · Reactions · Compare · Lessons · Recents · Surprise me · Molecule analysis · Colorblind |
 | Share a molecule | Build it, then copy the URL (`?build=…`) |
+| Luxury mode on / off | **✦** button in the toolbar (every page) |
 
 ### Nucleus Explorer
 
@@ -718,6 +740,7 @@ The four quantum numbers, in one line each: **n** sets size and energy, **ℓ** 
 | Pion exchange / gluon field | **PIONS** / **GLUONS** |
 | Reset camera | **RESET** |
 | Legend · Help | Legend button · **?** |
+| Luxury mode on / off | **✦** button |
 
 **Pro tips**
 - **Real Image + Smooth Orbitals** is the most cinematic combination. **Ultra Mode** is the cleanest.
@@ -740,23 +763,31 @@ Choose a language with the globe button. The choice is remembered and applies to
 | 한국어 (Korean) | Beta | Русский (Russian) | Beta |
 | 简体中文 (Chinese, Simplified) | Beta | | |
 
+Every new feature ships translated into all 13 languages, including **✦ Luxury mode** (its button label and its on/off messages).
+
 Native-speaker corrections are welcome.
 
 ---
 
-## 🎯 Accuracy: what is real and what is simplified
+## 🎯 Accuracy: computed, not drawn
 
-Honest limits build trust, so here they are.
+Quantum Atom is no longer limited to simplified pictures. In **99% ACCURATE** mode the orbitals are **computed**: the radial Schrödinger equation is solved as an **eigenvalue problem** for each atom's own configuration, self-consistently, in your browser, then rendered straight from |ψ|². Honest limits build trust, so the boundaries of the model are listed too.
 
-**Real**
+**Computed from physics**
+- **Hydrogen and one-electron ions:** the exact analytic solution.
+- **Every other atom:** a self-consistent numerical eigen-solution of the radial Schrödinger equation (Numerov on a log grid; LSDA exchange–correlation, Perdew–Zunger 1981 with self-interaction correction), about 0.2–2 s per element, then cached. Radial nodes, penetration lobes and tails all come out of the equation.
+- **Angular part:** exact real spherical harmonics for every l.
+- **Molecules:** real molecular orbitals built from those atomic orbitals (σ bond orbitals, VSEPR lone pairs, Hückel π systems), at physical bond lengths.
+- **Ultra mode:** the true 90 % probability boundary surface of each orbital, both phases.
 - Orbital clouds are **sampled from quantum probability densities**; point density *is* probability density.
 - Electron configurations follow Aufbau, Hund and Pauli, with real exceptions (Cr, Cu).
 - Molecular geometry comes from VSEPR logic; Build-mode results can come from **published PubChem 3D coordinates**.
 - Bond-length estimates are labelled *est.* and shown beside *exp.* (CRC/NIST) values where available.
 - Reaction energetics come from **tabulated standard formation enthalpies and free energies**.
 
-**Simplified (and labelled as such)**
-- Orbital sizes on screen use the app's **visual scale**, not physical units.
+**Where the model stops (and says so)**
+- **Classic** mode (the default) is a teaching model with hand-shaped lobes; switch to 99% ACCURATE for the computed orbitals.
+- In 99% ACCURATE mode each orbital's 90 % radius is placed on the app's display scale so shells stay visible; shapes and nodes inside an orbital are physical. For molecules the model is valence-bond/Hückel level, not a full ab-initio calculation.
 - Spherical mode is a **schematic** stand-in for lobes.
 - Some molecules are drawn as a **neutral skeleton** where the true structure is resonance-delocalised, and the analysis panel says so.
 - Reaction animations are **schematic mechanisms**; catalyst surfaces are not drawn, and some multi-bond steps are flagged as "formally forbidden thermally, barrier is a rough estimate".
@@ -818,7 +849,8 @@ Quantum-Atom/
 ├── nucleus_explorer_light.html
 ├── sitemap.xml · robots.txt · 404.html · site.webmanifest · llms.txt   # search & sharing (generated)
 ├── tools/seo/                  # SEO config, generator and validator (see tools/seo/README.md)
-└── images/                     # previews, social card, app icons
+├── tools/lux/                  # ✦ Luxury mode: styles, switch, installer, gallery mockup builder (see tools/lux/README.md)
+└── images/                     # previews, social card, app icons, luxury gallery mockups (*-lux-dark/-lux-light)
 ```
 
 ---
@@ -845,15 +877,22 @@ Quantum-Atom/
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ Roadmap: toward a full-scale virtual lab
 
-- Probability-density isosurfaces
-- Electron spin visualization
-- High-resolution screenshot export
+The goal is bigger than a viewer: **a complete virtual physics and chemistry lab in one browser tab**, where everything you can do with an atom, a molecule or a nucleus you can do here, computed rather than drawn. This list is kept up to date as features ship.
+
+**Recently shipped**
+- ✅ **99% ACCURATE mode**: orbitals solved from the Schrödinger equation in the browser, for atoms and molecules
+- ✅ **Probability-density isosurfaces**: the true 90 % boundary surface of every orbital (Ultra mode)
+- ✅ **✦ Luxury mode**: an Apple-style look for both the dark and the light theme
+- ✅ **13 languages**, switchable instantly
+
+**Next**
+- Electron spin visualization in 3D (today spin appears in the orbital box diagrams)
+- High-resolution screenshot export of the 3D scene
 - Performance and quality presets
 - WebXR augmented reality: *put an orbital on your desk*
 - Native-speaker review of all translations
-
 ---
 
 ## ❓ FAQ
@@ -914,7 +953,7 @@ Yes: interactive 2D and 3D plots (functions, regions, polar and parametric curve
 
 **Can I share what I'm looking at?** Yes. Build results update the URL (`?build=…`), so you can share any built molecule as a link.
 
-**Is it a replacement for a quantum-chemistry package?** No. It is an educational visualizer, not a computational chemistry engine. See [Accuracy](#-accuracy-what-is-real-and-what-is-simplified).
+**Is it a replacement for a quantum-chemistry package?** Not for research numbers, but it is no longer just a drawing tool either: 99% ACCURATE mode really solves the radial Schrödinger equation for every atom and renders the result. Use a full quantum-chemistry package when you need publication-grade energies or ab-initio molecular calculations. See [Accuracy](#-accuracy-computed-not-drawn).
 
 ---
 

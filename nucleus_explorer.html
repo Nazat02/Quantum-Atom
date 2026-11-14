@@ -30288,6 +30288,298 @@ html[data-glass="off"] #tb-badge#tb-badge{background:#000 !important;border:1px 
 .elrow{min-height:44px}
 </style>
 
+<!-- qa-lux:head -->
+<script id="qa-lux-boot">
+/* LUXURY MODE — boot (runs in <head> before first paint, so there is no flash).
+   Luxury is a layer on top of the dark and light themes: html[data-lux="on"] + html[data-lux-tone="dark|light"].
+   Stored in localStorage 'qa-lux' ('on' | 'off'); shared by every page, so it follows you from the
+   landing page into the Simulator and the Nucleus Explorer, in both themes. */
+(function(){
+  var d=document.documentElement,tone='dark';
+  d.setAttribute('data-lux-tone',tone);
+  var on=false;try{on=localStorage.getItem('qa-lux')==='on';}catch(e){}
+  if(!on)return;
+  d.setAttribute('data-lux','on');
+  /* hold the first paint until the luxury layer has finished (labels, gallery): no flash of the old look.
+     lux_core.js lifts this; the timer is a safety net so the page can never stay hidden. */
+  d.classList.add('lx-boot');
+  setTimeout(function(){d.classList.remove('lx-boot');},2500);
+  /* phone status / navigation bar colour straight away */
+  var tc=tone==='light'?'#f5f5f7':'#000000';
+  document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){if(!m.hasAttribute('data-lux-orig'))m.setAttribute('data-lux-orig',m.getAttribute('content')||'');m.setAttribute('content',tc);});
+  /* luxury replaces the glass/flat switch, so flat mode must not strip the materials */
+  if(d.getAttribute('data-glass')==='off'){d.setAttribute('data-lux-glass','off');d.removeAttribute('data-glass');}
+  var l=document.createElement('link');l.rel='stylesheet';l.id='qa-lux-font';
+  l.href='https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap';
+  document.head.appendChild(l);
+})();
+</script>
+<style id="qa-lux-css">
+/* ═══════════ POLISH — Nucleus Explorer, every mode ═══════════ */
+html:not(#lx-a):not(#lx-b)[data-lux-tone="light"][data-glass="off"] :is(#elpanel-scrim,#onboard){background:rgba(33,28,66,.34) !important;}
+
+/* ═══════════ LUXURY MODE — shared tokens (html[data-lux="on"]:not(#lx-a):not(#lx-b)) ═══════════
+   Apple-style system: one sans family, quiet neutral surfaces, real materials (blur + saturation),
+   hairline separators, continuous radii and a single accent. Spacing / radii follow the app's
+   golden-ratio scale: 5 · 8 · 13 · 21 · 34 · 55 · 89.                                          */
+html[data-lux="on"]:not(#lx-a):not(#lx-b){
+  --lx-font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Inter","Helvetica Neue",system-ui,"Segoe UI",Roboto,
+    "Noto Sans","Noto Sans Arabic","Noto Sans Bengali","Noto Sans Devanagari","Noto Sans JP","Noto Sans KR","Noto Sans SC",sans-serif;
+  --lx-r-xs:8px;--lx-r-sm:10px;--lx-r:13px;--lx-r-lg:21px;--lx-r-xl:34px;--lx-pill:980px;
+  --lx-s1:5px;--lx-s2:8px;--lx-s3:13px;--lx-s4:21px;--lx-s5:34px;--lx-s6:55px;--lx-s7:89px;
+  --lx-ease:cubic-bezier(.25,.1,.25,1);--lx-spring:cubic-bezier(.2,.8,.2,1);
+}
+/* Dark luxury: true black, iOS system greys, the app's own orange */
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"]{
+  color-scheme:dark;
+  --lx-bg:#000;--lx-bg-2:#0b0b0c;
+  --lx-surface:#1c1c1e;--lx-surface-2:#2c2c2e;--lx-surface-3:#3a3a3c;
+  --lx-fill:rgba(118,118,128,.24);--lx-fill-2:rgba(118,118,128,.32);--lx-fill-3:rgba(118,118,128,.4);
+  --lx-mat:rgba(22,22,24,.72);--lx-mat-thick:rgba(28,28,30,.86);--lx-blur:blur(30px) saturate(180%);
+  --lx-text:#f5f5f7;--lx-text-2:rgba(235,235,245,.62);--lx-text-3:rgba(235,235,245,.42);
+  --lx-sep:rgba(255,255,255,.09);--lx-sep-2:rgba(255,255,255,.16);
+  --lx-acc:#ff6a1a;--lx-acc-rgb:255,106,26;--lx-acc-hi:#ff8a45;--lx-acc-2:#ffb340;--lx-on-acc:#fff;
+  --lx-btn:linear-gradient(180deg,#ff7d33 0%,#ff5e14 100%);
+  --lx-btn-hi:linear-gradient(180deg,#ff8f4d 0%,#ff6a1f 100%);
+  --lx-seg-on:#636366;
+  --lx-sh-1:0 1px 0 rgba(255,255,255,.04) inset;
+  --lx-sh-2:0 8px 30px rgba(0,0,0,.5),0 0 0 .5px rgba(255,255,255,.08) inset;
+  --lx-sh-3:0 24px 70px rgba(0,0,0,.6),0 0 0 .5px rgba(255,255,255,.1) inset;
+  --lx-glow:0 0 0 1px rgba(var(--lx-acc-rgb),.35),0 6px 22px rgba(var(--lx-acc-rgb),.32);
+}
+/* Light luxury: Apple paper grey and white, blue-violet gradient for filled actions */
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="light"]{
+  color-scheme:light;
+  --lx-bg:#f5f5f7;--lx-bg-2:#fbfbfd;
+  --lx-surface:#fff;--lx-surface-2:#f5f5f7;--lx-surface-3:#e8e8ed;
+  --lx-fill:rgba(118,118,128,.12);--lx-fill-2:rgba(118,118,128,.18);--lx-fill-3:rgba(118,118,128,.24);
+  --lx-mat:rgba(255,255,255,.72);--lx-mat-thick:rgba(251,251,253,.88);--lx-blur:blur(30px) saturate(180%);
+  --lx-text:#1d1d1f;--lx-text-2:rgba(60,60,67,.66);--lx-text-3:rgba(60,60,67,.5);
+  --lx-sep:rgba(0,0,0,.08);--lx-sep-2:rgba(0,0,0,.14);
+  --lx-acc:#5e5ce6;--lx-acc-rgb:94,92,230;--lx-acc-hi:#6e6cf0;--lx-acc-2:#0a84ff;--lx-on-acc:#fff;
+  --lx-btn:linear-gradient(135deg,#6e5cf0 0%,#3d7bff 100%);
+  --lx-btn-hi:linear-gradient(135deg,#7b6bf5 0%,#4f8aff 100%);
+  --lx-seg-on:#fff;
+  --lx-sh-1:0 1px 2px rgba(0,0,0,.04);
+  --lx-sh-2:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.06);
+  --lx-sh-3:0 2px 6px rgba(0,0,0,.05),0 22px 60px rgba(0,0,0,.12);
+  --lx-glow:0 6px 20px rgba(var(--lx-acc-rgb),.3);
+}
+
+/* One family everywhere (science glyphs inside SVG / math / code keep their own) */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) body,
+html[data-lux="on"]:not(#lx-a):not(#lx-b) body :is(div,span,p,a,button,label,input,select,textarea,h1,h2,h3,h4,h5,h6,li,dt,dd,td,th,figcaption,blockquote,small,strong,b,em,i,sub,sup,nav,header,footer,section,aside,summary):not(.katex *):not(.katex):not(code):not(pre):not(pre *):not(code *){
+  font-family:var(--lx-font) !important;
+}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;
+  font-feature-settings:"cv11","ss01","ss03";}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) ::selection{background:rgba(var(--lx-acc-rgb),.28);color:inherit;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) *{scrollbar-width:thin;scrollbar-color:var(--lx-fill-3) transparent;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) ::-webkit-scrollbar{width:8px;height:8px;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) ::-webkit-scrollbar-track{background:transparent;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) ::-webkit-scrollbar-thumb{background:var(--lx-fill-3);border-radius:8px;border:2px solid transparent;background-clip:padding-box;}
+/* text fields show focus with their own field style, never a ring (Chrome treats every tap in a field as keyboard focus) */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(textarea,input:not([type]),input[type="text"],input[type="search"],input[type="email"],input[type="password"],input[type="url"],input[type="number"],[contenteditable]):focus-visible{outline:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root :is(.qai-box,.qai-inp):focus-within{box-shadow:0 0 0 3.5px rgba(var(--lx-acc-rgb),.22) !important;border-color:transparent !important;}
+/* focus ring only on real controls — menus and lists move focus into themselves when they open */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(a,button,select,summary,input[type="checkbox"],input[type="radio"],input[type="range"]):focus-visible{outline:2px solid rgba(var(--lx-acc-rgb),.7) !important;outline-offset:2px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.qa-menu,.qa-menu-list,.rx-menu,[role="listbox"],[role="menu"],[role="dialog"]):focus-visible{outline:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.qa-menu-opt,.rx-o,[role="option"]):focus-visible{outline:none !important;box-shadow:none !important;background:var(--lx-fill) !important;border-radius:var(--lx-r-sm) !important;}
+
+/* live switch: colours glide instead of snapping */
+html.lx-switching body,html.lx-switching body *{transition:background-color .4s var(--lx-ease,ease),color .4s ease,border-color .4s ease,box-shadow .4s ease !important;}
+
+/* The ✦ switch — visible in every mode; filled with the accent while luxury is on */
+#luxbtn{cursor:pointer;}
+/* never rotates: a tap on a phone leaves the button "hovered", which used to leave the star tilted */
+#luxbtn svg{display:block;transform:none !important;animation:none !important;transition:none !important;}
+#luxbtn:active{transform:scale(.92);}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #luxbtn{background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;border-color:transparent !important;box-shadow:var(--lx-glow) !important;}
+/* luxury replaces the glass/flat switch */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #glassbtn{display:none !important;}
+
+/* Toast (luxury switch feedback) — iOS HUD capsule */
+.lx-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);z-index:2147483000;transform:translate(-50%,10px) scale(.96);
+  opacity:0;pointer-events:none;padding:10px 18px;border-radius:980px;font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  letter-spacing:-.01em;color:#f5f5f7;background:rgba(30,30,32,.82);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:0 10px 30px rgba(0,0,0,.25),0 0 0 .5px rgba(255,255,255,.12) inset;transition:opacity .3s ease,transform .45s cubic-bezier(.2,.8,.2,1);white-space:nowrap;}
+.lx-toast.show{opacity:1;transform:translate(-50%,0) scale(1);}
+html[data-lux-tone="light"] .lx-toast{color:#1d1d1f;background:rgba(255,255,255,.86);box-shadow:0 10px 30px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.08) inset;}
+
+@media (prefers-reduced-motion:reduce){
+  html.lx-switching body,html.lx-switching body *{transition:none !important;}
+  .lx-toast{transition:none;}
+}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(nav .theme-toggle-btn,#luxbtn) svg{color:inherit !important;}
+
+/* ── Language sheet / menu (shared by every page) ── */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu{--qm-acc:var(--lx-acc);--qm-bg:var(--lx-mat-thick);--qm-fg:var(--lx-text);--qm-mute:var(--lx-text-2);--qm-bd:var(--lx-sep-2);--qm-shadow:var(--lx-sh-3);
+  background:var(--lx-mat-thick) !important;-webkit-backdrop-filter:var(--lx-blur) !important;backdrop-filter:var(--lx-blur) !important;border:0 !important;box-shadow:var(--lx-sh-3) !important;
+  color:var(--lx-text) !important;font-family:var(--lx-font) !important;border-radius:var(--lx-r-lg) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu.is-sheet{border-radius:var(--lx-r-lg) var(--lx-r-lg) 0 0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-scrim{background:rgba(0,0,0,.32) !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-grab{background:var(--lx-fill-3) !important;width:36px;height:5px;border-radius:3px;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-head{font-size:20px !important;font-weight:700 !important;letter-spacing:-.025em !important;text-transform:none !important;color:var(--lx-text) !important;padding:13px 21px 8px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-head svg{display:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-list{padding:0 13px 13px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt{border-radius:var(--lx-r-sm) !important;min-height:52px !important;padding:8px 13px !important;margin:0 !important;gap:13px !important;background:none !important;box-shadow:none !important;color:var(--lx-text) !important;font-family:var(--lx-font) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt + .qa-menu-opt{box-shadow:inset 0 .5px 0 var(--lx-sep) !important;border-radius:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt:hover{background:var(--lx-fill) !important;border-radius:var(--lx-r-sm) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt[aria-selected="true"]{background:none !important;color:var(--lx-text) !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt + .qa-menu-opt[aria-selected="true"]{box-shadow:inset 0 .5px 0 var(--lx-sep) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt[aria-selected="true"]::after{color:var(--lx-acc) !important;font-size:17px;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-code{background:var(--lx-fill) !important;border:0 !important;color:var(--lx-text-2) !important;border-radius:var(--lx-r-xs) !important;letter-spacing:.02em !important;font-size:12px !important;font-weight:600 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt[aria-selected="true"] .qa-menu-code{background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-nat{font-size:17px !important;font-weight:500 !important;letter-spacing:-.02em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-sub,html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt[aria-selected="true"] .qa-menu-sub{color:var(--lx-text-2) !important;font-size:13px !important;letter-spacing:-.005em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-beta,html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-menu-opt[aria-selected="true"] .qa-menu-beta{border:0 !important;background:var(--lx-fill) !important;color:var(--lx-text-2) !important;
+  letter-spacing:.01em !important;text-transform:none !important;font-size:11px !important;font-weight:600 !important;padding:3px 8px !important;}
+/* the language button in toolbars */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.qa-langbtn,.qa-lang-compact){border:0 !important;box-shadow:none !important;background:var(--lx-fill) !important;color:var(--lx-text) !important;background-image:none !important;}
+/* the AI button: one luxury gradient everywhere */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-fab{background:var(--lx-btn) !important;border:0 !important;}
+
+/* first paint in luxury: page fades in once the layer is ready (see lux_boot.js) */
+html.lx-boot body{opacity:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) body{transition:opacity .28s ease;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"]{background:#000;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="light"]{background:#f5f5f7;}
+
+/* ═══════════ LUXURY MODE — Nucleus Explorer (nucleus_explorer.html / nucleus_explorer_light.html) ═══════════ */
+html[data-lux="on"]:not(#lx-a):not(#lx-b){
+  --cx:var(--lx-acc);--cx2:var(--lx-acc);--cx3:var(--lx-acc-2);--hi:var(--lx-text);--lo:var(--lx-text-2);--vlo:var(--lx-text-3);
+  --border:var(--lx-sep);--border-hi:var(--lx-sep-2);--radius:var(--lx-r-sm);--display:var(--lx-font);--mono:var(--lx-font);
+  --cx-10:var(--lx-fill);--cx-20:var(--lx-fill-2);
+}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"]{--ember:var(--lx-acc);}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) body::after,html[data-lux="on"]:not(#lx-a):not(#lx-b) body::before{background:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#topbar,#botbar,#elpanel,#legend-pop,#toast,#onboard-card,#statcard) *{text-shadow:none !important;}
+
+/* top + bottom bars */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#topbar,#botbar){background:var(--lx-mat) !important;-webkit-backdrop-filter:var(--lx-blur) !important;backdrop-filter:var(--lx-blur) !important;
+  box-shadow:none !important;background-image:none !important;border-color:var(--lx-sep) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #topbar{border:0 !important;border-bottom:.5px solid var(--lx-sep) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #botbar{border:0 !important;border-top:.5px solid var(--lx-sep) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #tb-title{font-size:15px !important;font-weight:600 !important;letter-spacing:-.02em !important;color:var(--lx-text) !important;text-transform:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #tb-title small{color:var(--lx-text-2) !important;font-weight:400 !important;letter-spacing:-.01em !important;font-size:13px !important;margin-left:4px;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#back-link,#elbtn,#contribute-link,.tgbtn) .full,html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#modelabel,#zoomrow label,#zval,#tb-name){text-transform:none !important;letter-spacing:-.01em !important;}
+
+/* buttons: grey capsules / circles; accent fill when on */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#back-link,#elbtn,#theme-link,#contribute-link,.navbtn,.tgbtn,#luxbtn,#topbar [data-qa-lang-picker] button){
+  background:var(--lx-fill) !important;color:var(--lx-text) !important;border:0 !important;box-shadow:none !important;background-image:none !important;
+  border-radius:var(--lx-pill) !important;font-size:13px !important;font-weight:500 !important;letter-spacing:-.01em !important;min-height:32px;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transition:background .2s ease,transform .25s var(--lx-spring) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#back-link,#elbtn,#theme-link,#contribute-link,.navbtn,.tgbtn):hover{background:var(--lx-fill-2) !important;border-color:transparent !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#back-link,#elbtn,#theme-link,#contribute-link,.navbtn,.tgbtn):active{transform:scale(.95) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#theme-link,.navbtn,#luxbtn,#topbar [data-qa-lang-picker] button){width:32px !important;height:32px !important;min-width:32px;padding:0 !important;border-radius:50% !important;display:inline-flex !important;align-items:center;justify-content:center;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.tgbtn.on,.navbtn.on,.tgbtn[aria-pressed="true"]):is(#actions *,#topbar *,#lx-z){background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.tgbtn.action,#lx-z){background:var(--lx-fill) !important;color:var(--lx-text) !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #tb-badge{background:var(--lx-surface) !important;color:var(--lx-text) !important;border:0 !important;border-radius:var(--lx-r-sm) !important;
+  box-shadow:var(--lx-sh-2) !important;font-weight:700 !important;letter-spacing:-.03em !important;background-image:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #modelabel{background:var(--lx-fill) !important;color:var(--lx-acc) !important;border:0 !important;border-radius:var(--lx-pill) !important;
+  font-size:12px !important;font-weight:600 !important;padding:4px 10px !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #tb-name{font-weight:600 !important;letter-spacing:-.02em !important;color:var(--lx-text) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #infoline{color:var(--lx-text-2) !important;font-size:13px !important;letter-spacing:-.01em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #infoline b{color:var(--lx-text) !important;}
+
+/* composition card: inset grouped card */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #statcard{background:var(--lx-surface) !important;border:0 !important;border-radius:var(--lx-r) !important;box-shadow:var(--lx-sh-2) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;background-image:none !important;overflow:hidden;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] #statcard{box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #stattoggle{background:none !important;border:0 !important;border-bottom:.5px solid var(--lx-sep) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #statcard.collapsed #stattoggle{border-bottom:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .sc-title{font-size:13px !important;font-weight:600 !important;letter-spacing:-.01em !important;text-transform:none !important;color:var(--lx-text) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .sc-sum{color:var(--lx-text-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #statgrid{background:none !important;border:0 !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #statgrid .st{border-left:.5px solid var(--lx-sep) !important;background:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #statgrid .st:first-child{border-left:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #statgrid .st::before{display:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .st-num{font-weight:700 !important;letter-spacing:-.04em !important;color:var(--lx-text) !important;background:none !important;-webkit-text-fill-color:currentColor !important;font-variant-numeric:tabular-nums;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .st-label{font-style:normal !important;color:var(--lx-text-2) !important;text-transform:none !important;letter-spacing:-.005em !important;font-size:12px !important;}
+
+/* zoom slider: the page draws a native slider (only accent-colour), so take over the whole control */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zsl{-webkit-appearance:none !important;appearance:none !important;background:transparent !important;height:28px !important;accent-color:var(--lx-acc);border:0 !important;box-shadow:none !important;padding:0 !important;margin:0 4px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zsl::-moz-range-track{height:4px !important;border-radius:4px !important;background:var(--lx-fill-3) !important;border:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zsl::-moz-range-progress{height:4px !important;border-radius:4px !important;background:var(--lx-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zsl::-webkit-slider-runnable-track{height:4px !important;border-radius:4px !important;background:var(--lx-fill-3) !important;box-shadow:none !important;border:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zsl::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px !important;height:24px !important;margin-top:-10px !important;border-radius:50% !important;background:#fff !important;border:0 !important;
+  box-shadow:0 .5px 4px rgba(0,0,0,.12),0 6px 13px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zsl::-moz-range-thumb{width:24px !important;height:24px !important;border-radius:50% !important;background:#fff !important;border:0 !important;box-shadow:0 .5px 4px rgba(0,0,0,.12),0 6px 13px rgba(0,0,0,.12) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zval{color:var(--lx-text) !important;font-size:13px !important;font-weight:500 !important;background:none !important;border:0 !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zoomrow label{color:var(--lx-text-2) !important;font-size:12px !important;font-weight:500 !important;}
+
+/* element list sheet */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elpanel{background:var(--lx-mat-thick) !important;-webkit-backdrop-filter:var(--lx-blur) !important;backdrop-filter:var(--lx-blur) !important;
+  border:0 !important;border-left:.5px solid var(--lx-sep) !important;box-shadow:var(--lx-sh-3) !important;background-image:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elsearch{background:var(--lx-fill) !important;border:0 !important;border-radius:var(--lx-r-sm) !important;color:var(--lx-text) !important;box-shadow:none !important;font-size:16px !important;letter-spacing:-.02em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elsearch:focus{box-shadow:0 0 0 3.5px rgba(var(--lx-acc-rgb),.3) !important;outline:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elclose{border-radius:50% !important;background:var(--lx-fill) !important;color:var(--lx-text-2) !important;border:0 !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .elrow{border:0 !important;border-radius:var(--lx-r-sm) !important;background:none !important;color:var(--lx-text) !important;letter-spacing:-.01em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .elrow:hover{background:var(--lx-fill) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .elrow .sym{color:var(--lx-acc) !important;font-weight:600 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .elrow .z,html[data-lux="on"]:not(#lx-a):not(#lx-b) .elrow .cnt{color:var(--lx-text-3) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .elrow.active{background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .elrow.active *{color:var(--lx-on-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elpanel-scrim{background:rgba(0,0,0,.28) !important;}
+
+/* legend popover, onboarding card, toast */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#legend-pop,#onboard-card){background:var(--lx-mat-thick) !important;-webkit-backdrop-filter:var(--lx-blur) !important;backdrop-filter:var(--lx-blur) !important;
+  border:0 !important;border-radius:var(--lx-r-lg) !important;box-shadow:var(--lx-sh-3) !important;background-image:none !important;color:var(--lx-text) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #onboard{background:rgba(0,0,0,.3) !important;-webkit-backdrop-filter:blur(6px) !important;backdrop-filter:blur(6px) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #onboard-card h3{font-size:22px !important;font-weight:700 !important;letter-spacing:-.03em !important;color:var(--lx-text) !important;text-transform:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #onboard-card :is(li,p){color:var(--lx-text-2) !important;font-size:15px !important;letter-spacing:-.015em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #onboard-btn{background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;border:0 !important;border-radius:var(--lx-r) !important;
+  min-height:48px;font-size:17px !important;font-weight:600 !important;letter-spacing:-.02em !important;text-transform:none !important;box-shadow:var(--lx-glow) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #onboard-foot{color:var(--lx-text-3) !important;letter-spacing:-.01em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #toast{background:var(--lx-mat-thick) !important;-webkit-backdrop-filter:var(--lx-blur) !important;backdrop-filter:var(--lx-blur) !important;
+  border:0 !important;border-radius:var(--lx-pill) !important;color:var(--lx-text) !important;box-shadow:var(--lx-sh-3) !important;letter-spacing:-.01em !important;text-transform:none !important;}
+
+/* Physicist AI */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root{--q-acc:var(--lx-acc);--q-acc-rgb:var(--lx-acc-rgb);--q-grad:var(--lx-btn);--q-r:var(--lx-r-lg);
+  --q-raise:var(--lx-fill);--q-raise2:var(--lx-fill-2);--q-line:var(--lx-sep);--q-line2:var(--lx-sep-2);
+  --q-ink:var(--lx-text);--q-ink2:var(--lx-text-2);--q-ink3:var(--lx-text-3);--q-shadow:var(--lx-sh-3);}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] .qai-root{--q-surface:#0b0b0c;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="light"] .qai-root{--q-surface:#fbfbfd;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-panel{background:var(--q-surface) !important;}
+
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.theme-toggle-btn,#theme-link,.tgbtn,.navbtn) svg [fill="white"],html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.theme-toggle-btn,#theme-link,.tgbtn,.navbtn) svg [fill="#fff"]{fill:currentColor !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.theme-toggle-btn,#theme-link,.tgbtn,.navbtn) svg [stroke="white"],html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.theme-toggle-btn,#theme-link,.tgbtn,.navbtn) svg [stroke="#fff"]{stroke:currentColor !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#stattoggle,.sc-title)::before{display:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #luxbtn{background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
+
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-title{text-transform:none !important;letter-spacing:-.02em !important;font-size:17px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-head{background:var(--lx-mat) !important;-webkit-backdrop-filter:var(--lx-blur) !important;backdrop-filter:var(--lx-blur) !important;border-bottom:.5px solid var(--lx-sep) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root :is(.qai-iconbtn,#lx-z){background:var(--lx-fill) !important;color:var(--lx-text) !important;box-shadow:none !important;border:0 !important;background-image:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root :is(.qai-iconbtn:hover,#lx-z){background:var(--lx-fill-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root :is(.qai-iconbtn[aria-pressed="true"],#lx-z){background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;}
+
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .sc-sum{font-style:normal !important;letter-spacing:-.005em !important;font-variant-numeric:tabular-nums;font-size:13px !important;}
+/* one control height on the bottom sheet, golden-ratio gaps */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #actions{gap:8px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#actions .navbtn,#actions .tgbtn,#modelabel){height:36px !important;min-height:36px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:5px;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #actions :is(.navbtn,#lx-z){width:36px !important;min-width:36px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #statusrow{gap:8px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #modelabel{display:inline-flex !important;align-items:center !important;padding:0 13px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zoomrow{gap:13px !important;align-items:center !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #zval{background:var(--lx-fill) !important;border-radius:var(--lx-pill) !important;padding:6px 12px !important;white-space:nowrap;}
+@media (max-width:640px){
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#actions .navbtn,#actions .tgbtn,#modelabel){height:40px !important;min-height:40px !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #actions :is(.navbtn,#lx-z){width:40px !important;min-width:40px !important;padding:0 !important;justify-content:center !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #actions :is(.tgbtn,#lx-z){width:40px !important;min-width:40px !important;padding:0 !important;justify-content:center !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #actions .tgbtn .full{display:none !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #actions{flex-wrap:nowrap !important;justify-content:space-between !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#topbar .navbtn,#theme-link,#luxbtn,#topbar [data-qa-lang-picker] button){width:36px !important;height:36px !important;}
+}
+/* nuclear-state chips (ground / vibration / rotation …): neutral pills, filled when selected */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .exc-chip{background:var(--lx-fill) !important;color:var(--lx-text) !important;border:0 !important;border-radius:var(--lx-pill) !important;box-shadow:none !important;
+  background-image:none !important;font-size:13px !important;font-weight:500 !important;letter-spacing:-.01em !important;height:32px !important;min-height:32px;padding:0 13px !important;
+  display:inline-flex !important;align-items:center !important;justify-content:center !important;line-height:1 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .exc-chip:hover{background:var(--lx-fill-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .exc-chip.exc-chip:is(.on,[aria-pressed="true"]){background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .exc-chips{gap:8px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .exc-head{letter-spacing:.01em !important;font-size:12px !important;font-weight:600 !important;color:var(--lx-text-2) !important;}
+</style>
+<!-- /qa-lux:head -->
 </head>
 <body>
 <!-- qa-seo:sr:start -->
@@ -38883,5 +39175,198 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 })();
 /* <<< Quantum Atom: HYPER REALISTIC nucleus view */
 </script>
+<!-- qa-lux:body -->
+<script id="qa-lux-js">
+/* LUXURY MODE — runtime: the ✦ switch next to the glass button, live on/off (no reload), toast,
+   system-bar colour, sentence-case labels on the light landing page, and the light scene background. */
+(function(){
+  'use strict';
+  var root=document.documentElement,PAGE='nucleus',TONE=root.getAttribute('data-lux-tone')||'dark';
+
+  /* ── strings (all app languages) ── */
+  var S={
+    en:{t:'Luxury mode',on:'Luxury mode on',off:'Luxury mode off'},
+    ar:{t:'الوضع الفاخر',on:'الوضع الفاخر مفعّل',off:'الوضع الفاخر متوقف'},
+    bn:{t:'লাক্সারি মোড',on:'লাক্সারি মোড চালু',off:'লাক্সারি মোড বন্ধ'},
+    de:{t:'Luxusmodus',on:'Luxusmodus an',off:'Luxusmodus aus'},
+    el:{t:'Λειτουργία πολυτελείας',on:'Λειτουργία πολυτελείας: ενεργή',off:'Λειτουργία πολυτελείας: ανενεργή'},
+    es:{t:'Modo lujo',on:'Modo lujo activado',off:'Modo lujo desactivado'},
+    fr:{t:'Mode luxe',on:'Mode luxe activé',off:'Mode luxe désactivé'},
+    hi:{t:'लग्ज़री मोड',on:'लग्ज़री मोड चालू',off:'लग्ज़री मोड बंद'},
+    it:{t:'Modalità lusso',on:'Modalità lusso attiva',off:'Modalità lusso disattivata'},
+    ja:{t:'ラグジュアリーモード',on:'ラグジュアリーモード オン',off:'ラグジュアリーモード オフ'},
+    ko:{t:'럭셔리 모드',on:'럭셔리 모드 켜짐',off:'럭셔리 모드 꺼짐'},
+    ru:{t:'Режим «Люкс»',on:'Режим «Люкс» включён',off:'Режим «Люкс» выключен'},
+    zh:{t:'奢华模式',on:'奢华模式已开启',off:'奢华模式已关闭'}
+  };
+  var NS=PAGE==='sim'?'sim':PAGE==='nucleus'?'nucleus':'landing';
+  if(window.QA_I18N&&QA_I18N.add){for(var c in S)QA_I18N.add(c,(function(s){var o={};o[NS+'.lux.t']=s.t;o[NS+'.lux.on']=s.on;o[NS+'.lux.off']=s.off;return o;})(S[c]));}
+  function tr(k){var key=NS+'.lux.'+k;try{var v=qaT(key);if(v&&v!==key)return v;}catch(e){}return S.en[k];}
+
+  function isOn(){return root.getAttribute('data-lux')==='on';}
+
+  /* ── the switch ── */
+  var ICON='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.2c.35 2.9 1.9 4.45 4.8 4.8-2.9.35-4.45 1.9-4.8 4.8-.35-2.9-1.9-4.45-4.8-4.8 2.9-.35 4.45-1.9 4.8-4.8z" fill="currentColor"/><path d="M12.6 10.2c.15 1.2.8 1.85 2 2-1.2.15-1.85.8-2 2-.15-1.2-.8-1.85-2-2 1.2-.15 1.85-.8 2-2z" fill="currentColor" opacity=".75"/></svg>';
+  var btn=document.createElement('button');
+  btn.type='button';btn.id='luxbtn';btn.className='theme-toggle-btn lux-toggle'+(PAGE==='nucleus'?' tgbtn':'');
+  btn.innerHTML=ICON;
+  var anchor=document.getElementById('glassbtn');
+  if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(btn,anchor.nextSibling);
+  else{var na=document.querySelector('.nav-actions,nav>div:last-child,#tabs');if(na)na.appendChild(btn);}
+
+  function sync(){
+    var on=isOn();
+    btn.setAttribute('aria-pressed',on?'true':'false');
+    btn.classList.toggle('active',on);
+    btn.title=tr('t');btn.setAttribute('aria-label',tr('t'));
+    /* status / navigation bar colour of the installed app */
+    var col=on?(TONE==='light'?'#f5f5f7':'#000000'):null;
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){
+      if(!m.hasAttribute('data-lux-orig'))m.setAttribute('data-lux-orig',m.getAttribute('content')||'');
+      m.setAttribute('content',col||m.getAttribute('data-lux-orig'));
+    });
+  }
+
+  /* ── light landing page: its labels are stored in CAPITALS (keys ending _2); luxury shows the
+        sentence-case twin of the same string, in every language, and swaps back when switched off ── */
+  function letters(x){return String(x||'').replace(/<[^>]*>/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');}
+  var KEEP={BCE:1,CE:1,'3D':1,'2D':1,AI:1,DNA:1,RNA:1,QM:1,VSEPR:1,PWA:1,NMR:1,CPK:1,IUPAC:1,GPU:1,UI:1,UX:1,PDF:1,SVG:1,HTML:1,PDB:1};
+  var NAMES={GITHUB:'GitHub'};
+  function sentence(t){
+    var first=true,lang=(root.getAttribute('data-qa-lang')||root.lang||'en').slice(0,2),title=(lang==='de');   /* German capitalises its nouns: use Title Case */
+    return t.replace(/[\p{L}\p{N}][\p{L}\p{N}'’.-]*/gu,function(w){
+      var W=w.toUpperCase(),out;
+      if(KEEP[W]||/\d/.test(w)||w.length===1)out=w;
+      else if(NAMES[W])out=NAMES[W];
+      else{out=w.toLowerCase();if(title)out=out.replace(/(^|-)(\p{L})/gu,function(m,a,c){return a+c.toUpperCase();});else if(first)out=out.charAt(0).toUpperCase()+out.slice(1);}
+      first=false;return out;});
+  }
+  /* labels the page stores in CAPITALS → sentence case while luxury is on (restored exactly when switched off) */
+  var CAPS_SEL={
+    landing:'[data-i18n]',
+    sim:'.cmp-header h3,.lesson-back,.mode-btn,.tab-label,.sk,.hint,.zbar label,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn,.lesson-nav-btn,#emeta,.build-examples-note,.ex-chip',
+    nucleus:'#onboard-card h3,#onboard-btn,#tb-title,#back-link .full,#elbtn .full,.tgbtn .full,#modelabel,#zoomrow label,#zval,#tb-name,#contribute-link .full'
+  }[PAGE];
+  var touched=new Set(),busy=false;
+  function capsPass(){
+    if(!CAPS_SEL||(PAGE==='landing'&&TONE!=='light'))return;
+    busy=true;
+    document.querySelectorAll(CAPS_SEL).forEach(function(el){
+      var w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null),n;
+      while((n=w.nextNode())){
+        var t=n.nodeValue;if(!/\p{Lu}{3}/u.test(t)||t!==t.toUpperCase())continue;
+        if(n.parentNode&&n.parentNode.closest&&n.parentNode.closest('.v2-new,svg,code,.katex'))continue;
+        var v=sentence(t);if(v===t)continue;
+        n.__luxOrig=t;n.__luxMine=v;n.nodeValue=v;touched.add(n);
+      }
+    });
+    busy=false;
+  }
+  function capsRestore(){
+    busy=true;
+    touched.forEach(function(n){if(n.nodeValue===n.__luxMine)n.nodeValue=n.__luxOrig;});
+    touched.clear();busy=false;
+  }
+  /* live text (element meta, zoom value, toggled button labels) is rewritten by the app: follow it */
+  var mo=null,moQ=0;
+  function watch(on){
+    if(mo){mo.disconnect();mo=null;}
+    if(!on||PAGE==='landing'||!window.MutationObserver)return;
+    mo=new MutationObserver(function(){if(busy||moQ)return;moQ=requestAnimationFrame(function(){moQ=0;if(isOn())capsPass();});});
+    ['topbar','botbar','left','right','statcard'].forEach(function(id){var el=document.getElementById(id);if(el)mo.observe(el,{childList:true,subtree:true,characterData:true});});
+  }
+
+  function swapKeys(on){
+    if(PAGE!=='landing'||TONE!=='light'||!window.QA_I18N)return;
+    var en=function(k){try{return QA_I18N.en?QA_I18N.en(k):null;}catch(e){return null;}};
+    document.querySelectorAll(on?'[data-i18n$="_2"]':'[data-lux-key]').forEach(function(el){
+      if(on){
+        var k=el.getAttribute('data-i18n'),base=k.slice(0,-2),a=en(k),b=en(base);
+        if(!a||!b||a===k||b===base)return;
+        if(letters(a)!==letters(b))return;   /* same words — only the capitals (and decoration) differ */
+        el.setAttribute('data-lux-key',k);el.setAttribute('data-i18n',base);
+      }else{el.setAttribute('data-i18n',el.getAttribute('data-lux-key'));el.removeAttribute('data-lux-key');}
+    });
+    try{QA_I18N.applyDom(document,true);}catch(e){}
+  }
+  function caps(on){
+    if(on){swapKeys(true);capsPass();}
+    else{capsRestore();swapKeys(false);}
+    watch(on);
+  }
+
+  /* ── simulator (light): neutral Apple-grey scene instead of lavender, only in the plain view ── */
+  function scene(){
+    if(PAGE!=='sim'||TONE!=='light')return;
+    try{
+      if(typeof getClearColor!=='function'||typeof renderer==='undefined')return;
+      if(!getClearColor.__lux){
+        var orig=getClearColor;
+        getClearColor=function(){var c=orig();return (isOn()&&c===0xf0eeff)?0xf5f5f7:c;};
+        getClearColor.__lux=true;
+      }
+      renderer.setClearColor(getClearColor());
+    }catch(e){}
+  }
+
+  /* ── landing gallery: luxury mockups (images/…-lux-dark.jpg / -lux-light.jpg), originals restored when off ── */
+  var GAL=/(quantum-atom-simulator-(?:3d-electron-cloud|carbon-atom-diffuse-mode|neon-atom-electron-orbitals|water-molecule-h2o|methane-molecule-ch4|iron-atom-d-orbitals|cloud-studio-controls|mobile-app-screens|dark-and-light-themes))(-1200)?\.jpg/g;
+  function gallery(on){
+    if(PAGE!=='landing')return;
+    document.querySelectorAll('#gallery img,#gallery a[href]').forEach(function(el){
+      ['src','srcset','href'].forEach(function(a){
+        var v=el.getAttribute(a);if(!v)return;
+        var keep='data-lux-'+a;
+        if(on){
+          if(!el.hasAttribute(keep)&&/quantum-atom-simulator-/.test(v))el.setAttribute(keep,v);
+          var base=el.getAttribute(keep);if(base)el.setAttribute(a,base.replace(GAL,function(m,n,s){return n+'-lux-'+TONE+(s||'')+'.jpg';}));
+        }else if(el.hasAttribute(keep)){el.setAttribute(a,el.getAttribute(keep));el.removeAttribute(keep);}
+      });
+    });
+  }
+
+  var toastEl=null,toastT=0;
+  function toast(msg){
+    /* simulator + nucleus: use the page's own toast, so it appears where every other message does */
+    var nt=document.getElementById('toast');
+    if(nt&&PAGE!=='landing'){
+      nt.textContent=msg;nt.classList.add('show');clearTimeout(toastT);
+      toastT=setTimeout(function(){nt.classList.remove('show');},1600);return;
+    }
+    if(!toastEl){toastEl=document.createElement('div');toastEl.className='lx-toast';toastEl.setAttribute('role','status');toastEl.setAttribute('aria-live','polite');document.body.appendChild(toastEl);}
+    toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove('show');},1600);
+  }
+
+  function set(on,quiet){
+    root.classList.add('lx-switching');
+    if(on){
+      root.setAttribute('data-lux','on');
+      if(root.getAttribute('data-glass')==='off'){root.setAttribute('data-lux-glass','off');root.removeAttribute('data-glass');}
+      if(!document.getElementById('qa-lux-font')){var l=document.createElement('link');l.rel='stylesheet';l.id='qa-lux-font';
+        l.href='https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap';document.head.appendChild(l);}
+    }else{
+      root.removeAttribute('data-lux');
+      if(root.getAttribute('data-lux-glass')==='off'){root.setAttribute('data-glass','off');root.removeAttribute('data-lux-glass');}
+    }
+    try{localStorage.setItem('qa-lux',on?'on':'off');}catch(e){}
+    caps(on);gallery(on);scene();sync();
+    try{window.dispatchEvent(new Event('resize'));}catch(e){}           /* panels / canvases re-measure */
+    setTimeout(function(){root.classList.remove('lx-switching');},450);
+    if(!quiet)toast(tr(on?'on':'off'));
+  }
+  btn.addEventListener('click',function(){set(!isOn());});
+
+  /* other tabs / windows of the app follow along */
+  window.addEventListener('storage',function(e){if(e.key==='qa-lux')set(e.newValue==='on',true);});
+  window.addEventListener('qa:langchange',function(){sync();if(isOn()){touched.clear();caps(true);}});
+
+  if(isOn()){caps(true);gallery(true);scene();}
+  sync();
+  requestAnimationFrame(function(){root.classList.remove('lx-boot');});
+  /* the 3D scene may be created after this script: catch it once it exists */
+  if(PAGE==='sim'&&TONE==='light'&&isOn()){var n=0,iv=setInterval(function(){scene();if(++n>20)clearInterval(iv);},250);}
+})();
+</script>
+<!-- /qa-lux:body -->
 </body>
 </html>
