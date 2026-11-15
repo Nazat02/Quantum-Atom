@@ -32315,7 +32315,7 @@ html .feat-tag,html .tl-tag,html .prob-solved,html .feat-icon,html .why-icon{ali
   /* ── light landing page: its labels are stored in CAPITALS (keys ending _2); luxury shows the
         sentence-case twin of the same string, in every language, and swaps back when switched off ── */
   function letters(x){return String(x||'').replace(/<[^>]*>/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');}
-  var KEEP={BCE:1,CE:1,'3D':1,'2D':1,AI:1,DNA:1,RNA:1,QM:1,VSEPR:1,PWA:1,NMR:1,CPK:1,IUPAC:1,GPU:1,UI:1,UX:1,PDF:1,SVG:1,HTML:1,PDB:1};
+  var KEEP={BCE:1,CE:1,'3D':1,'2D':1,AI:1,DNA:1,RNA:1,QM:1,VSEPR:1,PWA:1,NMR:1,CPK:1,IUPAC:1,GPU:1,UI:1,UX:1,PDF:1,SVG:1,HTML:1,PDB:1,DFT:1,LDA:1,LSD:1,SIC:1,PBE:1,HF:1,SCF:1,HOMO:1,LUMO:1,NIST:1,CSV:1,JSON:1,UV:1,IR:1};   /* lab acronyms stay capitals (e.g. Arabic titles, which have no case of their own) */
   var NAMES={GITHUB:'GitHub'};
   function sentence(t){
     var first=true,lang=(root.getAttribute('data-qa-lang')||root.lang||'en').slice(0,2),title=(lang==='de');   /* German capitalises its nouns: use Title Case */

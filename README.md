@@ -233,6 +233,38 @@ Inside the scene you can **focus, follow, jump to** a stage, and view **everythi
 #### AI: Physicist AI
 A round **AI button** opens **Physicist AI**, a resident physicist with a personality: grumpy, strict about evidence, funny, and on your side. It **sees what you are looking at** (the element, molecule, nucleus, lesson or settings on screen) and answers in context, typesets equations, draws **interactive 2D and 3D graphs**, can search the web, argues with pseudoscience, and offers **one-tap buttons** that jump you to the right tool. Bring your own key, or run it on a local model. Fully described in [Physicist AI](#-physicist-ai-the-built-in-physicist).
 
+#### Atom DFT panel
+A research-grade calculation for the atom on screen, one tap away (the **DFT** chart button in the toolbar). It runs **Kohn–Sham density functional theory** in the browser, off the main thread, and shows:
+- the **total energy** and its parts (kinetic, electron–nucleus, electron–electron, exchange–correlation, self-interaction correction) in hartree and eV, plus the virial ratio
+- every **orbital energy**, per spin, with the highest occupied orbital marked (its energy approximates the ionization energy)
+- a live **convergence chart** of the self-consistent loop, the **radial electron density** (one peak per shell) and the **screening** curve, the effective nuclear charge seen at each radius
+
+Three methods: **LSD** (spin-polarised), **LDA** (spin-averaged) and **LSD + SIC** (the model behind 99% ACCURATE). LSD and LDA reproduce the **NIST reference data (SRD 141) to within 1 µHa**; all 118 elements, excited states and hypothetical elements converge, typically in under a second. It follows the selected element live and works in all 13 languages.
+
+#### DFT lab: experiments and notebook
+The same panel is also a small virtual lab, with two more tabs:
+- **Ionization energy and electron affinity** for the atom on screen, computed the way researchers do it (ΔSCF: the energy of the ion minus the energy of the atom), shown next to the measured values. Across the first 36 elements the computed ionization energies are within **3 %** of experiment on average, and the electron affinities within **0.27 eV**; atoms that cannot hold an extra electron (helium, nitrogen, the noble gases) are correctly found not to.
+- **Experiments**: run one calculation across any range of the periodic table (ionization energy, electron affinity, or the highest orbital energy) and watch the periodic trends appear point by point, computed against measured. Points far off the method's usual error are flagged, which is where the interesting physics is.
+- **Notebook**: every run you save stays in your browser with its exact inputs, method and engine version. Export it as CSV or JSON, print it as a PDF report, or **copy a link** that lets anyone reopen and rerun the same calculation. Nothing is uploaded.
+
+#### Spectrum: computed light
+The **Spectrum** tab of the same panel turns energy levels into the lines a spectrometer sees, and puts them next to the measured lines from NIST:
+- **Hydrogen** comes out exact: every Lyman, Balmer, Paschen and Brackett line within 0.002 % of the measured one (Balmer-α 656.288 nm computed, 656.285 nm measured), drawn in its true colour.
+- **Lithium, sodium, potassium, rubidium, caesium, copper and silver** are computed with DFT, one self-consistent calculation per energy level. Sodium's yellow D line comes out at 567 nm against the measured 589 nm, and the lines are typically within 4–9 %, which is what this level of theory gives; the view says so, and explains why caesium and copper are harder.
+- An **energy-level diagram** links every line to its two levels; tap a line to see the two orbitals the electron jumps between, and for the main line (sodium 3s → 3p, for example) show that excited atom in 3D.
+- Any other element gets the exact spectrum of its **hydrogen-like ion** (iron's comes out in X-rays).
+- **Rediscover Rydberg**: plot hydrogen's measured lines, fit a straight line by hand, and recover the Rydberg constant to 0.002 %.
+
+#### Molecule DFT
+Open the DFT panel with a molecule on screen and it computes that molecule, in your browser: **Hartree–Fock, LDA, PBE or B3LYP**, in the STO-3G, 6-31G or 6-31G* basis set. You get the total energy, every orbital energy with the **HOMO–LUMO gap**, the **dipole moment** and the **charge on each atom**, plus a live convergence chart. Water takes about a second.
+- The numbers are the same as **PySCF**'s, a standard research code, to 10⁻¹¹ Ha in 108 closed-shell test cases and to 2 × 10⁻⁶ Ha or better in 48 open-shell ones, checked on every upload.
+- Molecules with unpaired electrons (NO, NO₂, ClO₂, and O₂ as a triplet) are computed spin-unrestricted, with the spin on each atom.
+- **Optimise the geometry**: one click moves the atoms to the energy minimum using exact forces, the same as PySCF's to 10⁻⁷ Ha/bohr. Bond lengths are shown before and after.
+- **Vibrations and IR spectrum**: after optimising, see every vibration move in 3D and the computed IR spectrum, the same as PySCF's analytic Hessian to 0.13 cm⁻¹.
+- **See any orbital in 3D**: click a level and it appears as orange and violet lobes (the two signs of ψ) on the molecule, with a slider for the surface value. Water's lone pair, benzene's π orbitals and the π* of NO look as the textbooks draw them, because they are computed, not drawn by hand.
+- Larger molecules (anthracene, pyrene, perylene) work too: integrals that do not fit in memory are recomputed every iteration, with exactly the same result, using every CPU core.
+- It covers hydrogen to argon; for heavier elements, or a molecule that would take more than about 20 minutes on your device, it says why instead of giving a wrong answer.
+
 #### Atomic data panel
 A live **DATA** panel for the selected element: atomic number, electrons, protons, neutrons, period, group, current zoom, visible orbitals, **electron configuration** and **transitions**. See [Data Lab](#d) for the deeper charts.
 
@@ -309,6 +341,13 @@ Pick any two elements ("Choose first element" / "Choose second element") and vie
 
 #### Covalent, ionic and polar bonds
 Bonds render by type: **single, double, triple, intermediate (1.5, resonance-averaged)** and **ionic contact** (dashed electrostatic link). Bond polarity is classified from the electronegativity difference (**nonpolar below 0.4, polar 0.4 to 1.7, ionic-like above 1.7**).
+
+**Ion sizes.** In ionic compounds each ion is drawn at its measured size relative to its partner, from Shannon ionic radii.
+- Na⁺ is 0.56× Cl⁻ (102 vs 181 pm), Li⁺ 0.42×, K⁺ 0.76×, Cs⁺ 1.26× F⁻; all 26 ionic molecules are checked.
+- A neutral Na atom is bigger than a Cl atom, following the periodic-table trend. In NaCl, though, sodium has given its 3s electron to chlorine, so Na⁺ is the smaller one.
+- The ion pair is placed so the two clouds just touch.
+- The electron-configuration line shows the ions, for example Na⁺: 1s²2s²2p⁶ · Cl⁻: 1s²2s²2p⁶3s²3p⁶.
+- The Molecule DFT tab's 3D views follow the same rule: ball size from covalent radii for atoms and ionic radii for ions, in the standard element colours.
 
 ### D
 
@@ -727,6 +766,7 @@ The four quantum numbers, in one line each: **n** sets size and energy, **ℓ** 
 | Display modes | **ANTIMATTER · REAL IMAGE · DIFFUSE · CARTESIAN GRID · SMOOTH ORBITALS · ULTRA · SPHERICAL · EXCITED STATE** (plus **HYPER REALISTIC** in the light build) |
 | Tools | Toolbar icons: Nucleus · Annihilation · Reactions · Compare · Lessons · Recents · Surprise me · Molecule analysis · Colorblind |
 | Share a molecule | Build it, then copy the URL (`?build=…`) |
+| Atom DFT panel | **DFT** chart button in the toolbar · tabs **Atom**, **Molecule**, **Spectrum**, **Experiments**, **Notebook** · **Esc** closes |
 | Luxury mode on / off | **✦** button in the toolbar (every page) |
 
 ### Nucleus Explorer
@@ -779,6 +819,10 @@ Quantum Atom is no longer limited to simplified pictures. In **99% ACCURATE** mo
 - **Angular part:** exact real spherical harmonics for every l.
 - **Molecules:** real molecular orbitals built from those atomic orbitals (σ bond orbitals, VSEPR lone pairs, Hückel π systems), at physical bond lengths.
 - **Ultra mode:** the true 90 % probability boundary surface of each orbital, both phases.
+- **Atom DFT panel:** the same kind of calculation, with every energy shown. Its LSD and LDA results match the NIST reference data (SRD 141) to within 1 µHa for every atom tested.
+- **DFT lab:** ionization energies and electron affinities computed by ΔSCF, checked against measured values on every upload (Z = 1–36: about 3 % and 0.27 eV mean error).
+- **Molecule DFT:** the same numbers as PySCF to 10⁻¹¹ Ha (156 test cases including open-shell molecules, every upload).
+- **Spectra:** hydrogen exact to 0.002 %; one-outer-electron atoms by DFT, typically 4–9 % in wavelength, checked against the NIST tables on every upload.
 - Orbital clouds are **sampled from quantum probability densities**; point density *is* probability density.
 - Electron configurations follow Aufbau, Hund and Pauli, with real exceptions (Cr, Cu).
 - Molecular geometry comes from VSEPR logic; Build-mode results can come from **published PubChem 3D coordinates**.
@@ -849,6 +893,8 @@ Quantum-Atom/
 ├── nucleus_explorer_light.html
 ├── sitemap.xml · robots.txt · 404.html · site.webmanifest · llms.txt   # search & sharing (generated)
 ├── tools/seo/                  # SEO config, generator and validator (see tools/seo/README.md)
+├── tools/dft/                  # QA_DFT engine, Atom DFT panel, DFT lab, spectra, NIST checks (see tools/dft/README.md)
+├── tools/mol/                  # QA_MOL: molecular HF/DFT engine and Molecule tab, validated against PySCF (see tools/mol/README.md)
 ├── tools/lux/                  # ✦ Luxury mode: styles, switch, installer, gallery mockup builder (see tools/lux/README.md)
 └── images/                     # previews, social card, app icons, luxury gallery mockups (*-lux-dark/-lux-light)
 ```
@@ -882,12 +928,18 @@ Quantum-Atom/
 The goal is bigger than a viewer: **a complete virtual physics and chemistry lab in one browser tab**, where everything you can do with an atom, a molecule or a nucleus you can do here, computed rather than drawn. This list is kept up to date as features ship.
 
 **Recently shipped**
+- ✅ **Molecule DFT**: Hartree–Fock, LDA, PBE and B3LYP for molecules in the browser, matching PySCF
+- ✅ **Computed spectra**: hydrogen exact, alkali and coinage metals by DFT, against NIST, with an energy-level diagram, the orbitals of each line and a Rydberg lesson
+- ✅ **DFT lab**: ionization energies and electron affinities by ΔSCF, experiments across the periodic table with outliers flagged, a notebook with CSV / JSON / PDF export and shareable runs
+- ✅ **Atom DFT panel**: Kohn–Sham DFT for any atom, with energies, orbital energies, convergence, density and screening, verified against NIST to 1 µHa
 - ✅ **99% ACCURATE mode**: orbitals solved from the Schrödinger equation in the browser, for atoms and molecules
 - ✅ **Probability-density isosurfaces**: the true 90 % boundary surface of every orbital (Ultra mode)
 - ✅ **✦ Luxury mode**: an Apple-style look for both the dark and the light theme
 - ✅ **13 languages**, switchable instantly
 
 **Next**
+- Line intensities and fine structure in the computed spectra
+- Molecule DFT: thermochemistry, UV-vis spectra (TDDFT), electron density and electrostatic potential surfaces
 - Electron spin visualization in 3D (today spin appears in the orbital box diagrams)
 - High-resolution screenshot export of the 3D scene
 - Performance and quality presets
