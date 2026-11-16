@@ -30247,7 +30247,7 @@ body.hypo-mode a[href*="nucleus_explorer"]{display:none !important;}
   box-shadow: 0 0 16px rgba(255,46,196,.45), 0 0 32px rgba(199,36,255,.28);
 }
 
-#sphericalbtn ,#exactbtn {
+#sphericalbtn ,#exactbtn ,#meshbtn{
   width: 100%;
   text-align: center;
   padding: 10px 12px;
@@ -30266,8 +30266,8 @@ body.hypo-mode a[href*="nucleus_explorer"]{display:none !important;}
   justify-content: center;
   gap: 8px;
 }
-#sphericalbtn:hover ,#exactbtn:hover { background:rgba(153,102,255,.16); color:var(--hi); border-color:rgba(153,102,255,.5); }
-#sphericalbtn.active ,#exactbtn.active {
+#sphericalbtn:hover ,#exactbtn:hover ,#meshbtn:hover{ background:rgba(153,102,255,.16); color:var(--hi); border-color:rgba(153,102,255,.5); }
+#sphericalbtn.active ,#exactbtn.active ,#meshbtn.active{
   background: rgba(153,102,255,.22);
   border-color: #9966ff;
   color: #bb99ff;
@@ -30580,7 +30580,7 @@ input[type=range]::-moz-range-thumb {
 #el-search, #hy-search,
 #build-input,
 .panel-close,
-#realbtn,#diffusebtn,#gridbtn, #smoothbtn, #ultrabtn, #excitedbtn, #antibtn, #sphericalbtn,#exactbtn,
+#realbtn,#diffusebtn,#gridbtn, #smoothbtn, #ultrabtn, #excitedbtn, #antibtn, #sphericalbtn,#exactbtn,#meshbtn,
 .rbtn {
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
@@ -30741,7 +30741,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 :root[data-matter="anti"]{--brand-b:var(--green);}
 :root{--brand-grad:linear-gradient(135deg,var(--brand-a) 0%,var(--brand-b) 100%);}
 
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn){
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn){
   background:var(--brand-grad) !important;
   color:#fff !important;
   border:1px solid rgba(255,255,255,.28) !important;
@@ -30750,15 +30750,15 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
   cursor:pointer;
   transition:filter .15s,transform .15s,box-shadow .15s;
 }
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) svg{color:#fff;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) :is(.lesson-item-title,.lesson-item-count){color:#fff !important;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):hover{filter:brightness(1.1);transform:translateY(-1px);
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) svg{color:#fff;}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) :is(.lesson-item-title,.lesson-item-count){color:#fff !important;}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):hover{filter:brightness(1.1);transform:translateY(-1px);
   box-shadow:0 6px 18px rgba(var(--cyan-rgb),.45),inset 0 1px 0 rgba(255,255,255,.28) !important;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):active{transform:none;filter:brightness(.94);}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):active{transform:none;filter:brightness(.94);}
 /* ON / ACTIVE state: white inner ring + glow, so toggles stay readable */
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):is(.on,.active,[aria-pressed="true"]){
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):is(.on,.active,[aria-pressed="true"]){
   box-shadow:inset 0 0 0 2px #fff,0 0 16px rgba(var(--cyan-rgb),.65) !important;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):disabled{opacity:.4;filter:grayscale(.35);transform:none;cursor:default;}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):disabled{opacity:.4;filter:grayscale(.35);transform:none;cursor:default;}
 
 /* round toolbar icons sit in a clipping scroller: keep their glow tight so it isn't cut off */
 .theme-toggle-btn{box-shadow:0 2px 6px rgba(var(--cyan-rgb),.35),inset 0 1px 0 rgba(255,255,255,.22) !important;}
@@ -30779,10 +30779,10 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
    rule and each toggle falls back to its own legacy colour (Real Image red, Smooth blue, Excited yellow ...). This block
    repeats the same look with plain selectors, so the clicked state is identical everywhere and can never diverge per button.
 ════════════════════════════════ */
-#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,#excitedbtn{background:var(--brand-grad) !important;color:#fff !important;border:1px solid rgba(255,255,255,.28) !important;text-shadow:0 1px 2px rgba(0,0,0,.32);box-shadow:0 3px 12px rgba(var(--cyan-rgb),.32),inset 0 1px 0 rgba(255,255,255,.22) !important;}
-#antibtn:hover,#realbtn:hover,#diffusebtn:hover,#hyperbtn:hover,#gridbtn:hover,#smoothbtn:hover,#ultrabtn:hover,#sphericalbtn:hover,#exactbtn:hover,#excitedbtn:hover{filter:brightness(1.1);}
-#antibtn:active,#realbtn:active,#diffusebtn:active,#hyperbtn:active,#gridbtn:active,#smoothbtn:active,#ultrabtn:active,#sphericalbtn:active,#exactbtn:active,#excitedbtn:active{filter:brightness(.94);}
-#antibtn.active svg,#realbtn.active svg,#diffusebtn.active svg,#hyperbtn.active svg,#gridbtn.active svg,#smoothbtn.active svg,#ultrabtn.active svg,#sphericalbtn.active svg,#exactbtn.active svg,#excitedbtn.active svg,#antibtn svg,#realbtn svg,#diffusebtn svg,#hyperbtn svg,#gridbtn svg,#smoothbtn svg,#ultrabtn svg,#sphericalbtn svg,#exactbtn svg,#excitedbtn svg{color:#fff;}
+#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,#meshbtn,#excitedbtn{background:var(--brand-grad) !important;color:#fff !important;border:1px solid rgba(255,255,255,.28) !important;text-shadow:0 1px 2px rgba(0,0,0,.32);box-shadow:0 3px 12px rgba(var(--cyan-rgb),.32),inset 0 1px 0 rgba(255,255,255,.22) !important;}
+#antibtn:hover,#realbtn:hover,#diffusebtn:hover,#hyperbtn:hover,#gridbtn:hover,#smoothbtn:hover,#ultrabtn:hover,#sphericalbtn:hover,#exactbtn:hover,#meshbtn:hover,#excitedbtn:hover{filter:brightness(1.1);}
+#antibtn:active,#realbtn:active,#diffusebtn:active,#hyperbtn:active,#gridbtn:active,#smoothbtn:active,#ultrabtn:active,#sphericalbtn:active,#exactbtn:active,#meshbtn:active,#excitedbtn:active{filter:brightness(.94);}
+#antibtn.active svg,#realbtn.active svg,#diffusebtn.active svg,#hyperbtn.active svg,#gridbtn.active svg,#smoothbtn.active svg,#ultrabtn.active svg,#sphericalbtn.active svg,#exactbtn.active svg,#meshbtn.active svg,#excitedbtn.active svg,#antibtn svg,#realbtn svg,#diffusebtn svg,#hyperbtn svg,#gridbtn svg,#smoothbtn svg,#ultrabtn svg,#sphericalbtn svg,#exactbtn svg,#meshbtn svg,#excitedbtn svg{color:#fff;}
 </style>
 
 <style id="on-state-dark">
@@ -30791,11 +30791,11 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
    black fill + 2px orange outline + orange label, no glow  (the look the Cartesian Grid button has).
    Off = solid orange fill. Covers all mode toggles plus the segmented / round toggles that use .on / .active / aria-pressed.
 ════════════════════════════════ */
-#antibtn.active,#realbtn.active,#diffusebtn.active,#hyperbtn.active,#gridbtn.active,#smoothbtn.active,#ultrabtn.active,#sphericalbtn.active,#exactbtn.active,#excitedbtn.active,#antibtn.on,#realbtn.on,#diffusebtn.on,#hyperbtn.on,#gridbtn.on,#smoothbtn.on,#ultrabtn.on,#sphericalbtn.on,#exactbtn.on,#excitedbtn.on,#antibtn[aria-pressed="true"],#realbtn[aria-pressed="true"],#diffusebtn[aria-pressed="true"],#hyperbtn[aria-pressed="true"],#gridbtn[aria-pressed="true"],#smoothbtn[aria-pressed="true"],#ultrabtn[aria-pressed="true"],#sphericalbtn[aria-pressed="true"],#exactbtn[aria-pressed="true"],#excitedbtn[aria-pressed="true"],
+#antibtn.active,#realbtn.active,#diffusebtn.active,#hyperbtn.active,#gridbtn.active,#smoothbtn.active,#ultrabtn.active,#sphericalbtn.active,#exactbtn.active,#meshbtn.active,#excitedbtn.active,#antibtn.on,#realbtn.on,#diffusebtn.on,#hyperbtn.on,#gridbtn.on,#smoothbtn.on,#ultrabtn.on,#sphericalbtn.on,#exactbtn.on,#meshbtn.on,#excitedbtn.on,#antibtn[aria-pressed="true"],#realbtn[aria-pressed="true"],#diffusebtn[aria-pressed="true"],#hyperbtn[aria-pressed="true"],#gridbtn[aria-pressed="true"],#smoothbtn[aria-pressed="true"],#ultrabtn[aria-pressed="true"],#sphericalbtn[aria-pressed="true"],#exactbtn[aria-pressed="true"],#meshbtn[aria-pressed="true"],#excitedbtn[aria-pressed="true"],
 :is(.mode-btn,.rbtn,.tab,.theme-toggle-btn,#dtune .dt-btn,#_x):is(.on,.active,[aria-pressed="true"]){
   background:#000 !important;background-image:none !important;color:var(--cyan) !important;
   border:2px solid var(--cyan) !important;box-shadow:none !important;text-shadow:none !important;}
-#antibtn.active:hover,#realbtn.active:hover,#diffusebtn.active:hover,#hyperbtn.active:hover,#gridbtn.active:hover,#smoothbtn.active:hover,#ultrabtn.active:hover,#sphericalbtn.active:hover,#exactbtn.active:hover,#excitedbtn.active:hover,#antibtn.on:hover,#realbtn.on:hover,#diffusebtn.on:hover,#hyperbtn.on:hover,#gridbtn.on:hover,#smoothbtn.on:hover,#ultrabtn.on:hover,#sphericalbtn.on:hover,#exactbtn.on:hover,#excitedbtn.on:hover,
+#antibtn.active:hover,#realbtn.active:hover,#diffusebtn.active:hover,#hyperbtn.active:hover,#gridbtn.active:hover,#smoothbtn.active:hover,#ultrabtn.active:hover,#sphericalbtn.active:hover,#exactbtn.active:hover,#meshbtn.active:hover,#excitedbtn.active:hover,#antibtn.on:hover,#realbtn.on:hover,#diffusebtn.on:hover,#hyperbtn.on:hover,#gridbtn.on:hover,#smoothbtn.on:hover,#ultrabtn.on:hover,#sphericalbtn.on:hover,#exactbtn.on:hover,#meshbtn.on:hover,#excitedbtn.on:hover,
 :is(.mode-btn,.rbtn,.tab,.theme-toggle-btn,#dtune .dt-btn,#_x):is(.on,.active,[aria-pressed="true"]):hover{
   background:#140700 !important;filter:none !important;transform:none !important;box-shadow:none !important;}
 </style>
@@ -30934,7 +30934,7 @@ body::after{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
 .cmp-pickers select,.dl-sel{background:var(--g-fill);border-color:var(--g-edge);border-radius:10px;min-height:42px;}
 
 /* Buttons keep brand gradient, gain gloss */
-:is(.mode-btn,#dtune .dt-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn){
+:is(.mode-btn,#dtune .dt-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn){
   border-radius:12px !important;min-height:42px;}
 .mode-btn{min-height:40px;}
 .theme-toggle-btn{width:38px;height:38px;}
@@ -31015,7 +31015,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:2px solid rgba
 /* ── Perf: cheaper blur on phones, no blur on tiny chrome there ── */
 @media (max-width:760px){
   :root{--glass-blur:blur(14px) saturate(160%);}
-  #esym-badge,#el-search, #hy-search,#build-input,.panel-close,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.rbtn{
+  #esym-badge,#el-search, #hy-search,#build-input,.panel-close,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.rbtn{
     -webkit-backdrop-filter:none;backdrop-filter:none;}
 }
 @media (hover:none){.ebtn:hover,.mcard:hover,.lesson-item:hover{transform:none;}}
@@ -31060,14 +31060,14 @@ html[data-glass="off"] :is(.ebtn:hover,.mcard:hover,.ex-chip:hover,.lesson-item:
 html[data-glass="off"] :is(#el-search:focus, #hy-search:focus,#build-input:focus){border-color:var(--cyan) !important;box-shadow:none !important;outline:2px solid var(--cyan);outline-offset:1px;}
 html[data-glass="off"] :is(.egrid,.mgrid){gap:6px;}
 /* buttons / selected: solid flat orange, black or white label, no gloss/glow */
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn,.ebtn.on,.mcard.on,.bsel-opt[aria-selected="true"]){
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn,.ebtn.on,.mcard.on,.bsel-opt[aria-selected="true"]){
   background-image:none !important;}
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.theme-toggle-btn,.panel-close,.cmp-close,.tab){
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.theme-toggle-btn,.panel-close,.cmp-close,.tab){
   background:var(--cyan) !important;border:1px solid var(--cyan) !important;box-shadow:none !important;color:#fff !important;text-shadow:none !important;}
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.lesson-nav-btn,.theme-toggle-btn,.panel-close,.cmp-close,.tab):hover{
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.theme-toggle-btn,.panel-close,.cmp-close,.tab):hover{
   background:#ff7a1a !important;border-color:#ff7a1a !important;box-shadow:none !important;transform:none !important;filter:none !important;}
 /* "on" state = inverted (black fill, orange outline) so it's still obvious without glow */
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.theme-toggle-btn):is(.on,.active,[aria-pressed="true"]){
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.theme-toggle-btn):is(.on,.active,[aria-pressed="true"]){
   background:#000 !important;color:var(--cyan) !important;border:2px solid var(--cyan) !important;box-shadow:none !important;}
 /* #qa-spec never matches: it only lifts this rule above the tile rule, whose :is() list contains IDs (#el-search…) and so out-ranked every .on state — selected tiles turned plain white */
 html[data-glass="off"] :is(.ebtn.on,.mcard.on,.bsel-opt[aria-selected="true"],#qa-spec){
@@ -31989,7 +31989,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) body::after{background:none !important
 /* ── shared label voice: no terminal caps, no letter-spacing, sentence case where the markup allows ── */
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#topbar,#botbar,#left,#right,.compare-card,.bsel-panel,.dl-sheet,#toast) *{text-shadow:none !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.panel-title,.ptitle,#topbar-logo-name,.tab,.tab-label,.mode-btn,.hint,.zbar label,.sk,.sv,#emeta,#zval,.rbtn,
-  #realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,.dt-btn,.lesson-nav-btn,.ex-chip,
+  #realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.dt-btn,.lesson-nav-btn,.ex-chip,
   .an-section-title,.an-unit-btn,.cmp-row,.dl-chip,.lesson-item,.build-examples-note,#build-status){letter-spacing:-.01em !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #ename{text-transform:lowercase !important;display:block !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #ename::first-letter{text-transform:uppercase !important;}
@@ -32088,18 +32088,18 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.orow,.ex-chip,#build-status,.less
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .ex-chip:hover,html[data-lux="on"]:not(#lx-a):not(#lx-b) .lesson-item:hover{background:var(--lx-surface-2) !important;}
 
 /* view-mode switches (Antimatter, Real image, Diffuse, Grid …): neutral rows, accent fill when on */
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn,.lesson-nav-btn){
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn,.lesson-nav-btn){
   background:var(--lx-surface) !important;color:var(--lx-text) !important;border:0 !important;border-radius:var(--lx-r) !important;min-height:44px !important;
   box-shadow:var(--lx-sh-1) !important;background-image:none !important;font-size:15px !important;font-weight:500 !important;text-transform:none !important;
   transform:none !important;filter:none !important;justify-content:flex-start !important;padding:0 13px !important;gap:10px !important;transition:background .2s ease,transform .25s var(--lx-spring) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn,.lesson-nav-btn){box-shadow:none !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn):active{transform:scale(.98) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn) svg{color:var(--lx-acc) !important;stroke:currentColor;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]){
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn,.lesson-nav-btn){box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):active{transform:scale(.98) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn) svg{color:var(--lx-acc) !important;stroke:currentColor;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]){
   background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]) svg{color:var(--lx-on-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]) svg{color:var(--lx-on-acc) !important;}
 /* primary actions stay filled with the brand colour */
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.rbtn,#build-go,.lesson-nav-btn.primary){background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;border:0 !important;
   border-radius:var(--lx-pill) !important;box-shadow:var(--lx-glow) !important;background-image:var(--lx-btn) !important;font-weight:600 !important;font-size:14px !important;
@@ -32600,6 +32600,10 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) #dtune #dtune .dt-presets,html[data-lu
       <button data-i18n-attr="title:sim.exactbtn.title" id="exactbtn" title="Draw every orbital from its real wavefunction ψ = R(r)·Y(θ,φ): exact for hydrogen, self-consistent numerical solution for every other atom. Off = the classic simplified shapes.">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7.6"/><path d="M3.4 9c1.1-2.4 2.3-2.4 3.4 0s2.3 2.4 3.4 0 2.3-2.4 3.4 0"/></svg></span>
         <span data-i18n="sim.exactbtn.accurate_mode">99% ACCURATE</span>
+      </button>
+      <button id="meshbtn" style="display:none" title="Mesh: orbital surfaces drawn as a clean wireframe grid (no glow overlap). Available in 99% Accurate mode.">
+        <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7.4"/><ellipse cx="9" cy="9" rx="3.1" ry="7.4"/><path d="M1.6 9h14.8M2.9 5.1c3.8 1.6 8.4 1.6 12.2 0M2.9 12.9c3.8-1.6 8.4-1.6 12.2 0"/></svg></span>
+        <span>MESH</span>
       </button>
       <button id="excitedbtn">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="currentColor" stroke="none"><path d="M9.8 1L3.6 10.4h3.7L6.4 17l7.9-9.9H10.7L11.6 1z"/></svg></span>
@@ -46871,7 +46875,7 @@ let curMoleculeKey=null;
 
 function buildAtom(Z){
   moleculePointScale = 1; // single-atom view always renders at full designed density
-  orbitalMeshLOD = 1; // single-atom view always renders at full mesh resolution
+  orbitalMeshLOD = qaMeshQuality(); // single-atom view renders at full mesh resolution (higher in Real Image + Mesh)
   ultraMeshes = [];
   grainyMaterials = [];
   _sharedGrainyMat = null; _sharedSmoothMat = null; _sharedDiffuseMat = null;
@@ -52766,6 +52770,7 @@ document.getElementById('rbtn').onclick=()=>{
 // backdrop stays consistent with the orbitals for whichever matter state
 // is active.
 function getClearColor(){
+  if(typeof qaMeshClear==='function'){ const _qm=qaMeshClear(); if(_qm!==null) return _qm; }
   if(diffuseMode) return antimatterMode?0x00040d:0x040100;
   if(ultraMode) return antimatterMode?0x000c1f:0x0a0200;
   if(realMode)  return antimatterMode?0x000814:0x020100;
@@ -53008,6 +53013,181 @@ if(exactbtn) exactbtn.onclick=()=>{
   if(exactMode){ qaSetExact(false); return; }
   qaExactNotice(function(){ qaSetExact(true); });
 };
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// MESH MODE (only offered while 99% ACCURATE is on)
+// Every orbital surface (atoms, molecules, bonds, pi lobes, MO isosurfaces)
+// is drawn as a wireframe grid instead of an additive glow, so overlapping
+// shells never blow out to white. All orbital meshes are created through
+// bubbleMat(), so Mesh swaps that one material and forces the existing
+// solid-mesh builders (the Ultra paths) for the duration of each build.
+// Real Image + Mesh = red palette at a finer grid and higher mesh LOD.
+// ═══════════════════════════════════════════════════════════════════════
+var QA_MESH_LIGHT = false;
+var meshMode = false;
+const meshbtn = document.getElementById('meshbtn');
+const QA_MESH_VERT = 'varying vec3 vP;varying vec3 vN;varying vec3 vV;varying vec3 vO;varying vec2 vUv;void main(){vUv=uv;vP=position;vO=normal;vec4 mv=modelViewMatrix*vec4(position,1.0);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}';
+// Surface-following grid (not a world-axis Cartesian grid):
+//  mode 0 = the surface's own UV parametrisation (lathe lobes, spheres, tori): clean quads, meridians + rings
+//  mode 1 = polar grid (latitude / longitude / radial shells) about the surface's own centre: isosurfaces, MOs
+// Lines are anti-aliased in screen space (constant ~1px width at any zoom / DPI), fade into a soft fill
+// when cells get too small (no moire), and back faces are dimmed so the depth reads clearly.
+const QA_MESH_FRAG = 'precision highp float;uniform vec3 uColor;uniform vec3 uColor2;uniform vec3 uC;uniform vec3 uG;uniform float uMode;uniform float uW;uniform float uFill;uniform float uLineA;'
+ + 'varying vec3 vP;varying vec3 vN;varying vec3 vV;varying vec3 vO;varying vec2 vUv;'
+ + 'float qLine(float g,float fw){float f=max(fw,1e-5);float d=abs(fract(g-0.5)-0.5)/f;return 1.0-smoothstep(uW-0.7,uW+0.7,d);}'
+ + 'float qLod(float fw){return clamp(1.0-(fw-0.20)/0.30,0.0,1.0);}'
+ + 'void main(){'
+ + 'float line=0.0;float lodm=1.0;float gt0=0.0;'
+ + 'if(uMode<0.5){'
+ +   'float g1=vUv.x*uG.x;float g2=vUv.y*uG.y;float f1=fwidth(g1);float f2=fwidth(g2);'
+ +   'float l1=qLod(f1);float l2=qLod(f2);'
+ +   'line=max(qLine(g1,f1)*l1,qLine(g2,f2)*l2);lodm=min(l1,l2);gt0=vUv.y;'
+ + '}else{'
+ +   'vec3 p=vP-uC;float r=max(length(p),1e-5);float rho=max(length(p.xy),1e-5);'
+ +   'float th=acos(clamp(p.z/r,-1.0,1.0));float ph=atan(p.y,p.x);'
+ +   'float gt=th*0.31830989*uG.x;float gp=ph*0.15915494*(uG.x*2.0);float gr=r/uG.z;'
+ +   'float ft=fwidth(gt);float fp=min(fwidth(gp),fwidth(fract(gp+0.5)));float fr=fwidth(gr);'
+ +   'vec3 n=normalize(vO);vec3 rh=p/r;vec3 ph3=vec3(-p.y,p.x,0.0)/rho;vec3 th3=normalize(cross(ph3,rh));'
+ +   'float wr=1.0-smoothstep(0.55,0.85,abs(dot(n,rh)));float wt=1.0-smoothstep(0.55,0.85,abs(dot(n,th3)));float wp=1.0-smoothstep(0.55,0.85,abs(dot(n,ph3)));'
+ +   'float lt=qLod(ft);float lp=qLod(fp);float lr=qLod(fr);'
+ +   'line=max(qLine(gt,ft)*lt*wt,max(qLine(gp,fp)*lp*wp,qLine(gr,fr)*lr*wr));lodm=min(lt,min(lp,lr));gt0=length(vP)/max(uG.y,1e-4);'
+ + '}'
+ + 'float rim=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.5);'
+ + 'float face=gl_FrontFacing?1.0:0.55;vec3 col=mix(uColor,uColor2,smoothstep(0.0,1.0,clamp(gt0,0.0,1.0)));'
+ + 'float a=max(line*uLineA*face,uFill*(0.45+rim)*face+(1.0-lodm)*0.16);'
+ + 'if(a<0.01)discard;gl_FragColor=vec4(col*(0.9+0.25*rim),a);}';
+
+function qaMeshActive(){ return meshMode && typeof exactMode!=='undefined' && exactMode; }
+function qaMeshQuality(){ return qaMeshActive() ? (realMode ? 2.25 : 1.75) : 1; }
+function qaMeshClear(){
+  if(!qaMeshActive()) return null;
+  if(QA_MESH_LIGHT) return realMode ? (antimatterMode?0xeef5ff:0xfff3ef) : 0xf3f5fc;
+  return realMode ? (antimatterMode?0x02060f:0x0b0203) : 0x04060c;
+}
+// Theme-aware line color: deepened on the light page, lifted on the dark page;
+// Real Image (matter) is pushed to a clean red, antimatter keeps its blue family.
+function qaMeshColor(rgb){
+  var r=rgb[0], g=rgb[1], b=rgb[2], lum=0.299*r+0.587*g+0.114*b, k;
+  if(QA_MESH_LIGHT){
+    r*=0.72; g*=0.72; b*=0.72; lum*=0.72;
+    k = lum>0.42 ? 0.42/lum : 1; r*=k; g*=k; b*=k;
+    if(realMode && !antimatterMode){ r=Math.max(r,0.62); g*=0.35; b*=0.40; }
+  }else{
+    k = lum<0.55 ? Math.min(0.55/Math.max(lum,0.02),2.2) : 1;
+    r=Math.min(1,r*k); g=Math.min(1,g*k); b=Math.min(1,b*k);
+    if(realMode && !antimatterMode){ r=1; g=Math.min(g,0.14); b=Math.min(b,0.14); }
+  }
+  return [r,g,b];
+}
+var _qaBubbleMat = bubbleMat;
+bubbleMat = function(rgb, alpha, rimPow){
+  if(!qaMeshActive()) return _qaBubbleMat(rgb, alpha, rimPow);
+  var c=qaMeshColor(rgb);
+  var m=new THREE.ShaderMaterial({
+    vertexShader:QA_MESH_VERT, fragmentShader:QA_MESH_FRAG, extensions:{derivatives:true},
+    uniforms:{ uColor:{value:new THREE.Color(c[0],c[1],c[2])}, uColor2:{value:new THREE.Color(c[0],c[1],c[2])}, uMode:{value:1}, uC:{value:new THREE.Vector3()}, uG:{value:new THREE.Vector3(24,48,0.2)}, uW:{value:1},
+               uFill:{value:QA_MESH_LIGHT?0.12:0.10}, uLineA:{value:1.0} },
+    transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.NormalBlending
+  });
+  m.userData.qaMesh=true;
+  return m;
+};
+// Higher mesh resolution for molecules in Real Image + Mesh (atoms: see qaMeshQuality in buildAtom).
+var _qaComputeLOD = computeOrbitalMeshLOD;
+computeOrbitalMeshLOD = function(n){ var v=_qaComputeLOD(n); return qaMeshActive() ? (realMode ? Math.min(2.4,v*1.9) : Math.min(2.0,v*1.6)) : v; };
+
+// After a build: give each surface its own grid cell size (relative to the surface's
+// own extent, so a 1s shell and a 5p lobe both read as a grid) and soften nucleus glow.
+// Colour ramps for Mesh mode: every surface is ranked by size (inner shells first) and given its own
+// position on a ramp, then a second colour further along the ramp makes a gradient across each surface.
+// Real Image matter = gold > orange > red > crimson > wine; antimatter = ice > azure > blue > indigo > violet.
+var QA_RAMP_M=[[1.0,0.88,0.38],[1.0,0.52,0.10],[1.0,0.16,0.07],[0.82,0.03,0.17],[0.55,0.0,0.27]];
+var QA_RAMP_A=[[0.82,1.0,1.0],[0.26,0.84,1.0],[0.12,0.52,1.0],[0.32,0.24,0.96],[0.60,0.14,0.85]];
+function qaRamp(r,s){ s=Math.max(0,Math.min(1,s))*(r.length-1); var i=Math.min(r.length-2,Math.floor(s)), f=s-i;
+  return [0,1,2].map(function(k){ return r[i][k]+(r[i+1][k]-r[i][k])*f; }); }
+// keep every colour readable on the current page: lift dark ones on the dark page, deepen bright ones on the light page
+function qaFit(c){
+  var lum=0.299*c[0]+0.587*c[1]+0.114*c[2], k=1;
+  if(QA_MESH_LIGHT){ c=c.map(function(v){return v*0.8;}); lum*=0.8; if(lum>0.46) k=0.46/lum; }
+  else if(lum<0.42){ k=Math.min(0.42/Math.max(lum,0.02),2.6); }
+  return c.map(function(v){ return Math.min(1,v*k); });
+}
+function qaMeshPost(){
+  if(!qaMeshActive()) return;
+  var nu=realMode?56:40, nth=realMode?32:26, w=realMode?0.85:1.0;
+  var surf=[];
+  pivot.traverse(function(o){
+    var m=o.material; if(!m||(o.userData&&o.userData.isAtomLabel)) return;
+    if(o.isMesh && m.userData && m.userData.qaMesh){
+      var geo=o.geometry; if(!geo.boundingSphere) geo.computeBoundingSphere();
+      var bs=geo.boundingSphere; if(!bs||!(bs.radius>0)) return;
+      surf.push({o:o,m:m,geo:geo,bs:bs,ext:(bs.center.length()+bs.radius)*(o.scale?o.scale.x:1)});
+    }else if(o.isMesh && m.isMeshBasicMaterial && m.side===THREE.BackSide && m.transparent && !m.userData.qaDim){
+      m.opacity*=0.35; m.userData.qaDim=true;           // nucleus halo shells
+    }else if(o.isSprite && m.blending===THREE.AdditiveBlending && !m.userData.qaDim){
+      var sc=m.clone(); sc.opacity=Math.min(sc.opacity,0.4); sc.userData.qaDim=true; o.material=sc;
+    }
+  });
+  var n=surf.length; if(!n) return;
+  surf.slice().sort(function(a,b){ return a.ext-b.ext; }).forEach(function(e,i){ e.rank=i; });
+  surf.forEach(function(e){
+    var o=e.o, geo=e.geo, bs=e.bs, s=n>1 ? e.rank/(n-1) : 0.35;
+    var mm=e.m.clone(); mm.userData.qaMesh=false;       // own copy: lobes of one orbital share a material but not a size
+    mm.uniforms.uW.value=w;
+    var cA, cB;
+    if(realMode){                                       // red (matter) / blue (antimatter) family, but a clear gradient
+      var ramp=antimatterMode?QA_RAMP_A:QA_RAMP_M;
+      cA=qaFit(qaRamp(ramp,s-0.10)); cB=qaFit(qaRamp(ramp,s+0.16));
+    }else{                                              // keep the orbital's own hue, spread shells around it
+      var base=e.m.uniforms.uColor.value, hsl={}; base.getHSL(hsl);
+      var hA=(hsl.h+(s-0.5)*0.26+1)%1, hB=(hsl.h+(s-0.5)*0.26+0.12+1)%1, sat=Math.min(1,Math.max(hsl.s,0.55)+0.1);
+      var A=new THREE.Color().setHSL(hA,sat,QA_MESH_LIGHT?0.34:0.62-0.08*s);
+      var B=new THREE.Color().setHSL(hB,sat,QA_MESH_LIGHT?0.42:0.72);
+      cA=[A.r,A.g,A.b]; cB=[B.r,B.g,B.b];
+    }
+    mm.uniforms.uColor.value.setRGB(cA[0],cA[1],cA[2]); mm.uniforms.uColor2.value.setRGB(cB[0],cB[1],cB[2]);
+    if(geo.attributes && geo.attributes.uv){            // lathe / sphere / torus: grid follows the surface's own UV quads
+      if(!geo.boundingBox) geo.computeBoundingBox();
+      var bb=geo.boundingBox, sx=bb.max.x-bb.min.x, sy=bb.max.y-bb.min.y, sz=bb.max.z-bb.min.z;
+      var rad=Math.max(sx,sz)/2, nv=Math.round(nu*sy/(2*Math.PI*Math.max(rad,1e-6)));
+      mm.uniforms.uMode.value=0; mm.uniforms.uG.value.set(nu, Math.max(6,Math.min(72,nv)), 1);
+    }else{                                              // isosurfaces / MOs: polar grid about the surface's own centre
+      mm.uniforms.uMode.value=1; mm.uniforms.uC.value.copy(bs.center);
+      mm.uniforms.uG.value.set(nth, bs.center.length()+bs.radius, Math.PI*bs.radius/nth);
+    }
+    o.material=mm; o.renderOrder=n-e.rank;              // big shells first, inner shells drawn on top: every orbital stays visible
+  });
+}
+function qaMeshBuild(orig){
+  return function(){
+    if(!qaMeshActive()) return orig.apply(this, arguments);
+    var u=ultraMode, s=smoothMode; ultraMode=true; smoothMode=false;
+    try{ return orig.apply(this, arguments); }
+    finally{ ultraMode=u; smoothMode=s; qaMeshPost(); }
+  };
+}
+buildAtom = qaMeshBuild(buildAtom);
+buildMolecule = qaMeshBuild(buildMolecule);
+
+function qaMeshSync(){
+  if(!meshbtn) return;
+  var on = typeof exactMode!=='undefined' && exactMode;
+  meshbtn.style.display = on ? '' : 'none';
+  if(!on && meshMode){ meshMode=false; meshbtn.classList.remove('active'); renderer.setClearColor(getClearColor()); }
+}
+if(meshbtn){
+  meshbtn.onclick=()=>{
+    if(!qaMeshActive() && !(typeof exactMode!=='undefined' && exactMode)) return;
+    meshMode=!meshMode;
+    meshbtn.classList.toggle('active',meshMode);
+    renderer.setClearColor(getClearColor());
+    showToast(meshMode?'MESH ON':'MESH OFF');
+    if(typeof ReactionMode!=='undefined'&&ReactionMode.isActive&&ReactionMode.isActive())ReactionMode.reload(); else deferRebuild();
+  };
+  if(exactbtn) new MutationObserver(qaMeshSync).observe(exactbtn,{attributes:true,attributeFilter:['class']});
+  qaMeshSync();
+}
 
 const excitedbtn=document.getElementById('excitedbtn');
 excitedbtn.onclick=()=>{
@@ -55933,8 +56113,11 @@ const ReactionMode=(function(){
   }
   function freeAtomGroup(Z){
     moleculePointScale=1;
-    const g=new THREE.Group();
-    for(const orb of getEffectiveConfig(Z))g.add(ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e));
+    const g=new THREE.Group(),mesh=rxMesh(),u0=ultraMode,s0=smoothMode;
+    if(mesh){ultraMode=true;smoothMode=false;}   // Mesh mode builds Ultra surfaces, then re-skins them as the wire grid (same as the atom view)
+    try{for(const orb of getEffectiveConfig(Z))g.add(ultraMode?buildUltraCloud(orb):smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e));}
+    finally{ultraMode=u0;smoothMode=s0;}
+    if(mesh){pivot.add(g);try{qaMeshPost();}finally{pivot.remove(g);}}
     return g;
   }
   function moleculeSubs(mol){   // runs buildMoleculeImpl in isolation and returns the per-atom groups
@@ -55942,9 +56125,9 @@ const ReactionMode=(function(){
     atomGrp=null;
     const temp=!MOLECULES.includes(mol); if(temp)MOLECULES.push(mol);
     try{
-      buildMoleculeImpl(mol.key);
+      {const mesh=rxMesh(),u0=ultraMode,s0=smoothMode;if(mesh){ultraMode=true;smoothMode=false;}try{buildMoleculeImpl(mol.key);}finally{ultraMode=u0;smoothMode=s0;}if(mesh)qaMeshPost();}
       const b=atomGrp,subs=b.children.filter(c=>c.isGroup).slice(0,mol.atoms.length);
-      const ringSet=new Set(aromaticRingGroup),keep=new Set(subs),hasPts=c=>{let f=false;c.traverse(o=>{if(o.isPoints)f=true;});return f;};
+      const ringSet=new Set(aromaticRingGroup),keep=new Set(subs),hasPts=c=>{let f=false;c.traverse(o=>{if(o.isPoints||(o.isMesh&&o.material&&o.material.isShaderMaterial&&!o.userData.isAtomLabel))f=true;});return f;};
       const extras=b.children.filter(c=>!keep.has(c)&&(ringSet.has(c)||hasPts(c)));   // shared π clouds (aromatic ring, C=C lobes, C≡C spindle)
       subs.forEach(s=>b.remove(s)); extras.forEach(e=>b.remove(e)); pivot.remove(b); disposeTree(b);
       aromaticRingGroup=[];subs.extras=extras;subs.ringSet=ringSet;
@@ -56082,6 +56265,36 @@ const ReactionMode=(function(){
   }
 
   /* ================= fallback (Smooth/Ultra): cross-fade ================= */
+  const rxMesh=()=>typeof qaMeshActive==='function'&&qaMeshActive();
+  /* Ultra / Mesh surfaces get the same fluid deformation as the point clouds: the vertex shader is patched to displace every
+     vertex (twist about the strongest bond axis, divergence-free swirl, teardrop pull that bulges sideways, saturating cap).
+     One shared uniform set per atom cloud, so all of its shells deform together. Returns {hu,R} or null if nothing was patchable. */
+  function rxFluidify(root){
+    const hu={uNb:{value:Array.from({length:8},()=>new THREE.Vector4())},uNn:{value:0},uAmp:{value:1},uSig:{value:1},uRv:{value:1},uFl:{value:0},uTime:{value:0}};
+    const seen=new Set(),re=/modelViewMatrix\s*\*\s*vec4\(\s*position\s*,\s*1\.0\s*\)/,mn=/void\s+main\s*\(\s*\)\s*\{/;let any=false,R=0;
+    root.traverse(o=>{
+      if(!o.isMesh||!o.material||Array.isArray(o.material)||!o.material.isShaderMaterial)return;
+      const m=o.material,g=o.geometry;
+      if(g){if(!g.boundingSphere)g.computeBoundingSphere();const bs=g.boundingSphere;if(bs&&bs.radius>0)R=Math.max(R,(bs.center.length()+bs.radius)*(o.scale?o.scale.x:1));}
+      if(seen.has(m))return;seen.add(m);
+      if(m.userData.rxFl||!re.test(m.vertexShader)||!mn.test(m.vertexShader))return;
+      let decl='';[['vec4','uNb[8]'],['float','uNn'],['float','uAmp'],['float','uSig'],['float','uRv'],['float','uFl'],['float','uTime']].forEach(([T,n])=>{if(!new RegExp('uniform\\s+\\w+\\s+'+n.replace(/\[8\]/,'\\[8\\]')+'\\b').test(m.vertexShader))decl+='uniform '+T+' '+n+';';});
+      m.vertexShader=decl+'\n'+m.vertexShader.replace(mn,'void main(){\n  vec3 rxP=position;'+RX_FLUID).replace(re,'modelViewMatrix*vec4(rxP,1.0)');
+      ['uNb','uNn','uAmp','uSig','uRv','uFl'].forEach(n=>{m.uniforms[n]=hu[n];});
+      if(!m.uniforms.uTime)m.uniforms.uTime=hu.uTime;
+      m.userData.rxFl=true;m.needsUpdate=true;any=true;
+    });
+    if(!any||!(R>0))return null;
+    timeUniforms.push(hu.uTime);
+    return{hu,R:0.8*R};
+  }
+  const _fq=new THREE.Quaternion(),_fv=new THREE.Vector3();
+  function fluidFor(o,P,m,u,w){
+    const hu=o.hu;polarise(P,o.g,m,u,hu,o.rv);
+    _fq.copy(o.h.quaternion).invert();
+    const n=hu.uNn.value;for(let k=0;k<n;k++){const v=hu.uNb.value[k];_fv.set(v.x,v.y,v.z).applyQuaternion(_fq);v.set(_fv.x,_fv.y,_fv.z,v.w);}
+    hu.uFl.value=4*w*(1-w);
+  }
   function fadeify(root){
     const setters=[],cache=new Map();
     root.traverse(o=>{
@@ -56104,7 +56317,7 @@ const ReactionMode=(function(){
     const holders=[];
     STAGES[si].species.forEach((sp,j)=>{
       const subs=speciesSubs(si,j),q=speciesQ(si,j);
-      sp.a.forEach((g,i)=>{const h=new THREE.Group();h.add(subs[i]);h.quaternion.copy(q);h.visible=false;rg.add(h);holders.push({g,h,sp,setFade:fadeify(subs[i])});});
+      sp.a.forEach((g,i)=>{const h=new THREE.Group();h.add(subs[i]);h.quaternion.copy(q);h.visible=false;rg.add(h);const sf=fadeify(subs[i]),fx=rxFluidify(subs[i]);holders.push({g,h,sp,setFade:sf,hu:fx?fx.hu:null,rv:fx?fx.R:0});});
     });
     built.set(si,{holders});
   }
@@ -56112,10 +56325,12 @@ const ReactionMode=(function(){
   function applyCross(P){
     const s0=cur(t); if(!built.has(s0))buildStage(s0);
     [...built.keys()].forEach(k=>{if(Math.abs(k-s0)>1)releaseStage(k);});
+    const fr=cur(t);let fm=fr===0?0:fr-1,fu=fr===0?0:1;
+    for(let s=0;s<TS.length;s++)if(t>=TS[s]-HALF&&t<=TS[s]+HALF){fm=s;fu=fwin(s,t);}
     for(let s=0;s<STAGES.length;s++){
       const w=weight(s,t); if(w>0.003&&!built.has(s))buildStage(s);
       const b=built.get(s); if(!b)continue;
-      b.holders.forEach(o=>{o.h.visible=w>0.003;if(o.h.visible){o.h.position.set(P[o.g][0],P[o.g][1],P[o.g][2]);if(o.sp.a.length>1)o.h.quaternion.copy(orientation(geom(o.sp.k).pts,o.sp.a.map(a=>P[a])));o.setFade(w);}});
+      b.holders.forEach(o=>{o.h.visible=w>0.003;if(o.h.visible){o.h.position.set(P[o.g][0],P[o.g][1],P[o.g][2]);if(o.sp.a.length>1)o.h.quaternion.copy(orientation(geom(o.sp.k).pts,o.sp.a.map(a=>P[a])));o.setFade(w);if(o.hu)fluidFor(o,P,fm,fu,w);}});
     }
     if(s0+1<STAGES.length&&!built.has(s0+1))setTimeout(()=>{if(active&&!built.has(s0+1))buildStage(s0+1);},60);
   }
@@ -56257,20 +56472,23 @@ const ReactionMode=(function(){
     else{for(let i=0;i<n;i++)idx[i]=i;for(let i=n;i<N;i++)idx[i]=(Math.random()*n)|0;}
     return idx;
   }
+  const RX_FLUID='\n  float rxPw=smoothstep(0.12,0.85,length(rxP)/uRv); vec3 rxP0=rxP; vec3 rxD=vec3(0.0);\n  /* FLUID deformation (volume-preserving, always 3D): (1) a bond-axis TWIST (rigid rotation, so no volume change), (2) a divergence-free ABC swirl flow, (3) per-neighbour teardrop pull that BULGES sideways (never squeezes), (4) a smooth saturating cap on the total displacement so the map can never fold onto a plane. */\n  float rxFl=clamp(uFl,0.0,1.0);\n  if(uNn>0.5 && rxFl>0.001){ vec3 nv0=uNb[0].xyz; float L0=length(nv0)+1e-4; vec3 a0=nv0/L0; float s0=dot(rxP0,a0); vec3 p0=rxP0-a0*s0; float rr=length(p0)/uRv; float th=1.05*rxFl*rxFl*clamp(uNb[0].w,0.0,1.0)*smoothstep(0.0,0.9,rr)*(1.0-smoothstep(0.4,1.6,abs(s0)/uRv)); float cs=cos(th),sn=sin(th); rxP0=a0*s0+p0*cs+cross(a0,p0)*sn; }\n  vec3 rxQ=rxP0/uRv*1.55+vec3(uTime*0.55,uTime*0.43,uTime*0.37); float rxS=rxFl*rxFl*(3.0-2.0*rxFl);\n  rxD+=uRv*0.20*rxS*(0.35+0.65*rxPw)*vec3(sin(rxQ.z)+0.7*cos(rxQ.y), 0.8*sin(rxQ.x)+cos(rxQ.z), 0.7*sin(rxQ.y)+0.8*cos(rxQ.x));\n  for(int i=0;i<8;i++){ if(float(i)>=uNn)break; vec3 nv=uNb[i].xyz; float Ln=length(nv)+1e-4; vec3 ax=nv/Ln; float w=clamp(uNb[i].w,-0.3,1.3); float a=dot(rxP0,ax); vec3 pr=rxP0-ax*a; float c=a/(length(rxP0)+1e-4); float lobe=smoothstep(-0.3,1.0,c); lobe*=lobe; float ur=clamp(uAmp*w*lobe*rxPw/(0.3*Ln),-30.0,30.0); float ua=0.3*Ln*ur*inversesqrt(sqrt(1.0+ur*ur*ur*ur))*(1.0-smoothstep(0.2,0.8,a/Ln)); rxD+=ax*ua+pr*clamp(0.6*abs(ua)/uRv,0.0,0.40)*lobe; }\n  float rxCap=0.75*uRv, rxL=length(rxD); rxD*=rxCap/sqrt(rxCap*rxCap+rxL*rxL); rxP=rxP0+rxD;';   // shared by the point-cloud morph shader and the Ultra / Mesh surface shaders
   function morphMaterial(){
     const dif=diffuseMode;   // Diffuse species use the soft DIFF_VERT/DIFF_FRAG pair; everything else the stock grainy pair
     let v=(dif?DIFF_VERT:VERT).replace(/\bposition\b/g,'rxP');
-    v=v.replace('void main(){','void main(){\n  float rxE=clamp((uMorph-0.3)/0.7,0.0,1.0); vec3 rxP=mix(qr(uQA,position),qr(uQB,aPosS),uMorph)+(qr(uQB,aPos2)-qr(uQB,aPosS))*(rxE*rxE*rxE*(rxE*(rxE*6.0-15.0)+10.0));\n  float pw=smoothstep(0.12,0.85,length(rxP)/uRv); vec3 rxP0=rxP; vec3 rxD=vec3(0.0); for(int i=0;i<8;i++){ if(float(i)>=uNn)break; vec3 nv=uNb[i].xyz; float Ln=length(nv)+1e-4; vec3 ax=nv/Ln; float w=clamp(uNb[i].w,-0.3,1.3); float a=dot(rxP0,ax); vec3 pr=rxP0-ax*a; float c=a/(length(rxP0)+1e-4); float lobe=smoothstep(-0.3,1.0,c); lobe*=lobe; float ur=clamp(uAmp*w*lobe*pw/(0.3*Ln),-30.0,30.0); float ua=0.3*Ln*ur*inversesqrt(sqrt(1.0+ur*ur*ur*ur))*(1.0-smoothstep(0.2,0.8,a/Ln)); rxD+=ax*ua-pr*(0.5*ua/uRv*lobe); } rxP=rxP0+rxD;');
+    v=v.replace('void main(){','void main(){\n  float rxE=clamp((uMorph-0.3)/0.7,0.0,1.0); vec3 rxP=mix(qr(uQA,position),qr(uQB,aPosS),uMorph)+(qr(uQB,aPos2)-qr(uQB,aPosS))*(rxE*rxE*rxE*(rxE*(rxE*6.0-15.0)+10.0));'+RX_FLUID+'');
     v=dif?v.replace('vC=aC;','vC=mix(aC,aC2,uMorph);').replace('vA=aA*','vA=mix(aA,aA2,uMorph)*')
          :v.replace('vC=aC; vA=aA;','vC=mix(aC,aC2,uMorph); vA=mix(aA,aA2,uMorph);');
-    v='attribute vec3 aPos2;attribute vec3 aPosS;attribute vec3 aC2;attribute float aA2;uniform float uMorph;uniform vec4 uNb[8];uniform float uNn;uniform float uAmp;uniform float uSig;uniform float uRv;uniform vec4 uQA;uniform vec4 uQB;vec3 qr(vec4 q,vec3 v){return v+2.0*cross(q.xyz,cross(q.xyz,v)+q.w*v);}\n'+v;
-    const f='uniform float uGlow;\n'+(dif?DIFF_FRAG.replace('vec4(vC,','vec4(vC*(1.0+uGlow),'):FRAG.replace('vC*(0.7+core*0.6)','vC*(0.7+core*0.6)*(1.0+uGlow)'));
+    v='attribute vec3 aPos2;attribute vec3 aPosS;attribute vec3 aC2;attribute float aA2;uniform float uMorph;uniform vec4 uNb[8];uniform float uNn;uniform float uAmp;uniform float uSig;uniform float uRv;uniform float uFl;uniform vec4 uQA;uniform vec4 uQB;vec3 qr(vec4 q,vec3 v){return v+2.0*cross(q.xyz,cross(q.xyz,v)+q.w*v);}\n'+v;
+    const f='uniform float uGlow;uniform float uVivid;\n'+(dif?DIFF_FRAG.replace('vec4(vC,','vec4(vC*(1.0+uGlow)*uVivid,'):FRAG.replace('vC*(0.7+core*0.6)','vC*(0.7+core*0.6)*(1.0+uGlow)*uVivid'));
     if(!v.includes('mix(aC,aC2')||!v.includes('mix(aA,aA2')||!v.includes('vec3 rxP')||!f.includes('(1.0+uGlow)'))throw new Error('grainy shader layout changed');
-    const U={uTime:{value:0},uMorph:{value:0},uGlow:{value:0},uNb:{value:Array.from({length:8},()=>new THREE.Vector4())},uQA:{value:new THREE.Vector4(0,0,0,1)},uQB:{value:new THREE.Vector4(0,0,0,1)},uNn:{value:0},uAmp:{value:1},uSig:{value:1},uRv:{value:1}};
+    const U={uTime:{value:0},uMorph:{value:0},uGlow:{value:0},uVivid:{value:1+(((typeof exactMode!=='undefined'&&exactMode)?1.45:1.15)-1)/(1+0.15*Math.max(0,(typeof NA==='number'?NA:3)-3))},uNb:{value:Array.from({length:8},()=>new THREE.Vector4())},uQA:{value:new THREE.Vector4(0,0,0,1)},uQB:{value:new THREE.Vector4(0,0,0,1)},uNn:{value:0},uAmp:{value:1},uSig:{value:1},uRv:{value:1},uFl:{value:0}};
     if(dif){U.uSize={value:260};U.uAlpha={value:1};U.uDepthR={value:30};U.uDpr={value:Math.min(devicePixelRatio||1,2)};Object.assign(U,DIFF_U);}   // same uniforms getSharedDiffuseMaterial() carries
     const mat=new THREE.ShaderMaterial({vertexShader:v,fragmentShader:f,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:U});
     timeUniforms.push(mat.uniforms.uTime);return mat;
   }
+  // 90th-percentile radius of an extracted cloud (atom-centred): the true size of a 99% ACCURATE cloud
+  function cloudR(c){const n=c.N;if(!c||(n<=1&&!c.alp[0]))return 0;const st=Math.max(1,Math.floor(n/3000)),r=[];for(let i=0;i<n;i+=st)r.push(Math.hypot(c.pos[3*i],c.pos[3*i+1],c.pos[3*i+2]));r.sort((a,b)=>a-b);return r[Math.floor(r.length*0.9)]||0;}
   function buildPair(g,m){
     const A=data.get(m)[g],B=data.get(m+1)[g],moves=changes(m,g),T=moves?B:A;
     const N=Math.min(capPts(),moves?Math.max(A.N,B.N):A.N),ia=resample(A.N,N),ib=moves?resample(B.N,N):ia;
@@ -56285,7 +56503,7 @@ const ReactionMode=(function(){
     const geo=new THREE.BufferGeometry(),at=(n,arr,c)=>geo.setAttribute(n,new THREE.BufferAttribute(arr,c));
     at('position',pos,3);at('aPos2',pos2,3);at('aPosS',moves?smoothTarget(pos,pos2,N,Rz(g)/8):pos2,3);at('aC',col,3);at('aC2',col2,3);at('aA',alp,1);at('aA2',alp2,1);at('aSeed',seed,1);at('aJDir',jd,3);at('aJFreq',jf,1);
     const pts=new THREE.Points(geo,morphMaterial());pts.frustumCulled=false;pts.visible=false;rg.add(pts);
-    const rec={pts,moves};pairs.set(g+'-'+m,rec);return rec;
+    const rec={pts,moves,rv:(typeof exactMode!=='undefined'&&exactMode)?Math.max(cloudR(A),cloudR(T)):0};pairs.set(g+'-'+m,rec);return rec;
   }
   function disposePair(k){const p=pairs.get(k);if(!p)return;rg.remove(p.pts);p.pts.geometry.dispose();p.pts.material.dispose();pairs.delete(k);}
   function warm(m){   // pre-build the next transition one atom per tick, off the critical path
@@ -56299,7 +56517,7 @@ const ReactionMode=(function(){
   /* FLUID response: each (atom, neighbour) interaction follows a damped spring (omega 5 rad/s, zeta .6): the density lags its driver, overshoots ~9% and settles like a viscous drop.
      State is per atom and shared across pair hand-overs; scrubs (|dt|>0.3 s) snap to the driver. */
   const FL=[],FLt=[],FL_OM=5,FL_ZT=.6;let FLid=null;
-  function polarise(P,g,m,u,uni){
+  function polarise(P,g,m,u,uni,rv){
     if(FLid!==SPEC.id){FL.length=0;FLt.length=0;FLid=SPEC.id;}
     const dt=FLt[g]===undefined?1e9:Math.abs(t-FLt[g]);FLt[g]=t;
     const M=FL[g]||(FL[g]=new Map()),nb=[];
@@ -56316,7 +56534,7 @@ const ReactionMode=(function(){
     nb.sort((p,q)=>Math.abs(q[3])-Math.abs(p[3])||p[4]-q[4]);   // shader holds 8 neighbours: keep the strongest
     const n=Math.min(8,nb.length);
     for(let k=0;k<n;k++)uni.uNb.value[k].set(nb[k][0],nb[k][1],nb[k][2],nb[k][3]);
-    uni.uNn.value=n;uni.uAmp.value=.42*Rz(g);uni.uSig.value=1.6*Rz(g)+1;uni.uRv.value=Rz(g);
+    uni.uNn.value=n;{const R0=rv>0?rv:Rz(g);uni.uAmp.value=.42*R0;uni.uSig.value=1.6*R0+1;uni.uRv.value=R0;}
   }
   // a cloud must turn with its molecule: rotation from the stage's baked orientation to the species' CURRENT orientation (from live atom positions)
   function relQ(si,g,P){
@@ -56335,12 +56553,12 @@ const ReactionMode=(function(){
       const rec=pairs.get(g+'-'+m)||buildPair(g,m);
       pairs.forEach((p,k)=>{if(k.startsWith(g+'-'))p.pts.visible=(p===rec);});
       rec.pts.position.set(P[g][0],P[g][1],P[g][2]);
-      rec.pts.material.uniforms.uMorph.value=u;polarise(P,g,m,u,rec.pts.material.uniforms);
+      rec.pts.material.uniforms.uMorph.value=u;polarise(P,g,m,u,rec.pts.material.uniforms,rec.rv);
       {let qa=relQ(m,g,P),qb=relQ(rec.moves?m+1:m,g,P);const U=rec.pts.material.uniforms;
-        if(rec.moves){const wa=sm(clamp((u-.5)/.5)),wb=1-sm(clamp(u/.5)),qa2=qa.clone().slerp(qb,wa),qb2=qb.clone().slerp(qa,wb);qa=qa2;qb=qb2;}
+        if(rec.moves){const qm=qa.clone().slerp(qb,sm(clamp(u)));qa=qm;qb=qm.clone();}   // ONE shared rotation for both ends: the cloud turns rigidly while it flows, so it can never be sheared flat by two mismatched orientations
         if(rec.qaS&&Math.abs(t-rec.tS)<.3){const cap=6*Math.abs(t-rec.tS);rec.qaS.rotateTowards(qa,cap);rec.qbS.rotateTowards(qb,cap);}else{rec.qaS=qa.clone();rec.qbS=qb.clone();}
         rec.tS=t;qa=rec.qaS;qb=rec.qbS;U.uQA.value.set(qa.x,qa.y,qa.z,qa.w);U.uQB.value.set(qb.x,qb.y,qb.z,qb.w);}
-      rec.pts.material.uniforms.uGlow.value=(inWin&&rec.moves)?GLOW*Math.sin(Math.PI*u):0;
+      rec.pts.material.uniforms.uGlow.value=(inWin&&rec.moves)?GLOW*Math.sin(Math.PI*u):0;rec.pts.material.uniforms.uFl.value=(inWin&&rec.moves)?Math.sin(Math.PI*u):0;
       {const dU=rec.pts.material.uniforms.uDepthR;if(dU)dU.value=Math.max(1,Math.min(Rz(g),camZ*0.55)*1.25);}   // Diffuse: near-side-brighter cue, sized per atom like the atom view
     }
     if(!inWin)warm(r);
@@ -56908,7 +57126,7 @@ function rxFollowPath(steps){
     if(SPEC.auto){solvePath();lumpWarn();}
     buildSimKF();
     for(let g=0;g<NA;g++){const el=ELS.find(e=>e.Z===ATOM_Z[g]);const n=makeNucleus(ATOM_Z[g],el?el.n:0);n.visible=false;if(diffuseMode){const dg=makeDiffuseGlow(getEffectiveConfig(ATOM_Z[g]));dg.userData.diffuseGlow.halo.material.opacity=Math.min(1,1.8/Math.sqrt(ATOM_Z.length));n.add(dg);n.userData.dgl=dg.userData.diffuseGlow;}rg.add(n);nuclei.push(n);}   // hidden until the first frame is built & positioned: no stacked-at-origin dot while loading
-    MORPH=!ultraMode&&!smoothMode;
+    MORPH=!ultraMode&&!smoothMode&&!rxMesh();
     if(MORPH){try{morphMaterial().dispose();timeUniforms.pop();}catch(e){console.warn('[Reaction] morph unavailable, cross-fading instead:',e);MORPH=false;}}
     t=0;playing=true;shownKF=-1;speed=RX_STUDIO.speed;if(ui&&ui.spd&&RX_STUDIO.speed!==1)ui.spd.textContent=(+RX_STUDIO.speed.toFixed(2))+'×';rgOff.set(0,0,0);rg.position.set(0,0,0);setPlayIcon();ui.setSel(id);makeChips();try{rxEnergyAttach(spec);}catch(e){console.warn('[Energy] panel unavailable:',e);}
     let ext=0;simKF.forEach(K=>K.forEach(p=>{ext=Math.max(ext,Math.hypot(p[0],p[1]));}));ext=Math.max(ext+Math.max(...ATOM_Z.map(z=>Math.max(...getEffectiveConfig(z).map(o=>o.R)))),4*scale);
@@ -57380,6 +57598,8 @@ function rxFollowStages(spec, st){
       const r={id:SPEC.id, typed:SPEC.id==='custom', title:String(SPEC.title||'').replace(/^⚙\s*/,''), step:ui&&ui.stage?ui.stage.textContent:'', stepEquation:ui&&ui.eq?ui.eq.textContent:'',
         stepText:ui&&ui.txt?ui.txt.textContent.slice(0,400):'', progress:ui&&ui.ct?ui.ct.textContent:'', stages:STAGES?STAGES.length:0, playing:!!playing,
         animationFollowsComputedPath:!!SPEC.followsPath, studio:Object.assign({},RX_STUDIO)};
+      r.cloudRendering=rxMesh()?'mesh: wire-grid orbital surfaces (99% Accurate + Mesh), cross-faded between steps while deforming like a fluid':(typeof ultraMode!=='undefined'&&ultraMode)?'ultra: translucent orbital surfaces, cross-faded between steps while deforming like a fluid':(typeof smoothMode!=='undefined'&&smoothMode)?'smooth: cross-faded between steps':(MORPH?'electron points that flow from one step to the next like a 3D fluid (optimal-transport pairing, bond-axis twist, divergence-free swirl, sideways bulge toward the partner)':'cross-faded between steps');
+      r.accurateModel=(typeof exactMode!=='undefined'&&exactMode)?'99% Accurate (true cloud sizes)':'Classic';
       if(RXE && RXE.last) r.energyPanel=Object.assign({open:!!(RXE.card&&!RXE.card.hidden)}, RXE.last);
       return r; },
     list:function(){ return [...REGISTRY.values()].filter(s=>s.id!=='custom').map(s=>({id:s.id, title:String(s.title||'')})); },
@@ -60559,6 +60779,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
           if (typeof ModeRules !== 'undefined') s.displayModesOn = ModeRules.active().concat((typeof gridVisible !== 'undefined' && gridVisible) ? ['grid'] : [], (typeof sphericalMode !== 'undefined' && sphericalMode) ? ['spherical'] : []);
           s.orbitalModel = (typeof exactMode !== 'undefined' && exactMode) ? (moleculeMode ? '99% accurate: real wavefunctions (molecule: σ bond orbitals, lone pairs, Hückel π MOs from exact atomic orbitals)' : '99% accurate: real wavefunctions (exact hydrogenic / self-consistent radial functions × real spherical harmonics)') : 'classic: simplified teaching shapes (default)';
           s.cloudRenderer = diffuseMode ? 'diffuse' : (typeof ultraMode !== 'undefined' && ultraMode) ? 'ultra' : (typeof smoothMode !== 'undefined' && smoothMode) ? 'smooth' : 'grain';
+          s.meshGrid = (typeof meshMode !== 'undefined' && meshMode && typeof exactMode !== 'undefined' && exactMode) ? 'on (99% Accurate orbital surfaces drawn as a wire grid)' : (typeof exactMode !== 'undefined' && exactMode ? 'off (available: [[toggle:mesh]])' : 'off (needs 99% Accurate)');
           if (diffuseMode && typeof QACloud !== 'undefined') s.cloudStudio = QACloud.state();
         }
         if (document.body.classList.contains('rx-on') && window.QA_RX) { var rx = window.QA_RX.state(); if (rx) { s.view = 'reaction'; s.reaction = rx; delete s.element; delete s.molecule; } }
@@ -60576,6 +60797,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         '\nReaction buttons: [[equation:Zn + HCl]] runs a typed reaction (a full equation with -> or only the reactants, which predicts the products); [[tool:energy]] opens the ΔG sheet of the reaction on screen (Energy and Studio tabs).' +
         '\nBuild button: [[build:caffeine]] builds anything Build mode accepts: a name in any language, a formula or ion (SO4 2-), SMILES (CC(=O)O), a complex ([Fe(CN)6]4-), cid 2244, or a protein (pdb 1crn). Use it for molecules that are not in the molecule keys above.' +
         '\nDisplay mode buttons: [[toggle:smooth|ultra|real|grid|spherical|antimatter]]' + (typeof hyperMode !== 'undefined' ? ' and [[toggle:hyper]]' : '') + ' switch that mode on or off; switching a mode on turns off the modes it cannot work with (see displayModesOn in the APP STATE).' +
+        '\nMesh button: [[toggle:mesh]] draws every orbital surface as a wire grid; it exists only while 99% Accurate is on (see meshGrid in the APP STATE) and also applies inside the Reactions screen.' +
         '\n99% Accurate button: [[toggle:exact]] switches between the Classic orbital model and real wavefunctions (see orbitalModel in the APP STATE); it first shows the person a short explanation they confirm, and it turns Diffuse off.' +
         '\nCloud Studio buttons: [[toggle:diffuse]] switches Diffuse mode on or off (check cloudRenderer in the APP STATE first); [[toggle:cloud-default|cloud-dense|cloud-nebula|cloud-crisp|cloud-reset]] apply a preset or reset (they turn Diffuse on if needed); [[toggle:shape-square|shape-round|shape-soft]] set the dot type; [[toggle:NAME-VALUE]] sets one slider, NAME = density, spread, dotsize, brightness, depth, jitter, jitterspeed, halo, halosize or nucleus, VALUE uses _ as the decimal point, e.g. [[toggle:jitter-0]] (points stand still), [[toggle:jitterspeed-2_5]], [[toggle:density-2]]. 1 is always the original look.';
     },
@@ -60600,6 +60822,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
           var xb = byId('exactbtn');
           return { label: labelOf(xb && (xb.querySelector('[data-i18n]') || xb), '99% Accurate'), run: function () { ModeRules.toggle('exact'); } };
         }
+        if (id.toLowerCase() === 'mesh') { var mzb = byId('meshbtn'); if (mzb && typeof exactMode !== 'undefined' && exactMode) return { label: 'Mesh', run: function () { mzb.click(); } }; return null; }
         var ok = ({ grid: 'gridbtn', spherical: 'sphericalbtn', antimatter: 'antibtn', exact: 'exactbtn', accurate: 'exactbtn' })[id.toLowerCase()];
         if (ok && byId(ok)) return { label: labelOf(byId(ok).querySelector('[data-i18n]') || byId(ok), id), run: function () { byId(ok).click(); } };
       }
@@ -60664,7 +60887,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         var el = typeof byZ === 'function' ? byZ(Z) : null;
         s.nucleus = { protons: Z, neutrons: N, massNumber: Z + N, symbol: el ? el.sym : (txt('tb-badge') || undefined), name: el ? el.name : (txt('tb-name') || undefined),
           zoomStage: typeof currentMode === 'function' ? ({ MACRO: 'whole nucleus', PAIR: 'nucleon pair (pion exchange)', QUARK: 'quarks and gluons inside a nucleon' })[currentMode()] || currentMode() : undefined,
-          pionOverlay: typeof showPions !== 'undefined' ? !!showPions : undefined, gluonOverlay: typeof showGluons !== 'undefined' ? !!showGluons : undefined };
+          pionOverlay: typeof showPions !== 'undefined' ? !!showPions : undefined, gluonOverlay: typeof showGluons !== 'undefined' ? !!showGluons : undefined, hyperRealisticView: !!(window.QA_HYPER && window.QA_HYPER.on) };
         if (typeof NUC_PHYS !== 'undefined' && NUC_PHYS) {
           var ph = NUC_PHYS;
           s.nucleus.model = { halfDensityRadius_fm: +ph.R.toFixed(2), neutronSkin_fm: +ph.skin.toFixed(2), beta2: +ph.beta.toFixed(2), deformed: ph.deformed, valenceProtons: ph.Np, valenceNeutrons: ph.Nn };
@@ -60679,7 +60902,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     },
     catalog: function () {
       var st = (typeof excModes === 'function' && typeof NUC_PHYS !== 'undefined') ? excModes(NUC_PHYS).map(function (m) { return m.id; }).join('|') : 'gs';
-      return 'Elements: all 118 by symbol, e.g. Fe, U.\nAction buttons on this page: [[element:U]], [[state:' + st + ']] (states available for the current nucleus), [[zoom:macro|pair|quark]], [[toggle:pions|gluons|legend]], [[go:simulator|home]] (write one id, e.g. [[state:gdr]]).';
+      return 'Elements: all 118 by symbol, e.g. Fe, U.\nAction buttons on this page: [[element:U]], [[state:' + st + ']] (states available for the current nucleus), [[zoom:macro|pair|quark]], [[toggle:pions|gluons|hyper|legend]], [[go:simulator|home]] (write one id, e.g. [[state:gdr]]).';
     },
     resolve: function (kind, id) {
       id = String(id).trim(); var k = id.toLowerCase();
@@ -60697,7 +60920,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         var lab = (typeof qaT === 'function' && qaT(Zs[1]) !== Zs[1]) ? qaT(Zs[1]) : Zs[2];
         return { label: lab, run: function () { zoom = Zs[0]; if (typeof syncZoomUI === 'function') syncZoomUI(true); } };
       }
-      if (kind === 'toggle') return ({ pions: clickAct('tg-pion', 'Pions'), gluons: clickAct('tg-gluon', 'Gluons'), legend: clickAct('legend-btn', 'Legend') })[k] || null;
+      if (kind === 'toggle') return ({ pions: clickAct('tg-pion', 'Pions'), gluons: clickAct('tg-gluon', 'Gluons'), hyper: clickAct('tg-hyper', 'Hyper-realistic view'), legend: clickAct('legend-btn', 'Legend') })[k] || null;
       if (kind === 'go') return ({ simulator: goAct(isLightPage() ? 'simulator_light.html' : 'simulator_dark.html', 'Simulator'), home: goAct(isLightPage() ? 'index_light.html' : 'index_dark.html', 'Quantum Atom home') })[k] || null;
       return null;
     },
@@ -60753,6 +60976,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     "REACTIONS SCREEN (flask button)",
     "- Ten built-in reactions, each a step-by-step mechanism with the real electron clouds deforming between stages: hydrogen burning (2 H2 + O2), H2 + Cl2, the Zeldovich NO mechanism (N2 + O2), ozone decomposition, NO + O3, CO oxidation, 2 NO + O2 via the (NO)2 dimer, the Haber process (schematic, iron surface), methane combustion, and benzene from acetylene.",
     "- Type your own reaction in the reaction menu's search box (\"Search or type a reaction…\"): a full equation (2 H2 + O2 -> 2 H2O) or only the reactants. With only reactants, products are predicted first: classroom rules (combustion; metals with oxygen, halogens, acids and water decided by standard electrode potentials, so Zn + HCl reacts and Cu + HCl does not; neutralisation; acid + carbonate; precipitation by solubility rules; metal and halogen displacement; hydrogenation; oxides with water or acid; common decompositions) and, for organic molecules of any size, transformations at their reactive sites (esterification, amides, hydrolysis and saponification, Markovnikov additions of HX and water, X2 and H2 additions, SN2 with OH⁻/NH3/CN⁻, alcohols with HX, Zaitsev dehydration, C=O reduction, aromatic halogenation and nitration, Diels–Alder, amine salts, combustion). If nothing reacts it explains why. The reaction finder then balances the equation and works out a mechanism: elementary steps chosen by the lowest rate-limiting barrier.",
+    "- How the clouds are drawn in a reaction (APP STATE reaction.cloudRendering says which): by default every electron is a point that flows from its position before the step to its position after it, so density is conserved and nothing fades in or out; the flow is deliberately fluid and always 3D: the cloud turns rigidly as one body, twists about its strongest bond axis, carries a gentle divergence-free swirl, and the part facing the bonding partner stretches toward it and bulges sideways like a teardrop (never squeezed flat; a cap keeps it from folding). Ultra shows translucent orbital surfaces and Mesh (needs 99% Accurate, button [[toggle:mesh]]) shows them as a wire grid; in those two the surfaces cross-fade between steps while their vertices deform with the same fluid motion, so they have no point-by-point flow. 99% Accurate uses each cloud\'s true size, so reaction clouds look larger and softer than in Classic. Switching Ultra, Mesh, Diffuse or 99% Accurate while a reaction is open rebuilds it at the same moment. Brightness is boosted a little for readability (less for big molecules such as benzene).",
     "- Animations follow computed minimum-energy paths (valence-bond surfaces + nudged elastic band); built-in reactions keep their authored stages while the atoms whose bonds change follow the computed path's bend.",
     "- ΔG button (in the reaction panel) opens a sheet with two tabs. Energy: an energy diagram of the route, a temperature slider (200–3000 K), ΔH°, ΔS°, ΔG(T), the equilibrium constant K, the half-life of the slowest step (Eyring transition-state theory) and a verdict (fast; allowed but needs a spark, heat or a catalyst; or not spontaneous, with the temperature where that flips). Controls: Phase (gas phase, or standard states with liquids and solids from the formation table), Light (none, 550, 400, 300 or 250 nm; a photon of energy hc/λ breaks a bond it exceeds, so H2 + Cl2 is stable in the dark but explodes in violet light), and a Catalyst slider that lowers the overall barrier to explore its effect.",
     "- Physics behind the sheet: entropy from statistical mechanics on each molecule's 3D shape (translation, rotation with the symmetry number found in 3D, estimated vibrations, spin), mean error about 2 J/(mol·K) for 34 gases; enthalpies from tables, then Benson group additivity (about 0.7 kJ/mol for organics), then bond energies. Validation on 20 reactions (runReactionValidation() in the browser console): ΔG within about 2 kJ/mol, sign right for all 20. 17 common elementary steps use measured activation energies (marked ✓ on the diagram); other barriers are estimates, so half-lives are reliable for \"fast vs. needs a spark\", not exact times.",
