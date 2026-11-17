@@ -31491,6 +31491,28 @@ html[data-qa-lang="ru"] .mode-btn,html[data-qa-lang="it"] .mode-btn{font-size:.6
   position:relative;isolation:isolate;transform:translateZ(0);-webkit-backface-visibility:hidden;backface-visibility:hidden;-webkit-tap-highlight-color:transparent}
 .qai-model b{display:block;min-width:0;background:none;text-shadow:none}
 .qai-web{background:var(--q-raise)}
+.qai-web,.qai-model{line-height:1}
+.qai-web>span:first-child{display:inline-flex;align-items:center;justify-content:center;line-height:0;flex:0 0 auto}
+.qai-web svg{display:block}
+.qai-mode{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--q-line);background:var(--q-raise);color:var(--q-ink3);font-family:var(--q-mono);font-size:.72rem;line-height:1;cursor:pointer;margin-left:6px}
+.qai-mode>span:first-child{display:inline-flex;align-items:center;line-height:0}
+.qai-mode svg{display:block}
+.qai-mode[data-mode=ultra]{color:#ffb020;border-color:rgba(255,176,32,.6);background:rgba(255,176,32,.12)}
+.qai-badge{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:999px;font-size:.58rem;letter-spacing:.08em;line-height:1.3;vertical-align:middle;border:1px solid var(--q-line);color:var(--q-ink3);font-family:var(--q-mono);text-transform:uppercase;font-weight:600}
+.qai-badge[data-mode=ultra]{color:#ffb020;border-color:rgba(255,176,32,.6)}
+.qai-ultrabar{margin:0 0 10px;padding:11px 13px;border-radius:14px;border:1px solid rgba(255,176,32,.55);background:rgba(255,176,32,.10);color:var(--q-ink)}
+.qai-ultrabar[hidden]{display:none}
+.qai-ub-title{font-weight:700;font-size:.9rem;margin-bottom:3px}
+.qai-ub-body{font-size:.8rem;line-height:1.45;color:var(--q-ink2);margin-bottom:9px}
+.qai-ub-row{display:flex;gap:8px;flex-wrap:wrap}
+.qai-ub-row button{font:inherit;font-size:.78rem;font-weight:600;padding:7px 13px;border-radius:999px;cursor:pointer;border:1px solid var(--q-line);background:transparent;color:var(--q-ink)}
+.qai-ub-row .qai-ub-go{background:#ffb020;border-color:#ffb020;color:#241600}
+.qai-foot{flex-wrap:wrap;row-gap:6px;justify-content:flex-start}
+.qai-foot .qai-web{margin-right:0}
+.qai-foot .qai-mode{margin-left:0}
+.qai-foot .qai-hint{margin-left:auto}
+.qai-badge{white-space:nowrap}
+
 .qai-hint{opacity:.85}
 
 /* ── Model picker ── */
@@ -32200,6 +32222,40 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) #ol-busy{letter-spacing:.01em !importa
 /* Cloud Studio: the preset and dot-shape switches are separate controls — give them air */
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #dtune #dtune .dt-seg,html[data-lux="on"]:not(#lx-a):not(#lx-b) #dtune .dt-seg.dt-seg{margin-top:13px !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #dtune #dtune .dt-presets,html[data-lux="on"]:not(#lx-a):not(#lx-b) #dtune .dt-presets.dt-presets{margin-bottom:0 !important;}
+/* ═══ Physicist AI — tier chip / badge / Switch-to-Ultra banner (theme-aware) ═══
+   Replaces the old fixed amber (#ffb020). Everything below reads the same tokens the rest of the panel uses
+   (--q-acc, --q-surface, --q-ink…), so it follows dark/light x glass/flat/luxury automatically. ═══ */
+
+/* base (glass, dark + light) */
+.qai-root :is(.qai-mode,.qai-badge)[data-mode=ultra]{color:#fff;border-color:rgba(255,255,255,.28);background:var(--q-grad);text-shadow:0 1px 2px rgba(0,0,0,.3);box-shadow:0 3px 12px rgba(var(--q-acc-rgb),.32)}
+.qai-root .qai-mode[data-mode=ultra] svg{color:#fff}
+.qai-root .qai-mode[data-mode=ultra] svg [stroke]:not([stroke=none]){stroke:currentColor}
+.qai-root .qai-mode[data-mode=ultra] svg [fill]:not([fill=none]){fill:currentColor}
+.qai-root .qai-ultrabar{border-color:rgba(var(--q-acc-rgb),.45);background:linear-gradient(rgba(var(--q-acc-rgb),.09),rgba(var(--q-acc-rgb),.09)),var(--q-surface);color:var(--q-ink)}
+.qai-root .qai-ub-title{color:var(--q-ink)}
+.qai-root .qai-ub-row .qai-ub-go{background:var(--q-grad);border:1px solid rgba(255,255,255,.28);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3);box-shadow:0 3px 12px rgba(var(--q-acc-rgb),.32)}
+.qai-root .qai-ub-row .qai-ub-stay{border-color:var(--q-line2,var(--q-line));color:var(--q-ink)}
+
+/* centering: header badge text + bottom chip icon/label */
+.qai-root .qai-badge{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:20px;padding:0 9px;line-height:1;margin-left:10px}
+.qai-root .qai-badge[data-mode=ultra]{letter-spacing:.1em;padding-left:calc(9px + .1em)}
+.qai-root .qai-mode{box-sizing:border-box;height:30px;padding:0 14px;gap:7px;justify-content:center;align-items:center;line-height:1}
+.qai-root .qai-mode>span{display:inline-flex;align-items:center;line-height:1}
+.qai-root .qai-mode svg{width:13px;height:13px;flex:none}
+
+/* flat: no translucency, no glow, solid accent */
+html[data-glass="off"] .qai-root .qai-ultrabar{background:var(--q-surface);border:1px solid var(--q-acc);box-shadow:none}
+html[data-glass="off"] .qai-root :is(.qai-mode,.qai-badge){background:var(--q-surface);box-shadow:none}
+html[data-glass="off"] .qai-root :is(.qai-mode,.qai-badge)[data-mode=ultra]{background:var(--q-acc);border-color:var(--q-acc);color:#fff}
+html[data-glass="off"] .qai-root .qai-ub-row .qai-ub-go{background:var(--q-acc);background-image:none;border:1px solid var(--q-acc);color:#fff;text-shadow:none;box-shadow:none}
+html[data-glass="off"] .qai-root .qai-ub-row .qai-ub-stay{background:var(--q-surface);border:1px solid var(--q-acc);color:var(--q-ink)}
+
+/* luxury: Apple-style materials, pill buttons, accent from --lx-* */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-mode[data-mode=ultra]{background:var(--lx-btn);border-color:transparent;color:var(--lx-on-acc);box-shadow:var(--lx-glow)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-badge[data-mode=ultra]{background:var(--lx-fill);border-color:transparent;color:var(--lx-acc)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-ultrabar{background:var(--lx-surface);border:.5px solid var(--lx-sep-2);border-radius:var(--lx-r);box-shadow:var(--lx-sh-1)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-ub-row button{border-radius:var(--lx-pill);border:0;background:var(--lx-fill);color:var(--lx-text);box-shadow:none;text-shadow:none}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-ub-row .qai-ub-go{background:var(--lx-btn);color:var(--lx-on-acc);box-shadow:var(--lx-glow)}
 </style>
 <!-- /qa-lux:head -->
 </head>
@@ -59817,14 +59873,20 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   QAI.createChat = function (opts) {
     var messages = [], gen = 0, scope = '', pending = null, heat = 0, maxChars = (opts && opts.maxChars) || 32000; // gen: bumped by reset() so a reply still streaming into an old chat is dropped
 
-    function window_() { // newest messages that fit; always starts on a user turn
-      var out = [], n = 0;
+    function window_(lite) { // newest messages that fit; always starts on a user turn. Lite: a smaller window, and old plot / choices blocks and very long old replies are shortened (the last two messages stay whole)
+      var out = [], n = 0, lim = lite ? 12000 : maxChars;
       for (var i = messages.length - 1; i >= 0; i--) {
         n += messages[i].content.length;
-        if (n > maxChars && out.length) break;
+        if (n > lim && out.length) break;
         out.unshift(messages[i]);
       }
       while (out.length && out[0].role !== 'user') out.shift();
+      if (lite) out = out.map(function (m, i) {
+        if (m.role !== 'assistant' || i >= out.length - 2) return m;
+        var c = m.content.replace(/```(plot|choices)\b[\s\S]*?```/g, function (_, k) { return '[' + k + ' block omitted]'; });
+        if (c.length > 2500) c = c.slice(0, 2500) + ' …';
+        return c === m.content ? m : { role: m.role, content: c };
+      });
       return out;
     }
 
@@ -59888,7 +59950,8 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         var refs = [];
         function open(extra, noWeb) {
           var cw = canWeb(), f = noWeb ? { web: false, canWeb: cw, webWanted: false, gate: gate } : { web: wantWeb && cw, canWeb: cw, webWanted: !!(flags && flags.web), gate: gate }; f.refs = refs; f.shield = sh;
-          return cur.p.stream({ apiKey: cur.rec.apiKey, baseUrl: cur.rec.baseUrl || cur.p.baseUrl, model: cur.model, web: !!f.web, system: opts.buildSystem(f), messages: window_().concat(extra || []), signal: signal });
+          var lite = !!(flags && flags.lite); f.lite = lite; f.userText = text; f.vis = vis; f.lastAssistant = ''; for (var li = messages.length - 1; li >= 0; li--) if (messages[li].role === 'assistant') { f.lastAssistant = messages[li].content; break; }
+          return cur.p.stream({ apiKey: cur.rec.apiKey, baseUrl: cur.rec.baseUrl || cur.p.baseUrl, model: cur.model, web: !!f.web, system: opts.buildSystem(f), messages: window_(lite).concat(extra || []), signal: signal });
         }
         try {
           if (held) yield { ev: 'switch', to: route(), code: held, keyOnly: false };
@@ -61483,6 +61546,54 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     BASE.split('\n').forEach(function (l) { if (/^[A-Z][A-Z :,()'\-]{3,}/.test(l)) on = SECRET_HEAD.test(l); if (on) out.push(l); });
     return out.join('\n') + WEB_NOTE;
   }
+
+  /* ── Lite mode (the default) ──────────────────────────────────────────────────────────────────────────────────────
+     BASE is split into its sections. The rule sections always go out (security, scope, physics thinking, personality, answer
+     style, data/web, actions) so answer quality and character do not change. The big manuals go out only when the message
+     needs them: app manual / navigation guide, Build, Reactions, and the plot + choices syntax; the button catalog likewise.
+     Anything unclear includes the section. Ultra mode sends everything, as before. */
+  var HEAD_RE = /^[A-Z][A-Z :,()'\-]{3,}/;
+  var ALWAYS_RE = /^(SECURITY AND CONFIDENTIALITY|THINKING LIKE A PHYSICIST|SCOPE|PERSONALITY|DATA AND THE WEB|HOW TO ANSWER|ACTIONS)/;
+  var GROUPS = { app: /^(ABOUT THE APP|YOUR ABILITIES|GUIDE)/, build: /^BUILD MODE/, rx: /^REACTIONS SCREEN/, viz: /^(GRAPHS AND VISUALS|PLOTS)/ };
+  var APP_RE = /\b(app|simulator|application|buttons?|panels?|menus?|toggles?|turn (?:it )?(?:on|off)|enable|disable|settings?|99 ?%|accurate|diffuse|ultra|mesh|smooth orbitals?|real image|antimatter|spherical|cartesian|grid|cloud studio|language|theme|click|tap|where (?:is|do|can|are)|how (?:do|can|would|should|to) (?:i|you|we)|how to|navigate|explore panel|data panel|legend|features?|can you (?:see|change|open|control|do|show|click)|are you able|what can you|api keys?|providers?|hypothetical)\b/i;
+  var BUILD_RE = /\b(build|builder|smiles|pubchem|wikidata|force field|conformer|type (?:a|the|any) (?:name|formula)|add a molecule)\b/i;
+  var RX_RE = /(\breactions?\b|\breact(?:s|ing|ed)?\b|\bmechanisms?\b|transition state|activation (?:energy|barrier)|Δ ?[GHS]|\bdelta ?[ghs]\b|gibbs|catalys|combustion|reactants?|flask|haber|zeldovich|benzene|bond (?:breaking|forming|formation))/i;
+  var VIZ_RE = /\b(plots?|plotted|plotting|graphs?|charts?|draw|sketch|diagrams?|visuali[sz](?:e|ation)s?|curves?|surfaces?|contours?|streamlines?|vector field|sliders?|animate|animation|parametric|illustrate|heat ?maps?|isosurfaces?)\b/i;
+  var NAV_RE = /\b(show me|take me|go to|open|switch to|compare|jump to|link|button|where)\b/i;
+  function litePlan(f, state) {
+    var u = String(f.userText || ''), la = String(f.lastAssistant || ''), shortMsg = u.length < 48;
+    var p = { app: APP_RE.test(u), build: BUILD_RE.test(u), rx: RX_RE.test(u) || (state && state.view === 'reaction'), viz: !!f.vis || VIZ_RE.test(u) };
+    if (!p.viz) p.viz = (shortMsg && /```(?:plot|choices)/.test(la)) || (shortMsg && /\b(?:plot|graph|chart|diagram)\b/i.test(la));
+    if (p.build) p.app = true;
+    p.cat = p.app || p.build || p.rx || NAV_RE.test(u);
+    return p;
+  }
+  var SECS = null;
+  function secs() {
+    if (SECS) return SECS; SECS = []; var cur = null;
+    BASE.split('\n').forEach(function (l) { if (!cur || HEAD_RE.test(l)) { cur = { h: l, lines: [] }; SECS.push(cur); } cur.lines.push(l); });
+    return SECS;
+  }
+  function liteBody(p) {
+    var out = [], lang = [];
+    secs().forEach(function (s) {
+      var keep = ALWAYS_RE.test(s.h);
+      for (var k in GROUPS) if (GROUPS[k].test(s.h)) keep = !!(k === 'app' ? (p.app || p.build || p.rx) : p[k]);
+      if (keep) out.push(s.lines.join('\n'));
+      else s.lines.forEach(function (l) { if (/^- LANGUAGE:/.test(l)) lang.push(l); }); // the language rule lives inside PLOTS but applies to every answer
+    });
+    return out.join('\n') + (lang.length ? '\n\nLANGUAGE\n' + lang.join('\n') : '');
+  }
+  function liteNote(p) {
+    var miss = [];
+    if (!(p.app || p.build || p.rx)) miss.push('the app manual and navigation guide');
+    else { if (!p.build) miss.push('the Build-mode manual'); if (!p.rx) miss.push('the Reactions-screen manual'); }
+    if (!p.viz) miss.push('the plot and choices-block syntax');
+    if (!p.cat) miss.push('the button CATALOG');
+    if (!miss.length) return '';
+    return '\n\nLITE MODE (this message only)\n- To save the person\'s tokens these parts of your manual are not loaded now: ' + miss.join('; ') + '. Answer everything else normally and in full; quality of the physics must not drop.\n' +
+      '- Do not write plot or choices code blocks' + (p.cat ? '' : ' and do not write [[tags]]') + ' when their section is missing. If the person clearly needs a missing part (a graph, how to use a feature, a button), say so in one short sentence and ask them to repeat the request with a word like "plot" or "how do I" (or to switch the panel to Ultra). Never invent app features, buttons or plot syntax from memory.';
+  }
   QAI.knowledge = {
     secretText: secretText,
     buildSystem: function (flags) {
@@ -61500,10 +61611,12 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       if (flags && flags.shield && flags.shield.level === 'suspect' && QAI.shield) extra += QAI.shield.suspectNote;
       var status = flags && flags.web ? '' : '\n\nSEARCH STATUS\n- ' + (flags && flags.canWeb ? 'Web search is available for this model but the person has switched it off: suggest turning on the Web button when data is missing.' : 'This model cannot search the web: do not suggest the Web button.');
       var refsNote = flags && flags.refs && flags.refs.length ? '\n\nREFERENCE LINKS (verified, real pages; the only URLs you may link to)\n' + flags.refs.map(function (r) { return '- ' + r.title + ' \u2014 ' + r.url + (r.extract ? ' \u2014 ' + r.extract : ''); }).join('\n') + '\n- These are general encyclopedia pages, not news or papers. Link to one only when it genuinely fits, say what it covers in your own words, and do not claim it says something it does not. If none fits, give no link and say you cannot browse for newer sources.' : '';
+      var lite = !!(flags && flags.lite), plan = lite ? litePlan(flags, state) : null, body = lite ? liteBody(plan) + liteNote(plan) : BASE;
       var marker = QAI.shield ? '\n\nINTERNAL MARKER (secret: never write it, never mention it): ' + QAI.shield.canary : '';
-      return BASE + marker + (flags && flags.web ? WEB_NOTE : (extra ? '' : status)) + extra + refsNote + '\n\nAPP STATE (live, taken when the message was sent)\n' + JSON.stringify(state) +
-        (cat ? '\n\nCATALOG\n' + cat : '');
-    }
+      return body + marker + (flags && flags.web ? WEB_NOTE : (extra ? '' : status)) + extra + refsNote + '\n\nAPP STATE (live, taken when the message was sent)\n' + JSON.stringify(state) +
+        (cat && (!lite || plan.cat || cat.length < 700) ? '\n\nCATALOG\n' + cat : '');
+    },
+    litePlan: litePlan
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 /* <<< embedded: ai/qai-knowledge.js */
@@ -61523,6 +61636,14 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
 
   /* ───────────── strings ───────────── */
   var S = {
+    modeLite: "Lite",
+    modeUltra: "Ultra",
+    modeTipLite: "Lite: fast and light on your API quota. Tap to switch to Ultra.",
+    modeTipUltra: "Ultra: full knowledge base on every message. Tap to go back to Lite.",
+    ultraTitle: "Switch to Ultra?",
+    ultraBody: "Ultra sends the full knowledge base with every message (about 15,000 tokens before your question). It uses far more of your API quota and can hit rate limits fast. Lite answers physics just as well with a fraction of that.",
+    ultraGo: "Use Ultra",
+    ultraStay: "Stay on Lite",
     guideBtn: 'How it works',
     guideNew: 'New here? See how it works',
     guideTitle: 'How to use Physicist AI',
@@ -61653,6 +61774,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     typeModel: 'Connected. This server does not list its models, so type the model ID below.',
     placeholder: 'Ask about what is on screen…', hint: 'Enter to send · Shift+Enter for a new line', shown: 'Showing {x}'
   };
+  try { if (root.QA_I18N && QA_I18N.add) (function (d) { for (var k in d) QA_I18N.add(k, d[k]); })({"en": {"ai.modeLite": "Lite", "ai.modeUltra": "Ultra", "ai.modeTipLite": "Lite: fast and light on your API quota. Tap to switch to Ultra.", "ai.modeTipUltra": "Ultra: full knowledge base on every message. Tap to go back to Lite.", "ai.ultraTitle": "Switch to Ultra?", "ai.ultraBody": "Ultra sends the full knowledge base with every message (about 15,000 tokens before your question). It uses far more of your API quota and can hit rate limits fast. Lite answers physics just as well with a fraction of that.", "ai.ultraGo": "Use Ultra", "ai.ultraStay": "Stay on Lite"}, "de": {"ai.modeTipLite": "Lite: schnell und schonend für dein API-Kontingent. Tippen für Ultra.", "ai.modeTipUltra": "Ultra: volle Wissensbasis bei jeder Nachricht. Tippen, um zu Lite zurückzukehren.", "ai.ultraTitle": "Zu Ultra wechseln?", "ai.ultraBody": "Ultra sendet mit jeder Nachricht die komplette Wissensbasis (rund 15.000 Tokens vor deiner Frage). Das verbraucht deutlich mehr API-Kontingent und kann schnell in Ratenlimits laufen. Lite beantwortet Physik genauso gut mit einem Bruchteil davon.", "ai.ultraGo": "Ultra nutzen", "ai.ultraStay": "Bei Lite bleiben", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "fr": {"ai.modeTipLite": "Lite : rapide et économe en quota API. Touchez pour passer à Ultra.", "ai.modeTipUltra": "Ultra : base de connaissances complète à chaque message. Touchez pour revenir à Lite.", "ai.ultraTitle": "Passer à Ultra ?", "ai.ultraBody": "Ultra envoie toute la base de connaissances à chaque message (environ 15 000 tokens avant votre question). Cela consomme bien plus de quota API et peut atteindre vite les limites de débit. Lite répond aussi bien en physique avec une fraction de ce coût.", "ai.ultraGo": "Utiliser Ultra", "ai.ultraStay": "Rester en Lite", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "es": {"ai.modeTipLite": "Lite: rápido y ligero con tu cuota de API. Toca para pasar a Ultra.", "ai.modeTipUltra": "Ultra: base de conocimiento completa en cada mensaje. Toca para volver a Lite.", "ai.ultraTitle": "¿Cambiar a Ultra?", "ai.ultraBody": "Ultra envía toda la base de conocimiento con cada mensaje (unos 15 000 tokens antes de tu pregunta). Consume mucha más cuota de API y puede alcanzar los límites de uso enseguida. Lite responde igual de bien de física con una fracción de eso.", "ai.ultraGo": "Usar Ultra", "ai.ultraStay": "Seguir en Lite", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "it": {"ai.modeTipLite": "Lite: veloce e leggero sulla tua quota API. Tocca per passare a Ultra.", "ai.modeTipUltra": "Ultra: base di conoscenza completa a ogni messaggio. Tocca per tornare a Lite.", "ai.ultraTitle": "Passare a Ultra?", "ai.ultraBody": "Ultra invia l'intera base di conoscenza a ogni messaggio (circa 15.000 token prima della tua domanda). Consuma molta più quota API e può raggiungere subito i limiti di richieste. Lite risponde sulla fisica altrettanto bene con una frazione.", "ai.ultraGo": "Usa Ultra", "ai.ultraStay": "Resta su Lite", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "el": {"ai.modeTipLite": "Lite: γρήγορο και φειδωλό με την ποσόστωση API. Πάτα για Ultra.", "ai.modeTipUltra": "Ultra: πλήρης βάση γνώσεων σε κάθε μήνυμα. Πάτα για επιστροφή στο Lite.", "ai.ultraTitle": "Αλλαγή σε Ultra;", "ai.ultraBody": "Το Ultra στέλνει ολόκληρη τη βάση γνώσεων με κάθε μήνυμα (περίπου 15.000 tokens πριν από την ερώτησή σου). Καταναλώνει πολύ περισσότερη από την ποσόστωση API σου και μπορεί να φτάσει γρήγορα τα όρια. Το Lite απαντά εξίσου καλά στη φυσική με ένα κλάσμα αυτού.", "ai.ultraGo": "Χρήση Ultra", "ai.ultraStay": "Μένω στο Lite", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "ru": {"ai.modeTipLite": "Lite: быстро и экономно для квоты API. Нажмите, чтобы включить Ultra.", "ai.modeTipUltra": "Ultra: полная база знаний в каждом сообщении. Нажмите, чтобы вернуться в Lite.", "ai.ultraTitle": "Включить Ultra?", "ai.ultraBody": "Ultra отправляет всю базу знаний с каждым сообщением (около 15 000 токенов до вашего вопроса). Это тратит намного больше квоты API и быстро упирается в лимиты. Lite отвечает по физике так же хорошо, расходуя малую часть.", "ai.ultraGo": "Включить Ultra", "ai.ultraStay": "Остаться на Lite", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "ar": {"ai.modeTipLite": "Lite: سريع وخفيف على حصة API. اضغط للتبديل إلى Ultra.", "ai.modeTipUltra": "Ultra: قاعدة المعرفة كاملة مع كل رسالة. اضغط للعودة إلى Lite.", "ai.ultraTitle": "التبديل إلى Ultra؟", "ai.ultraBody": "يرسل Ultra قاعدة المعرفة كاملة مع كل رسالة (نحو 15,000 رمز قبل سؤالك). يستهلك حصة API أكبر بكثير وقد يبلغ حدود الاستخدام بسرعة. يجيب Lite عن الفيزياء بالجودة نفسها بجزء صغير من ذلك.", "ai.ultraGo": "استخدام Ultra", "ai.ultraStay": "البقاء على Lite", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "bn": {"ai.modeTipLite": "Lite: দ্রুত এবং আপনার API কোটায় হালকা। Ultra-তে যেতে ট্যাপ করুন।", "ai.modeTipUltra": "Ultra: প্রতিটি বার্তায় পূর্ণ জ্ঞানভান্ডার। Lite-এ ফিরতে ট্যাপ করুন।", "ai.ultraTitle": "Ultra-তে যাবেন?", "ai.ultraBody": "Ultra প্রতিটি বার্তার সঙ্গে পুরো জ্ঞানভান্ডার পাঠায় (আপনার প্রশ্নের আগেই প্রায় ১৫,০০০ টোকেন)। এতে আপনার API কোটা অনেক বেশি খরচ হয় এবং দ্রুত রেট লিমিটে ঠেকতে পারে। Lite পদার্থবিদ্যার উত্তর একই মানে দেয়, খরচ তার ভগ্নাংশ।", "ai.ultraGo": "Ultra ব্যবহার করুন", "ai.ultraStay": "Lite-এ থাকুন", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "hi": {"ai.modeTipLite": "Lite: तेज़ और आपके API कोटा पर हल्का। Ultra के लिए टैप करें।", "ai.modeTipUltra": "Ultra: हर संदेश में पूरा ज्ञान-आधार। Lite पर लौटने के लिए टैप करें।", "ai.ultraTitle": "Ultra पर जाएँ?", "ai.ultraBody": "Ultra हर संदेश के साथ पूरा ज्ञान-आधार भेजता है (आपके सवाल से पहले लगभग 15,000 टोकन)। इससे आपका API कोटा बहुत ज़्यादा खर्च होता है और रेट लिमिट जल्दी लग सकती है। Lite भौतिकी के जवाब उतने ही अच्छे देता है, खर्च उसका एक छोटा हिस्सा।", "ai.ultraGo": "Ultra इस्तेमाल करें", "ai.ultraStay": "Lite पर रहें", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "ja": {"ai.modeTipLite": "Lite：高速で API 枠に優しい。タップで Ultra に切り替え。", "ai.modeTipUltra": "Ultra：毎回フル知識ベース。タップで Lite に戻る。", "ai.ultraTitle": "Ultra に切り替えますか？", "ai.ultraBody": "Ultra は毎回のメッセージで知識ベース全体を送信します（質問の前に約15,000トークン）。API の利用枠を大幅に消費し、レート制限にすぐ達することがあります。Lite でも物理の回答品質は同じで、消費はごくわずかです。", "ai.ultraGo": "Ultra を使う", "ai.ultraStay": "Lite のまま", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "ko": {"ai.modeTipLite": "Lite: 빠르고 API 할당량을 아낍니다. 탭하면 Ultra로 전환.", "ai.modeTipUltra": "Ultra: 매 메시지에 전체 지식 베이스. 탭하면 Lite로 복귀.", "ai.ultraTitle": "Ultra로 전환할까요?", "ai.ultraBody": "Ultra는 메시지마다 전체 지식 베이스를 보냅니다(질문 앞에 약 15,000 토큰). API 할당량을 훨씬 많이 쓰고 속도 제한에 금방 걸릴 수 있습니다. Lite도 물리 답변 품질은 같고 사용량은 훨씬 적습니다.", "ai.ultraGo": "Ultra 사용", "ai.ultraStay": "Lite 유지", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}, "zh": {"ai.modeTipLite": "Lite：快速且节省 API 额度。点按切换到 Ultra。", "ai.modeTipUltra": "Ultra：每条消息都带完整知识库。点按返回 Lite。", "ai.ultraTitle": "切换到 Ultra？", "ai.ultraBody": "Ultra 每条消息都会发送完整知识库（在你的问题之前约 15,000 个 token），会消耗多得多的 API 额度，并可能很快触发速率限制。Lite 回答物理问题同样出色，消耗只是其中一小部分。", "ai.ultraGo": "使用 Ultra", "ai.ultraStay": "保持 Lite", "ai.modeLite": "Lite", "ai.modeUltra": "Ultra"}}); } catch (e) {}
   function t(k, p) {
     var s = S[k] == null ? k : S[k];
     try { // translate only when a language file actually defines "ai.<key>" (avoids "unknown key" warnings)
@@ -61672,6 +61794,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       '<g class="qai-spin" fill="currentColor" fill-rule="evenodd"><path d="M509.2 600.8 C437.2 601 360.2 594.8 289.7 580.5 C257 573.9 222.9 566.6 193.8 549.6 C139.3 517.6 216.8 489.5 243.9 483.8 C244.3 483.7 246.2 483.1 246.4 483.2 C246.7 483.3 247.2 483.9 246.9 483.9 C229.6 490.2 179.7 510.9 209 534.2 C215.2 539.1 222.4 543 229.8 545.8 C243.5 551.1 257.1 554.8 271.4 558 C276.3 559.1 281.4 559.7 286.3 560.6 C288.1 560.9 289.9 561 291.6 561.2 C292.4 561.3 293.1 561.4 293.8 561.4 C294.1 561.3 294.7 561.2 294.5 561.2 C290.6 559.3 286.3 558.1 282.2 556.5 C269.9 551.7 257.1 546.2 246.4 538.4 C201.8 505.6 279.8 482.1 303 476.9 C304.1 476.7 305.2 476.4 306.3 476.2 C306.9 476 307.4 476 308 475.8 C308.1 475.7 308.4 475.5 308.3 475.6 C310.6 468.8 311.6 461.1 313.5 454 C316.7 441.9 321.4 430.3 326.9 419 C360.1 350 435.7 305.6 511.6 305.9 C589.2 306.2 662.8 348.7 697.4 419 C702.7 430 707.5 441.4 710.7 453.1 C711.8 457.3 712.5 461.7 713.7 465.8 C714.2 467.9 714.6 470.1 715 472.3 C715.1 473 715 474.1 715.4 474.8 C715.6 475 716 475.9 715.9 475.6 C720.1 476.9 724.4 477.6 728.6 478.7 C739.1 481.4 749.5 484.5 759.4 488.8 C825.8 517.8 775 545 735.3 558.9 C733.9 559.4 732.5 559.9 731.1 560.3 C730.9 560.4 726.7 562.4 729.4 561.2 C738.7 561.7 748.6 558.8 757.7 556.9 C773.9 553.7 835.7 538.4 822.7 512.2 C818.3 503.2 805 495 796 491.2 C792.9 489.9 787.4 488.4 785 486.4 C784.5 486 783 485.3 783.5 485.6 C789.1 485.9 794.6 488.3 800.1 490 C814.5 494.5 842.6 505 848 520.5 C851.9 531.9 843 541.2 834.2 547 C806 565.7 771.2 572.8 738.6 579.9 C707.2 586.7 675 590.9 643 594 C598.4 598.2 553.9 600.6 509.2 600.8 Z M618.9 563.5 C644.1 560.3 739.7 545.3 746.2 516.3 C749 503.5 730.3 494.7 720.3 492.6 C719.9 492.5 719.1 492.1 718.7 492.1 C718.4 492.1 717.5 492.1 717.8 492.2 C716.9 497.8 718.4 504.4 715.4 509.7 C707.8 523.6 644.9 535.8 628.9 537.7 C628 537.8 627.2 538 626.4 538.1 C626 538.1 625 537.9 625.3 537.9 C625.3 537.6 624.9 537.4 624.8 537.1 C624.7 536.4 628.5 523.5 628.9 521.3 C631 509.2 631.5 497 630.1 484.7 C623.6 426.3 570.1 383.5 512.5 383.8 C437 384.3 379.4 452.6 397.6 527.1 C398.3 529.9 400.3 534.4 400.3 537.1 C400.3 537.2 400.3 537.7 400.2 537.5 C399.9 537.6 399.7 538.1 399.4 538.1 C393.8 538.4 387.5 536.3 382 535.3 C366.5 532.7 320.2 523 310.5 511.3 C306.8 506.9 306.8 501.8 306.9 496.4 C307 495.4 307.3 494 307 493 C306.9 492.7 306.2 491.7 306.3 492.1 C297.3 493.8 287.3 498.3 281.4 505.5 C277.8 509.7 277.1 515.6 279.8 520.5 C294.2 546.1 377.5 560.3 405.2 563.8 C477.8 572.9 546.4 573 618.9 563.5 Z M429.2 692.6 C429.5 692.4 429.1 691.8 429.3 691.7 C434.8 691.4 440.5 691.7 446 691.5 C461.5 691 477.1 690.2 492.5 687.8 C529.6 682 561.2 669.6 593.9 651.6 C595.2 650.9 596.6 650.2 597.8 649.3 C598.9 648.6 600.2 647.4 599.9 647.7 C593.5 647.6 586.9 649.2 580.6 650.3 C568.3 652.5 555.7 654 543.2 655.4 C510.9 659.1 478.5 660.2 446 659.4 C444.6 659.4 443.2 659.4 441.8 659.3 C441.1 659.3 440.8 659.3 440.1 658.8 C440.1 658.7 439.9 658.4 440 658.5 C455.1 655.3 470.6 652.9 485.4 648.5 C490.5 647 495.7 645.8 500.8 644.3 C502.5 643.8 504.3 643.4 506 642.7 C506.7 642.4 507.5 642.1 508.3 641.9 C508.7 641.8 509.5 640.8 509.2 641 C502.8 640.2 496.4 640.4 490 640.1 C477.8 639.5 465.6 639 453.4 637.9 C416.2 634.5 379.2 629.3 342.9 620.7 C328.9 617.4 314.8 614.5 301.1 610.3 C299.5 609.8 297.9 609.3 296.3 608.9 C295.4 608.7 294.7 608.3 293.8 608 C293.6 607.9 292.7 607.7 293 607.8 C293.6 607.7 294.1 607.3 294.7 607.3 C297.4 607.2 300.3 607.9 303 608.2 C308.5 608.9 314.1 609.5 319.6 610.1 C333.4 611.7 347.3 613.1 361.2 614.5 C403.5 618.6 445.9 621.2 488.4 622.2 C531.6 623.3 574.9 621.4 618.1 618 C633 616.8 648.1 615.3 663 613.3 C668.2 612.6 673.5 611.8 678.7 611.3 C680.7 611.1 682.6 610.8 684.6 610.6 C685.2 610.6 686.4 610.3 687.1 610.6 C687.3 610.7 687.8 611.1 687.6 611.1 C682.6 619.2 675.7 626.4 669.4 633.5 C639.4 667.2 599.3 690 555.7 700.7 C543.4 703.8 531 706.3 518.3 706.9 C492 708.2 464.4 703.6 439.3 695.7 C437.1 695 434.9 694.3 432.7 693.6 C431.8 693.4 431 693.1 430.2 692.9 C429.9 692.8 428.9 692.5 429.2 692.6 Z"/></g></svg>';
   }
   var ICON = {
+    bolt: '<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M9.3 1 3 9h4l-.8 6L13 6.6H9L9.3 1Z"/></svg>',
     launch: brandMark(27),
     close: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="m2.5 2.5 9 9m0-9-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     clock: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8M2.5 2.2v2.6h2.6M8 5v3.2l2.1 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -64455,7 +64578,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   QAI.renderMarkdown = md;
 
   /* ───────────── state ───────────── */
-  var ui = { wide: false, open: false, view: 'chat', expanded: null, streaming: false, abort: null, sel: null, picker: null, lastUser: '', models: {}, stick: true, lastDay: '', web: QAI.prefs.get().web !== false };
+  var ui = { mode: 'lite', wide: false, open: false, view: 'chat', expanded: null, streaming: false, abort: null, sel: null, picker: null, lastUser: '', models: {}, stick: true, lastDay: '', web: QAI.prefs.get().web !== false };
   var el = {}, chat = QAI.createChat({
     buildSystem: function (flags) { return QAI.knowledge.buildSystem(flags); },
     text: function (k) { return t(k); },
@@ -64503,9 +64626,22 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     b.title = !p ? '' : can ? (on ? t('webOnTip') : t('webOffTip')) : (ui.sel.model ? t('webNoTip', { p: p.name }) : t('chooseModel'));
     b.setAttribute('aria-label', (t('web')) + ': ' + b.title);
   }
+  /* Lite (default, every load and every new chat) vs Ultra (full knowledge base on every message, behind a warning banner). */
+  function renderMode() {
+    var u = ui.mode === 'ultra';
+    if (el.mode) { el.mode.setAttribute('data-mode', ui.mode); el.mode.setAttribute('aria-pressed', u ? 'true' : 'false'); el.mode.title = t(u ? 'modeTipUltra' : 'modeTipLite'); el.mode.setAttribute('aria-label', el.mode.title); el.mode.lastChild.textContent = t(u ? 'modeUltra' : 'modeLite'); }
+    if (el.badge) { el.badge.setAttribute('data-mode', ui.mode); el.badge.textContent = t(u ? 'modeUltra' : 'modeLite'); }
+  }
+  function setMode(m) { ui.mode = m === 'ultra' ? 'ultra' : 'lite'; if (el.ultrabar) el.ultrabar.hidden = true; renderMode(); }
+  function toggleMode() {
+    if (ui.mode === 'ultra') { setMode('lite'); announce(t('modeLite')); return; }
+    if (!el.ultrabar) return;
+    el.ultrabar.hidden = !el.ultrabar.hidden;
+    if (!el.ultrabar.hidden) { var g = el.ultrabar.querySelector('.qai-ub-stay'); if (g) g.focus(); }
+  }
   function toggleWeb() { ui.web = !ui.web; QAI.prefs.set({ web: ui.web }); renderWeb(); }
   function renderPill() {
-    renderWeb();
+    renderWeb(); renderMode();
     var b = el.model; b.textContent = '';
     if (!ui.sel) { b.appendChild(h('b', { text: t('connectAi') })); return; }
     var p = QAI.provider(ui.sel.providerId);
@@ -64749,7 +64885,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       else if (ended && drained) { var rs = drained; drained = null; rs(); }
     };
     try {
-      for await (var d of chat.send(text, ui.sel, ui.abort.signal, { web: ui.web })) {
+      for await (var d of chat.send(text, ui.sel, ui.abort.signal, { web: ui.web, lite: ui.mode !== 'ultra' })) {
         if (typeof d === 'string') { acc += d; if (!raf) raf = requestAnimationFrame(paint); }
         else if (d && d.ev === 'replace') { acc = ''; shown = 0; node._prose.textContent = ''; node.classList.remove('is-streaming'); node.classList.add('is-thinking'); }
         else if (d && d.ev === 'status') { if (!acc) setTypingLabel(node, t(d.key === 'fixing' ? 'fixing' : 'drawingGraph')); }
@@ -64777,7 +64913,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     el.send.disabled = !on && !el.input.value.trim();
   }
   function autosize() { var i = el.input; i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 140) + 'px'; if (!ui.streaming) el.send.disabled = !i.value.trim(); }
-  function newChat() { if (ui.abort) ui.abort.abort(); chat.reset(); ui.conv = null; ui.convId = null; renderEmpty(); setView('chat'); el.input.focus(); }
+  function newChat() { if (ui.abort) ui.abort.abort(); setMode('lite'); chat.reset(); ui.conv = null; ui.convId = null; renderEmpty(); setView('chat'); el.input.focus(); }
 
   /* ───────────── providers view ───────────── */
   function renderProviders() {
@@ -65151,7 +65287,14 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     el.provBtn = h('button', { type: 'button', class: 'qai-iconbtn', html: ICON.plug, title: t('providers'), 'aria-label': t('providers'), 'aria-pressed': 'false', onclick: function () { setView(ui.view === 'providers' ? 'chat' : 'providers'); } });
     el.wide = h('button', { type: 'button', class: 'qai-iconbtn qai-wide-btn', 'aria-pressed': 'false', onclick: function () { setWide(!ui.wide); } });
     el.histBtn = h('button', { type: 'button', class: 'qai-iconbtn', html: ICON.clock, title: t('history'), 'aria-label': t('history'), 'aria-pressed': 'false', onclick: function () { setView(ui.view === 'history' ? 'chat' : 'history'); } });
-    var head = h('div', { class: 'qai-head' }, h('div', { class: 'qai-title', id: 'qai-title', text: t('title') }), el.wide,
+    el.badge = h('span', { class: 'qai-badge', 'data-mode': 'lite', text: t('modeLite') });
+    el.mode = h('button', { type: 'button', class: 'qai-mode', 'data-mode': 'lite', 'aria-pressed': 'false', onclick: toggleMode }, h('span', { html: ICON.bolt, 'aria-hidden': 'true' }), h('span', { text: t('modeLite') }));
+    el.ultrabar = h('div', { class: 'qai-ultrabar', role: 'alertdialog', 'aria-label': t('ultraTitle'), hidden: true },
+      h('div', { class: 'qai-ub-title', text: t('ultraTitle') }), h('div', { class: 'qai-ub-body', text: t('ultraBody') }),
+      h('div', { class: 'qai-ub-row' },
+        h('button', { type: 'button', class: 'qai-ub-go', text: t('ultraGo'), onclick: function () { setMode('ultra'); announce(t('modeUltra')); el.input.focus(); } }),
+        h('button', { type: 'button', class: 'qai-ub-stay', text: t('ultraStay'), onclick: function () { el.ultrabar.hidden = true; el.input.focus(); } })));
+    var head = h('div', { class: 'qai-head' }, h('div', { class: 'qai-title', id: 'qai-title' }, h('span', { text: t('title') }), el.badge), el.wide,
       h('button', { type: 'button', class: 'qai-iconbtn', html: ICON.plus, title: t('newChat'), 'aria-label': t('newChat'), onclick: newChat }), el.histBtn, el.provBtn,
       h('button', { type: 'button', class: 'qai-iconbtn', html: ICON.close, title: t('close'), 'aria-label': t('close'), onclick: close }));
     el.seeing = h('div', { class: 'qai-seeing', 'aria-label': t('seeing') }, h('i', { 'aria-hidden': 'true' }), h('span', { text: '' }));
@@ -65175,7 +65318,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     el.send = h('button', { type: 'button', class: 'qai-send', html: ICON.send, title: t('send'), 'aria-label': t('send'), disabled: true, onclick: function () { if (ui.streaming) ui.abort && ui.abort.abort(); else send(el.input.value); } });
     el.model = h('button', { type: 'button', class: 'qai-model', 'aria-haspopup': 'listbox', 'aria-expanded': 'false', onclick: openPicker });
     el.web = h('button', { type: 'button', class: 'qai-web', 'aria-pressed': 'false', onclick: toggleWeb }, h('span', { html: ICON.globe, 'aria-hidden': 'true' }), h('span', { text: t('web') }));
-    el.composer = h('div', { class: 'qai-composer' }, h('div', { class: 'qai-box' }, el.input, el.send), h('div', { class: 'qai-foot' }, el.model, el.web, h('span', { class: 'qai-hint', text: narrow() ? '' : 'Enter ↵' })));
+    el.composer = h('div', { class: 'qai-composer' }, el.ultrabar, h('div', { class: 'qai-box' }, el.input, el.send), h('div', { class: 'qai-foot' }, el.model, el.web, el.mode, h('span', { class: 'qai-hint', text: narrow() ? '' : 'Enter ↵' })));
     el.chatView = h('div', { class: 'qai-body', style: 'flex:1;min-height:0' }, el.log, el.composer);
     el.prov = h('div', { class: 'qai-prov', hidden: true });
     el.hist = h('div', { class: 'qai-prov qai-hist', hidden: true });
