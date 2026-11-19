@@ -32806,7 +32806,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
 
   QAI.prefs = {
     get: function () { return read(LS, K_PREFS); },
-    set: function (patch) { var p = read(LS, K_PREFS); for (var k in patch) p[k] = patch[k]; write(LS, K_PREFS, p); if (QAI.sync && ('autoSwitch' in patch || 'crossProvider' in patch)) QAI.sync.changed('vault'); }
+    set: function (patch) { var p = read(LS, K_PREFS); for (var k in patch) p[k] = patch[k]; write(LS, K_PREFS, p); if (QAI.sync && ('autoSwitch' in patch || 'crossProvider' in patch || 'plus' in patch)) QAI.sync.changed('vault'); }
   };
 
   /* ───────────── provider registry ───────────── */
@@ -33402,7 +33402,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
     return method === 'GET' ? res.json() : null;
   }
   async function encRow(id, obj) { return { space: SY.space, id: id, data: JSON.stringify(await aesEnc(SY.key, obj)), updated_at: new Date().toISOString() }; }
-  function syncPrefs() { var p = QAI.prefs.get(); return { autoSwitch: p.autoSwitch, crossProvider: p.crossProvider, lastModel: p.lastModel || {} }; }
+  function syncPrefs() { var p = QAI.prefs.get(); return { autoSwitch: p.autoSwitch, crossProvider: p.crossProvider, plus: p.plus, lastModel: p.lastModel || {} }; }
   async function pull() {
     var rows = await sb(SY.cfg, 'GET', '?space=eq.' + SY.space + '&select=id,data,updated_at&limit=1000');
     var got = { rows: rows.length, keys: 0, chats: 0, bad: 0 };
@@ -33412,7 +33412,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
         var v = await aesDec(SY.key, JSON.parse(vrow.data));
         Object.keys(v.providers || {}).forEach(function (pid) { got.keys += (v.providers[pid].keys || []).length; });
         QAI.vault.merge(v);
-        if (v.prefs) { var lp = QAI.prefs.get(), patch = {}; ['autoSwitch', 'crossProvider'].forEach(function (k) { if (lp[k] == null && v.prefs[k] != null) patch[k] = v.prefs[k]; }); if (!lp.lastModel && v.prefs.lastModel) patch.lastModel = v.prefs.lastModel; write(LS, K_PREFS, Object.assign(lp, patch)); }
+        if (v.prefs) { var lp = QAI.prefs.get(), patch = {}; ['autoSwitch', 'crossProvider'].forEach(function (k) { if (lp[k] == null && v.prefs[k] != null) patch[k] = v.prefs[k]; }); if (lp.plus == null && v.prefs.plus != null) patch.plus = v.prefs.plus; if (!lp.lastModel && v.prefs.lastModel) patch.lastModel = v.prefs.lastModel; write(LS, K_PREFS, Object.assign(lp, patch)); }
       } catch (e) { got.bad++; }
     }
     for (var i = 0; i < rows.length; i++) {
@@ -39513,5 +39513,477 @@ html body #excrow .exc-chip.on span{opacity:.85}
 })();
 </script>
 <!-- /qa-lux:body -->
+<script id="qai-plus">
+/* Physicist AI — "Plus" module. Additive: touches the chat only through its public API (QuantumAI.ui / .prefs / .page / .knowledge)
+   and the existing --q-* design tokens, so it follows dark/light and flat/glass/luxury automatically. */
+(function () {
+  'use strict';
+  var w = window, d = document, Q = w.QuantumAI, I = w.QA_I18N;
+  if (!Q || !Q.ui || !Q.prefs || !I || w.QAPlus) return;
+
+  /* ───────── i18n: 13 languages ───────── */
+  var K = 'ask lvl kid hs uni grad quiz qZ qP ok no streak best next copy done redo edit say save close'.split(' ');
+  var L = {
+    en: ["Explain what I'm looking at: {what}", 'Level', 'Kid', 'High school', 'University', 'Grad', 'Quiz me', 'What is the atomic number of {n}?', 'Which period is {n} in?', 'Correct!', "Not quite — it's {a}.", 'Streak', 'Best', 'Next', 'Copy', 'Copied', 'Regenerate', 'Edit', 'Read aloud', 'Export chat', 'Close'],
+    ar: ['اشرح لي ما أراه: {what}', 'المستوى', 'طفل', 'ثانوي', 'جامعي', 'دراسات عليا', 'اختبرني', 'ما العدد الذري لعنصر {n}؟', 'في أي دورة يقع {n}؟', 'صحيح!', 'ليس تمامًا — الإجابة {a}.', 'التتابع', 'الأفضل', 'التالي', 'نسخ', 'تم النسخ', 'إعادة التوليد', 'تعديل', 'قراءة بصوت عالٍ', 'تصدير المحادثة', 'إغلاق'],
+    bn: ['আমি যা দেখছি তা ব্যাখ্যা করো: {what}', 'স্তর', 'শিশু', 'উচ্চ বিদ্যালয়', 'বিশ্ববিদ্যালয়', 'স্নাতকোত্তর', 'আমাকে কুইজ করো', '{n}-এর পারমাণবিক সংখ্যা কত?', '{n} কোন পর্যায়ে আছে?', 'সঠিক!', 'প্রায় — উত্তর {a}।', 'ধারা', 'সেরা', 'পরবর্তী', 'কপি', 'কপি হয়েছে', 'আবার তৈরি করো', 'সম্পাদনা', 'জোরে পড়ো', 'চ্যাট রপ্তানি', 'বন্ধ'],
+    de: ['Erkläre, was ich gerade sehe: {what}', 'Niveau', 'Kind', 'Schule', 'Uni', 'Master+', 'Quiz', 'Wie lautet die Ordnungszahl von {n}?', 'In welcher Periode steht {n}?', 'Richtig!', 'Knapp daneben – es ist {a}.', 'Serie', 'Rekord', 'Weiter', 'Kopieren', 'Kopiert', 'Neu generieren', 'Bearbeiten', 'Vorlesen', 'Chat exportieren', 'Schließen'],
+    el: ['Εξήγησε αυτό που βλέπω: {what}', 'Επίπεδο', 'Παιδί', 'Λύκειο', 'Πανεπιστήμιο', 'Μεταπτυχιακό', 'Κουίζ', 'Ποιος είναι ο ατομικός αριθμός του στοιχείου {n};', 'Σε ποια περίοδο ανήκει το {n};', 'Σωστά!', 'Όχι ακριβώς — είναι {a}.', 'Σερί', 'Ρεκόρ', 'Επόμενο', 'Αντιγραφή', 'Αντιγράφηκε', 'Νέα απάντηση', 'Επεξεργασία', 'Ανάγνωση', 'Εξαγωγή συνομιλίας', 'Κλείσιμο'],
+    es: ['Explica lo que estoy viendo: {what}', 'Nivel', 'Niño', 'Secundaria', 'Universidad', 'Posgrado', 'Ponme a prueba', '¿Cuál es el número atómico de {n}?', '¿En qué período está {n}?', '¡Correcto!', 'Casi: es {a}.', 'Racha', 'Mejor', 'Siguiente', 'Copiar', 'Copiado', 'Regenerar', 'Editar', 'Leer en voz alta', 'Exportar chat', 'Cerrar'],
+    fr: ['Explique ce que je vois : {what}', 'Niveau', 'Enfant', 'Lycée', 'Université', 'Master+', 'Quiz', 'Quel est le numéro atomique de {n} ?', 'Dans quelle période se trouve {n} ?', 'Exact !', 'Pas tout à fait : c’est {a}.', 'Série', 'Record', 'Suivant', 'Copier', 'Copié', 'Régénérer', 'Modifier', 'Lire à voix haute', 'Exporter le chat', 'Fermer'],
+    hi: ['जो मैं देख रहा हूँ उसे समझाओ: {what}', 'स्तर', 'बच्चा', 'हाई स्कूल', 'विश्वविद्यालय', 'स्नातकोत्तर', 'मेरी परीक्षा लो', '{n} की परमाणु संख्या क्या है?', '{n} किस आवर्त में है?', 'सही!', 'लगभग — उत्तर {a} है।', 'लगातार', 'सर्वश्रेष्ठ', 'अगला', 'कॉपी', 'कॉपी हो गया', 'फिर से बनाएँ', 'संपादित करें', 'ज़ोर से पढ़ें', 'चैट निर्यात करें', 'बंद करें'],
+    it: ['Spiega ciò che sto guardando: {what}', 'Livello', 'Bambino', 'Liceo', 'Università', 'Magistrale+', 'Interrogami', 'Qual è il numero atomico di {n}?', 'In quale periodo si trova {n}?', 'Esatto!', 'Quasi: è {a}.', 'Serie', 'Record', 'Avanti', 'Copia', 'Copiato', 'Rigenera', 'Modifica', 'Leggi ad alta voce', 'Esporta chat', 'Chiudi'],
+    ja: ['今見ているものを説明して: {what}', 'レベル', 'こども', '高校', '大学', '大学院', 'クイズ', '{n}の原子番号は?', '{n}は第何周期?', '正解!', '惜しい!答えは{a}です。', '連続', '最高', '次へ', 'コピー', 'コピーしました', '再生成', '編集', '読み上げ', 'チャットを書き出す', '閉じる'],
+    ko: ['지금 보고 있는 것을 설명해 줘: {what}', '수준', '어린이', '고등학교', '대학', '대학원', '퀴즈', '{n}의 원자 번호는?', '{n}은(는) 몇 주기인가요?', '정답!', '아쉬워요 — 정답은 {a}입니다.', '연속', '최고', '다음', '복사', '복사됨', '다시 생성', '수정', '소리 내어 읽기', '채팅 내보내기', '닫기'],
+    ru: ['Объясни то, что я вижу: {what}', 'Уровень', 'Ребёнок', 'Школа', 'Вуз', 'Магистратура', 'Викторина', 'Каков атомный номер элемента {n}?', 'В каком периоде находится {n}?', 'Верно!', 'Почти — правильно {a}.', 'Серия', 'Рекорд', 'Далее', 'Копировать', 'Скопировано', 'Ещё раз', 'Изменить', 'Озвучить', 'Экспорт чата', 'Закрыть'],
+    zh: ['请解释我正在看的内容:{what}', '难度', '儿童', '高中', '大学', '研究生', '来个测验', '{n}的原子序数是多少?', '{n}位于第几周期?', '答对了!', '差一点——答案是 {a}。', '连续', '最佳', '下一题', '复制', '已复制', '重新生成', '编辑', '朗读', '导出聊天', '关闭']
+  };
+  Object.keys(L).forEach(function (c) { var o = {}; K.forEach(function (k, i) { o['plus.' + k] = L[c][i]; }); I.add(c, o); });
+  var T = function (k, p) { try { return w.qaT('plus.' + k, p); } catch (e) { return k; } };
+
+  /* ───────── persisted state: Q.prefs → (if connected) encrypted Supabase sync with the rest of the vault ───────── */
+  var DEF = { level: 'hs', tts: false, hap: true, best: 0, streak: 0 };
+  var S = Object.assign({}, DEF, Q.prefs.get().plus || {});
+  function save() { try { Q.prefs.set({ plus: S }); } catch (e) {} }
+  function buzz(n) { if (S.hap && navigator.vibrate) try { navigator.vibrate(n || 8); } catch (e) {} }
+
+  /* ───────── explain level → system prompt ───────── */
+  var HINT = {
+    kid: 'Explain for a curious child (about 8): simple words, one everyday analogy, no equations.',
+    hs: 'Explain at high-school level: plain language, only the key formulas.',
+    uni: 'Explain at undergraduate physics level: precise terminology and equations.',
+    grad: 'Explain at graduate level: be rigorous, use full formalism, state assumptions and approximations.'
+  };
+  var kb = Q.knowledge, ob = kb && kb.buildSystem;
+  if (ob) kb.buildSystem = function (f) { return ob.call(kb, f) + '\n\nAudience: ' + (HINT[S.level] || HINT.hs); };
+
+  /* ───────── helpers ───────── */
+  function el(tag, cls, txt, fn) { var n = d.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; if (fn) n.addEventListener('click', fn); return n; }
+  /* branded line icons: one drawing, restyled per theme by CSS (flat = solid accent stroke, glass = duotone, luxury = hairline) */
+  var P = {
+    target: '<circle class="f" cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
+    speaker: '<path class="f" d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/>',
+    download: '<path d="M12 4v10M7.5 10l4.5 4.5L16.5 10"/><path class="f" d="M4.5 15.5h15v3a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5z"/>',
+    flame: '<path class="f" d="M12 3c.5 3-3.5 5-3.5 9a4.5 4.5 0 0 0 9 0c0-2-1-3-1.5-4-.5 1.5-1.5 2-2 2 .5-2.5-.5-5-2-7z"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    copy: '<rect class="f" x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>',
+    edit: '<path class="f" d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/>',
+    refresh: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>',
+    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    tools: '<path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle class="f" cx="16" cy="7" r="2.2"/><circle class="f" cx="8" cy="17" r="2.2"/>',
+    chev: '<path d="M6 9l6 6 6-6"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
+  };
+  function ic(n) { return '<svg class="qp-i qp-' + n + '" viewBox="0 0 24 24" aria-hidden="true">' + P[n] + '</svg>'; }
+  function ib(n, label, fn) {
+    var b = el('button', 'qp-a'); b.type = 'button'; b.insertAdjacentHTML('afterbegin', ic(n));
+    if (label) b.appendChild(el('span', '', label)); if (fn) b.addEventListener('click', fn); return b;
+  }
+  var input = function () { return d.querySelector('.qai-root .qai-box textarea'); };
+  function prefill(text) { var i = input(); if (!i) return; i.value = text; i.dispatchEvent(new Event('input', { bubbles: true })); i.focus(); }
+  function copy(text, btn) {
+    var done = function () { var sp = btn.querySelector('span'), o = sp.textContent; sp.textContent = T('done'); setTimeout(function () { sp.textContent = o; }, 1200); buzz(); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {}); 
+  }
+  function say(text) {
+    var s = w.speechSynthesis; if (!s) return;
+    if (s.speaking) { s.cancel(); return; }
+    var u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ')); u.lang = I.getLang(); s.speak(u);
+  }
+  var textOf = function (m) { var b = m.querySelector('.qai-prose') || m.querySelector('.qai-bubble'); return b ? b.innerText.trim() : ''; };
+
+  /* ───────── Ask about this: long-press the viewer ───────── */
+  function ask() {
+    var what = d.title; try { var p = Q.page(); what = p.chipLine(p.snapshot()); } catch (e) {}
+    Q.ui.open(); setTimeout(function () { prefill(T('ask', { what: what })); }, 60); buzz(15);
+  }
+  (function () {
+    var tm = 0, x0 = 0, y0 = 0;
+    d.addEventListener('pointerdown', function (e) { if (!/^canvas$/i.test(e.target.tagName) || e.target.closest('.qai-root')) return; x0 = e.clientX; y0 = e.clientY; tm = setTimeout(ask, 550); }, true);
+    d.addEventListener('pointermove', function (e) { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 8) { clearTimeout(tm); tm = 0; } }, true);
+    ['pointerup', 'pointercancel'].forEach(function (n) { d.addEventListener(n, function () { clearTimeout(tm); tm = 0; }, true); });
+  })();
+
+  /* ───────── per-message actions ───────── */
+  function decorate(m) {
+    if (m.dataset.qp || m.classList.contains('is-thinking') || m.classList.contains('is-streaming')) return;
+    var meta = m.querySelector('.qai-meta'); if (!meta) return; m.dataset.qp = 1;
+    var user = m.classList.contains('user'), row = el('span', 'qp-row');
+    var b = ib('copy', T('copy'), function () { copy(textOf(m), b); }); row.appendChild(b);
+    if (user) {
+      row.appendChild(ib('edit', T('edit'), function () { prefill(textOf(m)); }));
+    } else {
+      row.appendChild(ib('speaker', T('say'), function () { say(textOf(m)); }));
+      row.appendChild(ib('refresh', T('redo'), function () {
+        var p = m.previousElementSibling; while (p && !p.classList.contains('user')) p = p.previousElementSibling;
+        if (p) Q.ui.send(textOf(p));
+      }));
+      if (m._qpLive && S.tts) say(textOf(m));
+    }
+    meta.appendChild(row);
+  }
+  function scan() {
+    d.querySelectorAll('.qai-root .qai-msg').forEach(function (m) { if (m.classList.contains('is-streaming')) m._qpLive = 1; decorate(m); });
+    toolbar();
+  }
+
+  /* ───────── toolbar: level, quiz, read aloud, export ───────── */
+  function exportMd() {
+    var out = '# Physicist AI\n\n';
+    d.querySelectorAll('.qai-root .qai-msg').forEach(function (m) { out += '**' + (m.classList.contains('user') ? 'You' : 'Physicist AI') + '**\n\n' + textOf(m) + '\n\n'; });
+    var a = el('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/markdown' })); a.download = 'physicist-ai-chat.md'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+  function toolbar() {
+    var box = d.querySelector('.qai-root .qai-box'); if (!box) return;
+    var bar = d.getElementById('qp-bar');
+    if (bar) { if (bar.dataset.lang !== I.getLang()) bar.remove(); else return; }
+    bar = el('div', 'qp-bar'); bar.id = 'qp-bar'; bar.dataset.lang = I.getLang();
+    var menu = el('div', 'qp-menu'); menu.hidden = true; menu.setAttribute('role', 'listbox');
+    var lv = el('button', 'qp-a qp-lv'); lv.type = 'button'; lv.setAttribute('aria-haspopup', 'listbox'); lv.setAttribute('aria-expanded', 'false'); lv.setAttribute('aria-label', T('lvl'));
+    var lvl = el('span', '', T(S.level)); lv.appendChild(lvl); lv.insertAdjacentHTML('beforeend', ic('chev'));
+    ['kid', 'hs', 'uni', 'grad'].forEach(function (k) {
+      var o = el('button', 'qp-mi' + (S.level === k ? ' on' : '')); o.type = 'button'; o.setAttribute('role', 'option');
+      o.appendChild(el('span', '', T(k))); o.insertAdjacentHTML('beforeend', ic('check'));
+      o.addEventListener('click', function () {
+        S.level = k; save(); buzz(); lvl.textContent = T(k);
+        [].forEach.call(menu.children, function (c) { c.classList.remove('on'); }); o.classList.add('on'); menu.hidden = true; lv.setAttribute('aria-expanded', 'false');
+      });
+      menu.appendChild(o);
+    });
+    lv.addEventListener('click', function (e) { e.stopPropagation(); menu.hidden = !menu.hidden; lv.setAttribute('aria-expanded', String(!menu.hidden)); buzz(); });
+    var q = ib('target', T('quiz'), function () { collapse(); quiz(); });
+    var v = ib('speaker', '', function () { S.tts = !S.tts; v.classList.toggle('on', S.tts); if (!S.tts && w.speechSynthesis) w.speechSynthesis.cancel(); save(); buzz(); }); v.classList.toggle('on', S.tts); v.title = T('say'); v.setAttribute('aria-label', T('say'));
+    var x = ib('download', T('save'), function () { collapse(); exportMd(); });
+    [q, v, x].forEach(function (b) { b.type = 'button'; });
+    var tg = ib('tools', '', function (e) {
+      e.stopPropagation(); var open = tools.hidden; tools.hidden = !open; tg.classList.toggle('on', open); tg.setAttribute('aria-expanded', String(open)); menu.hidden = true; buzz();
+    });
+    tg.classList.add('qp-tg'); tg.setAttribute('aria-expanded', 'false'); tg.setAttribute('aria-label', T('lvl') + ' / ' + T('quiz'));
+    var tools = el('div', 'qp-tools'); tools.hidden = true; tools.append(lv, q, v, x);
+    function collapse() { tools.hidden = true; tg.classList.remove('on'); tg.setAttribute('aria-expanded', 'false'); menu.hidden = true; }
+    bar.append(tg, tools, menu); box.parentNode.insertBefore(bar, box);
+  }
+
+  /* ───────── Quiz (works offline; score + streak persisted) ───────── */
+  function pick() {
+    try { var s = Q.page().snapshot().element; if (s && s.name && s.Z) return { n: s.name, Z: s.Z, p: s.period }; } catch (e) {}
+    if (w.ELS && w.ELS.length) { var e = w.ELS[Math.floor(Math.random() * w.ELS.length)]; return { n: e.name, Z: e.Z, p: e.p }; }
+    return { n: 'Hydrogen', Z: 1, p: 1 };
+  }
+  function quiz() {
+    if (d.getElementById('qp-quiz')) return;
+    var r0 = d.querySelector('.qai-root'), root = el('div', 'qai-root qp-ov'); root.id = 'qp-quiz';
+    root.setAttribute('data-theme', Q.isDarkTheme() ? 'dark' : 'light'); if (r0) root.style.cssText = r0.style.cssText;
+    var card = el('div', 'qp-card'), head = el('div', 'qp-head'), score = el('span', 'qp-sc'), cl = ib('x', '', function () { root.remove(); });
+    cl.setAttribute('aria-label', T('close')); card.setAttribute('role', 'dialog'); head.append(score, cl);
+    var qn = el('div', 'qp-q'), opts = el('div', 'qp-o'), fb = el('div', 'qp-fb'), nx = ib('arrow', T('next'), round); nx.classList.add('qp-next'); nx.hidden = true;
+    card.append(head, qn, opts, fb, nx); root.appendChild(card); d.body.appendChild(root);
+    root.addEventListener('click', function (e) { if (e.target === root) root.remove(); });
+    function paint() { score.innerHTML = ic('flame'); score.appendChild(el('span', '', T('streak') + ': ' + S.streak + '  ·  ' + T('best') + ': ' + S.best)); }
+    function round() {
+      var e = pick(), zq = Math.random() < 0.5 || !e.p, ans = zq ? e.Z : e.p, set = [ans];
+      while (set.length < 4) { var c = zq ? Math.max(1, ans + Math.floor(Math.random() * 7) - 3) : 1 + Math.floor(Math.random() * 7); if (set.indexOf(c) < 0) set.push(c); }
+      set.sort(function () { return Math.random() - 0.5; });
+      qn.textContent = T(zq ? 'qZ' : 'qP', { n: e.n }); opts.textContent = ''; fb.textContent = ''; nx.hidden = true; paint();
+      set.forEach(function (v) {
+        var b = el('button', 'qp-opt', String(v), function () {
+          var ok = v === ans; S.streak = ok ? S.streak + 1 : 0; S.best = Math.max(S.best, S.streak); save(); buzz(ok ? 12 : [20, 40, 20]);
+          fb.textContent = ok ? T('ok') : T('no', { a: ans }); fb.className = 'qp-fb ' + (ok ? 'good' : 'bad');
+          [].forEach.call(opts.children, function (o) { o.disabled = true; if (+o.textContent === ans) o.classList.add('right'); }); b.classList.add(ok ? 'right' : 'wrong'); nx.hidden = false; paint();
+        }); b.type = 'button'; opts.appendChild(b);
+      });
+    }
+    round();
+  }
+
+  d.addEventListener('click', function () { var m = d.querySelector('.qp-menu'); if (m) m.hidden = true; });
+  d.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var m = d.querySelector('.qp-menu'); if (m) m.hidden = true; } });
+
+  /* ───────── haptics on taps ───────── */
+  d.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.qai-root button')) buzz(6); }, true);
+
+  /* ───────── styles: tokens only, so flat / glass / luxury + dark / light all apply ───────── */
+  var css = d.createElement('style'); css.id = 'qp-css';
+  css.textContent =
+    '.qp-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 2px 8px}' +
+    '.qp-a,.qp-sel{font:inherit;font-size:.74rem;padding:5px 10px;border-radius:999px;border:1px solid var(--q-line);background:var(--q-raise);color:var(--q-ink2);cursor:pointer;min-height:30px}' +
+    '.qp-a:hover,.qp-sel:hover{color:var(--q-ink);border-color:rgba(var(--q-acc-rgb),.6)}.qp-a.on{color:var(--q-ink);border-color:var(--q-acc);background:rgba(var(--q-acc-rgb),.18)}' +
+    '.qp-row{display:inline-flex;gap:4px;margin-inline-start:auto}.qp-row .qp-a{padding:2px 8px;min-height:22px;font-size:.66rem;background:transparent;border-color:transparent}' +
+    '.qp-ov{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;background:rgba(0,0,0,.45);padding:16px}' +
+    '.qp-card{width:min(420px,100%);padding:18px;border-radius:var(--q-r,18px);background:var(--q-surface);border:1px solid var(--q-line);box-shadow:var(--q-shadow);color:var(--q-ink);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4)}' +
+    'html[data-glass="off"] .qp-card{-webkit-backdrop-filter:none;backdrop-filter:none}' +
+    'html[data-lux="on"] .qp-card{border-radius:24px;letter-spacing:.01em}html[data-lux="on"] .qp-a,html[data-lux="on"] .qp-opt{border-radius:14px}' +
+    '.qp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:.78rem;color:var(--q-ink3)}' +
+    '.qp-q{font-size:1.05rem;font-weight:600;margin-bottom:12px}.qp-o{display:grid;grid-template-columns:1fr 1fr;gap:8px}' +
+    '.qp-opt{font:inherit;font-size:1.05rem;padding:12px;border-radius:12px;border:1px solid var(--q-line);background:var(--q-raise);color:var(--q-ink);cursor:pointer}' +
+    '.qp-opt:disabled{cursor:default}.qp-opt.right{border-color:#2fbf71;background:rgba(47,191,113,.2)}.qp-opt.wrong{border-color:#e5484d;background:rgba(229,72,77,.18)}' +
+    '.qp-fb{min-height:22px;margin:10px 0 4px;font-size:.9rem}.qp-fb.good{color:#2fbf71}.qp-fb.bad{color:#e5484d}.qp-next{float:inline-end}';
+  css.textContent +=
+    '.qp-bar{position:relative;flex-wrap:nowrap;gap:8px;padding:0 2px 6px}.qp-menu[hidden],.qp-tools[hidden]{display:none}' +
+    '.qp-tg{width:32px;height:32px;padding:0;justify-content:center}.qp-tools{display:flex;gap:6px;overflow-x:auto;min-width:0;scrollbar-width:none}.qp-tools::-webkit-scrollbar{display:none}.qp-tools .qp-a{white-space:nowrap;flex:none}' +
+    '.qp-menu{position:absolute;inset-inline-start:0;bottom:calc(100% + 4px);z-index:6;min-width:190px;padding:6px;display:flex;flex-direction:column;gap:2px;border-radius:16px;background:var(--q-surface);border:1px solid var(--q-line);box-shadow:var(--q-shadow);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4)}' +
+    'html[data-glass="off"] .qp-menu{-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}html[data-lux="on"] .qp-menu{border-radius:20px}' +
+    '.qp-mi{font:inherit;font-size:.88rem;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:11px 12px;border:0;border-radius:11px;background:transparent;color:var(--q-ink2);cursor:pointer;text-align:start}' +
+    '.qp-mi:hover{background:var(--q-raise);color:var(--q-ink)}.qp-mi .qp-i{opacity:0;color:var(--q-acc)}.qp-mi.on{color:var(--q-ink);background:rgba(var(--q-acc-rgb),.14)}.qp-mi.on .qp-i{opacity:1}' +
+    '.qp-a,.qp-sc{display:inline-flex;align-items:center;gap:6px}.qp-i{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
+    '.qp-a.on .qp-i,.qp-sc .qp-i{color:var(--q-acc)}html[dir="rtl"] .qp-arrow{transform:scaleX(-1)}' +
+    /* glass: duotone, soft accent fill */
+    'html:not([data-glass="off"]) .qp-i .f{fill:rgba(var(--q-acc-rgb),.3)}' +
+    /* flat: solid, heavier accent stroke, no fill */
+    'html[data-glass="off"] .qp-i{stroke-width:2.2;color:var(--q-acc)}html[data-glass="off"] .qp-i .f{fill:none}' +
+    /* luxury: hairline strokes, no fill, neutral ink */
+    'html[data-lux="on"] .qp-i{stroke-width:1.15;color:inherit}html[data-lux="on"] .qp-i .f{fill:none}html[data-lux="on"] .qp-a.on .qp-i,html[data-lux="on"] .qp-sc .qp-i{color:var(--q-acc)}';
+  d.head.appendChild(css);
+
+  /* ───────── boot ───────── */
+  new MutationObserver(scan).observe(d.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  w.addEventListener('qa:langchange', function () { d.querySelectorAll('.qai-msg[data-qp]').forEach(function (m) { delete m.dataset.qp; var r = m.querySelector('.qp-row'); if (r) r.remove(); }); scan(); });
+  w.QAPlus = { ask: ask, quiz: quiz, exportMd: exportMd, state: function () { return Object.assign({}, S); } };
+  scan();
+})();
+</script>
+<style id="press-lux">
+/* LUXURY: tapped / pressed / on stays orange (accent), never white. Segmented controls keep their own on look when switched on. */
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .tgbtn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .tgbtn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .tgbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .navbtn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .navbtn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .navbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #back-link:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #back-link:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #back-link:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elbtn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elbtn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #theme-link:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #theme-link:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #theme-link:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #glassbtn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #glassbtn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #glassbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #contribute-link:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #contribute-link:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #contribute-link:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elclose:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elclose:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elclose:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #onboard-btn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #onboard-btn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #onboard-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .exc-chip:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .exc-chip:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .exc-chip:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #legend-btn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #legend-btn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #legend-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #help-btn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #help-btn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #help-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-btn:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-btn:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-chip:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-chip:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-chip:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-choice:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-choice:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-choice:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-go:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-go:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-go:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]){background:var(--lx-btn) !important;background-image:var(--lx-btn) !important;color:var(--lx-on-acc) !important;border:0 !important;box-shadow:var(--lx-glow) !important;text-shadow:none !important;filter:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .tgbtn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .tgbtn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .tgbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .navbtn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .navbtn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .navbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #back-link:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #back-link:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #back-link:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elbtn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elbtn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #theme-link:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #theme-link:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #theme-link:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #glassbtn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #glassbtn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #glassbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #contribute-link:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #contribute-link:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #contribute-link:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elclose:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elclose:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #elclose:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #onboard-btn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #onboard-btn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #onboard-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .exc-chip:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .exc-chip:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .exc-chip:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #legend-btn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #legend-btn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #legend-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #help-btn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #help-btn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #help-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-btn:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-btn:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-btn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-chip:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-chip:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-chip:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-choice:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-choice:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qai-choice:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-go:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-go:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-go:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg{color:var(--lx-on-acc) !important;}
+</style>
+<style id="press-consistency">
+/* ONE press / ON look for EVERY button in the light theme, glass AND flat (luxury handled in #press-lux):
+   white fill + accent ring + accent icon/label. Applies while the finger is down, while on, and ~0.45s after a tap on one-shot buttons. */
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .tgbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .navbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #back-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #theme-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #glassbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #contribute-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elclose:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #onboard-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .exc-chip:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #legend-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #help-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qa-langbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-iconbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-chip:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-choice:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-go:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-stay:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-x:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .tgbtn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .navbtn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #back-link:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elbtn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #theme-link:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #glassbtn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #contribute-link:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elclose:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #onboard-btn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .exc-chip:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #legend-btn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #help-btn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-btn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-chip:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-choice:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-go:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-stay:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-x:not(:disabled):active{
+  background:#fff !important;background-image:none !important;color:var(--cx2,var(--cyan)) !important;
+  border:1px solid var(--cx2,var(--cyan)) !important;box-shadow:inset 0 0 0 1px var(--cx2,var(--cyan)) !important;
+  text-shadow:none !important;filter:none !important;transform:none !important;outline:none !important;}
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .tgbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .navbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #back-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #theme-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #glassbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #contribute-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elclose:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #onboard-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .exc-chip:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #legend-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #help-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qa-langbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-iconbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-chip:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-choice:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-go:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-stay:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-x:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover{background:#f3f0ff !important;filter:none !important;transform:none !important;box-shadow:inset 0 0 0 1px var(--cx2,var(--cyan)) !important;}
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .tgbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .navbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #back-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #theme-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #glassbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #contribute-link:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elclose:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #onboard-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .exc-chip:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #legend-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #help-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qa-langbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-iconbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-chip:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-choice:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-go:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-stay:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-x:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .tgbtn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .navbtn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #back-link:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elbtn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #theme-link:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #glassbtn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #contribute-link:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #elclose:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #onboard-btn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .exc-chip:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #legend-btn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #help-btn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qa-langbtn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-iconbtn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-btn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-chip:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qai-choice:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-go:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-stay:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .qen-x:not(:disabled):active svg{color:var(--cx2,var(--cyan)) !important;}
+</style>
+<script>
+(function(){
+  var BTN='.tgbtn,.navbtn,#back-link,#elbtn,#theme-link,#glassbtn,#contribute-link,#elclose,#onboard-btn,.exc-chip,#legend-btn,#help-btn,.qa-langbtn,.qai-iconbtn,.qai-btn,.qai-chip,.qai-choice,.qen-go,.qen-stay,.qen-x';
+  var TOG='.tgbtn:not(.action),#glassbtn,.exc-chip,#legend-btn';
+  function flash(b){b.classList.add('qa-pressed');clearTimeout(b._qaT);b._qaT=setTimeout(function(){b.classList.remove('qa-pressed');},(document.documentElement.getAttribute('data-lux')==='on'?800:450));}
+  document.addEventListener('click',function(e){
+    var t=e.target;if(!t||!t.closest)return;
+    var b=t.closest(BTN);if(!b||b.disabled)return;
+    if(b.hasAttribute('aria-pressed')||b.matches(TOG))return;
+    flash(b);
+  },true);
+})();
+</script>
 </body>
 </html>
