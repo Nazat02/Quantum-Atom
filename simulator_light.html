@@ -63413,7 +63413,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     else L.forEach(function (l) { if (l.box) legend.push(l); });
     if (heat && !legendOff && spec.zlabel) legend.push({ box: plLabelBox(spec.zlabel), swatch: 'grad', cmap: heat.cmap });
     var xlb = spec.xlabel ? plLabelBox(spec.xlabel) : null, ylb = spec.ylabel ? plLabelBox(spec.ylabel) : null;
-    var lastLay = null, hover = null, lastHeat = null;
+    var lastLay = null, hover = null, lastHeat = null, heatFitted = false;
 
     st = plSetup(shell, {
       ratio: function (W) { return bars && bars.horiz ? Math.min(1.2, 0.18 + bars.cats.length * 0.06) : W < 300 ? 0.86 : W < 460 ? 0.74 : 0.6; },
@@ -63421,12 +63421,25 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       draw: draw
     });
 
+    function fitHeatView() { // zoom a heat map in on where the signal actually is (a sharp orbital in a big window used to be a speck)
+      if (xLog || yLog) return;
+      var g = heatGrid(), n = g.n, span = g.hi - g.lo; if (!(span > 0)) return;
+      var thr = g.lo + span * 0.012, i0 = n, i1 = -1, j0 = n, j1 = -1, cnt = 0;
+      for (var j = 0; j < n; j++) for (var i = 0; i < n; i++) { var v = g.z[j * n + i]; if (isFinite(v) && v > thr) { cnt++; if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; } }
+      if (!cnt || cnt > n * n * 0.35) return;
+      var w = view.x1 - view.x0, h = view.y1 - view.y0, cx = view.x0 + (i0 + i1 + 1) / 2 / n * w, cy = view.y0 + (j0 + j1 + 1) / 2 / n * h;
+      var sx = Math.max((i1 - i0 + 1) / n * w * 1.5, w * 0.12), sy = Math.max((j1 - j0 + 1) / n * h * 1.5, h * 0.12);
+      if (spec.equal === true || Math.abs(w / h - 1) < 0.05) sx = sy = Math.max(sx, sy);
+      sx = Math.min(sx, w); sy = Math.min(sy, h);
+      view.x0 = cx - sx / 2; view.x1 = cx + sx / 2; view.y0 = cy - sy / 2; view.y1 = cy + sy / 2; home = Object.assign({}, view);
+    }
     function ticksFor(lo, hi, n, log, pi) {
       if (log) { var o = [], step = Math.max(1, Math.ceil((Math.floor(hi) - Math.ceil(lo) + 1) / Math.max(2, n))); for (var e = Math.ceil(lo); e <= Math.floor(hi); e += step) o.push({ v: e, label: e === 0 ? '1' : e === 1 ? '10' : '10' + String(e).replace('-', '⁻').replace(/\d/g, function (d) { return '⁰¹²³⁴⁵⁶⁷⁸⁹'.charAt(+d); }) }); if (o.length < 2) { var lt = plTicks(lo, hi, n); return lt.t.map(function (v) { return { v: v, label: plSig(Math.pow(10, v)) }; }); } return o; }
       var tk = pi ? plPiTicks(lo, hi, n) : plTicks(lo, hi, n);
       return tk.t.map(function (v) { return { v: v, label: pi ? plPiLabel(v) : plFmt(v, tk.step) }; });
     }
     function draw(ctx, W, H, col) {
+      if (heat && !heatFitted) { heatFitted = true; if (!(shell.saved && shell.saved.view)) fitHeatView(); }
       var lay = lastLay || plLegendLayout(ctx, legend, W, 13), plotH = H - lay.h, font = '11px ' + col.mono;
       var xm = xlb ? plLab(ctx, xlb, 13) : null, ym = ylb ? plLab(ctx, ylb, 13) : null;
       ctx.font = font;
@@ -63600,7 +63613,9 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       }
       var zr = plRange(spec.zrange, null); if (zr) { lo = zr[0]; hi = zr[1]; }
       if (!isFinite(lo)) { lo = 0; hi = 1; } if (lo === hi) { lo -= 1; hi += 1; }
-      return { z: z, n: n, lo: lo, hi: hi };
+      var gm = 1, zsc = String(spec.zscale || 'auto').toLowerCase();
+      if (zsc === 'sqrt') gm = 0.5; else if (zsc === 'auto' && !zr && lo >= -1e-12 * Math.abs(hi)) { var hot = 0, tot = 0, q; for (q = 0; q < z.length; q++) if (isFinite(z[q])) { tot++; if ((z[q] - lo) / (hi - lo) > 0.3) hot++; } if (tot) gm = hot / tot < 0.05 ? 0.4 : hot / tot < 0.12 ? 0.6 : 1; } // sharp peaks (orbital densities) get a gamma lift so the whole shape is visible
+      return { z: z, n: n, lo: lo, hi: hi, gm: gm };
     }
     function drawHeat(ctx, bx, pw, ph) {
       var g = lastHeat = heatGrid(), n = g.n, lut = plCmap(heat.cmap), off = doc.createElement('canvas'); off.width = n; off.height = n;
@@ -63608,7 +63623,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       for (var j = 0; j < n; j++) for (var i = 0; i < n; i++) {
         var v = g.z[j * n + i], o = ((n - 1 - j) * n + i) * 4;
         if (!isFinite(v)) { im.data[o + 3] = 0; continue; }
-        var k = Math.max(0, Math.min(255, Math.round((v - g.lo) / (g.hi - g.lo) * 255)));
+        var k = Math.max(0, Math.min(255, Math.round(Math.pow(Math.max(0, (v - g.lo) / (g.hi - g.lo)), g.gm) * 255)));
         im.data[o] = lut[k * 3]; im.data[o + 1] = lut[k * 3 + 1]; im.data[o + 2] = lut[k * 3 + 2]; im.data[o + 3] = 255;
       }
       oc.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(off, bx.l, bx.t, pw, ph);
@@ -63624,7 +63639,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       var g = lastHeat, lut = plCmap(heat.cmap), x = W - 52, w = 12; if (!g) return;
       for (var i = 0; i < ph; i++) { var k = Math.round((1 - i / (ph - 1)) * 255); ctx.fillStyle = 'rgb(' + lut[k * 3] + ',' + lut[k * 3 + 1] + ',' + lut[k * 3 + 2] + ')'; ctx.fillRect(x, bx.t + i, w, 1.5); }
       ctx.save(); ctx.fillStyle = col.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.globalAlpha = 0.85; ctx.font = '10.5px ' + col.mono;
-      var tk = plTicks(g.lo, g.hi, 5); tk.t.forEach(function (v) { var y = bx.t + ph - (v - g.lo) / (g.hi - g.lo) * ph; if (y >= bx.t - 1 && y <= bx.t + ph + 1) { ctx.fillText(plFmt(v, tk.step), x + w + 4, y); ctx.fillRect(x + w - 3, y, 3, 1); } });
+      var tk = plTicks(g.lo, g.hi, 5); tk.t.forEach(function (v) { var y = bx.t + ph - Math.pow(Math.max(0, (v - g.lo) / (g.hi - g.lo)), g.gm) * ph; if (y >= bx.t - 1 && y <= bx.t + ph + 1) { ctx.fillText(plFmt(v, tk.step), x + w + 4, y); ctx.fillRect(x + w - 3, y, 3, 1); } });
       ctx.restore();
     }
     function drawBars(ctx, X, Y, pw, ph, bx) {
@@ -64105,14 +64120,36 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       } else if (s.density != null) {
         // probability-density cloud: points drawn with probability ∝ the expression (e.g. |ψ|²)
         var fd = fn3(String(s.density)), dxr = plRange(s.xrange, xr0), dyr = plRange(s.yrange, yr0), dzr = plRange(s.zrange, zr3), want = Math.min(30000, Math.max(300, Math.round(plNum(s.n, 8000)))), fmax = 0;
-        for (var e1 = 0; e1 < 24; e1++) for (var e2 = 0; e2 < 24; e2++) for (var e3 = 0; e3 < 24; e3++) { var dv = fd.f(dxr[0] + (dxr[1] - dxr[0]) * (e1 + 0.5) / 24, dyr[0] + (dyr[1] - dyr[0]) * (e2 + 0.5) / 24, dzr[0] + (dzr[1] - dzr[0]) * (e3 + 0.5) / 24); if (dv > fmax) fmax = dv; }
+        // adaptive sampling: find where the density actually lives, so a sharp orbital in a big box still gets thousands of points
+        var GN = 40, GD = new Float32Array(GN * GN * GN), gi = 0, gmin = [GN, GN, GN], gmax = [-1, -1, -1], e1, e2, e3, dv;
+        for (e3 = 0; e3 < GN; e3++) for (e2 = 0; e2 < GN; e2++) for (e1 = 0; e1 < GN; e1++) { dv = fd.f(dxr[0] + (dxr[1] - dxr[0]) * (e1 + 0.5) / GN, dyr[0] + (dyr[1] - dyr[0]) * (e2 + 0.5) / GN, dzr[0] + (dzr[1] - dzr[0]) * (e3 + 0.5) / GN); GD[gi++] = dv > 0 && isFinite(dv) ? dv : 0; if (dv > fmax) fmax = dv; }
         if (!(fmax > 0)) throw new Error('the density is zero or negative everywhere in the plotted box');
-        var cs = s.color_expr ? fn3(String(s.color_expr)) : null, DX = [], DY = [], DZ = [], DC = [], tries = 0;
-        while (DX.length < want && tries < 600000) {
-          tries++; var x1 = dxr[0] + (dxr[1] - dxr[0]) * Math.random(), y1 = dyr[0] + (dyr[1] - dyr[0]) * Math.random(), z1 = dzr[0] + (dzr[1] - dzr[0]) * Math.random(), d1 = fd.f(x1, y1, z1);
-          if (d1 > 0 && Math.random() * fmax * 1.15 < d1) { DX.push(x1); DY.push(y1); DZ.push(z1); DC.push(cs ? cs.f(x1, y1, z1) : d1); }
+        gi = 0;
+        for (e3 = 0; e3 < GN; e3++) for (e2 = 0; e2 < GN; e2++) for (e1 = 0; e1 < GN; e1++) if (GD[gi++] > fmax * 0.002) { if (e1 < gmin[0]) gmin[0] = e1; if (e1 > gmax[0]) gmax[0] = e1; if (e2 < gmin[1]) gmin[1] = e2; if (e2 > gmax[1]) gmax[1] = e2; if (e3 < gmin[2]) gmin[2] = e3; if (e3 > gmax[2]) gmax[2] = e3; }
+        var fullR = [dxr, dyr, dzr], tbox = fullR.map(function (r, d) { var c = (r[1] - r[0]) / GN, a = r[0] + c * (gmin[d] - 1.5), b = r[0] + c * (gmax[d] + 2.5); return [Math.max(r[0], a), Math.min(r[1], b)]; }), vFull = 1, vTight = 1;
+        fullR.forEach(function (r, d) { vFull *= r[1] - r[0]; vTight *= Math.max(1e-9, tbox[d][1] - tbox[d][0]); });
+        var tight = gmax[0] >= 0 && vTight < 0.5 * vFull;
+        if (tight) { dxr = tbox[0]; dyr = tbox[1]; dzr = tbox[2]; }
+        var N2 = 48, NN = N2 * N2 * N2, G2 = new Float32Array(NN), B2 = new Float32Array(NN), CD = new Float64Array(NN), x2 = (dxr[1] - dxr[0]) / N2, y2 = (dyr[1] - dyr[0]) / N2, z2 = (dzr[1] - dzr[0]) / N2, q2 = 0, fmax2 = 0;
+        for (e3 = 0; e3 < N2; e3++) for (e2 = 0; e2 < N2; e2++) for (e1 = 0; e1 < N2; e1++) { dv = fd.f(dxr[0] + x2 * (e1 + 0.5), dyr[0] + y2 * (e2 + 0.5), dzr[0] + z2 * (e3 + 0.5)); dv = dv > 0 && isFinite(dv) ? dv : 0; G2[q2++] = dv; if (dv > fmax2) fmax2 = dv; }
+        if (!(fmax2 > 0)) throw new Error('the density is zero or negative everywhere in the plotted box');
+        var cum = 0; // envelope = max over each cell and its neighbours (x1.3), so cells are picked in proportion to the density and then thinned exactly
+        for (e3 = 0; e3 < N2; e3++) for (e2 = 0; e2 < N2; e2++) for (e1 = 0; e1 < N2; e1++) {
+          var bm = 0; for (var a3 = Math.max(0, e3 - 1); a3 <= Math.min(N2 - 1, e3 + 1); a3++) for (var a2 = Math.max(0, e2 - 1); a2 <= Math.min(N2 - 1, e2 + 1); a2++) for (var a1 = Math.max(0, e1 - 1); a1 <= Math.min(N2 - 1, e1 + 1); a1++) { var gv = G2[(a3 * N2 + a2) * N2 + a1]; if (gv > bm) bm = gv; }
+          var ci = (e3 * N2 + e2) * N2 + e1; B2[ci] = bm * 1.3; cum += B2[ci]; CD[ci] = cum;
         }
-        it.kind = 'points'; it.kid = 'density'; it.X = DX; it.Y = DY; it.Z = DZ; it.C = DC; it.size = plNum(s.size, want > 6000 ? 1.6 : 2.4); it.swatch = 'dot'; it.lut = mapOf(); it.cNotZ = true;
+        var cs = s.color_expr ? fn3(String(s.color_expr)) : null, DX = [], DY = [], DZ = [], DC = [], tries = 0;
+        want = Math.min(30000, Math.max(300, Math.round(plNum(s.n, tight ? 12000 : 8000))));
+        while (DX.length < want && tries < 400000) {
+          tries++; var rr = Math.random() * cum, lo_ = 0, hi_ = NN - 1; while (lo_ < hi_) { var mid_ = (lo_ + hi_) >> 1; if (CD[mid_] < rr) lo_ = mid_ + 1; else hi_ = mid_; }
+          var cx_ = lo_ % N2, cy_ = ((lo_ / N2) | 0) % N2, cz_ = (lo_ / (N2 * N2)) | 0;
+          if (!(B2[lo_] > 0)) continue;
+          var x1 = dxr[0] + x2 * (cx_ + Math.random()), y1 = dyr[0] + y2 * (cy_ + Math.random()), z1 = dzr[0] + z2 * (cz_ + Math.random()), d1 = fd.f(x1, y1, z1);
+          if (d1 > 0 && Math.random() * B2[lo_] < d1) { DX.push(x1); DY.push(y1); DZ.push(z1); DC.push(cs ? cs.f(x1, y1, z1) : Math.pow(Math.min(1.2, d1 / fmax2), 0.4)); }
+        }
+        if (!cs && DC.length > 50) { var sc_ = DC.slice().sort(function (p, q) { return p - q; }), p5 = sc_[Math.floor(sc_.length * 0.05)], p95 = sc_[Math.floor(sc_.length * 0.95)]; if (p95 > p5) for (var di = 0; di < DC.length; di++) DC[di] = Math.max(0, Math.min(1, (DC[di] - p5) / (p95 - p5))); } // stretch colours over the cloud's own range so its structure shows
+        var baseLut = mapOf(), liftLut = new Uint8ClampedArray(768); for (var lk = 0; lk < 256; lk++) { var lq = Math.round(255 * (0.3 + 0.7 * lk / 255)); liftLut[lk * 3] = baseLut[lq * 3]; liftLut[lk * 3 + 1] = baseLut[lq * 3 + 1]; liftLut[lk * 3 + 2] = baseLut[lq * 3 + 2]; } // keep the sparse, low-density points visible on a dark plot
+        it.kind = 'points'; it.kid = 'density'; it.tight = tight; it.X = DX; it.Y = DY; it.Z = DZ; it.C = DC; it.size = plNum(s.size, want > 6000 ? 1.9 : 3); it.swatch = 'dot'; it.lut = cs ? baseLut : liftLut; it.cNotZ = true;
         auto = plTex(fd.ast);
       } else if (kd === 'bar3d' || kd === 'bars3d' || s.bars != null) {
         // 3D bar chart from a matrix: rows along y, columns along x
@@ -64182,13 +64219,15 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         lo = [Infinity, Infinity, Infinity]; hi = [-Infinity, -Infinity, -Infinity]; clo = Infinity; chi = -Infinity;
         items.forEach(function (it) { for (var i = 0; i < it.X.length; i++) { var a = [it.X[i], it.Y[i], it.Z[i]]; if (!(isFinite(a[0]) && isFinite(a[1]) && isFinite(a[2]))) continue; for (var d = 0; d < 3; d++) { if (a[d] < lo[d]) lo[d] = a[d]; if (a[d] > hi[d]) hi[d] = a[d]; } var c = it.C ? it.C[i] : a[2]; if (isFinite(c)) { if (c < clo) clo = c; if (c > chi) chi = c; } } });
         if (!isFinite(lo[0])) throw new Error('no finite points to draw (check the expressions and ranges)');
-        if (spec.xrange) { lo[0] = Math.min(lo[0], xr0[0]); hi[0] = Math.max(hi[0], xr0[1]); }
-        if (spec.yrange) { lo[1] = Math.min(lo[1], yr0[0]); hi[1] = Math.max(hi[1], yr0[1]); }
+        var fitC = items.some(function (it) { return it.tight; });
+        if (spec.xrange && !fitC) { lo[0] = Math.min(lo[0], xr0[0]); hi[0] = Math.max(hi[0], xr0[1]); }
+        if (spec.yrange && !fitC) { lo[1] = Math.min(lo[1], yr0[0]); hi[1] = Math.max(hi[1], yr0[1]); }
+        if (fitC) [0, 1, 2].forEach(function (d) { var pd = (hi[d] - lo[d]) * 0.06; lo[d] -= pd; hi[d] += pd; });
         rg = [0, 1, 2].map(function (d) { if (hi[d] === lo[d]) { lo[d] -= 1; hi[d] += 1; } return hi[d] - lo[d]; });
-        if (zr) { lo[2] = zr[0]; hi[2] = zr[1]; rg[2] = zr[1] - zr[0]; }
+        if (zr && !fitC) { lo[2] = zr[0]; hi[2] = zr[1]; rg[2] = zr[1] - zr[0]; }
         if (!isFinite(clo) || clo === chi) { clo = lo[2]; chi = hi[2]; }
         if (zr && !items.some(function (it) { return it.cNotZ; })) { clo = zr[0]; chi = zr[1]; }
-        half = spec.equal === true ? (function () { var mx = Math.max(rg[0], rg[1], rg[2]); return [rg[0] / mx, rg[1] / mx, rg[2] / mx]; })() : [1, 1, 0.72];
+        half = (spec.equal === true || fitC) ? (function () { var mx = Math.max(rg[0], rg[1], rg[2]); return [rg[0] / mx, rg[1] / mx, rg[2] / mx]; })() : [1, 1, 0.72];
         first = false;
       }
       items.forEach(function (it) { if (it.floor && !it._nrm) for (var q = 0; q < it.Z.length; q++) it.Z[q] = lo[2]; });
@@ -64207,7 +64246,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     var legend = items.filter(function (i) { return i.box; }), lastLay = null;
     var LIGHT = (function () { var l = [0.35, -0.45, 0.82], n = Math.hypot(l[0], l[1], l[2]); return [l[0] / n, l[1] / n, l[2] / n]; })();
     st = plSetup(shell, {
-      ratio: function (W) { return W < 380 ? 0.96 : W < 560 ? 0.84 : 0.7; },
+      ratio: function (W) { return W < 380 ? 0.84 : W < 560 ? 0.76 : 0.66; },
       extra: function (ctx, W) { lastLay = plLegendLayout(ctx, legend, W, 13); return lastLay.h; },
       draw: function (ctx, W, H, col) { var lay = lastLay || plLegendLayout(ctx, legend, W, 13); draw3d(ctx, W, H - lay.h, col); if (lay.h) plLegendDraw(ctx, lay, W, H - lay.h, col); }
     });
@@ -64315,7 +64354,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         } else if (pr.t === 3) {
           var A3 = a2, B3 = a2 + 1, C3 = a2 + 2;
           var ex = it.nx[B3] - it.nx[A3], ey = it.ny[B3] - it.ny[A3], ez = it.nz[B3] - it.nz[A3], fx2 = it.nx[C3] - it.nx[A3], fy2 = it.ny[C3] - it.ny[A3], fz2 = it.nz[C3] - it.nz[A3];
-          var tnx = ey * fz2 - ez * fy2, tny = ez * fx2 - ex * fz2, tnz = ex * fy2 - ey * fx2, tl = Math.hypot(tnx, tny, tnz) || 1, sh3 = 0.45 + 0.55 * Math.abs((tnx * LIGHT[0] + tny * LIGHT[1] + tnz * LIGHT[2]) / tl), r3, g3, b3;
+          var tnx = ey * fz2 - ez * fy2, tny = ez * fx2 - ex * fz2, tnz = ex * fy2 - ey * fx2, tl = Math.hypot(tnx, tny, tnz) || 1, sh3 = tl < 3e-4 ? 0.85 : 0.45 + 0.55 * Math.abs((tnx * LIGHT[0] + tny * LIGHT[1] + tnz * LIGHT[2]) / tl), r3, g3, b3;
           if (it.solid) { var rgb3 = plRGB(it.color); r3 = rgb3[0] * sh3; g3 = rgb3[1] * sh3; b3 = rgb3[2] * sh3; }
           else { var cv3 = (it.C[A3] + it.C[B3] + it.C[C3]) / 3, ci3 = cv3 === cv3 ? Math.max(0, Math.min(255, Math.round((cv3 - lc) / (hc - lc) * 255))) : 0, L3 = it.lut || lut; r3 = L3[ci3 * 3] * sh3; g3 = L3[ci3 * 3 + 1] * sh3; b3 = L3[ci3 * 3 + 2] * sh3; }
           var fill3 = 'rgb(' + Math.round(r3) + ',' + Math.round(g3) + ',' + Math.round(b3) + ')';
@@ -64336,7 +64375,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
           var sPt = DIST / (DIST + P2[a2 * 3 + 2]);
           if (it.C && !it.solidPts && !(it.kind === 'curve' && it.head) && isFinite(it.C[a2])) { var q2 = Math.max(0, Math.min(255, Math.round((it.C[a2] - lc) / (hc - lc) * 255))), LP = it.lut || lut; ctx.fillStyle = 'rgb(' + LP[q2 * 3] + ',' + LP[q2 * 3 + 1] + ',' + LP[q2 * 3 + 2] + ')'; } else ctx.fillStyle = it.color;
           if (it.head) { ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(P2[a2 * 3], P2[a2 * 3 + 1], (it.size || 4.5) * sPt, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4; ctx.stroke(); }
-          else { ctx.beginPath(); ctx.arc(P2[a2 * 3], P2[a2 * 3 + 1], (it.size || 3.4) * sPt, 0, 7); ctx.fill(); }
+          else { if (it.kid === 'density') ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(P2[a2 * 3], P2[a2 * 3 + 1], (it.size || 3.4) * sPt, 0, 7); ctx.fill(); if (it.kid === 'density') ctx.globalAlpha = 1; }
         }
       }
       ctx.globalAlpha = 1;
