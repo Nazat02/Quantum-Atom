@@ -39865,6 +39865,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     tools: '<path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle class="f" cx="16" cy="7" r="2.2"/><circle class="f" cx="8" cy="17" r="2.2"/>',
     chev: '<path d="M6 9l6 6 6-6"/>',
+    quiz: '<rect class="f" x="4" y="4" width="16" height="16" rx="5"/><path d="M9.8 9.6a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2 1-1.2 1.8"/><path d="M12 16.2v.01"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
   };
   function ic(n) { return '<svg class="qp-i qp-' + n + '" viewBox="0 0 24 24" aria-hidden="true">' + P[n] + '</svg>'; }
@@ -39875,14 +39876,19 @@ html body #excrow .exc-chip.on span{opacity:.85}
   var input = function () { return d.querySelector('.qai-root .qai-box textarea'); };
   function prefill(text) { var i = input(); if (!i) return; i.value = text; i.dispatchEvent(new Event('input', { bubbles: true })); i.focus(); }
   function copy(text, btn) {
-    var done = function () { var sp = btn.querySelector('span'), o = sp.textContent; sp.textContent = T('done'); setTimeout(function () { sp.textContent = o; }, 1200); buzz(); };
-    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {}); 
+    var done = function () { var o = btn._o || (btn._o = btn.innerHTML); btn.innerHTML = ic('check'); btn.classList.add('ok'); setTimeout(function () { btn.innerHTML = o; btn.classList.remove('ok'); }, 1200); buzz(); };
+    var fb = function () { try { var t = el('textarea'); t.value = text; t.style.cssText = 'position:fixed;opacity:0'; d.body.appendChild(t); t.select(); d.execCommand('copy'); t.remove(); done(); } catch (e) {} };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, fb); else fb();
   }
-  function say(text) {
+  function say(text, btn) {
     var s = w.speechSynthesis; if (!s) return;
-    if (s.speaking) { s.cancel(); return; }
-    var u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ')); u.lang = I.getLang(); s.speak(u);
+    if (s.speaking) { s.cancel(); if (btn) btn.classList.remove('on'); return; }
+    var u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ')); u.lang = I.getLang();
+    if (btn) { btn.classList.add('on'); u.onend = u.onerror = function () { btn.classList.remove('on'); }; }
+    s.speak(u);
   }
+  /* icon-only action button: label lives in title + aria-label */
+  function ia(n, label, fn) { var b = ib(n, '', fn); b.title = label; b.setAttribute('aria-label', label); return b; }
   var textOf = function (m) { var b = m.querySelector('.qai-prose') || m.querySelector('.qai-bubble'); return b ? b.innerText.trim() : ''; };
 
   /* ───────── Ask about this: long-press the viewer ───────── */
@@ -39902,21 +39908,32 @@ html body #excrow .exc-chip.on span{opacity:.85}
     if (m.dataset.qp || m.classList.contains('is-thinking') || m.classList.contains('is-streaming')) return;
     var meta = m.querySelector('.qai-meta'); if (!meta) return; m.dataset.qp = 1;
     var user = m.classList.contains('user'), row = el('span', 'qp-row');
-    var b = ib('copy', T('copy'), function () { copy(textOf(m), b); }); row.appendChild(b);
+    var b = ia('copy', T('copy'), function () { copy(textOf(m), b); }); row.appendChild(b);
     if (user) {
-      row.appendChild(ib('edit', T('edit'), function () { prefill(textOf(m)); }));
+      row.appendChild(ia('edit', T('edit'), function () { prefill(textOf(m)); }));
     } else {
-      row.appendChild(ib('speaker', T('say'), function () { say(textOf(m)); }));
-      row.appendChild(ib('refresh', T('redo'), function () {
+      var sp = ia('speaker', T('say'), function () { say(textOf(m), sp); }); row.appendChild(sp);
+      row.appendChild(ia('refresh', T('redo'), function () {
         var p = m.previousElementSibling; while (p && !p.classList.contains('user')) p = p.previousElementSibling;
         if (p) Q.ui.send(textOf(p));
       }));
-      if (m._qpLive && S.tts) say(textOf(m));
+      if (m._qpLive && S.tts) say(textOf(m), sp);
     }
     meta.appendChild(row);
   }
+  /* the built-in "Copy" and ".md" text links are replaced by the icon row; the .md link is proxied so the download still works */
+  function proxyMd() {
+    d.querySelectorAll('.qai-root .qai-msg[data-qp]').forEach(function (m) {
+      var meta = m.querySelector('.qai-meta'), row = m.querySelector('.qp-row'); if (!meta || !row || row.dataset.md) return;
+      var lg = meta.querySelector(':scope > .qai-link[title]'); if (!lg) return;
+      row.dataset.md = 1;
+      var pb = ia('download', lg.title || '.md', function () { lg.click(); buzz(); });
+      row.insertBefore(pb, row.children[1] || null);
+    });
+  }
   function scan() {
     d.querySelectorAll('.qai-root .qai-msg').forEach(function (m) { if (m.classList.contains('is-streaming')) m._qpLive = 1; decorate(m); });
+    proxyMd();
     toolbar();
   }
 
@@ -39944,7 +39961,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
       menu.appendChild(o);
     });
     lv.addEventListener('click', function (e) { e.stopPropagation(); menu.hidden = !menu.hidden; lv.setAttribute('aria-expanded', String(!menu.hidden)); buzz(); });
-    var q = ib('target', T('quiz'), function () { collapse(); quiz(); });
+    var q = ib('quiz', T('quiz'), function () { collapse(); quiz(); });
     var v = ib('speaker', '', function () { S.tts = !S.tts; v.classList.toggle('on', S.tts); if (!S.tts && w.speechSynthesis) w.speechSynthesis.cancel(); save(); buzz(); }); v.classList.toggle('on', S.tts); v.title = T('say'); v.setAttribute('aria-label', T('say'));
     var x = ib('download', T('save'), function () { collapse(); exportMd(); });
     [q, v, x].forEach(function (b) { b.type = 'button'; });
@@ -40020,6 +40037,16 @@ html body #excrow .exc-chip.on span{opacity:.85}
     '.qp-mi:hover{background:var(--q-raise);color:var(--q-ink)}.qp-mi .qp-i{opacity:0;color:var(--q-acc)}.qp-mi.on{color:var(--q-ink);background:rgba(var(--q-acc-rgb),.14)}.qp-mi.on .qp-i{opacity:1}' +
     '.qp-a,.qp-sc{display:inline-flex;align-items:center;gap:6px}.qp-i{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
     '.qp-a.on .qp-i,.qp-sc .qp-i{color:var(--q-acc)}html[dir="rtl"] .qp-arrow{transform:scaleX(-1)}' +
+    /* message actions: one tidy row of round icon buttons under each reply */
+    '.qai-meta{flex-wrap:nowrap;gap:10px}.qai-meta>*:first-child{white-space:nowrap;flex:none}.qai-meta>.qai-link{display:none !important}' +
+    '.qp-row{display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto;flex:none}' +
+    '.qp-row .qp-a{width:30px;height:30px;min-height:0;padding:0;justify-content:center;border-radius:50%;background:var(--q-raise);border:1px solid var(--q-line);color:var(--q-ink2);transition:background .15s,border-color .15s,color .15s}' +
+    '.qp-row .qp-a .qp-i{width:16px;height:16px}' +
+    '.qp-row .qp-a:hover{color:var(--q-ink);border-color:rgba(var(--q-acc-rgb),.6);background:rgba(var(--q-acc-rgb),.14)}' +
+    '.qp-row .qp-a:active,.qp-row .qp-a.on,.qp-row .qp-a.ok{color:var(--q-acc);border-color:var(--q-acc);background:rgba(var(--q-acc-rgb),.2)}' +
+    'html:not([data-glass="off"]) .qp-row .qp-i,.qp-row .qp-a.ok .qp-i{color:var(--q-acc)}' +
+    'html[data-glass="off"] .qp-row .qp-a{background:transparent;border-color:var(--q-acc)}html[data-glass="off"] .qp-row .qp-a:hover{background:#1a0800}' +
+    'html[data-lux="on"] .qp-row .qp-a{border-color:transparent;background:var(--q-raise)}html[data-lux="on"] .qp-row .qp-i{color:var(--q-ink2)}html[data-lux="on"] .qp-row .qp-a:is(:hover,:active,.on,.ok) .qp-i{color:var(--q-acc)}' +
     /* glass: duotone, soft accent fill */
     'html:not([data-glass="off"]) .qp-i .f{fill:rgba(var(--q-acc-rgb),.3)}' +
     /* flat: solid, heavier accent stroke, no fill */
