@@ -71419,5 +71419,14 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   },true);
 })();
 </script>
+<style id="qai-seam-fix">
+/* Physicist AI composer: force a single paint layer per control so translucent fills
+   don't raster in two GPU tiles (two-tone seam on Android Chrome over the blurred panel). */
+.qai-root :is(.qp-bar,.qp-sel,.qp-a,.qai-box){
+  position:relative;isolation:isolate;transform:translateZ(0);
+  -webkit-backface-visibility:hidden;backface-visibility:hidden;
+  -webkit-tap-highlight-color:transparent}
+.qai-root .qai-box textarea{background:transparent}
+</style>
 </body>
 </html>
