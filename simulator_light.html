@@ -68722,20 +68722,20 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       h + '.rp-no{display:block;min-width:34px;height:34px;line-height:34px;text-align:center;background:linear-gradient(135deg,' + B.orange + ',' + B.amber + ');color:#fff !important;border-radius:8px;font:700 14px/34px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.04em}' +
       h + '.rp-sh h2{margin:0;font-size:21px;line-height:1.1;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:' + B.text + '}' +
       h + '.rp-sh .rp-rule{flex:1;height:3px;border-radius:2px;background-image:linear-gradient(90deg,' + B.orange + ',' + B.red + ');margin-left:6px}' +
-      h + '.dft-sub{margin:0 0 10px;font-size:11px}' +
+      h + '.dft-sub{margin:0 0 12px;font-size:11px;line-height:1.55}' +
       h + '.dft-status{display:inline-block;margin:0 0 12px;padding:3px 11px;border-radius:99px;background:' + B.tint + ';border:1px solid #d6cffb;color:#4b36c4 !important;font-size:10.5px;font-weight:600}' +
       /* cards */
-      h + '.dft-sec{margin:0 0 14px;padding:12px 15px 11px;background:#fff;border:1px solid ' + B.line + ';border-left:4px solid ' + B.orange + ';border-radius:9px}' +
+      h + '.dft-sec{margin:0 0 16px;padding:16px 20px 15px;background:#fff;border:1px solid ' + B.line + ';border-left:4px solid ' + B.orange + ';border-radius:9px}' +
       h + '.dft-h{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:' + B.text + '}' +
       h + '.dft-big{display:flex;align-items:baseline;gap:9px;margin:0 0 8px}' +
       h + '.dft-big b,' + h + '.dft-big b .num{font-size:28px;font-weight:800;letter-spacing:-.01em;color:' + B.orange + ' !important}' +
       h + '.dft-big .ev{font-size:12px;color:' + B.muted + ' !important}' +
-      h + '.dft-note{margin:6px 0 0;font-size:10px;line-height:1.5}' +
+      h + '.dft-note{margin:8px 0 0;font-size:10px;line-height:1.55}' +
       /* tables */
       h + '.dft-tbl{width:100%;border-collapse:collapse;font-size:10.5px}' +
-      h + '.dft-tbl th{padding:4px 8px 5px 0;font-size:8.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;text-align:left;border-bottom:2px solid ' + B.ink + '}' +
+      h + '.dft-tbl th{padding:4px 10px 6px 0;font-size:8.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;text-align:left;border-bottom:2px solid ' + B.ink + '}' +
       h + '.dft-tbl th.n,' + h + '.dft-tbl td.n{text-align:right}' +
-      h + '.dft-tbl td{padding:4px 8px 4px 0;border-top:1px solid #ebe8f7;vertical-align:baseline}' +
+      h + '.dft-tbl td{padding:5px 10px 5px 0;border-top:1px solid #ebe8f7;vertical-align:baseline}' +
       h + '.dft-tbl tr:first-child td{border-top:0}' +
       h + '.dft-tbl td:last-child,' + h + '.dft-tbl th:last-child{padding-right:0}' +
       h + '.dft-tbl tr.homo td{background:' + B.tint + ';color:#4b36c4;font-weight:700}' +
@@ -68752,7 +68752,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
       /* picture cards (3D / molecule) */
       h + '.rp-fig{margin:0;background:#fff;border:1px solid ' + B.line + ';border-radius:9px;overflow:hidden;break-inside:avoid}' +
       h + '.rp-fig img{display:block;width:100%;height:auto;background:' + B.ink + '}' +
-      h + '.rp-cap{padding:6px 9px 7px;font-size:9.5px;line-height:1.35;border-top:3px solid ' + B.orange + '}' +
+      h + '.rp-cap{padding:8px 12px 9px;font-size:9.5px;line-height:1.35;border-top:3px solid ' + B.orange + '}' +
       h + '.rp-cap b{display:block;font-size:10px;font-weight:700;color:' + B.text + '}' +
       h + '.rp-cap span{color:' + B.muted + ' !important}' +
       h + '.rp-tag{display:inline-block;margin-left:5px;padding:0 6px;border-radius:99px;background:' + B.orange + ';color:#fff !important;font-size:8px;font-weight:700;letter-spacing:.08em}' +
@@ -68824,7 +68824,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   function fitCharts(root) {   // chart text is sized by the chart's width; on paper it is set to one readable size, and nothing is clipped at the edges
     [].forEach.call(root.querySelectorAll('svg'), function (s) {
       var vb = s.viewBox && s.viewBox.baseVal; if (!vb || !vb.width || s.getBoundingClientRect().width < 200) return;
-      s.style.overflow = 'visible'; s.style.display = 'block'; s.style.maxWidth = 'none'; s.style.width = 'calc(100% - 10px)'; s.style.height = 'auto'; s.style.marginLeft = '5px';
+      s.style.overflow = 'visible'; s.style.display = 'block'; s.style.maxWidth = 'none'; s.style.width = 'calc(100% - 24px)'; s.style.height = 'auto'; s.style.marginLeft = '4px'; s.style.marginRight = '20px';
       var k = s.getBoundingClientRect().width / vb.width || 1;
       [].forEach.call(s.querySelectorAll('text'), function (t) { t.style.fontSize = (11 / k) + 'px'; });
       [].forEach.call(s.querySelectorAll('path,line,polyline'), function (p) { p.style.vectorEffect = 'non-scaling-stroke'; });
@@ -68938,7 +68938,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   function makePdfHtml(html, name, opts) {
     opts = opts || {};
     var low = false; try { low = (navigator.deviceMemory && navigator.deviceMemory < 4) || /Android|iPhone|iPad/i.test(navigator.userAgent) && !(navigator.deviceMemory >= 6); } catch (e) {}
-    var W = 794, H = 1123, M = 40, TOP = 66, BOT = 54, CW = W - 2 * M, CH = H - TOP - BOT, S = low ? 2 : 3, host, css, cover = opts.cover || null;
+    var W = 794, H = 1123, M = 40, TOP = 74, BOT = 60, CW = W - 2 * M, CH = H - TOP - BOT, S = low ? 2 : 3, host, css, cover = opts.cover || null;
     css = document.createElement('style'); css.textContent = PDF_CSS; document.head.appendChild(css);
     var old = document.getElementById('dft-pdf'); if (old) old.remove();
     host = document.createElement('div'); host.id = 'dft-pdf'; host.innerHTML = html; document.body.appendChild(host);
@@ -69002,7 +69002,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
         });
       }
       // ── place the blocks on pages ──
-      var pages = [], cur = null, y = 0, prev = null, gapOf = function (a, b) { return Math.max(0, Math.min(20, b.top - a.bottom)); };
+      var pages = [], cur = null, y = 0, prev = null, gapOf = function (a, b) { return a.head ? Math.max(6, Math.min(20, b.top - a.bottom)) : Math.max(12, Math.min(24, b.top - a.bottom)); };
       if (cover) pages.push({ cover: true, items: [] });
       units.forEach(function (u, i) {
         var nx = units[i + 1], gap = prev && cur ? gapOf(prev, u) : 0, cont = !!(cur && prev && u.rows && prev.rows && prev.el === u.el);   // same table, same page: no second header row
@@ -72401,5 +72401,114 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-pill{
   background:var(--lx-mat-thick) !important;color:var(--lx-text) !important;border:.5px solid var(--lx-sep) !important;
   -webkit-backdrop-filter:var(--lx-blur);backdrop-filter:var(--lx-blur);box-shadow:var(--lx-sh-2) !important;font-weight:600;letter-spacing:-.01em;}
 </style>
+<style id="qa-lab-ui-fix">
+/* ═══ Data Lab + DFT Lab — UI/UX pass (themes: glass · flat · luxury; dark + light) ═══
+   One final layer. Surfaces/active colours follow the existing Compare-picker and DFT segmented
+   language: quiet resting state, solid accent only for the selected item. More room, not less. */
+#datalab-modal,#dft-modal{--lab-r:12px;--lab-gap:10px}
+
+/* ---------- shared rhythm (all themes) ---------- */
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-card{padding:26px 22px 34px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .compare-card{padding:26px 22px 34px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .cmp-header,
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .cmp-header{margin-bottom:22px}
+
+/* Data Lab controls */
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-bar{gap:10px;margin:0 0 20px;align-items:stretch}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip{min-height:44px !important;padding:10px 16px !important;font-size:.78rem !important;line-height:1.25;border-radius:var(--lab-r) !important;box-shadow:none !important;text-shadow:none !important;transition:background .15s,border-color .15s,color .15s,transform .1s}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip[data-id="prev"],
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip[data-id="next"]{width:48px;padding:0 !important;display:inline-flex;align-items:center;justify-content:center;font-size:1.15rem !important;flex:none}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-pickbtn,
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal select.dl-sel{min-height:48px !important;padding:0 16px !important;border-radius:var(--lab-r) !important;font-size:.82rem !important;box-shadow:none !important}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip:active{transform:scale(.97)}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-note,
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-hint{line-height:1.75 !important;margin:0 0 18px !important}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-stats{gap:12px;margin-bottom:24px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-stat{padding:14px 12px 13px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-stat b{font-size:.9rem;overflow-wrap:anywhere}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-stat span{display:block;margin-top:4px;line-height:1.4}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-box{padding:20px 16px;margin-bottom:24px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-box h4{margin-bottom:16px;line-height:1.45}
+
+/* DFT Lab */
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-views{gap:24px;margin:0 0 20px;padding-inline-end:28px;scroll-padding-inline:28px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 30px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 30px),transparent)}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-views button{min-height:40px;padding:0 0 9px;white-space:nowrap}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-sub{margin:0 0 18px;line-height:1.6}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-status{margin:0 0 20px;line-height:1.5}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-sec{margin:28px 0 0}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-h{margin:0 0 10px;line-height:1.4}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal :is(.dft-note,.dft-msg,.dft-foot,.dft-what p){line-height:1.7 !important}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-note{margin:10px 0 0 !important}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-lbl{gap:8px !important;margin:0 0 8px !important;font-size:.76rem}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-lbl>.dft-in,
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal label.dft-lbl{margin-bottom:0 !important}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-seg{padding:4px;gap:4px;margin:0 0 18px;border-radius:14px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-seg button{min-height:44px;padding:8px 8px;border-radius:10px;line-height:1.25}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-row{gap:14px;margin:14px 0 0}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-actions{gap:12px;margin:20px 0 0}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-chips{gap:8px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-chips button{min-height:40px;padding:0 15px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-btn{min-height:44px;padding:0 22px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-in{min-height:38px;padding:0 8px;border-radius:9px;width:52px;max-width:52px;text-align:center;align-self:flex-start}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-in.dft-link{width:100%;margin-top:8px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-tbl td{padding:12px 10px 12px 0}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-tbl th{padding:8px 10px 8px 0}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-run{padding:18px 0}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-what{margin-top:28px;padding-top:18px}
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-big{margin:0 0 14px}
+@media (max-width:480px){
+  html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-card,
+  html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .compare-card{padding:24px 18px 32px}
+  html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-views{gap:20px}
+  html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-in{width:52px;max-width:52px}
+}
+
+/* ---------- GLASS (default): translucent resting surface, solid accent when selected ---------- */
+html:not([data-lux="on"]):not([data-glass="off"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal :is(.dl-chip,.dl-pickbtn,select.dl-sel),
+html:not([data-lux="on"]):not([data-glass="off"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal :is(.dft-btn:not(.pri),.dft-in,.dft-chips button){
+  background:rgba(var(--cyan-rgb),.08) !important;background-image:none !important;border:1px solid rgba(var(--cyan-rgb),.26) !important;color:var(--hi) !important}
+html:not([data-lux="on"]):not([data-glass="off"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal :is(.dl-chip,.dl-pickbtn):hover,
+html:not([data-lux="on"]):not([data-glass="off"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal :is(.dft-btn:not(.pri),.dft-chips button):hover{border-color:rgba(var(--cyan-rgb),.55) !important}
+html:not([data-lux="on"]):not([data-glass="off"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip:is(.on,[aria-pressed="true"]),
+html:not([data-lux="on"]):not([data-glass="off"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip:is(.on,[aria-pressed="true"]):hover{
+  background:var(--cyan) !important;border-color:var(--cyan) !important;color:#fff !important;box-shadow:0 4px 14px rgba(var(--cyan-rgb),.30) !important}
+html:not([data-lux="on"]):not([data-glass="off"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-btn.pri{background:var(--cyan) !important;border:1px solid var(--cyan) !important;color:#fff !important}
+
+/* ---------- FLAT (glass off): outlined resting, solid accent when selected ---------- */
+html[data-glass="off"]:not([data-lux="on"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal :is(.dl-chip,.dl-pickbtn,select.dl-sel),
+html[data-glass="off"]:not([data-lux="on"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal :is(.dft-btn:not(.pri),.dft-in,.dft-chips button){
+  background:transparent !important;background-image:none !important;border:1px solid rgba(var(--cyan-rgb),.5) !important;color:var(--hi) !important}
+html[data-glass="off"]:not([data-lux="on"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal :is(.dl-chip,.dl-pickbtn):hover,
+html[data-glass="off"]:not([data-lux="on"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal :is(.dft-btn:not(.pri),.dft-chips button):hover{border-color:var(--cyan) !important}
+html[data-glass="off"]:not([data-lux="on"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip:is(.on,[aria-pressed="true"]),
+html[data-glass="off"]:not([data-lux="on"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip:is(.on,[aria-pressed="true"]):hover{
+  background:var(--cyan) !important;border-color:var(--cyan) !important;color:#fff !important}
+html[data-glass="off"]:not([data-lux="on"]):not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-btn.pri{background:var(--cyan) !important;border:1px solid var(--cyan) !important;color:#fff !important}
+
+/* ---------- LUXURY: system fills, pill chips, accent gradient when selected ---------- */
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip{border-radius:var(--lx-pill,99px) !important;padding:10px 18px !important}
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip[data-id="prev"],
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-chip[data-id="next"]{padding:0 !important}
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal :is(.dl-pickbtn,select.dl-sel){background:var(--lx-fill) !important;border:0 !important;border-radius:var(--lx-r-sm,12px) !important;color:var(--lx-text) !important}
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal :is(.dft-in,.dft-chips button,.dft-btn:not(.pri)){border-radius:var(--lx-r-sm,12px) !important}
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-chips button{border-radius:99px !important}
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-btn{border-radius:99px !important}
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-seg{border-radius:var(--lx-r-sm,12px)}
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #dft-modal .dft-seg button{border-radius:var(--lx-r-xs,9px)}
+
+/* stepper row: ‹ [element picker] › always stays on one line */
+html:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #datalab-modal .dl-bar .dl-pickbtn{flex:1 1 0 !important;min-width:0 !important;max-width:none !important}
+</style>
+<script id="qa-lab-ui-fix-js">
+/* DFT Lab: keep the selected tab in view when the tab row scrolls (small screens). */
+(function(){
+  function sync(){var m=document.getElementById('dft-body');if(!m)return;var v=m.querySelector('.dft-views'),a=v&&v.querySelector('[aria-selected="true"]');
+    if(!v||!a||v.scrollWidth<=v.clientWidth)return;
+    var t=a.offsetLeft-(v.clientWidth-a.offsetWidth)/2;try{v.scrollTo({left:Math.max(0,t),behavior:'auto'})}catch(e){v.scrollLeft=Math.max(0,t)}}
+  function boot(){var m=document.getElementById('dft-body');if(!m){setTimeout(boot,500);return}
+    new MutationObserver(function(){requestAnimationFrame(sync)}).observe(m,{childList:true,subtree:true});}
+  boot();
+})();
+</script>
 </body>
 </html>
