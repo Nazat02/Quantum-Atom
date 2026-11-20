@@ -54594,6 +54594,33 @@ function goDarkSim(){localStorage.setItem('qas-theme','dark');window.location.hr
     window.addEventListener('resize', sync);
     if (window.ResizeObserver) new ResizeObserver(sync).observe(tabs);
     sync();
+    /* Desktop: a mouse has no swipe, so the strip also scrolls with the wheel / trackpad and by click-and-drag. */
+    tabs.addEventListener('wheel', function(e){
+      if (tabs.scrollWidth <= tabs.clientWidth + 2 || e.ctrlKey) return;
+      var d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!d) return;
+      if (e.deltaMode === 1) d *= 32; else if (e.deltaMode === 2) d *= tabs.clientWidth;
+      var max = tabs.scrollWidth - tabs.clientWidth, to = Math.max(0, Math.min(max, tabs.scrollLeft + d));
+      if (to !== tabs.scrollLeft) { tabs.scrollLeft = to; e.preventDefault(); }
+    }, {passive:false});
+    var drag = null, moved = false;
+    tabs.addEventListener('pointerdown', function(e){
+      if (e.pointerType !== 'mouse' || e.button !== 0 || tabs.scrollWidth <= tabs.clientWidth + 2) return;
+      drag = {x:e.clientX, left:tabs.scrollLeft, id:e.pointerId}; moved = false;
+    });
+    tabs.addEventListener('pointermove', function(e){
+      if (!drag || e.pointerId !== drag.id) return;
+      var dx = e.clientX - drag.x;
+      if (!moved && Math.abs(dx) > 5) { moved = true; try { tabs.setPointerCapture(e.pointerId); } catch(_){} tabs.style.cursor = 'grabbing'; tabs.style.userSelect = 'none'; tabs.style.scrollSnapType = 'none'; }
+      if (moved) tabs.scrollLeft = drag.left - dx;
+    });
+    var endDrag = function(e){
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      try { tabs.releasePointerCapture(drag.id); } catch(_){}
+      drag = null; tabs.style.cursor = ''; tabs.style.userSelect = ''; tabs.style.scrollSnapType = '';
+    };
+    tabs.addEventListener('pointerup', endDrag); tabs.addEventListener('pointercancel', endDrag);
+    tabs.addEventListener('click', function(e){ if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
   }
   ['ename','emeta','econf'].forEach(function(id){
     var el = document.getElementById(id); if (!el) return;
