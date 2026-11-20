@@ -68259,18 +68259,118 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
   }
   P.registerView({ id: 'book', order: 90, label: function () { return t('v_book'); }, render: bookView });
 
-  // ───────────────────────── print (PDF) ─────────────────────────
-  function printRec(rec) {
-    var old = document.getElementById('dft-print'); if (old) old.remove();
-    var d = document.createElement('div'); d.id = 'dft-print';
-    d.innerHTML = '<h1>' + esc(title(rec)) + '</h1><div class="sub">' + esc(t('report')) + '</div>' +
+  // ───────────────────────── PDF report ─────────────────────────
+  /* The report is drawn onto A4 pages and written out as a real .pdf file, so it downloads on phones as well as
+     desktops. (The old route, window.print(), is asynchronous on phones: the report was removed from the page
+     before the browser had captured it, which produced a blank PDF. It is kept only as a fallback.) */
+  var PDF_CSS = '#dft-pdf{position:absolute;left:-20000px;top:0;width:714px;margin:0;padding:0;background:#fff;color:#111;font:12px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--hi:#111;--lo:#555;--cyan:#0a64c8;--cyan-rgb:10,100,200}' +
+    '#dft-pdf *{color:inherit}#dft-pdf .dft-note,#dft-pdf .dft-kv dt,#dft-pdf .dft-tbl th,#dft-pdf .u,#dft-pdf .dft-legend,#dft-pdf .sub,#dft-pdf .dft-foot{color:#555 !important}' +
+    '#dft-pdf .dft-tbl tr.out td,#dft-pdf .dft-warn{color:#c62828 !important}#dft-pdf h1{font-size:18px;margin:0 0 3px}#dft-pdf .sub{color:#555;margin:0 0 13px}' +
+    '#dft-pdf .dft-chart text{fill:#555}#dft-pdf .dft-tbl{font-size:10.5px}#dft-pdf .dft-tbl td{padding:3px 8px 3px 0}#dft-pdf .dft-foot{word-break:break-all;font-size:9px}';
+  var PDF_PROPS = ['display', 'box-sizing', 'width', 'height', 'min-width', 'max-width', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'color', 'background-color', 'background-image', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'text-align', 'text-transform', 'text-decoration-line', 'white-space', 'vertical-align',
+    'overflow', 'overflow-wrap', 'word-break', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-collapse', 'border-spacing', 'border-radius', 'opacity', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray',
+    'stroke-linecap', 'stroke-linejoin', 'fill-opacity', 'stroke-opacity', 'text-anchor', 'dominant-baseline', 'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis', 'align-items', 'justify-content', 'gap',
+    'grid-template-columns', 'position', 'top', 'left', 'right', 'bottom', 'transform', 'transform-origin', 'visibility', 'table-layout', 'list-style-type', 'font-variant-numeric', 'box-shadow'];
+  function reportHtml(rec) {
+    return '<h1>' + esc(title(rec)) + '</h1><div class="sub">' + esc(t('report')) + '</div>' +
       (KINDS[rec.kind] ? KINDS[rec.kind].figure(rec) : rec.kind === 'sweep' ? sweepFigure(rec) : atomFigure(rec)) + '<div class="dft-sec">' + meta(rec) + '</div>' +
       '<div class="dft-foot">' + esc(linkFor(rec)) + '</div>';
+  }
+  function inlineStyles(src, dst) { // copy the computed look of every element, so the report survives being drawn on its own
+    var a = [src].concat([].slice.call(src.querySelectorAll('*'))), b = [dst].concat([].slice.call(dst.querySelectorAll('*')));
+    for (var i = 0; i < a.length && i < b.length; i++) {
+      var cs = getComputedStyle(a[i]), txt = '';
+      for (var k = 0; k < PDF_PROPS.length; k++) { var v = cs.getPropertyValue(PDF_PROPS[k]); if (v) txt += PDF_PROPS[k] + ':' + v + ';'; }
+      b[i].setAttribute('style', txt);
+      if (a[i].tagName === 'CANVAS') { // a canvas does not clone its picture
+        try { var im = document.createElement('img'); im.setAttribute('src', a[i].toDataURL('image/png')); im.setAttribute('style', txt); b[i].parentNode.replaceChild(im, b[i]); b[i] = im; } catch (e) {}
+      }
+    }
+    [].forEach.call(dst.querySelectorAll('script,style,button,input,select,textarea'), function (n) { n.remove(); });
+  }
+  function bytesOf(dataUrl) { var s = atob(dataUrl.split(',')[1]), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+  function buildPdf(pages, name) { // pages: [{ jpg: Uint8Array, w, h }] — one full-page picture per A4 sheet
+    var chunks = [], pos = 0, offs = [], PW = 595.28, PH = 841.89;
+    function put(x) { if (typeof x === 'string') { var u = new Uint8Array(x.length); for (var i = 0; i < x.length; i++) u[i] = x.charCodeAt(i) & 255; x = u; } chunks.push(x); pos += x.length; }
+    function obj(n, body, stream) { offs[n] = pos; put(n + ' 0 obj\n' + body + (stream ? '\nstream\n' : '\nendobj\n')); if (stream) { put(stream); put('\nendstream\nendobj\n'); } }
+    var hex = ['FEFF']; for (var c = 0; c < name.length; c++) hex.push(('000' + name.charCodeAt(c).toString(16)).slice(-4));
+    put('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    var kids = pages.map(function (_, i) { return (4 + 3 * i) + ' 0 R'; }).join(' ');
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>'); obj(2, '<< /Type /Pages /Kids [' + kids + '] /Count ' + pages.length + ' >>');
+    obj(3, '<< /Title <' + hex.join('') + '> /Producer (Quantum Atom) >>');
+    pages.forEach(function (p, i) {
+      var pg = 4 + 3 * i, ct = pg + 1, im = pg + 2, draw = 'q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im0 Do Q';
+      obj(pg, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + ct + ' 0 R >>');
+      obj(ct, '<< /Length ' + draw.length + ' >>', draw);
+      obj(im, '<< /Type /XObject /Subtype /Image /Width ' + p.w + ' /Height ' + p.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.jpg.length + ' >>', p.jpg);
+    });
+    var n = 4 + 3 * pages.length, xr = pos, x = 'xref\n0 ' + n + '\n0000000000 65535 f \n';
+    for (var j = 1; j < n; j++) x += ('0000000000' + offs[j]).slice(-10) + ' 00000 n \n';
+    put(x + 'trailer\n<< /Size ' + n + ' /Root 1 0 R /Info 3 0 R >>\nstartxref\n' + xr + '\n%%EOF\n');
+    var out = new Uint8Array(pos), o = 0; chunks.forEach(function (ch) { out.set(ch, o); o += ch.length; });
+    return out;
+  }
+  function makePdf(rec) {
+    var W = 794, H = 1123, M = 40, CW = W - 2 * M, CH = H - 2 * M, S = 2, host, css;
+    css = document.createElement('style'); css.textContent = PDF_CSS; document.head.appendChild(css);
+    var old = document.getElementById('dft-pdf'); if (old) old.remove();
+    host = document.createElement('div'); host.id = 'dft-pdf'; host.innerHTML = reportHtml(rec); document.body.appendChild(host);
+    var cleanup = function () { host.remove(); css.remove(); };
+    var settle = (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).catch(function () {}).then(function () { return new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); }); });
+    return settle.then(function () {
+      var top0 = host.getBoundingClientRect().top, total = Math.ceil(host.scrollHeight), cand = [0], BL = { TR: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, P: 1, DIV: 1, TABLE: 1, UL: 1, LI: 1, DL: 1, DT: 1, DD: 1, svg: 1, FIGURE: 1, SECTION: 1 };
+      [].forEach.call(host.querySelectorAll('*'), function (e) { if (BL[e.tagName]) cand.push(Math.round(e.getBoundingClientRect().bottom - top0)); });
+      var ys = [0], y = 0;   // page breaks fall between rows and blocks, never through a line of text
+      while (total - y > CH + 1) { var lim = y + CH, best = 0; cand.forEach(function (c) { if (c <= lim && c > best) best = c; }); if (best < y + CH * 0.35) best = lim; ys.push(best); y = best; }
+      ys.push(total);
+      var clone = host.cloneNode(true); clone.removeAttribute('id');
+      inlineStyles(host, clone);
+      clone.setAttribute('style', 'position:static;width:' + CW + 'px;margin:0;padding:0;background:#fff;color:#111;font:12px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif');
+      var inner = new XMLSerializer().serializeToString(clone), N = ys.length - 1, out = [];
+      var page = function (i) {
+        return new Promise(function (res, rej) {
+          var y0 = ys[i], h = Math.max(1, ys[i + 1] - y0);
+          var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W * S + '" height="' + H * S + '" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff"/>' +
+            '<foreignObject x="' + M + '" y="' + M + '" width="' + CW + '" height="' + h + '"><div xmlns="http://www.w3.org/1999/xhtml" style="width:' + CW + 'px;height:' + h + 'px;overflow:hidden;background:#fff"><div style="margin-top:-' + y0 + 'px;width:' + CW + 'px">' + inner + '</div></div></foreignObject></svg>';
+          var img = new Image();
+          img.onload = function () {
+            try {
+              var cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; var cx = cv.getContext('2d');
+              cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
+              cx.fillStyle = '#777'; cx.font = (9 * S) + 'px system-ui,sans-serif'; cx.textAlign = 'right'; cx.fillText((i + 1) + ' / ' + N, (W - M) * S, (H - 18) * S);
+              res({ jpg: bytesOf(cv.toDataURL('image/jpeg', 0.92)), w: cv.width, h: cv.height });
+            } catch (e) { rej(e); }
+          };
+          img.onerror = function () { rej(new Error('render')); };
+          img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        });
+      };
+      var chain = Promise.resolve();
+      for (var p = 0; p < N; p++) (function (i) { chain = chain.then(function () { return page(i); }).then(function (r) { out.push(r); }); })(p);
+      return chain.then(function () { return buildPdf(out, title(rec).replace(/<[^>]*>/g, '')); });
+    }).then(function (b) { cleanup(); return b; }, function (e) { cleanup(); throw e; });
+  }
+  function printRec(rec) {
+    toast('PDF…');
+    makePdf(rec).then(function (bytes) { download(fileBase(rec) + '.pdf', bytes, 'application/pdf'); },
+      function () { printViaDialog(rec); });
+  }
+  /* Fallback only (no canvas / drawing blocked): the browser's own print dialog. The report stays on the page until the dialog is finished with. */
+  function printViaDialog(rec) {
+    var old = document.getElementById('dft-print'); if (old) old.remove();
+    var d = document.createElement('div'); d.id = 'dft-print'; d.innerHTML = reportHtml(rec);
     document.body.appendChild(d);
     document.documentElement.classList.add('dft-printing');
-    var done = function () { document.documentElement.classList.remove('dft-printing'); window.removeEventListener('afterprint', done); };
-    window.addEventListener('afterprint', done);
-    setTimeout(function () { try { window.print(); } catch (e) {} setTimeout(done, 1500); }, 60);
+    var t0 = 0, done = function () {
+      document.documentElement.classList.remove('dft-printing'); window.removeEventListener('afterprint', onAfter); document.removeEventListener('pointerdown', onTap, true); document.removeEventListener('keydown', onTap, true); clearTimeout(tm);
+      setTimeout(function () { var x = document.getElementById('dft-print'); if (x) x.remove(); }, 200);
+    };
+    var onAfter = function () { if (Date.now() - t0 > 1500) done(); };            // a phone can fire this before the preview exists
+    var onTap = function () { if (Date.now() - t0 > 1500) done(); };              // first touch / key after the preview closes
+    var tm = setTimeout(done, 60000);
+    window.addEventListener('afterprint', onAfter); document.addEventListener('pointerdown', onTap, true); document.addEventListener('keydown', onTap, true);
+    setTimeout(function () { t0 = Date.now(); try { window.print(); } catch (e) { done(); } }, 60);
   }
 
   // ───────────────────────── shared links ─────────────────────────
