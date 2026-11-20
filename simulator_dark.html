@@ -68267,8 +68267,9 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
   var BRAND = {
     name: 'Quantum Atom', site: 'nazat02.github.io/Quantum-Atom',
     ink: '#0b0908', ink2: '#1a120e', orange: '#ff5500', amber: '#ff9944', red: '#e11d2e',
-    text: '#16120f', muted: '#6b625c', line: '#e9e1da', tint: '#fff3ec',
+    text: '#16120f', muted: '#6b625c', line: '#e9e1da', tint: '#fff3ec', fg: '#fff',
     font: '"Rajdhani","Share Tech Mono",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+    logo: { tile: '#ff5500', sheen: 'rgba(255,255,255,.06)', nuc: ['#ffffff', '#ffcc88', '#ff8833'], el: ['#ffffff', 'rgba(255,220,180,.95)', 'rgba(255,210,160,.9)'] },
     mono: '"Share Tech Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'
   };
   var PDF_CSS = (function () {
@@ -68400,19 +68401,28 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
   // ── drawing helpers (the cover and the page frame are drawn directly, so they stay razor sharp) ──
   function ptext(cx, S, s, x, y, o) {
     s = String(s == null ? '' : s); cx.save();
-    cx.font = (o.weight || 400) + ' ' + (o.size * S) + 'px ' + (o.font || BRAND.font); cx.fillStyle = o.color || '#fff'; cx.textAlign = o.align || 'left'; cx.textBaseline = 'alphabetic';
+    cx.font = (o.weight || 400) + ' ' + (o.size * S) + 'px ' + (o.font || BRAND.font); cx.fillStyle = o.color || BRAND.fg; cx.textAlign = o.align || 'left'; cx.textBaseline = 'alphabetic';
     if ('letterSpacing' in cx) cx.letterSpacing = ((o.ls || 0) * S) + 'px';
     if (o.max) { var lim = o.max * S; if (cx.measureText(s).width > lim) { while (s.length > 2 && cx.measureText(s + '…').width > lim) s = s.slice(0, -1); s += '…'; } }
     cx.fillText(s, x * S, y * S); var w = cx.measureText(s).width / S; cx.restore(); return w;
   }
   function rrect(cx, x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
-  function emblem(cx, S, x, y, size) {   // the simulator's icon: an orange tile with three crossing orbits and a nucleus
-    var k = size * S / 90, g; cx.save(); cx.translate(x * S, y * S); cx.scale(k, k);
-    g = cx.createLinearGradient(0, 0, 90, 90); g.addColorStop(0, BRAND.orange); g.addColorStop(1, BRAND.red);
-    rrect(cx, 0, 0, 90, 90, 18); cx.fillStyle = g; cx.fill();
+  function emblem(cx, S, x, y, size) {   // the simulator's logo, drawn exactly like the top-bar SVG (#topbar-logo-badge): tile, sheen, three orbits, glowing nucleus, three electrons
+    var L = BRAND.logo, k = size * S / 90, blur = 'filter' in cx; cx.save(); cx.translate(x * S, y * S); cx.scale(k, k);
+    rrect(cx, 0, 0, 90, 90, 18); cx.fillStyle = L.tile; cx.fill();
+    rrect(cx, 0, 0, 90, 45, 18); cx.fillStyle = L.sheen; cx.fill();
     cx.lineWidth = 2.2; cx.strokeStyle = '#fff';
     [[0, .85], [60, .75], [-60, .7]].forEach(function (a) { cx.globalAlpha = a[1]; cx.beginPath(); cx.ellipse(45, 45, 34, 12, a[0] * Math.PI / 180, 0, 2 * Math.PI); cx.stroke(); });
-    cx.globalAlpha = .95; cx.beginPath(); cx.arc(45, 45, 10, 0, 2 * Math.PI); cx.fillStyle = '#fff'; cx.fill(); cx.restore();
+    cx.globalAlpha = .25; if (blur) cx.filter = 'blur(' + k + 'px)'; cx.beginPath(); cx.arc(45, 45, 15, 0, 2 * Math.PI); cx.fillStyle = '#fff'; cx.fill(); if (blur) cx.filter = 'none';
+    cx.globalAlpha = 1; cx.shadowBlur = 4 * k;
+    var g = cx.createRadialGradient(42, 41, 0, 42, 41, 13); g.addColorStop(0, L.nuc[0]); g.addColorStop(.4, L.nuc[1]); g.addColorStop(1, L.nuc[2]);
+    cx.shadowColor = L.nuc[2]; cx.beginPath(); cx.arc(45, 45, 10, 0, 2 * Math.PI); cx.fillStyle = g; cx.fill();
+    cx.shadowBlur = 0; cx.beginPath(); cx.arc(41, 41, 3, 0, 2 * Math.PI); cx.fillStyle = 'rgba(255,255,255,.7)'; cx.fill();
+    [[0, 4.5, L.el[0]], [60, 3.8, L.el[1]], [-60, 3.8, L.el[2]]].forEach(function (e) {   // each electron at the start of its orbit, as the SVG shows it
+      var a = e[0] * Math.PI / 180; cx.shadowBlur = 4 * k; cx.shadowColor = e[2]; cx.fillStyle = e[2];
+      cx.beginPath(); cx.arc(45 + 34 * Math.cos(a), 45 + 34 * Math.sin(a), e[1], 0, 2 * Math.PI); cx.fill();
+    });
+    cx.restore();
   }
   function orbitArt(cx, S, x, y, R) {   // large decorative atom for the cover
     cx.save(); cx.translate(x * S, y * S);
