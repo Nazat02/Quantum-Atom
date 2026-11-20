@@ -34654,7 +34654,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       return (j.data || []).map(function (m) { return { id: m.id, name: m.display_name || null, created: Date.parse(m.created_at) / 1000 || 0 }; });
     };
     var run = async function* (ctx, tools, beta) {
-      var body = { model: ctx.model, max_tokens: 8192, stream: true, system: ctx.system, messages: ctx.messages };
+      var body = { model: ctx.model, max_tokens: 6000, stream: true, system: ctx.system, messages: ctx.messages };
       var h = hdr(ctx.apiKey);
       if (tools) { body.tools = tools; if (beta) h['anthropic-beta'] = beta; }
       var res = await QAI.http(def, trim(ctx.baseUrl) + '/messages',
@@ -34681,9 +34681,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     def.canSearch = yes;
     def.stream = function (ctx) {
       if (!ctx.web) return run(ctx, null);
-      var tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }];
+      var tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }];
       return attempts([
-        { run: function () { return run(ctx, tools.concat([{ type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 3 }]), 'web-fetch-2025-09-10'); } },
         { run: function () { return run(ctx, tools); } },
         { run: function () { return run(ctx, null); }, plain: true }
       ]);
@@ -34742,7 +34741,6 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     def.stream = function (ctx) {
       if (!ctx.web) return run(ctx, null);
       return attempts([
-        { run: function () { return run(ctx, [{ google_search: {} }, { url_context: {} }]); } },
         { run: function () { return run(ctx, [{ google_search: {} }]); } },
         { run: function () { return run(ctx, null); }, plain: true }
       ]);
@@ -40065,7 +40063,7 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
         var p = m.previousElementSibling; while (p && !p.classList.contains('user')) p = p.previousElementSibling;
         if (p) Q.ui.send(textOf(p));
       }));
-      if (m._qpLive && S.tts) say(textOf(m), sp);
+      /* voice button removed: no read-aloud */
     }
     meta.appendChild(row);
   }
@@ -40110,14 +40108,13 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
     });
     lv.addEventListener('click', function (e) { e.stopPropagation(); menu.hidden = !menu.hidden; lv.setAttribute('aria-expanded', String(!menu.hidden)); buzz(); });
     var q = ib('quiz', T('quiz'), function () { collapse(); quiz(); });
-    var v = ib('speaker', '', function () { S.tts = !S.tts; v.classList.toggle('on', S.tts); if (!S.tts && w.speechSynthesis) w.speechSynthesis.cancel(); save(); buzz(); }); v.classList.toggle('on', S.tts); v.title = T('say'); v.setAttribute('aria-label', T('say'));
     var x = ib('download', T('save'), function () { collapse(); exportMd(); });
-    [q, v, x].forEach(function (b) { b.type = 'button'; });
+    [q, x].forEach(function (b) { b.type = 'button'; });
     var tg = ib('tools', '', function (e) {
       e.stopPropagation(); var open = tools.hidden; tools.hidden = !open; tg.classList.toggle('on', open); tg.setAttribute('aria-expanded', String(open)); menu.hidden = true; buzz();
     });
     tg.classList.add('qp-tg'); tg.setAttribute('aria-expanded', 'false'); tg.setAttribute('aria-label', T('lvl') + ' / ' + T('quiz'));
-    var tools = el('div', 'qp-tools'); tools.hidden = true; tools.append(lv, q, v, x);
+    var tools = el('div', 'qp-tools'); tools.hidden = true; tools.append(lv, q, x);
     function collapse() { tools.hidden = true; tg.classList.remove('on'); tg.setAttribute('aria-expanded', 'false'); menu.hidden = true; }
     bar.append(tg, tools, menu); box.parentNode.insertBefore(bar, box);
   }
