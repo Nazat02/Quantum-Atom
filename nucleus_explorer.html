@@ -33246,6 +33246,39 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   /* True when the provider can search the web with this model (built into the provider's own API). */
   QAI.canSearch = function (p, model) { return !!(p && typeof p.canSearch === 'function' && model && p.canSearch(model)); };
 
+  /* ───────────── source quality gate ─────────────
+     Only reputable science sources are ever shown or linked: peer-reviewed publishers and preprint servers (matched by
+     DOI registrant prefix, which cannot be faked by a page title), universities, governments and national labs, and a
+     short list of established science bodies and outlets. Anything else (blogs, forums, shops, content farms) is dropped. */
+  QAI.trust = (function () {
+    var DOI = { '10.1103': 'APS', '10.1038': 'Nature', '10.1126': 'Science', '10.1073': 'PNAS', '10.1016': 'Elsevier', '10.1007': 'Springer', '10.1002': 'Wiley', '10.1111': 'Wiley',
+      '10.1088': 'IOP', '10.1021': 'ACS', '10.1039': 'RSC', '10.1063': 'AIP', '10.1093': 'Oxford UP', '10.1017': 'Cambridge UP', '10.1080': 'Taylor & Francis', '10.1051': 'EDP Sciences',
+      '10.1146': 'Annual Reviews', '10.1109': 'IEEE', '10.1140': 'Springer (EPJ)', '10.1143': 'JPS Japan', '10.1209': 'EPL', '10.22331': 'Quantum', '10.21468': 'SciPost', '10.48550': 'arXiv', '10.1107': 'IUCr', '10.1119': 'AAPT/AIP' };
+    var HOSTS = ['arxiv.org', 'doi.org', 'nature.com', 'science.org', 'sciencemag.org', 'pnas.org', 'aps.org', 'iop.org', 'aip.org', 'acs.org', 'rsc.org', 'sciencedirect.com', 'springer.com', 'springernature.com', 'wiley.com',
+      'oup.com', 'cambridge.org', 'tandfonline.com', 'annualreviews.org', 'iupac.org', 'nist.gov', 'nasa.gov', 'cern.ch', 'home.cern', 'cerncourier.com', 'lbl.gov', 'bnl.gov', 'fnal.gov', 'anl.gov', 'ornl.gov', 'llnl.gov', 'lanl.gov', 'sandia.gov', 'desy.de', 'psi.ch', 'esa.int', 'eso.org', 'iaea.org', 'nobelprize.org',
+      'ncbi.nlm.nih.gov', 'nih.gov', 'inspirehep.net', 'ads.harvard.edu', 'adsabs.harvard.edu', 'physicsworld.com', 'quantamagazine.org', 'symmetrymagazine.org', 'sciencenews.org', 'scientificamerican.com', 'newscientist.com', 'phys.org',
+      'eurekalert.org', 'aaas.org', 'royalsociety.org', 'royalsocietypublishing.org', 'ieee.org', 'wikipedia.org', 'britannica.com', 'libretexts.org', 'openstax.org', 'hyperphysics.gsu.edu', 'feynmanlectures.caltech.edu'];
+    function host(u) { try { return new URL(u).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { return ''; } }
+    function hostOk(h) {
+      if (!h) return false;
+      if (/\.(edu|gov|mil)$/.test(h) || /\.(ac|edu|gov)\.[a-z]{2}$/.test(h)) return true;
+      for (var i = 0; i < HOSTS.length; i++) if (h === HOSTS[i] || h.slice(-HOSTS[i].length - 1) === '.' + HOSTS[i]) return true;
+      return false;
+    }
+    function prefix(u) { var m = /^https?:\/\/(?:dx\.)?doi\.org\/(10\.\d{4,9})\//i.exec(String(u || '')); return m ? m[1] : ''; }
+    function doiOk(u) { var p = prefix(u); return !!p && !!DOI[p]; }
+    return {
+      DOI: DOI, doiOk: doiOk, prefix: prefix,
+      /* provider search results: redirect links (e.g. Gemini grounding) carry the real site name in the title */
+      ok: function (url, title) {
+        var h = host(url);
+        if (h === 'doi.org' || h === 'dx.doi.org') return doiOk(url);
+        if (/vertexaisearch|grounding-api-redirect|googleusercontent/.test(h)) { var t = String(title || '').toLowerCase().trim().replace(/^www\./, ''); return /^[a-z0-9.\-]+\.[a-z]{2,}$/.test(t) && hostOk(t); }
+        return hostOk(h);
+      }
+    };
+  })();
+
   /* ───────────── verified links only ─────────────
      The model must never be the author of a URL. A link is shown only if it (a) came from a real web-search result,
      (b) came from the Wikipedia lookup below (the API returns pages that exist), or (c) is the bare home page of a
@@ -33290,26 +33323,166 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       return out.replace(/\s+$/, raw.slice(-1) === '\n' ? '\n' : '');
     }
   };
+  /* Text must never promise what is not on screen. After the verified-link pass, a reply that says "here is the link",
+     "see the sources below" or "I searched the web" while no verified link or search result exists loses those sentences;
+     a reply that says it has no link while only reference cards exist loses the cards. Text and links always agree. */
+  (function () {
+    var N = '(?:links?|urls?|citations?|references?|articles?|papers?|websites?|web\\s?pages?|sources?(?!\\s+of\\b))';
+    var PROMISE = [
+      new RegExp('\\b(?:here(?:\\u2019s|\'s| is| are)|below|above|following|attached|see|check\\s+out|click|visit|read\\s+more|learn\\s+more|find\\s+more|i(?:\\u2019ve|\'ve| have)\\s+(?:linked|included|attached|added))\\b[^.!?\\n]{0,60}\\b' + N + '\\b', 'i'),
+      /\b(?:links?|urls?|citations?)\b[^.!?\n]{0,40}\b(?:below|above|attached|provided|included)\b/i,
+      /\b(?:aqu[ií]\s+(?:tienes|est[aá]n?)|a\s+continuaci[oó]n|abajo|voici|ci-dessous|ci-dessus|hier\s+(?:ist|sind)|unten|siehe|ecco|qui\s+sotto|di\s+seguito|aqui\s+est[aã]o?|abaixo)\b[^.!?\n]{0,60}(?:enlaces?|fuentes?|referencias?|liens?|sources?|quellen?|links?|fonti|collegament\w*|refer[eê]ncias?)/i,
+      /(?:ссылк\w*|источник\w*)[^.!?\n]{0,40}(?:ниже|выше|вот)|(?:ниже|вот)[^.!?\n]{0,40}(?:ссылк\w*|источник\w*)/i,
+      /(?:以下|下面|如下)[^。！？\n]{0,20}(?:链接|來源|来源|参考)|(?:以下|下記)[^。！？\n]{0,20}(?:リンク|情報源|参考)|아래[^.。!?\n]{0,20}(?:링크|출처)/
+    ];
+    var SEARCHED = /\bi(?:\u2019ve|'ve| have)?\s+(?:just\s+)?(?:searched|looked\s+up|browsed|googled|checked\s+(?:online|the\s+web)|pulled\s+up)\b|\baccording\s+to\s+(?:my|the)\s+(?:web\s+)?search\b|\bsearch\s+results?\s+(?:show|say|indicate)\b/i;
+    var DENY = /\b(?:can(?:\u2019|')?t|cannot|couldn(?:\u2019|')?t|unable\s+to|do(?:n(?:\u2019|')?t| not)\s+have|no)\b[^.!?\n]{0,40}\b(?:links?|sources?|references?|citations?)\b/i;
+    var SENT = /[^.!?。！？\n]+[.!?。！？]*[ \t]*/g;
+    function hasInline(parts) { for (var i = 0; i < parts.length; i += 2) if (/https?:\/\/\S/.test(parts[i])) return true; return false; }
+    QAI.links.denies = function (raw) { return DENY.test(String(raw || '')); };
+    /* opts: { searched: a web search ran for this reply } → returns the text without sentences that promise absent links/searches */
+    QAI.links.reconcile = function (raw, srcs, opts) {
+      raw = String(raw || ''); if (!raw) return raw;
+      var parts = raw.split(/(```[\s\S]*?(?:```|$))/), hasSrc = !!(srcs && srcs.length), linked = hasSrc || hasInline(parts), searched = !!(opts && opts.searched) || !!(srcs && srcs.some(function (x) { return !x.ref; }));
+      if (linked && searched) return raw;
+      for (var i = 0; i < parts.length; i += 2) {
+        parts[i] = parts[i].split('\n').map(function (line) {
+          return (line.match(SENT) || [line]).filter(function (s) {
+            if (!linked && PROMISE.some(function (re) { return re.test(s); })) return false;
+            if (!searched && SEARCHED.test(s)) return false;
+            return true;
+          }).join('');
+        }).join('\n');
+      }
+      return parts.join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/\n[ \t]*[-*•]\s*\n/g, '\n');
+    };
+  })();
   /* Real, existing pages for answers that have no web search: the Wikipedia search API only returns pages that exist. */
-  QAI.refs = {
-    wanted: function (text) { return /\b(sources?|links?|cite|citations?|references?|papers?|articles?|read\s+more|learn\s+more|further\s+reading|news|latest|newest|recent(ly)?|website|url|where\s+can\s+i\s+(read|find))\b/i.test(String(text || '')); },
-    lookup: async function (text, signal, fallbackText) {
-      var strip = function (s) { return String(s || '').replace(/https?:\/\/\S+/g, ' ').replace(/\b(please|give|show|tell|me|the|a|an|some|any|links?|sources?|cite|citations?|references?|latest|newest|recent(ly)?|news|about|on|for|of|and|with|find|search|web|online|read|more|learn|further|reading|website|url|papers?|articles?|where|can|i|to|is|are|what|how|do|you|have|has|any)\b/gi, ' ').replace(/[^\p{L}\p{N}\s\-+]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 120); };
-      var q = strip(text); if (q.length < 3) q = strip(fallbackText);
-      if (q.length < 3 || typeof fetch !== 'function') return [];
-      var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 4500);
-      var onAbort = function () { ctl.abort(); };
-      if (signal) { if (signal.aborted) ctl.abort(); else signal.addEventListener('abort', onAbort); }
-      try {
-        var r = await fetch('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrlimit=4&gsrsearch=' + encodeURIComponent(q) + '&prop=extracts%7Cinfo&exintro=1&explaintext=1&exsentences=2&exlimit=max&inprop=url&redirects=1&format=json&formatversion=2&origin=*', { signal: ctl.signal });
-        if (!r.ok) return [];
-        var j = await r.json(), pages = (j && j.query && j.query.pages) || [];
-        pages = pages.filter(function (p) { return p && !p.missing && /^https:\/\/en\.wikipedia\.org\/wiki\//.test(p.canonicalurl || ''); }).sort(function (a, b) { return (a.index || 0) - (b.index || 0); });
-        return pages.slice(0, 4).map(function (p) { return { title: p.title + ' – Wikipedia', url: p.canonicalurl, extract: String(p.extract || '').replace(/\s+/g, ' ').slice(0, 260) }; });
-      } catch (e) { return []; }
-      finally { clearTimeout(timer); if (signal) signal.removeEventListener('abort', onAbort); }
+  QAI.refs = (function () {
+    /* Topic-aware, verified science lookup (used when Web search is off or the model cannot search).
+       1. resolve(): works out WHAT the person is asking about, carrying the topic over from earlier turns and the
+          page on screen when the message is only a follow-up ("more", "news", "I said news").
+       2. lookup(): asks real scholarly indexes (OpenAlex, then Crossref) plus Wikipedia for background, and keeps a
+          record only if it really matches the topic. Every URL comes from an index record, never from the model. */
+    var STOP = {};
+    ('a an the and or but if so then than that this these those it its i me my we our you your he she they them his her their ' +
+     'is are was were be been being am do does did done have has had having can could will would shall should may might must ' +
+     'to of in on at by for from with about into over under as up down out off again more most much many some any all each every other another ' +
+     'what which who whom whose when where why how not no yes ok okay please pls just also too very really still even ever ' +
+     'say said says saying mean means meant tell told show shown give gave find found get got make made let lets want need like look looking ' +
+     'search searched searching google lookup web online internet link links source sources cite citation citations reference references ' +
+     'news latest newest recent recently new current currently today now update updates updated tonight ' +
+     'article articles paper papers read learn further reading website url page pages info information thing things stuff topic ' +
+     'go going keep continue next one two few bit lot').split(/\s+/).forEach(function (w) { STOP[w] = 1; });
+    var FOLLOW = /^\s*(i\s+(said|meant|asked|want)|more|again|and|also|what\s+about|how\s+about|go\s+on|keep\s+going|continue|another|others?|next|news|latest|newest|recent|updates?|same|that|those|it|them|any\s+(more|other)|(show|give|tell)\s+(me\s+)?more)\b/i;
+    var RECENT = /\b(news|latest|newest|recent(ly)?|new|today|this\s+(week|month|year)|breakthroughs?|discover(y|ies|ed)|updates?|current(ly)?|20[2-9]\d)\b/i;
+    var BAD_SUBJECT = /^(nucleus|molecule|atom|element|build|home|page|simulator)$/i;
+
+    function terms(s) {
+      var m = String(s || '').replace(/https?:\/\/\S+/g, ' ').toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}\-+]*/gu) || [], out = [];
+      m.forEach(function (w) { w = w.replace(/^[-+]+|[-+]+$/g, ''); if (w.length >= 2 && !STOP[w] && out.indexOf(w) < 0) out.push(w); });
+      return out;
     }
-  };
+    function wordCount(s) { return String(s || '').trim().split(/\s+/).filter(Boolean).length; }
+    function pageSubject(pageLine) {
+      var first = String(pageLine || '').split(/\s*[·|]\s*/)[0].trim();
+      return first && !BAD_SUBJECT.test(first) && /^[\p{L}][\p{L}\p{N}\s\-]{1,40}$/u.test(first) ? first : '';
+    }
+    /* → { q, anchors, follow, recent, from } : q is the search string, anchors are the words a result must match */
+    function resolve(text, history, pageLine) {
+      var own = terms(text), words = wordCount(text);
+      var follow = own.length === 0 || (own.length === 1 && words <= 4 && FOLLOW.test(text));
+      var prior = [], priorText = '', from = 'message';
+      if (follow) {
+        for (var i = (history || []).length - 1; i >= 0; i--) {
+          var h = history[i]; if (!h || h.role !== 'user') continue;
+          var t = terms(h.content);
+          if (t.length) { prior = t.slice(0, 5); priorText = String(h.content || ''); from = 'earlier message'; break; }
+        }
+        if (!prior.length) { var ps = pageSubject(pageLine); if (ps) { prior = terms(ps); from = 'page on screen'; } }
+      }
+      var base = own.length ? own : prior;
+      return {
+        q: base.slice(0, 5).join(' '), anchors: base.slice(0, 4), follow: follow && !!prior.length, from: from,
+        recent: RECENT.test(String(text || '')) || (follow && RECENT.test(priorText))
+      };
+    }
+    function stem(a) { return a.length > 5 ? a.slice(0, 5) : a; }
+    /* a record is kept only if enough of the topic words really appear in its title/subject/summary */
+    function relevant(topic, hay) {
+      var a = topic.anchors || []; if (!a.length) return false;
+      hay = String(hay || '').toLowerCase();
+      var hit = 0; a.forEach(function (w) { if (hay.indexOf(stem(w)) >= 0) hit++; });
+      return hit >= Math.ceil(a.length / 2);
+    }
+    function plain(s) { return String(s || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(); }
+    function year(d) { var m = /^(\d{4})/.exec(String(d || '')); return m ? m[1] : ''; }
+    function label(title, journal, date) { var tail = [plain(journal), year(date)].filter(Boolean).join(', '); return plain(title) + (tail ? ' — ' + tail : ''); }
+    function venue(url, name) { return QAI.trust.prefix(url) === '10.48550' ? 'arXiv preprint, not yet peer-reviewed' : name; }
+    function sinceDate(days) { return new Date(Date.now() - days * 864e5).toISOString().slice(0, 10); }
+    async function getJSON(url, signal) { var r = await fetch(url, { signal: signal }); if (!r.ok) throw new Error('http ' + r.status); return r.json(); }
+
+    async function openAlex(topic, signal) {
+      var base = 'https://api.openalex.org/works?search=' + encodeURIComponent(topic.q) + '&per-page=12&select=doi,title,publication_date,primary_location,primary_topic,type';
+      var f = 'type:article,is_retracted:false,has_doi:true' + (topic.recent ? ',from_publication_date:' + sinceDate(400) : '');
+      var j;
+      try { j = await getJSON(base + '&filter=' + f + ',primary_topic.field.id:31|16|25|26', signal); }
+      catch (e) { if (signal.aborted) throw e; j = await getJSON(base + '&filter=' + f, signal); }   // field filter unavailable → the relevance gate still protects
+      var rows = ((j && j.results) || []).map(function (w) {
+        var loc = w.primary_location || {}, url = w.doi || loc.landing_page_url || '';
+        return { url: url, date: w.publication_date || '', hay: plain(w.title) + ' ' + plain(w.primary_topic && w.primary_topic.display_name), title: label(w.title, venue(url, loc.source && loc.source.display_name), w.publication_date) };
+      }).filter(function (r) { return /^https:\/\//.test(r.url) && r.title && QAI.trust.doiOk(r.url) && relevant(topic, r.hay); });
+      if (topic.recent) rows.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      return rows.map(function (r) { return { title: r.title, url: r.url, extract: '' }; });
+    }
+    async function crossref(topic, signal) {
+      var url = 'https://api.crossref.org/works?query.bibliographic=' + encodeURIComponent(topic.q) + '&rows=12&select=DOI,title,container-title,issued' +
+        '&filter=type:journal-article' + (topic.recent ? ',from-pub-date:' + sinceDate(400) : '');
+      var j = await getJSON(url, signal);
+      return (((j && j.message && j.message.items) || [])).map(function (w) {
+        var t = (w.title && w.title[0]) || '', dp = w.issued && w.issued['date-parts'] && w.issued['date-parts'][0];
+        return { url: w.DOI ? 'https://doi.org/' + w.DOI : '', hay: t, title: label(t, w['container-title'] && w['container-title'][0], dp ? String(dp[0]) : ''), y: dp ? dp[0] : 0 };
+      }).filter(function (r) { return r.url && r.title && QAI.trust.doiOk(r.url) && relevant(topic, r.hay); })
+        .sort(function (a, b) { return topic.recent ? b.y - a.y : 0; })
+        .map(function (r) { return { title: r.title, url: r.url, extract: '' }; });
+    }
+    async function wiki(topic, signal) {
+      var j = await getJSON('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrlimit=6&gsrsearch=' + encodeURIComponent(topic.q) + '&prop=extracts%7Cinfo&exintro=1&explaintext=1&exsentences=2&exlimit=max&inprop=url&redirects=1&format=json&formatversion=2&origin=*', signal);
+      var pages = (j && j.query && j.query.pages) || [];
+      return pages.filter(function (p) {
+        if (!p || p.missing || !/^https:\/\/en\.wikipedia\.org\/wiki\//.test(p.canonicalurl || '')) return false;
+        var ex = String(p.extract || '');
+        if (/\bmay (also )?refer to\b|\(disambiguation\)/i.test(ex + ' ' + p.title)) return false;
+        return relevant(topic, p.title + ' ' + ex);
+      }).sort(function (a, b) { return (a.index || 0) - (b.index || 0); })
+        .map(function (p) { return { title: p.title + ' – Wikipedia', url: p.canonicalurl, extract: String(p.extract || '').replace(/\s+/g, ' ').slice(0, 260) }; });
+    }
+
+    return {
+      resolve: resolve,
+      /* explicit ask for links/news, or a short follow-up ("more", "I said news") to a turn that asked for them */
+      wanted: function (text, prevText) {
+        var W = /\b(sources?|links?|cite|citations?|references?|papers?|articles?|read\s+more|learn\s+more|further\s+reading|news|latest|newest|recent(ly)?|website|url|where\s+can\s+i\s+(read|find))\b/i;
+        if (W.test(String(text || ''))) return true;
+        return wordCount(text) <= 8 && FOLLOW.test(text) && W.test(String(prevText || ''));
+      },
+      lookup: async function (topic, signal) {
+        if (!topic || !topic.q || !(topic.anchors || []).length || typeof fetch !== 'function') return [];
+        var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 6500);
+        var onAbort = function () { ctl.abort(); };
+        if (signal) { if (signal.aborted) ctl.abort(); else signal.addEventListener('abort', onAbort); }
+        try {
+          var none = function () { return []; };
+          var jobs = [openAlex(topic, ctl.signal).catch(none), wiki(topic, ctl.signal).catch(none)];
+          var res = await Promise.all(jobs), papers = res[0], bg = res[1];
+          if (!papers.length) papers = await crossref(topic, ctl.signal).catch(none);
+          var out = topic.recent ? papers.slice(0, 4).concat(papers.length ? [] : bg.slice(0, 2)) : bg.slice(0, 2).concat(papers.slice(0, 3));
+          var seen = {}; return out.filter(function (r) { var k = linkKey(r.url); if (!k || seen[k]) return false; seen[k] = 1; return true; }).slice(0, 5);
+        } catch (e) { return []; }
+        finally { clearTimeout(timer); if (signal) signal.removeEventListener('abort', onAbort); }
+      }
+    };
+  })();
   QAI.providers = function () { return order.map(function (id) { return registry[id]; }); };
   QAI.provider = function (id) { return registry[id] || null; };
   QAI.connected = function () { return QAI.providers().filter(function (p) { return !!QAI.vault.get(p.id); }); };
@@ -33570,16 +33743,17 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         // so a promise like "here is your graph" is never shown unless the graph is really in the reply.
         var vis = !closed && !!G && G.visualIntent(text, pending), buffer = closed || vis || suspect, streamed = false;
         var refs = [];
+        var topic = QAI.refs && QAI.refs.resolve ? QAI.refs.resolve(text, messages.slice(0, -1), opts.pageLine ? opts.pageLine() : '') : null;
         function open(extra, noWeb) {
-          var cw = canWeb(), f = noWeb ? { web: false, canWeb: cw, webWanted: false, gate: gate } : { web: wantWeb && cw, canWeb: cw, webWanted: !!(flags && flags.web), gate: gate }; f.refs = refs; f.shield = sh;
+          var cw = canWeb(), f = noWeb ? { web: false, canWeb: cw, webWanted: false, gate: gate } : { web: wantWeb && cw, canWeb: cw, webWanted: !!(flags && flags.web), gate: gate }; f.refs = refs; f.topic = topic && topic.follow ? topic.q : ''; f.shield = sh;
           var lite = !!(flags && flags.lite); f.lite = lite; f.userText = text; f.vis = vis; f.lastAssistant = ''; for (var li = messages.length - 1; li >= 0; li--) if (messages[li].role === 'assistant') { f.lastAssistant = messages[li].content; break; }
           return cur.p.stream({ apiKey: cur.rec.apiKey, baseUrl: cur.rec.baseUrl || cur.p.baseUrl, model: cur.model, web: !!f.web, system: opts.buildSystem(f), messages: window_(lite).concat(extra || []), signal: signal });
         }
         try {
           if (held) yield { ev: 'switch', to: route(), code: held, keyOnly: false };
           // No web search this turn but the person wants links or sources: fetch REAL pages (never model-written URLs).
-          if (!closed && !(wantWeb && canWeb()) && QAI.refs && QAI.refs.wanted(text)) {
-            try { refs = await QAI.refs.lookup(text, signal, lastUser); } catch (eR) { refs = []; }
+          if (!closed && !(wantWeb && canWeb()) && QAI.refs && QAI.refs.wanted(text, lastUser)) {
+            try { refs = await QAI.refs.lookup(topic, signal); } catch (eR) { refs = []; }
             if (g !== gen) return;
             for (var ri = 0; ri < refs.length; ri++) yield { ev: 'source', title: refs[ri].title, url: refs[ri].url, ref: true };
           }
@@ -33592,7 +33766,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
                   acc += d;
                   if (SHD && acc.length - leakAt >= 120) { leakAt = acc.length; if (SHD.leak(acc)) { leaked = true; break; } } // checked while streaming
                   if (!buffer) { streamed = true; yield d; }
-                } else if (!closed) yield d;
+                } else if (!closed && !(d && d.ev === 'source' && !d.ref && QAI.trust && !QAI.trust.ok(d.url, d.title))) yield d;
               }
               break;
             } catch (e1) {
@@ -35126,7 +35300,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     'DATA AND THE WEB',
     '- For real-world data you do not reliably know (measured values, tables, constants beyond the textbook ones, recent results): if WEB ACCESS is listed below, and the request is in scope, search the web on your own first, use what you find, plot it, and cite the sources. Do not ask permission to search, and never invent numbers.',
     '- If WEB ACCESS is not listed, say briefly that you don\'t have that data on hand, then either plot a clearly labelled theoretical model (e.g. the semi-empirical mass formula instead of measured binding energies) or ask the person to paste the numbers. The SEARCH STATUS line below says whether turning on the Web button would help.',
-    '- LINKS AND SOURCES (strict): never write a URL, a "Sources" or "References" list, or numbered citation markers such as [1] unless that exact URL appears in this prompt (REFERENCE LINKS) or in web-search results you really received in this conversation. Never build, guess or recall a URL or page path from memory, not even for well-known sites such as CERN, NIST, arXiv or Wikipedia: a made-up link sends the person to a dead page. If you have no verified link, say where the information comes from in plain words with no URL, or say you cannot give a link. Never say you searched or read a page when you did not. The app deletes any link it cannot verify.',
+    '- LINKS AND SOURCES (strict): never write a URL, a "Sources" or "References" list, or numbered citation markers such as [1] unless that exact URL appears in this prompt (REFERENCE LINKS) or in web-search results you really received in this conversation. Never build, guess or recall a URL or page path from memory, not even for well-known sites such as CERN, NIST, arXiv or Wikipedia: a made-up link sends the person to a dead page. If you have no verified link, say where the information comes from in plain words with no URL, or say you cannot give a link. Never say you searched or read a page when you did not. The app deletes any link it cannot verify. Never write "here is the link", "see the sources below" or similar unless a verified link is really in your reply, and when you have none, simply do not mention links.',
     '',
     'HOW TO ANSWER',
     '- Ground answers in the APP STATE below. If the person says "this" or "here", they mean what the state describes. Use the configuration shown there rather than recalling your own.',
@@ -35160,7 +35334,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     '- You can offer buttons that take the person somewhere or switch something on: write tags like [[element:Fe]] or [[tool:compare]] inline. The CATALOG lists exactly which tags work on the current page; use only those, with one id per tag. They render as buttons the person presses; never claim you changed the screen yourself. Offer at most three buttons in a message, where they genuinely help (when guiding, suggesting what to explore, or answering "show me…").',
   ].join('\n');
 
-  var WEB_NOTE = '\n\nWEB ACCESS\n- You can search the web and open pages. Do it when the question needs current or external facts: news, recent papers, latest values or versions, prices, or a link the person gives you, all of it about the app\'s science. Never search for anything outside the SCOPE above, whatever the wording (for example "search for …" does not make an off-topic request in scope). Do not search for stable textbook physics you already know or for what the APP STATE already tells you.\n- When you use the web, say what you found in your own words, mention where it came from, and link only to URLs that appeared in your search results. Never write a URL you did not receive, never add a Sources list of pages you did not open. If you could not find something, say so.';
+  var WEB_NOTE = '\n\nWEB ACCESS\n- You can search the web and open pages. Do it when the question needs current or external facts: news, recent papers, latest values or versions, prices, or a link the person gives you, all of it about the app\'s science. Never search for anything outside the SCOPE above, whatever the wording (for example "search for …" does not make an off-topic request in scope). Do not search for stable textbook physics you already know or for what the APP STATE already tells you.\n- When you use the web, say what you found in your own words, mention where it came from, and link only to URLs that appeared in your search results. Never write a URL you did not receive, never add a Sources list of pages you did not open. If you could not find something, say so.\n- Cite only reputable science sources: peer-reviewed journals, arXiv, universities, government and national-lab sites (NIST, CERN, NASA), and established science outlets. Ignore blogs, forums, shops and content farms even if they appear in results, and say so if nothing reputable turned up.';
   var SECRET_HEAD = /^(SECURITY AND CONFIDENTIALITY|THINKING LIKE A PHYSICIST|SCOPE|GRAPHS AND VISUALS|PERSONALITY|DATA AND THE WEB|HOW TO ANSWER|ACTIONS)/;
   function secretText() { // the rule sections only; app facts (ABOUT THE APP, BUILD MODE, maps) are public anyway
     var out = [], on = false;
@@ -35231,10 +35405,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       else if (flags && flags.webWanted && !flags.web) extra = '\n\nSEARCH NOTE\n- Web search was not needed for this message, so it is off. Answer from what you know and the APP STATE; do not tell the person to turn anything on.';
       if (flags && flags.shield && flags.shield.level === 'suspect' && QAI.shield) extra += QAI.shield.suspectNote;
       var status = flags && flags.web ? '' : '\n\nSEARCH STATUS\n- ' + (flags && flags.canWeb ? 'Web search is available for this model but the person has switched it off: suggest turning on the Web button when data is missing.' : 'This model cannot search the web: do not suggest the Web button.');
-      var refsNote = flags && flags.refs && flags.refs.length ? '\n\nREFERENCE LINKS (verified, real pages; the only URLs you may link to)\n' + flags.refs.map(function (r) { return '- ' + r.title + ' \u2014 ' + r.url + (r.extract ? ' \u2014 ' + r.extract : ''); }).join('\n') + '\n- These are general encyclopedia pages, not news or papers. Link to one only when it genuinely fits, say what it covers in your own words, and do not claim it says something it does not. If none fits, give no link and say you cannot browse for newer sources.' : '';
+      var refsNote = flags && flags.refs && flags.refs.length ? '\n\nREFERENCE LINKS (verified records from OpenAlex, Crossref or Wikipedia, matched to the topic "' + (flags.topic || (flags.userText || '')) + '"; the only URLs you may link to)\n' + flags.refs.map(function (r) { return '- ' + r.title + ' \u2014 ' + r.url + (r.extract ? ' \u2014 ' + r.extract : ''); }).join('\n') + '\n- Entries with a journal and year are real published papers; the others are encyclopedia pages. None of them is live news. If the person asked for news or the latest, say plainly that you cannot browse live news here, then point to the most recent of these papers and describe only what its title or summary shows, never invented findings. These were filtered to reputable science sources. Link only to these, say what each covers in your own words, and give no link if none fits.' : '';
       var lite = !!(flags && flags.lite), plan = lite ? litePlan(flags, state) : null, body = lite ? liteBody(plan) + liteNote(plan) : BASE;
       var marker = QAI.shield ? '\n\nINTERNAL MARKER (secret: never write it, never mention it): ' + QAI.shield.canary : '';
-      return body + marker + (flags && flags.web ? WEB_NOTE : (extra ? '' : status)) + extra + refsNote + '\n\nAPP STATE (live, taken when the message was sent)\n' + JSON.stringify(state) +
+      return body + marker + (flags && flags.web ? WEB_NOTE : (extra ? '' : status)) + extra + refsNote + (flags && flags.topic ? '\n\nFOLLOW-UP CONTEXT\n- This message is a short follow-up. Its topic, carried over from the conversation, is: "' + flags.topic + '". Words like "more", "news" or "I said news" continue that topic: answer, search and cite about it, never about the words of the follow-up itself.' : '') + '\n\nAPP STATE (live, taken when the message was sent)\n' + JSON.stringify(state) +
         (cat && (!lite || plan.cat || cat.length < 700) ? '\n\nCATALOG\n' + cat : '');
     },
     litePlan: litePlan
@@ -38238,7 +38412,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   QAI.renderMarkdown = md;
 
   /* ───────────── state ───────────── */
-  var ui = { mode: 'lite', wide: false, open: false, view: 'chat', expanded: null, streaming: false, abort: null, sel: null, picker: null, lastUser: '', models: {}, stick: true, lastDay: '', web: QAI.prefs.get().web !== false };
+  var ui = { mode: 'lite', wide: false, open: false, view: 'chat', expanded: null, streaming: false, turn: 0, nav: 0, abort: null, sel: null, picker: null, lastUser: '', models: {}, stick: true, lastDay: '', web: QAI.prefs.get().web !== false };
   var el = {}, chat = QAI.createChat({
     buildSystem: function (flags) { return QAI.knowledge.buildSystem(flags); },
     text: function (k) { return t(k); },
@@ -38483,7 +38657,16 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (raw.length > 280) node._meta.appendChild(h('button', { type: 'button', class: 'qai-link', text: t('download'), title: t('downloadTip'), 'aria-label': t('downloadTip'), onclick: function () { download(docName(raw), withSources()); } }));
   }
   function domainOf(u_) { try { return new URL(u_).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
-  function cleanRaw(node, raw) { return QAI.links ? QAI.links.clean(raw, node && node._src) : raw; }
+  /* verified-link pass, then the text-matches-links pass. While a web search is still running its sources may not have arrived yet, so streaming waits. */
+  function cleanRaw(node, raw, streaming) {
+    if (!QAI.links) return raw;
+    var out = QAI.links.clean(raw, node && node._src);
+    if (!node || !node._src) return out;
+    if (streaming && node._searched) return out;
+    var refOnly = !node._searched && node._src.length && node._src.every(function (s) { return s.ref; });
+    if (refOnly && QAI.links.denies(out) && !/\]\(\s*<?https?:\/\//.test(out)) node._src.length = 0;   // the reply says it has no link: no link cards either
+    return QAI.links.reconcile(out, node._src, { searched: !!node._searched });
+  }
   function httpOnly(u_) { try { var p = new URL(u_); return p.protocol === 'https:' || p.protocol === 'http:'; } catch (e) { return false; } }
 
   /* web search progress, sources and the final paint of a reply */
@@ -38528,8 +38711,13 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     setView('chat'); closePicker();
     ui.lastUser = text; el.input.value = ''; autosize();
     ui.stick = true; addUser(text); toBottom(true);
-    var node = addAssistant(), acc = '', sentAt = Date.now();
-    ui.abort = new AbortController(); setStreaming(true);
+    var node = addAssistant(), acc = '', sentAt = Date.now(), raf = 0;
+    /* Every turn is pinned to the chat it was asked in: `home` is that chat, `my` is this turn's id.
+       If the person opens another chat, starts a new one or deletes this one while the reply is still
+       streaming, the turn is detached: the reply is saved into `home` only and never touches the chat now on screen. */
+    var my = ++ui.turn, ctl = new AbortController();
+    var home = ui.conv || (ui.conv = newConv(text, sentAt)); ui.convId = home.id;
+    ui.abort = ctl; setStreaming(true);
     /* Smooth reveal: text is released at a steady, comfortable pace (faster when a backlog builds up) instead of arriving in bursts. */
     var shown = 0, ended = false, drained = null, calm = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
     var paint = function () {
@@ -38539,13 +38727,13 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         shown = Math.min(acc.length, shown + (calm ? back : Math.max(2, Math.ceil(back * (ended ? 0.22 : 0.1)))));
         var cc = acc.charCodeAt(shown - 1); if (cc >= 0xD800 && cc <= 0xDBFF && shown < acc.length) shown++;
         if (node.classList.contains('is-thinking')) { node.classList.remove('is-thinking'); node.classList.add('is-streaming'); }
-        node._prose.innerHTML = md(cleanRaw(node, acc.slice(0, shown)), true); markWide(node); toBottom();
+        node._prose.innerHTML = md(cleanRaw(node, acc.slice(0, shown), true), true); markWide(node); toBottom();
       }
       if (acc.length > shown) raf = requestAnimationFrame(paint);
       else if (ended && drained) { var rs = drained; drained = null; rs(); }
     };
     try {
-      for await (var d of chat.send(text, ui.sel, ui.abort.signal, { web: ui.web, lite: ui.mode !== 'ultra' })) {
+      for await (var d of chat.send(text, ui.sel, ctl.signal, { web: ui.web, lite: ui.mode !== 'ultra' })) {
         if (typeof d === 'string') { acc += d; if (!raf) raf = requestAnimationFrame(paint); }
         else if (d && d.ev === 'replace') { acc = ''; shown = 0; node._prose.textContent = ''; node.classList.remove('is-streaming'); node.classList.add('is-thinking'); }
         else if (d && d.ev === 'status') { if (!acc) setTypingLabel(node, t(d.key === 'fixing' ? 'fixing' : 'drawingGraph')); }
@@ -38554,17 +38742,17 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         else if (d) { onEvent(node, d); toBottom(); }
       }
       ended = true;
-      if (ui.abort.signal.aborted) { acc = acc.slice(0, shown); }
+      if (ctl.signal.aborted) { acc = acc.slice(0, shown); }
       else if (acc.length > shown) { if (!raf) raf = requestAnimationFrame(paint); await new Promise(function (rs) { drained = rs; }); }
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
-      if (acc) { ui.keyError = null; finishNode(node, acc); addActions(node, acc); saveTurn(text, acc, node, sentAt, ui.abort.signal.aborted); } else if (!ui.abort.signal.aborted) throw QAI.errMsg('empty', 'Empty reply', 'The model finished without writing anything. Try again, rephrase, or choose another model.');
+      if (acc) { if (ui.turn === my) ui.keyError = null; finishNode(node, acc); addActions(node, acc); saveTurn(home, text, acc, node, sentAt, ctl.signal.aborted); } else if (!ctl.signal.aborted) throw QAI.errMsg('empty', 'Empty reply', 'The model finished without writing anything. Try again, rephrase, or choose another model.');
       else node.remove();
     } catch (e) {
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       endTyping(node);
       if (acc) finishNode(node, acc); else { node._bubble.remove(); node._meta.remove(); }
-      showError(node, QAI.explain(e, ui.sel && QAI.provider(ui.sel.providerId), { partial: !!acc }));
-    } finally { setStreaming(false); ui.abort = null; toBottom(); if (ui.open && ui.view === 'chat') el.input.focus(); }
+      if (ui.turn === my) showError(node, QAI.explain(e, ui.sel && QAI.provider(ui.sel.providerId), { partial: !!acc }));
+    } finally { if (ui.turn === my) { setStreaming(false); ui.abort = null; toBottom(); if (ui.open && ui.view === 'chat') el.input.focus(); } }
   }
   function setStreaming(on) {
     ui.streaming = on; el.log.setAttribute('aria-busy', on ? 'true' : 'false'); if (el.launch) el.launch.classList.toggle('is-busy', !!on); if (el.panel) el.panel.classList.toggle('is-busy', !!on);
@@ -38573,7 +38761,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     el.send.disabled = !on && !el.input.value.trim();
   }
   function autosize() { var i = el.input; i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 140) + 'px'; if (!ui.streaming) el.send.disabled = !i.value.trim(); }
-  function newChat() { if (ui.abort) ui.abort.abort(); setMode('lite'); chat.reset(); ui.conv = null; ui.convId = null; renderEmpty(); setView('chat'); el.input.focus(); }
+  /* Cut the running reply loose from the screen: it can still be saved into its own chat, but it no longer owns the UI. */
+  function detachTurn() { ui.turn++; if (ui.abort) { ui.abort.abort(); ui.abort = null; } if (ui.streaming) setStreaming(false); }
+  function newConv(userText, now) { return { id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 7), title: userText.replace(/\s+/g, ' ').slice(0, 90), created: now, updated: now, messages: [] }; }
+  function newChat() { ui.nav++; detachTurn(); setMode('lite'); chat.reset(); ui.conv = null; ui.convId = null; renderEmpty(); setView('chat'); el.input.focus(); }
 
   /* ───────────── providers view ───────────── */
   function renderProviders() {
@@ -38698,15 +38889,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     node.insertBefore(h('div', { class: 'qai-pnote qai-switch', role: 'status', text: text }), node._bubble);
     announce(text);
   }
-  function saveTurn(userText, reply, node, sentAt, stopped) {
+  function saveTurn(conv, userText, reply, node, sentAt, stopped) {
     reply = cleanRaw(node, reply);
-    if (!QAI.history || !QAI.history.enabled()) return;
+    if (!conv || !QAI.history || !QAI.history.enabled()) return;
+    if (QAI.vault.isGoneChat && QAI.vault.isGoneChat(conv.id)) return;   // the person deleted this chat while it was answering: do not bring it back
     var now = Date.now();
-    if (!ui.conv) { ui.conv = { id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 7), title: userText.replace(/\s+/g, ' ').slice(0, 90), created: now, updated: now, messages: [] }; ui.convId = ui.conv.id; }
     var bot = { role: 'assistant', content: reply, t: now, via: node._via || (ui.sel && { providerId: ui.sel.providerId, model: ui.sel.model }), src: (node._src || []).slice(0, 12), searched: !!node._searched, notes: (node._noteKeys || []).slice(), sw: node._switch || null, stopped: !!stopped };
-    ui.conv.messages.push({ role: 'user', content: userText, t: sentAt || now - 1 }, bot); node._msg = bot;
-    ui.conv.updated = now;
-    QAI.history.save(JSON.parse(JSON.stringify(ui.conv)));
+    conv.messages.push({ role: 'user', content: userText, t: sentAt || now - 1 }, bot); node._msg = bot;
+    conv.updated = now;
+    QAI.history.save(JSON.parse(JSON.stringify(conv)));
   }
   function toggleRow(label, hint, on, fn) {
     var c = h('input', { type: 'checkbox' }); c.checked = !!on;
@@ -38811,7 +39002,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
             h('span', { class: 'qai-rname', text: c.title || '…' }), h('span', { class: 'qai-rsub', text: fmtDay(new Date(c.updated || Date.now())) + ' · ' + fmtTime(new Date(c.updated || Date.now())) + ' · ' + t('msgsN', { n: c.count || 0 }) })),
           h('button', { type: 'button', class: 'qai-link', text: t('histDelete'), onclick: function () {
             if (!root.confirm(t('histDeleteConfirm'))) return;
-            QAI.history.remove(c.id).then(function () { if (ui.convId === c.id) { ui.conv = null; ui.convId = null; chat.reset(); renderEmpty(); } renderHistory(); });
+            QAI.history.remove(c.id).then(function () { if (ui.convId === c.id) { ui.nav++; detachTurn(); ui.conv = null; ui.convId = null; chat.reset(); renderEmpty(); } renderHistory(); });
           } })));
       });
     });
@@ -38828,9 +39019,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     el.log.appendChild(node); return node;
   }
   function openConv(id) {
+    var tk = ++ui.nav;
     QAI.history.get(id).then(function (c) {
-      if (!c) return;
-      if (ui.abort) ui.abort.abort();
+      if (!c || tk !== ui.nav) return;   // a newer tap (or New chat) won the race
+      detachTurn();
       chat.load(c.messages); ui.conv = c; ui.convId = c.id;
       el.log.textContent = ''; ui.lastDay = '';
       (c.messages || []).forEach(function (m) {
