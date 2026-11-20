@@ -68092,7 +68092,7 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
     sec.innerHTML = '<div class="dft-h">' + esc(t('ion_h')) + '</div><div id="dft-ion-out">' + (ic ? ionHtml(st, ic) : '<div class="dft-row"><button type="button" class="dft-btn pri" id="dft-ion-go">' + esc(t('ion_btn')) + '</button><span class="dft-msg" id="dft-ion-msg" role="status"></span></div>') + '</div>' +
       '<div class="dft-note">' + esc(t('ion_note')) + '</div>' +
       (sharedNote ? '<div class="dft-note">' + sharedNote + '</div>' : '') +
-      '<div class="dft-actions"><button type="button" class="dft-btn" data-a="save">' + esc(t('save')) + '</button><button type="button" class="dft-btn" data-a="csv">' + esc(t('csv')) + '</button>' +
+      '<div class="dft-actions"><button type="button" class="dft-btn pri" data-a="pdf">' + esc(t('pdf')) + '</button><button type="button" class="dft-btn" data-a="save">' + esc(t('save')) + '</button><button type="button" class="dft-btn" data-a="csv">' + esc(t('csv')) + '</button>' +
       '<button type="button" class="dft-btn" data-a="json">' + esc(t('json')) + '</button><button type="button" class="dft-btn" data-a="link">' + esc(t('link')) + '</button></div><div class="dft-msg" id="dft-atom-msg" role="status"></div>';
     var foot = out.querySelector('.dft-what'); out.insertBefore(sec, foot || null);
     var go = sec.querySelector('#dft-ion-go');
@@ -68113,7 +68113,7 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
     sec.querySelectorAll('.dft-actions button').forEach(function (b) {
       b.addEventListener('click', function () {
         var rec = atomRecord(st, res), a = b.getAttribute('data-a'), msg = sec.querySelector('#dft-atom-msg');
-        if (a === 'save') saveRec(rec, msg); else if (a === 'link') copyLink(rec, msg); else exportRec(rec, a);
+        if (a === 'save') saveRec(rec, msg); else if (a === 'link') copyLink(rec, msg); else if (a === 'pdf') printRec(rec); else exportRec(rec, a);
       });
     });
   });
@@ -68157,8 +68157,8 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
     if (!out) return;
     if (!L.rows) { out.innerHTML = ''; return; }
     var rec = L.rec || { inputs: { prop: L.job ? L.job.prop : L.prop, from: L.job ? L.job.a : L.from, to: L.job ? L.job.b : L.to }, results: L.rows, stats: null };
-    var actions = L.rec ? '<div class="dft-actions"><button type="button" class="dft-btn" data-a="save">' + esc(t('save')) + '</button><button type="button" class="dft-btn" data-a="csv">' + esc(t('csv')) + '</button>' +
-      '<button type="button" class="dft-btn" data-a="json">' + esc(t('json')) + '</button><button type="button" class="dft-btn" data-a="pdf">' + esc(t('pdf')) + '</button><button type="button" class="dft-btn" data-a="link">' + esc(t('link')) + '</button></div><div class="dft-msg" id="lab-msg" role="status"></div>' : '';
+    var actions = L.rec ? '<div class="dft-actions"><button type="button" class="dft-btn pri" data-a="pdf">' + esc(t('pdf')) + '</button><button type="button" class="dft-btn" data-a="save">' + esc(t('save')) + '</button><button type="button" class="dft-btn" data-a="csv">' + esc(t('csv')) + '</button>' +
+      '<button type="button" class="dft-btn" data-a="json">' + esc(t('json')) + '</button><button type="button" class="dft-btn" data-a="link">' + esc(t('link')) + '</button></div><div class="dft-msg" id="lab-msg" role="status"></div>' : '';
     out.innerHTML = '<div class="dft-sec">' + sweepFigure(rec) + '</div>' + actions +
       '<div class="dft-foot">' + esc(t('method') + ': ' + (rec.inputs.prop === 'ea' ? methodName('sic') : methodName(L.job ? L.job.m : (L.rec ? L.rec.inputs.method : L.method)))) + ' · QA_DFT ' + esc(QA_DFT.version) + '</div>';
     out.querySelectorAll('.dft-actions button').forEach(function (b) {
@@ -68262,19 +68262,78 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
   // ───────────────────────── PDF report ─────────────────────────
   /* The report is drawn onto A4 pages and written out as a real .pdf file, so it downloads on phones as well as
      desktops. (The old route, window.print(), is asynchronous on phones: the report was removed from the page
-     before the browser had captured it, which produced a blank PDF. It is kept only as a fallback.) */
-  var PDF_CSS = '#dft-pdf{position:absolute;left:-20000px;top:0;width:714px;margin:0;padding:0;background:#fff;color:#111;font:12px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--hi:#111;--lo:#555;--cyan:#0a64c8;--cyan-rgb:10,100,200}' +
-    '#dft-pdf *{color:inherit}#dft-pdf .dft-note,#dft-pdf .dft-kv dt,#dft-pdf .dft-tbl th,#dft-pdf .u,#dft-pdf .dft-legend,#dft-pdf .sub,#dft-pdf .dft-foot{color:#555 !important}' +
-    '#dft-pdf .dft-tbl tr.out td,#dft-pdf .dft-warn{color:#c62828 !important}#dft-pdf h1{font-size:18px;margin:0 0 3px}#dft-pdf .sub{color:#555;margin:0 0 13px}' +
-    '#dft-pdf .dft-chart text{fill:#555}#dft-pdf .dft-tbl{font-size:10.5px}#dft-pdf .dft-tbl td{padding:3px 8px 3px 0}#dft-pdf .dft-foot{word-break:break-all;font-size:9px}';
+     before the browser had captured it, which produced a blank PDF. It is kept only as a fallback.)
+     Look: the simulator's own colours - black, orange, red. Change them in BRAND (one place). */
+  var BRAND = {
+    name: 'Quantum Atom', site: 'nazat02.github.io/Quantum-Atom',
+    ink: '#0b0908', ink2: '#1a120e', orange: '#ff5500', amber: '#ff9944', red: '#e11d2e',
+    text: '#16120f', muted: '#6b625c', line: '#e9e1da', tint: '#fff3ec',
+    font: '"Rajdhani","Share Tech Mono",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+    mono: '"Share Tech Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'
+  };
+  var PDF_CSS = (function () {
+    var B = BRAND, h = '#dft-pdf ';
+    return '#dft-pdf{position:absolute;left:-20000px;top:0;width:714px;margin:0;padding:0;background:#fff;color:' + B.text + ';font:12px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;' +
+      '--hi:' + B.text + ';--lo:' + B.muted + ';--cyan:' + B.orange + ';--cyan-rgb:255,85,0;--amber:' + B.amber + ';--green:' + B.amber + '}' +
+      h + '*{color:inherit;box-sizing:border-box;text-rendering:geometricPrecision}' +
+      h + '.dft-note,' + h + '.dft-kv dt,' + h + '.dft-tbl th,' + h + '.u,' + h + '.dft-legend,' + h + '.sub,' + h + '.dft-foot,' + h + '.dft-sub{color:' + B.muted + ' !important}' +
+      h + '.dft-tbl tr.out td,' + h + '.dft-warn{color:' + B.red + ' !important}' +
+      /* hero (single-run PDFs) */
+      h + '.rp-hero{background:' + B.ink + ';border-bottom:4px solid ' + B.orange + ';border-radius:12px;padding:20px 24px 18px;margin:0 0 16px}' +
+      h + '.rp-hero .rp-kick{color:' + B.orange + ' !important;font-size:9.5px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}' +
+      h + '.rp-hero h1{color:#fff !important;font-size:27px;line-height:1.15;font-weight:800;margin:6px 0 4px;letter-spacing:.01em}' +
+      h + '.rp-hero .sub{color:#c9bfb8 !important;margin:0;font-size:11px}' +
+      /* section heading */
+      h + '.rp-sh{display:flex;align-items:center;gap:12px;margin:2px 0 14px;padding:0 0 10px;border-bottom:3px solid ' + B.ink + '}' +
+      h + '.rp-no{display:block;min-width:34px;height:34px;line-height:34px;text-align:center;background:' + B.ink + ';color:' + B.orange + ' !important;border-radius:8px;font:700 14px/34px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.04em}' +
+      h + '.rp-sh h2{margin:0;font-size:21px;line-height:1.1;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:' + B.text + '}' +
+      h + '.rp-sh .rp-rule{flex:1;height:3px;border-radius:2px;background-image:linear-gradient(90deg,' + B.orange + ',' + B.red + ');margin-left:6px}' +
+      h + '.dft-sub{margin:0 0 10px;font-size:11px}' +
+      h + '.dft-status{display:inline-block;margin:0 0 12px;padding:3px 11px;border-radius:99px;background:' + B.tint + ';border:1px solid #ffd2b8;color:#b43c00 !important;font-size:10.5px;font-weight:600}' +
+      /* cards */
+      h + '.dft-sec{margin:0 0 14px;padding:12px 15px 11px;background:#fff;border:1px solid ' + B.line + ';border-left:4px solid ' + B.orange + ';border-radius:9px}' +
+      h + '.dft-h{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:' + B.text + '}' +
+      h + '.dft-big{display:flex;align-items:baseline;gap:9px;margin:0 0 8px}' +
+      h + '.dft-big b,' + h + '.dft-big b .num{font-size:28px;font-weight:800;letter-spacing:-.01em;color:' + B.orange + ' !important}' +
+      h + '.dft-big .ev{font-size:12px;color:' + B.muted + ' !important}' +
+      h + '.dft-note{margin:6px 0 0;font-size:10px;line-height:1.5}' +
+      /* tables */
+      h + '.dft-tbl{width:100%;border-collapse:collapse;font-size:10.5px}' +
+      h + '.dft-tbl th{padding:4px 8px 5px 0;font-size:8.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;text-align:left;border-bottom:2px solid ' + B.ink + '}' +
+      h + '.dft-tbl th.n,' + h + '.dft-tbl td.n{text-align:right}' +
+      h + '.dft-tbl td{padding:4px 8px 4px 0;border-top:1px solid #efe8e2;vertical-align:baseline}' +
+      h + '.dft-tbl tr:first-child td{border-top:0}' +
+      h + '.dft-tbl td:last-child,' + h + '.dft-tbl th:last-child{padding-right:0}' +
+      h + '.dft-tbl tr.homo td{background:' + B.tint + ';color:#b43c00;font-weight:700}' +
+      h + '.dft-tbl td.dim{color:' + B.muted + '}' +
+      h + '.dft-kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:10.5px;margin:2px 0 0}' +
+      h + '.dft-kv dd{font-weight:600;margin:0}' +
+      h + '.dft-foot{word-break:break-all;font-size:8.5px;margin-top:8px}' +
+      h + '.dft-status:empty{display:none}' +
+      h + '[data-kn]{margin:14px 0 6px !important;font-size:11px !important;font-weight:800 !important;letter-spacing:.12em;text-transform:uppercase;color:' + B.text + '}' +
+      h + 'p{margin:0 0 7px;font-size:10.5px;color:#3a322d}' +
+      /* charts */
+      h + 'svg{overflow:visible}' + h + '.dft-chart text{fill:' + B.muted + '}' + h + '.dft-chart .cp{fill:' + B.orange + '}' +
+      h + '.dft-chart .grid{stroke:#ece5df}' +
+      /* picture cards (3D / molecule) */
+      h + '.rp-fig{margin:0;background:#fff;border:1px solid ' + B.line + ';border-radius:9px;overflow:hidden;break-inside:avoid}' +
+      h + '.rp-fig img{display:block;width:100%;height:auto;background:' + B.ink + '}' +
+      h + '.rp-cap{padding:6px 9px 7px;font-size:9.5px;line-height:1.35;border-top:3px solid ' + B.orange + '}' +
+      h + '.rp-cap b{display:block;font-size:10px;font-weight:700;color:' + B.text + '}' +
+      h + '.rp-cap span{color:' + B.muted + ' !important}' +
+      h + '.rp-tag{display:inline-block;margin-left:5px;padding:0 6px;border-radius:99px;background:' + B.ink + ';color:' + B.orange + ' !important;font-size:8px;font-weight:700;letter-spacing:.08em}' +
+      h + '.rp-keys{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:10px;color:' + B.muted + ' !important;margin:2px 0 0}' +
+      h + '.rp-keys i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}';
+  })();
   var PDF_PROPS = ['display', 'box-sizing', 'width', 'height', 'min-width', 'max-width', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
-    'color', 'background-color', 'background-image', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'text-align', 'text-transform', 'text-decoration-line', 'white-space', 'vertical-align',
-    'overflow', 'overflow-wrap', 'word-break', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-collapse', 'border-spacing', 'border-radius', 'opacity', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray',
-    'stroke-linecap', 'stroke-linejoin', 'fill-opacity', 'stroke-opacity', 'text-anchor', 'dominant-baseline', 'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis', 'align-items', 'justify-content', 'gap',
-    'grid-template-columns', 'position', 'top', 'left', 'right', 'bottom', 'transform', 'transform-origin', 'visibility', 'table-layout', 'list-style-type', 'font-variant-numeric', 'box-shadow'];
+    'color', 'background-color', 'background-image', 'background-size', 'background-position', 'background-repeat', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'text-align', 'text-transform',
+    'text-decoration-line', 'white-space', 'vertical-align', 'overflow', 'overflow-wrap', 'word-break', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-collapse', 'border-spacing', 'border-radius', 'opacity',
+    'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill-opacity', 'stroke-opacity', 'text-anchor', 'vector-effect', 'dominant-baseline', 'flex-direction', 'flex-wrap', 'flex-grow',
+    'flex-shrink', 'flex-basis', 'align-items', 'align-self', 'justify-content', 'gap', 'row-gap', 'column-gap', 'grid-template-columns', 'grid-column', 'grid-row', 'position', 'top', 'left', 'right', 'bottom', 'transform',
+    'transform-origin', 'visibility', 'table-layout', 'list-style-type', 'font-variant-numeric', 'box-shadow', 'aspect-ratio', 'object-fit', 'text-rendering'];
   function reportHtml(rec) {
-    return '<h1>' + esc(title(rec)) + '</h1><div class="sub">' + esc(t('report')) + '</div>' +
-      (KINDS[rec.kind] ? KINDS[rec.kind].figure(rec) : rec.kind === 'sweep' ? sweepFigure(rec) : atomFigure(rec)) + '<div class="dft-sec">' + meta(rec) + '</div>' +
+    return '<div class="rp-hero"><div class="rp-kick">' + esc(BRAND.name) + ' · DFT lab</div><h1>' + esc(title(rec)) + '</h1><div class="sub">' + esc(t('report')) + ' · ' + esc(fmtDate(rec.created)) + '</div></div>' +
+      (KINDS[rec.kind] ? KINDS[rec.kind].figure(rec) : rec.kind === 'sweep' ? sweepFigure(rec) : atomFigure(rec)) + '<div class="dft-sec"><div class="dft-h">' + esc(t('method')) + '</div>' + meta(rec) + '</div>' +
       '<div class="dft-foot">' + esc(linkFor(rec)) + '</div>';
   }
   function inlineStyles(src, dst) { // copy the computed look of every element, so the report survives being drawn on its own
@@ -68290,72 +68349,247 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
     [].forEach.call(dst.querySelectorAll('script,style,button,input,select,textarea'), function (n) { n.remove(); });
   }
   function bytesOf(dataUrl) { var s = atob(dataUrl.split(',')[1]), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
-  function buildPdf(pages, name) { // pages: [{ jpg: Uint8Array, w, h }] — one full-page picture per A4 sheet
-    var chunks = [], pos = 0, offs = [], PW = 595.28, PH = 841.89;
+  /* pages: [{ jpg: Uint8Array, w, h }] - one full-page picture per A4 sheet.
+     meta: { title, subject, author, keywords, outline: [{ title, page }] } -> document properties and a clickable outline (bookmarks). */
+  function buildPdf(pages, meta) {
+    if (typeof meta === 'string') meta = { title: meta };
+    meta = meta || {};
+    var chunks = [], pos = 0, offs = [], PW = 595.28, PH = 841.89, N = pages.length, ol = meta.outline || [];
     function put(x) { if (typeof x === 'string') { var u = new Uint8Array(x.length); for (var i = 0; i < x.length; i++) u[i] = x.charCodeAt(i) & 255; x = u; } chunks.push(x); pos += x.length; }
     function obj(n, body, stream) { offs[n] = pos; put(n + ' 0 obj\n' + body + (stream ? '\nstream\n' : '\nendobj\n')); if (stream) { put(stream); put('\nendstream\nendobj\n'); } }
-    var hex = ['FEFF']; for (var c = 0; c < name.length; c++) hex.push(('000' + name.charCodeAt(c).toString(16)).slice(-4));
+    function hx(s) { var h = ['FEFF']; s = String(s == null ? '' : s); for (var c = 0; c < s.length; c++) h.push(('000' + s.charCodeAt(c).toString(16)).slice(-4)); return '<' + h.join('') + '>'; }
+    function pdate(d) { function p(n) { return ('0' + n).slice(-2); } return '(D:' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + ')'; }
+    var root = 4 + 3 * N;
     put('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
     var kids = pages.map(function (_, i) { return (4 + 3 * i) + ' 0 R'; }).join(' ');
-    obj(1, '<< /Type /Catalog /Pages 2 0 R >>'); obj(2, '<< /Type /Pages /Kids [' + kids + '] /Count ' + pages.length + ' >>');
-    obj(3, '<< /Title <' + hex.join('') + '> /Producer (Quantum Atom) >>');
+    obj(1, '<< /Type /Catalog /Pages 2 0 R' + (ol.length ? ' /Outlines ' + root + ' 0 R /PageMode /UseOutlines' : '') + ' >>'); obj(2, '<< /Type /Pages /Kids [' + kids + '] /Count ' + N + ' >>');
+    obj(3, '<< /Title ' + hx(meta.title) + ' /Author ' + hx(meta.author || BRAND.name) + ' /Subject ' + hx(meta.subject || '') + ' /Keywords ' + hx(meta.keywords || '') +
+      ' /Creator ' + hx(BRAND.name + ' · DFT lab') + ' /Producer (Quantum Atom) /CreationDate ' + pdate(new Date()) + ' >>');
     pages.forEach(function (p, i) {
       var pg = 4 + 3 * i, ct = pg + 1, im = pg + 2, draw = 'q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im0 Do Q';
       obj(pg, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + ct + ' 0 R >>');
       obj(ct, '<< /Length ' + draw.length + ' >>', draw);
       obj(im, '<< /Type /XObject /Subtype /Image /Width ' + p.w + ' /Height ' + p.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.jpg.length + ' >>', p.jpg);
     });
-    var n = 4 + 3 * pages.length, xr = pos, x = 'xref\n0 ' + n + '\n0000000000 65535 f \n';
+    var n = 4 + 3 * N;
+    if (ol.length) {
+      obj(root, '<< /Type /Outlines /First ' + (root + 1) + ' 0 R /Last ' + (root + ol.length) + ' 0 R /Count ' + ol.length + ' >>');
+      ol.forEach(function (o, k) {
+        var pageObj = 4 + 3 * Math.max(0, Math.min(N - 1, (o.page || 1) - 1));
+        obj(root + 1 + k, '<< /Title ' + hx(o.title) + ' /Parent ' + root + ' 0 R' + (k ? ' /Prev ' + (root + k) + ' 0 R' : '') + (k < ol.length - 1 ? ' /Next ' + (root + k + 2) + ' 0 R' : '') + ' /Dest [' + pageObj + ' 0 R /Fit] >>');
+      });
+      n = root + 1 + ol.length;
+    }
+    var xr = pos, x = 'xref\n0 ' + n + '\n0000000000 65535 f \n';
     for (var j = 1; j < n; j++) x += ('0000000000' + offs[j]).slice(-10) + ' 00000 n \n';
     put(x + 'trailer\n<< /Size ' + n + ' /Root 1 0 R /Info 3 0 R >>\nstartxref\n' + xr + '\n%%EOF\n');
     var out = new Uint8Array(pos), o = 0; chunks.forEach(function (ch) { out.set(ch, o); o += ch.length; });
     return out;
   }
   function makePdf(rec) { return makePdfHtml(reportHtml(rec), title(rec).replace(/<[^>]*>/g, '')); }
-  function makePdfHtml(html, name) {   // any report HTML -> A4 PDF bytes; elements with class pdf-break start a new page
-    var W = 794, H = 1123, M = 40, CW = W - 2 * M, CH = H - 2 * M, S = 2, host, css;
+  function fitCharts(root) {   // chart text is sized by the chart's width; on paper it is set to one readable size, and nothing is clipped at the edges
+    [].forEach.call(root.querySelectorAll('svg'), function (s) {
+      var vb = s.viewBox && s.viewBox.baseVal; if (!vb || !vb.width || s.getBoundingClientRect().width < 200) return;
+      s.style.overflow = 'visible'; s.style.display = 'block'; s.style.maxWidth = 'none'; s.style.width = 'calc(100% - 10px)'; s.style.height = 'auto'; s.style.marginLeft = '5px';
+      var k = s.getBoundingClientRect().width / vb.width || 1;
+      [].forEach.call(s.querySelectorAll('text'), function (t) { t.style.fontSize = (11 / k) + 'px'; });
+      [].forEach.call(s.querySelectorAll('path,line,polyline'), function (p) { p.style.vectorEffect = 'non-scaling-stroke'; });
+    });
+  }
+
+  // ── drawing helpers (the cover and the page frame are drawn directly, so they stay razor sharp) ──
+  function ptext(cx, S, s, x, y, o) {
+    s = String(s == null ? '' : s); cx.save();
+    cx.font = (o.weight || 400) + ' ' + (o.size * S) + 'px ' + (o.font || BRAND.font); cx.fillStyle = o.color || '#fff'; cx.textAlign = o.align || 'left'; cx.textBaseline = 'alphabetic';
+    if ('letterSpacing' in cx) cx.letterSpacing = ((o.ls || 0) * S) + 'px';
+    if (o.max) { var lim = o.max * S; if (cx.measureText(s).width > lim) { while (s.length > 2 && cx.measureText(s + '…').width > lim) s = s.slice(0, -1); s += '…'; } }
+    cx.fillText(s, x * S, y * S); var w = cx.measureText(s).width / S; cx.restore(); return w;
+  }
+  function rrect(cx, x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
+  function emblem(cx, S, x, y, size) {   // the simulator's icon: an orange tile with three crossing orbits and a nucleus
+    var k = size * S / 90, g; cx.save(); cx.translate(x * S, y * S); cx.scale(k, k);
+    g = cx.createLinearGradient(0, 0, 90, 90); g.addColorStop(0, BRAND.orange); g.addColorStop(1, BRAND.red);
+    rrect(cx, 0, 0, 90, 90, 18); cx.fillStyle = g; cx.fill();
+    cx.lineWidth = 2.2; cx.strokeStyle = '#fff';
+    [[0, .85], [60, .75], [-60, .7]].forEach(function (a) { cx.globalAlpha = a[1]; cx.beginPath(); cx.ellipse(45, 45, 34, 12, a[0] * Math.PI / 180, 0, 2 * Math.PI); cx.stroke(); });
+    cx.globalAlpha = .95; cx.beginPath(); cx.arc(45, 45, 10, 0, 2 * Math.PI); cx.fillStyle = '#fff'; cx.fill(); cx.restore();
+  }
+  function orbitArt(cx, S, x, y, R) {   // large decorative atom for the cover
+    cx.save(); cx.translate(x * S, y * S);
+    [[0, .75], [60, .55], [-60, .4]].forEach(function (a, i) {
+      cx.save(); cx.rotate(a[0] * Math.PI / 180);
+      var g = cx.createLinearGradient(-R * S, 0, R * S, 0); g.addColorStop(0, BRAND.red); g.addColorStop(1, BRAND.orange);
+      cx.strokeStyle = g; cx.globalAlpha = a[1]; cx.lineWidth = (i ? 1.6 : 2.4) * S; cx.beginPath(); cx.ellipse(0, 0, R * S, R * .36 * S, 0, 0, 2 * Math.PI); cx.stroke();
+      cx.globalAlpha = 1; cx.fillStyle = i ? BRAND.amber : '#fff'; cx.shadowColor = BRAND.orange; cx.shadowBlur = 14 * S;
+      var ang = [0.9, 3.7, 5.3][i]; cx.beginPath(); cx.arc(Math.cos(ang) * R * S, Math.sin(ang) * R * .36 * S, 4.5 * S, 0, 2 * Math.PI); cx.fill(); cx.restore();
+    });
+    var g2 = cx.createRadialGradient(0, 0, 0, 0, 0, 46 * S); g2.addColorStop(0, '#fff'); g2.addColorStop(.28, '#ffd2a8'); g2.addColorStop(.5, BRAND.orange); g2.addColorStop(1, 'rgba(255,85,0,0)');
+    cx.fillStyle = g2; cx.beginPath(); cx.arc(0, 0, 46 * S, 0, 2 * Math.PI); cx.fill(); cx.restore();
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function drawCover(cx, W, H, S, cv, secs, N) {
+    var M = 52, g, i;
+    cx.fillStyle = BRAND.ink; cx.fillRect(0, 0, W * S, H * S);
+    g = cx.createRadialGradient(W * .86 * S, 150 * S, 0, W * .86 * S, 150 * S, 560 * S); g.addColorStop(0, 'rgba(255,85,0,.62)'); g.addColorStop(.45, 'rgba(225,29,46,.2)'); g.addColorStop(1, 'rgba(255,85,0,0)');
+    cx.fillStyle = g; cx.fillRect(0, 0, W * S, H * S);
+    g = cx.createRadialGradient(W * .04 * S, H * .98 * S, 0, W * .04 * S, H * .98 * S, 520 * S); g.addColorStop(0, 'rgba(225,29,46,.45)'); g.addColorStop(1, 'rgba(225,29,46,0)');
+    cx.fillStyle = g; cx.fillRect(0, 0, W * S, H * S);
+    cx.save(); cx.strokeStyle = 'rgba(255,255,255,.035)'; cx.lineWidth = S; for (i = 0; i < 40; i++) { cx.beginPath(); cx.moveTo(0, i * 30 * S); cx.lineTo(W * S, i * 30 * S); cx.stroke(); } cx.restore();
+    orbitArt(cx, S, W * .70, 262, 250);
+    emblem(cx, S, M, 48, 40);
+    ptext(cx, S, 'QUANTUM ATOM', M + 54, 66, { size: 22, weight: 700, ls: 4 });
+    ptext(cx, S, 'VIRTUAL DFT LAB', M + 54, 82, { size: 10.5, weight: 600, ls: 3.2, color: BRAND.orange });
+    // title block
+    ptext(cx, S, 'DENSITY FUNCTIONAL THEORY', M, 470, { size: 12, weight: 700, ls: 4.2, color: BRAND.orange });
+    ptext(cx, S, cv.title || 'DFT REPORT', M, 540, { size: 78, weight: 700, ls: 1 });
+    var sub = String(cv.subject || ''); cx.save(); cx.font = '600 ' + (34 * S) + 'px ' + BRAND.font; var sw = Math.min(W - 2 * M, cx.measureText(sub).width / S); cx.restore();
+    g = cx.createLinearGradient(M * S, 0, (M + Math.max(sw, 200)) * S, 0); g.addColorStop(0, BRAND.amber); g.addColorStop(1, BRAND.red);
+    ptext(cx, S, sub, M, 592, { size: 34, weight: 600, color: g, max: W - 2 * M });
+    g = cx.createLinearGradient(M * S, 0, (M + 120) * S, 0); g.addColorStop(0, BRAND.orange); g.addColorStop(1, BRAND.red);
+    cx.fillStyle = g; rrect(cx, M * S, 614 * S, 120 * S, 5 * S, 2.5 * S); cx.fill();
+    // detail cards
+    var kv = (cv.kv || []).slice(0, 6), cw = (W - 2 * M - 14) / 2, ch = 52, y0 = 650;
+    kv.forEach(function (p, k) {
+      var x = M + (k % 2) * (cw + 14), y = y0 + Math.floor(k / 2) * (ch + 10);
+      rrect(cx, x * S, y * S, cw * S, ch * S, 8 * S); cx.fillStyle = 'rgba(255,255,255,.05)'; cx.fill(); cx.strokeStyle = 'rgba(255,85,0,.38)'; cx.lineWidth = S; cx.stroke();
+      cx.fillStyle = BRAND.orange; rrect(cx, x * S, (y + 8) * S, 3 * S, (ch - 16) * S, 1.5 * S); cx.fill();
+      ptext(cx, S, String(p[0]).toUpperCase(), x + 16, y + 19, { size: 9, weight: 700, ls: 2.2, color: BRAND.orange });
+      ptext(cx, S, p[1], x + 16, y + 40, { size: 15, weight: 600, max: cw - 30 });
+    });
+    // contents
+    var cy = y0 + Math.ceil(kv.length / 2) * (ch + 10) + 24;
+    ptext(cx, S, 'CONTENTS', M, cy, { size: 11, weight: 700, ls: 4, color: BRAND.orange });
+    g = cx.createLinearGradient(M * S, 0, (W - M) * S, 0); g.addColorStop(0, BRAND.orange); g.addColorStop(1, 'rgba(225,29,46,0)'); cx.fillStyle = g; cx.fillRect(M * S, (cy + 8) * S, (W - 2 * M) * S, 1.6 * S);
+    secs.slice(0, 9).forEach(function (s, k) {
+      var y = cy + 34 + k * 27;
+      ptext(cx, S, pad2(k + 1), M, y, { size: 13, weight: 700, color: BRAND.orange, font: BRAND.mono });
+      var w = ptext(cx, S, s.title, M + 34, y, { size: 17, weight: 600, max: W - 2 * M - 120 });
+      ptext(cx, S, pad2(s.page || 0), W - M, y, { size: 13, weight: 700, align: 'right', font: BRAND.mono, color: '#d8cfc8' });
+      cx.save(); cx.strokeStyle = 'rgba(255,255,255,.28)'; cx.lineWidth = S; cx.setLineDash([1 * S, 4 * S]); cx.beginPath();
+      cx.moveTo((M + 34 + w + 10) * S, (y - 3) * S); cx.lineTo((W - M - 30) * S, (y - 3) * S); cx.stroke(); cx.restore();
+    });
+    // foot
+    cx.fillStyle = 'rgba(255,255,255,.16)'; cx.fillRect(M * S, (H - 62) * S, (W - 2 * M) * S, S);
+    ptext(cx, S, (cv.foot || BRAND.site), M, H - 38, { size: 10.5, weight: 600, ls: 1.4, color: '#b9afa8', max: 420 });
+    ptext(cx, S, N + (N === 1 ? ' PAGE' : ' PAGES'), W - M, H - 38, { size: 10.5, weight: 700, ls: 2.4, color: BRAND.orange, align: 'right' });
+  }
+  function drawFrame(cx, W, H, S, i, N, head, foot) {   // header band + footer on every content page
+    var M = 40, g = cx.createLinearGradient(0, 0, W * S, 0);
+    cx.fillStyle = BRAND.ink; cx.fillRect(0, 0, W * S, 44 * S);
+    g.addColorStop(0, BRAND.orange); g.addColorStop(1, BRAND.red); cx.fillStyle = g; cx.fillRect(0, 44 * S, W * S, 3 * S);
+    emblem(cx, S, M, 10, 24);
+    var w = ptext(cx, S, 'QUANTUM ATOM', M + 33, 28, { size: 15, weight: 700, ls: 3 });
+    ptext(cx, S, head, W - M, 27, { size: 10.5, weight: 600, ls: 1, color: '#c9bfb8', align: 'right', max: W - 2 * M - w - 70 });
+    cx.fillStyle = BRAND.line; cx.fillRect(M * S, (H - 40) * S, (W - 2 * M) * S, S);
+    cx.fillStyle = BRAND.orange; cx.fillRect(M * S, (H - 40) * S, 36 * S, 2 * S);
+    ptext(cx, S, foot, M, H - 22, { size: 9.5, weight: 600, ls: .8, color: BRAND.muted, max: 480 });
+    var tot = pad2(N), cur = pad2(i + 1), wt = ptext(cx, S, ' / ' + tot, W - M, H - 22, { size: 10.5, weight: 600, color: BRAND.muted, align: 'right', font: BRAND.mono });
+    ptext(cx, S, cur, W - M - wt, H - 22, { size: 10.5, weight: 700, color: BRAND.orange, align: 'right', font: BRAND.mono });
+  }
+
+  /* Any report HTML -> A4 PDF bytes.
+     The document is cut into whole blocks (a heading, a chart, a card, a few table rows). Each block is drawn on its own and then
+     placed on a page, so a page break can never fall through a line, a chart or a table row; a heading always stays with what follows it;
+     long tables continue on the next page with their header row repeated. An element with data-sec starts a section: it opens on a new
+     page unless the current one is still mostly empty. opts.cover = { title, subject, kv: [[label, value]], foot } adds a cover page with contents. */
+  function makePdfHtml(html, name, opts) {
+    opts = opts || {};
+    var low = false; try { low = (navigator.deviceMemory && navigator.deviceMemory < 4) || /Android|iPhone|iPad/i.test(navigator.userAgent) && !(navigator.deviceMemory >= 6); } catch (e) {}
+    var W = 794, H = 1123, M = 40, TOP = 66, BOT = 54, CW = W - 2 * M, CH = H - TOP - BOT, S = low ? 2 : 3, host, css, cover = opts.cover || null;
     css = document.createElement('style'); css.textContent = PDF_CSS; document.head.appendChild(css);
     var old = document.getElementById('dft-pdf'); if (old) old.remove();
     host = document.createElement('div'); host.id = 'dft-pdf'; host.innerHTML = html; document.body.appendChild(host);
     var cleanup = function () { host.remove(); css.remove(); };
-    var settle = (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).catch(function () {}).then(function () { return new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); }); });
-    return settle.then(function () {
-      var top0 = host.getBoundingClientRect().top, total = Math.ceil(host.scrollHeight), cand = [0], BL = { TR: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, P: 1, DIV: 1, TABLE: 1, UL: 1, LI: 1, DL: 1, DT: 1, DD: 1, svg: 1, FIGURE: 1, SECTION: 1 };
-      [].forEach.call(host.querySelectorAll('*'), function (e) { if (BL[e.tagName] && !e.matches('.dft-h,h1,h2,h3,h4,h5,[data-kn]')) cand.push(Math.round(e.getBoundingClientRect().bottom - top0)); });   // a heading never ends a page
-      var forced = [].map.call(host.querySelectorAll('.pdf-break'), function (e) { return Math.round(e.getBoundingClientRect().top - top0); }).filter(function (f) { return f > 0 && f < total; });
-      var ys = [0], y = 0;   // page breaks fall between rows and blocks, never through a line of text; .pdf-break forces one
-      while (total - y > 1) {
-        var lim = y + CH, fb = 0; forced.forEach(function (f) { if (!fb && f > y + 8 && f <= lim) fb = f; });
-        if (fb) { ys.push(fb); y = fb; continue; }
-        if (total - y <= CH + 1) break;
-        var best = 0; cand.forEach(function (c) { if (c <= lim && c > best) best = c; }); if (best < y + CH * 0.35) best = lim; ys.push(best); y = best;
+    var frame = function () { return new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); }); };
+    var fonts = Promise.race([Promise.all(['700 20px Rajdhani', '600 20px Rajdhani', '400 12px "Share Tech Mono"'].map(function (f) { return document.fonts && document.fonts.load ? document.fonts.load(f).catch(function () {}) : null; })), new Promise(function (r) { setTimeout(r, 1500); })]);
+    var settle = (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).catch(function () {}).then(function () { return fonts; }).then(frame);
+    return settle.then(function () { fitCharts(host); return frame(); }).then(function () {
+      var hr = host.getBoundingClientRect(), HEAD = 'h1,h2,h3,h4,h5,.dft-h,.rp-sh,[data-kn]', units = [], brk = false, cursec = null, secNew = false;
+      [host].concat([].slice.call(host.querySelectorAll('*'))).forEach(function (e, i) { e.setAttribute('data-ui', i); });
+      var clone = host.cloneNode(true); clone.removeAttribute('id'); inlineStyles(host, clone);
+      var find = function (el) { return clone.querySelector('[data-ui="' + el.getAttribute('data-ui') + '"]'); };
+      function push(el, r, rows) {
+        units.push({ el: el, rows: rows, hh: (rows && rows.hh) || 0, x: r.left - hr.left, w: r.width, top: r.top - hr.top, bottom: r.bottom - hr.top, h: r.height, head: !rows && el.matches(HEAD), brk: brk, sec: cursec, secStart: secNew });
+        brk = false; secNew = false;
       }
-      ys.push(total);
-      var clone = host.cloneNode(true); clone.removeAttribute('id');
-      inlineStyles(host, clone);
-      clone.setAttribute('style', 'position:static;width:' + CW + 'px;margin:0;padding:0;background:#fff;color:#111;font:12px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif');
-      var inner = new XMLSerializer().serializeToString(clone), N = ys.length - 1, out = [];
-      var page = function (i) {
+      function tableUnits(t) {
+        var rows = [].slice.call(t.rows), hd = rows.filter(function (r) { return !r.querySelector('td') && r.querySelector('th'); }), tr = t.getBoundingClientRect(), chunk = [], acc = 0;
+        var hh = hd.reduce(function (s, r) { return s + r.getBoundingClientRect().height; }, 0);
+        function flush() {
+          if (!chunk.length) return; var a = chunk[0].getBoundingClientRect(), b = chunk[chunk.length - 1].getBoundingClientRect();
+          push(t, { left: tr.left, width: tr.width, top: a.top - hh, bottom: b.bottom, height: b.bottom - a.top + hh }, { head: hd, body: chunk, hh: hh }); chunk = []; acc = 0;
+        }
+        rows.filter(function (r) { return hd.indexOf(r) < 0; }).forEach(function (r) { var h = r.getBoundingClientRect().height; if (chunk.length && acc + h > 300) flush(); chunk.push(r); acc += h; });
+        flush();
+      }
+      function walk(e) {
+        if (e.hasAttribute('data-sec')) { cursec = { title: e.getAttribute('data-sec') }; secNew = true; brk = true; }
+        if (e.classList.contains('pdf-break')) brk = true;
+        var r = e.getBoundingClientRect(), kids = [].slice.call(e.children);
+        if (r.height < 0.5 && !kids.length) return;
+        var txt = [].some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.nodeValue.trim(); });
+        if (e.tagName === 'TABLE' && r.height > 280) return tableUnits(e);
+        if (r.height <= 560 || !kids.length || txt || e.tagName === 'svg') return push(e, r);
+        kids.forEach(walk);
+      }
+      [].slice.call(host.children).forEach(walk);
+      units = units.filter(function (u) { return u.h >= 1; });
+      function lead(n) {   // the block was measured with its first child's top margin collapsed outside it; draw it the same way, or the text slips down onto the next block
+        var c = n, f;
+        while (c && c.style && !(parseFloat(c.style.paddingTop) > 0) && !(parseFloat(c.style.borderTopWidth) > 0)) {
+          f = c.firstElementChild; if (!f || !f.style || f.style.display !== 'block') break;
+          f.style.marginTop = '0'; c = f;
+        }
+      }
+      function html_(u, cont) {
+        var ser = new XMLSerializer(), n;
+        if (!u.rows) { n = find(u.el); n.style.margin = '0'; lead(n); return ser.serializeToString(n); }
+        n = find(u.el).cloneNode(false); n.style.height = 'auto'; n.style.margin = '0'; n.style.width = Math.ceil(u.w) + 'px';
+        var tb = document.createElement('tbody'); (cont ? [] : u.rows.head).concat(u.rows.body).forEach(function (r) { tb.appendChild(find(r).cloneNode(true)); }); n.appendChild(tb);
+        return ser.serializeToString(n);
+      }
+      function render(u, cont) {
         return new Promise(function (res, rej) {
-          var y0 = ys[i], h = Math.max(1, ys[i + 1] - y0);
-          var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W * S + '" height="' + H * S + '" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff"/>' +
-            '<foreignObject x="' + M + '" y="' + M + '" width="' + CW + '" height="' + h + '"><div xmlns="http://www.w3.org/1999/xhtml" style="width:' + CW + 'px;height:' + h + 'px;overflow:hidden;background:#fff"><div style="margin-top:-' + y0 + 'px;width:' + CW + 'px">' + inner + '</div></div></foreignObject></svg>';
-          var img = new Image();
-          img.onload = function () {
-            try {
-              var cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; var cx = cv.getContext('2d');
-              cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
-              cx.fillStyle = '#777'; cx.font = (9 * S) + 'px system-ui,sans-serif'; cx.textAlign = 'right'; cx.fillText((i + 1) + ' / ' + N, (W - M) * S, (H - 18) * S);
-              res({ jpg: bytesOf(cv.toDataURL('image/jpeg', 0.92)), w: cv.width, h: cv.height });
-            } catch (e) { rej(e); }
-          };
-          img.onerror = function () { rej(new Error('render')); };
+          var h = Math.ceil(u.h - (cont ? u.hh : 0)) + 6;
+          var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + CW * S + '" height="' + h * S + '" viewBox="0 0 ' + CW + ' ' + h + '"><foreignObject x="0" y="0" width="' + CW + '" height="' + h + '">' +
+            '<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:' + CW + 'px;height:' + h + 'px;font:12px/1.55 system-ui,-apple-system,\'Segoe UI\',Roboto,sans-serif;text-rendering:geometricPrecision;color:' + BRAND.text + ';background:transparent">' +
+            '<div style="position:absolute;left:' + Math.max(0, u.x) + 'px;top:0;width:' + Math.ceil(u.w) + 'px">' + html_(u, cont) + '</div></div></foreignObject></svg>';
+          var img = new Image(); img.onload = function () { res(img); }; img.onerror = function () { rej(new Error('render')); };
           img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
         });
-      };
+      }
+      // ── place the blocks on pages ──
+      var pages = [], cur = null, y = 0, prev = null, gapOf = function (a, b) { return Math.max(0, Math.min(20, b.top - a.bottom)); };
+      if (cover) pages.push({ cover: true, items: [] });
+      units.forEach(function (u, i) {
+        var nx = units[i + 1], gap = prev && cur ? gapOf(prev, u) : 0, cont = !!(cur && prev && u.rows && prev.rows && prev.el === u.el);   // same table, same page: no second header row
+        var uh = Math.min(u.h - (cont ? u.hh : 0), CH), need = uh + (u.head && nx && !nx.brk ? gapOf(u, nx) + Math.min(nx.h, 240) : 0);   // a heading is never left alone at the foot of a page
+        var turn = !cur || (u.brk && u.secStart && y > CH * 0.42) || (u.brk && !u.secStart && y > 0) || (y > 0 && y + gap + need > CH);
+        if (turn) { cur = { items: [] }; pages.push(cur); y = 0; gap = 0; cont = false; uh = Math.min(u.h, CH); }
+        y += gap; cur.items.push({ u: u, y: y, h: uh, cont: cont, full: u.h - (cont ? u.hh : 0) }); y += uh; prev = u;
+      });
+      if (!pages.length) pages.push({ items: [] });
+      var N = pages.length, out = [], title = String(name || ''), secs = [];
+      pages.forEach(function (pg, pi) { pg.items.forEach(function (it) { if (it.u.secStart && it.u.sec) secs.push({ title: it.u.sec.title, page: pi + 1 }); }); });
+      var stamp = ''; try { stamp = new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }); } catch (e) { stamp = new Date().toISOString().slice(0, 10); }
+      var head = (cover && cover.title ? cover.title + ' · ' : '') + (cover && cover.subject ? cover.subject : title);
+      function drawPage(pg, i) {
+        return Promise.all(pg.items.map(function (it) { return render(it.u, it.cont); })).then(function (imgs) {
+          var cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; var cx = cv.getContext('2d');
+          cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+          if (pg.cover) drawCover(cx, W, H, S, cover, secs, N);
+          else {
+            pg.items.forEach(function (it, k) { var r = it.h / it.full; cx.drawImage(imgs[k], M * S, (TOP + it.y) * S, CW * S * r, imgs[k].height * r); });
+            drawFrame(cx, W, H, S, i, N, head, BRAND.name + ' · ' + BRAND.site + ' · ' + stamp);
+          }
+          var jpg = bytesOf(cv.toDataURL('image/jpeg', 0.92)); cv.width = cv.height = 1;   // free the big bitmap straight away
+          return { jpg: jpg, w: W * S, h: H * S };
+        });
+      }
       var chain = Promise.resolve();
-      for (var p = 0; p < N; p++) (function (i) { chain = chain.then(function () { return page(i); }).then(function (r) { out.push(r); }); })(p);
-      return chain.then(function () { return buildPdf(out, name); });
+      pages.forEach(function (pg, i) { chain = chain.then(function () { return drawPage(pg, i); }).then(function (r) { out.push(r); }); });
+      var outline = (cover ? [{ title: cover.title || 'Report', page: 1 }] : []).concat(secs);
+      return chain.then(function () { return buildPdf(out, { title: title, subject: cover && cover.subject || '', keywords: 'Quantum Atom, DFT, density functional theory', outline: outline }); });
     }).then(function (b) { cleanup(); return b; }, function (e) { cleanup(); throw e; });
   }
   function printRec(rec) {
@@ -68904,8 +69138,8 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
       '<div class="dft-sec">' + grotrian(res, i) + '</div><div class="dft-sec">' + table(res, i) + '</div>' +
       '<div class="dft-note">' + esc(res.kind === 'h' ? t('exact_note') : t('dscf_note')) + ' ' + esc(t('air_note')) + '</div>' +
       (res.kind === 'h' && res.Z === 1 ? lessonHtml() : '') +
-      '<div class="dft-actions"><button type="button" class="dft-btn" data-a="save">' + esc(LABT('save')) + '</button><button type="button" class="dft-btn" data-a="csv">CSV</button><button type="button" class="dft-btn" data-a="json">JSON</button>' +
-      '<button type="button" class="dft-btn" data-a="pdf">PDF</button><button type="button" class="dft-btn" data-a="link">' + esc(LABT('link')) + '</button></div><div class="dft-msg" id="sp-msg" role="status"></div>' +
+      '<div class="dft-actions"><button type="button" class="dft-btn pri" data-a="pdf">PDF</button><button type="button" class="dft-btn" data-a="save">' + esc(LABT('save')) + '</button><button type="button" class="dft-btn" data-a="csv">CSV</button><button type="button" class="dft-btn" data-a="json">JSON</button>' +
+      '<button type="button" class="dft-btn" data-a="link">' + esc(LABT('link')) + '</button></div><div class="dft-msg" id="sp-msg" role="status"></div>' +
       '<div class="dft-foot">' + esc(res.kind === 'atom' ? P.METHODS[res.method].name + ' · ΔSCF · QA_DFT ' + QA_DFT.version : 'R∞ = 109737.31568 cm⁻¹ · R_M = ' + res.RM.toFixed(3) + ' cm⁻¹') + ' · NIST Handbook of Basic Atomic Spectroscopic Data</div>';
     out.innerHTML = h;
     out.querySelectorAll('[data-i]').forEach(function (el) { el.addEventListener('click', function () { sel[res.key] = +el.getAttribute('data-i'); var y = host.closest('.compare-card'), top = y ? y.scrollTop : 0; paint(host, res); if (y) y.scrollTop = top; }); });
@@ -71003,7 +71237,7 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
     out.innerHTML = resultHtml(st, res) +
       '<details class="dft-what"><summary>' + esc(t('what')) + '</summary><p>' + esc(t('what_body')) + '</p><p>' + esc(t('b3lyp_note')) + '</p></details>' +
       '<div class="dft-note">' + esc(t('geo_note')) + '</div>' +
-      '<div class="dft-actions"><button type="button" class="dft-btn" data-a="save">' + esc(labT('save')) + '</button><button type="button" class="dft-btn" data-a="csv">CSV</button><button type="button" class="dft-btn" data-a="json">JSON</button><button type="button" class="dft-btn" data-a="pdf">PDF</button><button type="button" class="dft-btn" data-a="link">' + esc(labT('link')) + '</button></div><div class="dft-msg" id="mol-msg" role="status"></div>' +
+      '<div class="dft-actions"><button type="button" class="dft-btn pri" data-a="pdf">PDF</button><button type="button" class="dft-btn" data-a="save">' + esc(labT('save')) + '</button><button type="button" class="dft-btn" data-a="csv">CSV</button><button type="button" class="dft-btn" data-a="json">JSON</button><button type="button" class="dft-btn" data-a="link">' + esc(labT('link')) + '</button></div><div class="dft-msg" id="mol-msg" role="status"></div>' +
       (res.eriDirect ? '<div class="dft-note">' + esc(t('direct_note', { p: Math.round(100 * res.eriDirect.share) })) + '</div>' : '') +
       '<div class="dft-foot">' + esc(res.methodName + ' / ' + BASES[res.basis] + ' · QA_MOL ' + QA_MOL.version + ' · ' + t(res.unrestricted ? 'valid_open' : 'valid')) + '</div>';
     if (res.moCoeff) orb3d(out, st, res);
@@ -71067,8 +71301,8 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
     spin.add(root); sc.add(spin);
     var v = { T: T, cv: cv, ren: ren, sc: sc, cam: cam, root: root, spin: spin, mol: null, lobes: [] };
     var flat = document.createElement('canvas'); flat.width = W; flat.height = H; var fx = flat.getContext('2d');
-    function snap() {   // drawn on a light panel, so white hydrogens stay visible on paper
-      ren.render(sc, cam); fx.fillStyle = '#eef0f5'; fx.fillRect(0, 0, W, H); fx.drawImage(cv, 0, 0); return flat.toDataURL('image/png');
+    function snap() {   // drawn on the brand's black: orange and violet lobes and white hydrogens all stay visible
+      ren.render(sc, cam); fx.fillStyle = '#0b0908'; fx.fillRect(0, 0, W, H); fx.drawImage(cv, 0, 0); return flat.toDataURL('image/png');
     }
     function grid(it) {
       var key = base + '|' + it.sp + '|' + it.i; if (gridCache[key]) return Promise.resolve(gridCache[key]);
@@ -71111,14 +71345,16 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
 <script id="qa-dft-report">
 /* Full report of the DFT lab as one PDF.
  * What the person sees in the panel is what ends up on paper: every tab that has something to show (Atom, Spectrum,
- * Molecule, Experiments), with its charts (SVG, drawn again on white paper), tables, notes and settings; the molecule
- * also gets PNG pictures of its geometry and frontier orbitals from an offscreen 3D renderer.
+ * Molecule, Experiments, Notebook), with its charts (SVG, drawn again on white paper), tables, notes and settings; the
+ * molecule also gets PNG pictures of its geometry and frontier orbitals from an offscreen 3D renderer.
  *
  * How it works: for each tab, the tab is opened, waited for until its content stops changing, and the live DOM is
  * copied and cleaned (controls and hidden parts removed, canvases turned into pictures, <details> opened). The pieces
- * go onto one page in a fixed order (cover, contents, one section per tab) and are handed to the PDF writer of the
- * lab module (QA_DFT_LAB.makePdfHtml). Nothing here changes how any tab calculates or draws.
- * Public: QA_DFT_REPORT.run() · .collect() · .html(sections). */
+ * are put in a fixed order - cover with contents, one numbered section per tab, a reference page - and handed to the
+ * PDF writer of the lab module (QA_DFT_LAB.makePdfHtml), which also draws the cover, the page frame and the bookmarks.
+ * Nothing here changes how any tab calculates or draws.
+ * The PDF button lives in the action row of every tab (next to Save / CSV / JSON / Link); there is no second button in the header.
+ * Public: QA_DFT_REPORT.run() · .collect() · .html(sections) · .harvest(). */
 (function () {
   'use strict';
   var P = window.QA_DFT_PANEL, LAB = window.QA_DFT_LAB;
@@ -71127,13 +71363,15 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
 
   // ───────────────────────── strings (English; add a language here to translate the report) ─────────────────────────
   var S = { en: {
-    btn: 'PDF', btn_title: 'Download everything in this panel as one PDF', btn_aria: 'Download full report as PDF',
-    report: 'Quantum Atom · DFT report', subject: 'Subject', method: 'Method', engine: 'Engine', generated: 'Generated', page: 'Page', contents: 'Contents',
-    atom: 'Atom', spec: 'Spectrum', mol: 'Molecule', lab: 'Experiments',
-    gallery: '3D orbitals', geometry: 'Geometry (ball and stick)', iso_note: 'Surfaces enclose |ψ| above {v} a.u.; orange where ψ > 0, violet where ψ < 0 (the sign is arbitrary).',
+    report: 'DFT REPORT', subject: 'Subject', method: 'Method', engine: 'Engine', generated: 'Generated', source: 'Source', contents: 'Contents', tabs: 'Sections',
+    atom: 'Atom', spec: 'Spectrum', mol: 'Molecule', lab: 'Experiments', book: 'Notebook', ref: 'Reference',
+    gallery: 'Molecule pictures', geometry: 'Geometry (ball and stick)', orbitals: 'Frontier orbitals', iso_note: 'Surfaces enclose |ψ| above {v} a.u.; orange where ψ > 0, violet where ψ < 0 (the sign is arbitrary).',
     no3d: 'The 3D pictures could not be made on this device (no WebGL).', slow: 'This part was still changing when the report was made; it may be incomplete.',
     building: 'Building the report…', step: 'Report: {t} ({i}/{n})', pics: 'Report: 3D pictures {i}/{n}', pdfing: 'Report: writing the PDF…', done: 'Report ready', fail: 'The report could not be made.',
-    nothing: 'Nothing to report yet: pick an element or run a calculation first.'
+    nothing: 'Nothing to report yet: pick an element or run a calculation first.',
+    f_name: 'Name', f_formula: 'Formula', f_atoms: 'Atoms', f_electrons: 'Electrons', f_charge: 'Charge', homo: 'HOMO', lumo: 'LUMO', pos: 'ψ > 0', neg: 'ψ < 0', iso: 'isovalue',
+    units_h: 'Units and constants', conv_h: 'About these numbers',
+    conv: 'Energies are in Hartree (Ha) unless an eV column is shown; lengths are in Bohr (a₀) unless stated. Energies of a calculation are total energies of the whole system; orbital energies are Kohn–Sham eigenvalues. Every figure was computed in the browser by the simulator’s own engine; nothing was uploaded.'
   } };
   function lang() { var l = (document.documentElement.lang || 'en').slice(0, 2).toLowerCase(); return S[l] ? l : 'en'; }
   function T(k, a) { var s = (S[lang()][k] != null ? S[lang()][k] : S.en[k]) || k; if (a) for (var x in a) s = s.replace('{' + x + '}', a[x]); return s; }
@@ -71141,12 +71379,19 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
   // ───────────────────────── what goes in, in this order ─────────────────────────
   function molMode() { try { return !!P.atomState().molecule; } catch (e) { return false; } }
   function molReady() { var M = window.QA_MOL_PANEL; return !!(M && M.hasResult && M.hasResult()); }
+  var bookN = 0;   // saved runs in the Notebook, counted when the report starts
   var VIEWS = [
     { id: 'atom', show: function () { return !molMode(); } },
     { id: 'spec', show: function () { return !molMode(); } },
     { id: 'mol', show: molReady, extra: molGallery },
-    { id: 'lab', show: function () { var s = LAB.state; return !!(s && s.rows && s.rows.length); } }
+    { id: 'lab', show: function () { var s = LAB.state; return !!(s && s.rows && s.rows.length); } },
+    { id: 'book', show: function () { return bookN > 0; }, pre: openRuns }
   ];
+  function countBook() { try { return Promise.resolve(LAB.notebook.all()).then(function (r) { bookN = (r || []).length; }, function () { bookN = 0; }); } catch (e) { bookN = 0; return Promise.resolve(); } }
+  function openRuns() {   // every saved run is opened, so its figures are on paper too
+    [].forEach.call(document.querySelectorAll('#dft-body details.dft-run'), function (d) { d.open = true; });
+    return new Promise(function (r) { setTimeout(r, 350); });
+  }
 
   // ───────────────────────── waiting for a tab to finish ─────────────────────────
   function settle(id, ms) {
@@ -71165,7 +71410,7 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
   }
 
   // ───────────────────────── copy the live tab into clean, printable HTML ─────────────────────────
-  var STRIP = '.dft-views,.dft-actions,.mol-oc,.mol-o3,.dft-prog,.wait,script,style,button,input,select,textarea,[data-report="skip"]';
+  var STRIP = '.dft-views,.dft-actions,.dft-msg,.mol-oc,.mol-o3,.dft-prog,.wait,script,style,button,input,select,textarea,[data-report="skip"]';
   function harvest() {
     var src = document.getElementById('dft-body'); if (!src) return '';
     var clone = src.cloneNode(true);
@@ -71179,7 +71424,7 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
     });
     [].forEach.call(clone.querySelectorAll('.dft-seg,.dft-chips'), function (g) {
       var on = [].filter.call(g.querySelectorAll('button'), function (b) { return b.getAttribute('aria-pressed') === 'true' || b.classList.contains('on'); }).map(function (b) { return b.textContent.trim(); });
-      if (on.length) { var sp = document.createElement('div'); sp.setAttribute('style', 'font-weight:600;margin:0 0 6px'); sp.textContent = on.join(' · '); g.parentNode.replaceChild(sp, g); } else g.remove();
+      if (on.length) { var sp = document.createElement('div'); sp.setAttribute('style', 'font-weight:700;margin:0 0 8px;color:#b43c00'); sp.textContent = on.join(' · '); g.parentNode.replaceChild(sp, g); } else g.remove();
     });
     [].forEach.call(clone.querySelectorAll('#mol-orb3d'), function (n) { n.remove(); });   // interactive 3D block: replaced by the gallery
     // 2D canvases keep their picture; a canvas that is empty (or WebGL) is dropped - the molecule gets proper shots instead
@@ -71198,7 +71443,7 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
     // <details> become plain blocks with their content shown (no marker, nothing folded away)
     [].slice.call(clone.querySelectorAll('details')).reverse().forEach(function (d) {
       var box = document.createElement('div'), sm = d.querySelector(':scope > summary');
-      if (sm) { var h = document.createElement('div'); h.setAttribute('style', 'font-weight:600;margin:8px 0 3px'); h.setAttribute('data-kn', ''); h.innerHTML = sm.innerHTML; box.appendChild(h); sm.remove(); }
+      if (sm) { var h = document.createElement('div'); h.setAttribute('style', 'font-weight:700;margin:10px 0 4px'); h.setAttribute('data-kn', ''); h.innerHTML = sm.innerHTML; box.appendChild(h); sm.remove(); }
       while (d.firstChild) box.appendChild(d.firstChild);
       d.parentNode.replaceChild(box, d);
     });
@@ -71211,21 +71456,36 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
   function molGallery(progress) {
     var M = window.QA_MOL_PANEL; if (!M || !M.shots) return Promise.resolve('');
     return M.shots({ progress: progress }).then(function (shots) {
-      if (!shots.length) return '<div class="dft-note">' + esc(T('no3d')) + '</div>';
+      if (!shots.length) return '<div class="dft-sec"><div class="dft-note">' + esc(T('no3d')) + '</div></div>';
       return Promise.all(shots.map(function (s) { return new Promise(function (r) { var im = new Image(); im.onload = im.onerror = function () { r(); }; im.src = s.png; }); })).then(function () {
-        var iso = (shots[1] && shots[1].iso != null ? shots[1].iso : 0.05).toFixed(3);
-        var figs = shots.map(function (s) {
-          var cap = s.label ? s.label.replace(/^(.*)$/, '$1') : T('geometry');
-          return '<figure style="margin:0 0 10px;width:calc(33.333% - 7px);break-inside:avoid"><img src="' + s.png + '" width="720" height="480" alt="' + esc(cap) + '" ' +
-            'style="display:block;width:100%;height:auto;aspect-ratio:720/480;border:1px solid #d6d9e0;border-radius:4px"><figcaption style="font-size:10px;margin-top:3px;color:#555">' + esc(cap) + '</figcaption></figure>';
-        }).join('');
-        return '<div class="dft-sec pdf-keep"><div class="dft-h">' + esc(T('gallery')) + '</div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:0 10px">' + figs + '</div><div class="dft-note">' + esc(T('iso_note', { v: iso })) + '</div></div>';
+        var iso = (shots[1] && shots[1].iso != null ? shots[1].iso : 0.05).toFixed(3), geo = shots.filter(function (s) { return s.key === 'geometry'; })[0], orbs = shots.filter(function (s) { return s.key !== 'geometry'; });
+        var head = '<div class="dft-sec pdf-keep"><div class="dft-h">' + esc(T('gallery')) + '</div>';
+        if (geo) head += '<div style="display:flex;gap:14px;align-items:stretch"><figure class="rp-fig" style="width:58%"><img src="' + geo.png + '" width="720" height="480" alt="' + esc(T('geometry')) + '">' +
+          '<figcaption class="rp-cap"><b>' + esc(T('geometry')) + '</b></figcaption></figure>' +
+          '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px">' + molFacts() + '<div class="rp-keys" style="flex-direction:column;gap:6px"><span><i style="background:#ff8a3d"></i>' + esc(T('pos')) + '</span><span><i style="background:#7a5cff"></i>' + esc(T('neg')) + '</span><span>' + esc(T('iso')) + ' ' + iso + ' a.u.</span></div></div></div>';
+        head += '<div class="dft-note">' + esc(T('iso_note', { v: iso })) + '</div></div>';
+        var figs = orbs.map(function (s) {
+          var tag = s.homo ? '<em class="rp-tag" style="font-style:normal">' + esc(T('homo')) + '</em>' : s.lumo ? '<em class="rp-tag" style="font-style:normal">' + esc(T('lumo')) + '</em>' : '';
+          var cap = s.label || '';
+          return '<figure class="rp-fig" style="width:calc(33.333% - 7px)"><img src="' + s.png + '" width="720" height="480" alt="' + esc(cap) + '"><figcaption class="rp-cap"><b>' + esc(cap) + tag + '</b></figcaption></figure>';
+        });
+        var rowsH = ''; for (var q = 0; q < figs.length; q += 3) rowsH += '<div class="pdf-keep" style="display:flex;gap:10px;margin:0 0 10px">' + figs.slice(q, q + 3).join('') + '</div>';   // rows of three: each row is placed on a page as one piece
+        return head + (rowsH ? '<div class="dft-h" style="margin:4px 0 8px">' + esc(T('orbitals')) + '</div>' + rowsH : '');
       });
     });
   }
 
-  // ───────────────────────── cover page ─────────────────────────
+  function molFacts() {   // the molecule in a few lines, next to its picture
+    try {
+      var m = QA_MOL_PANEL.current(); if (!m || !m.atoms) return '';
+      var cnt = {}; m.atoms.forEach(function (a) { var s = (LAB.el(a.Z) || {}).sym || ('Z' + a.Z); cnt[s] = (cnt[s] || 0) + 1; });
+      var kv = [[T('f_name'), m.name], [T('f_formula'), m.formula], [T('f_atoms'), m.atoms.length + ' (' + Object.keys(cnt).map(function (k) { return cnt[k] > 1 ? k + '×' + cnt[k] : k; }).join(', ') + ')'], [T('f_electrons'), m.electrons], [T('f_charge'), (m.charge > 0 ? '+' : m.charge < 0 ? '−' : '') + Math.abs(m.charge || 0)]]
+        .filter(function (p) { return p[1] != null && p[1] !== ''; });
+      return '<dl class="dft-kv" style="grid-template-columns:auto 1fr">' + kv.map(function (p) { return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(String(p[1])) + '</dd>'; }).join('') + '</dl>';
+    } catch (e) { return ''; }
+  }
+
+  // ───────────────────────── cover + reference ─────────────────────────
   function subject() {
     try {
       if (molMode() && window.QA_MOL_PANEL) { var m = QA_MOL_PANEL.current(); if (m) return (m.name ? m.name + ' · ' : '') + (m.formula || ''); }
@@ -71242,33 +71502,40 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
     var e = []; try { e.push('QA_DFT ' + QA_DFT.version); } catch (x) {} try { if (typeof QA_MOL !== 'undefined') e.push('QA_MOL ' + QA_MOL.version); } catch (x) {}
     return e.join(' · ');
   }
-  function stamp() { var d = new Date(); try { return d.toLocaleString(); } catch (e) { return d.toISOString(); } }
-  function pageUrl() { try { return location.origin + location.pathname; } catch (e) { return ''; } }
+  function stamp() { var d = new Date(); try { return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return d.toISOString(); } }
+  function pageUrl() {   // only a real web address is worth printing (a phone can open the app from content:// or file://)
+    try { if (/^https?:$/.test(location.protocol)) return location.host + location.pathname.replace(/index(_dark|_light)?\.html$/, '').replace(/\/$/, ''); } catch (e) {}
+    return 'nazat02.github.io/Quantum-Atom';
+  }
+  function cover(sections) {
+    var kv = [[T('subject'), subject()], [T('method'), methodLine()], [T('engine'), engineLine()], [T('generated'), stamp()]].filter(function (p) { return p[1]; });
+    return { title: T('report'), subject: subject(), kv: kv, foot: 'Quantum Atom · ' + pageUrl() };
+  }
+  function refHtml() {
+    var rows = [['1 Hartree (Ha)', '27.2114 eV'], ['1 Bohr (a₀)', '0.529177 Å'], ['1 eV', '8065.54 cm⁻¹ · 96.485 kJ/mol'], ['Rydberg constant R∞', '109737.316 cm⁻¹'], ['Fine-structure constant α', '1/137.036']];
+    return '<div class="dft-sec"><div class="dft-h">' + esc(T('units_h')) + '</div><table class="dft-tbl"><tbody>' + rows.map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td class="n"><span class="num">' + esc(r[1]) + '</span></td></tr>'; }).join('') + '</tbody></table></div>' +
+      '<div class="dft-sec"><div class="dft-h">' + esc(T('conv_h')) + '</div><div class="dft-note" style="font-size:11px;color:#16120f !important">' + esc(T('conv')) + '</div></div>';
+  }
 
   function html(sections) {
-    var kv = [[T('subject'), subject()], [T('method'), methodLine()], [T('engine'), engineLine()], [T('generated'), stamp()], [T('page'), pageUrl()]]
-      .filter(function (p) { return p[1]; })
-      .map(function (p) { return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>'; }).join('');
-    var toc = sections.map(function (s, i) { return '<li>' + esc(s.title) + '</li>'; }).join('');
-    var head = '<h1>' + esc(T('report')) + '</h1><div class="sub">' + esc(subject()) + '</div><dl class="dft-kv">' + kv + '</dl>' +
-      '<div style="font-weight:600;margin:12px 0 3px">' + esc(T('contents')) + '</div><ol style="margin:0 0 6px 18px;padding:0">' + toc + '</ol>';
-    return head + sections.map(function (s, i) {
-      return '<section class="' + (i ? 'pdf-break' : '') + '" style="display:block"><h2 style="font-size:15px;margin:' + (i ? '0' : '14px') + ' 0 8px;padding-bottom:4px;border-bottom:1px solid #ccc">' + esc(s.title) + '</h2>' +
+    var all = sections.concat([{ id: 'ref', title: T('ref'), html: refHtml() }]);
+    return all.map(function (s, i) {
+      return '<section data-sec="' + esc(s.title) + '" style="display:block"><div class="rp-sh"><span class="rp-no">' + (i < 9 ? '0' : '') + (i + 1) + '</span><h2>' + esc(s.title) + '</h2><span class="rp-rule"></span></div>' +
         (s.stale ? '<div class="dft-note dft-warn">' + esc(T('slow')) + '</div>' : '') + s.html + '</section>';
     }).join('');
   }
 
   // ───────────────────────── run ─────────────────────────
-  var busy = false, btn = null;
+  var busy = false;
   function say(msg) { try { LAB.toast(msg); } catch (e) {} }
-  function tabTitle(id) { var b = document.querySelector('#dft-body .dft-views button[aria-selected="true"]'); return b ? b.textContent.trim() : T(id); }
+  function tabTitle(id) { var b = document.querySelector('#dft-body .dft-views button[aria-selected="true"]'); return (b && b.textContent.trim()) || T(id); }
 
   function collect(onStep) {
     var orig = P.view(), jobs = VIEWS.filter(function (v) { try { return v.show(); } catch (e) { return false; } }), out = [], chain = Promise.resolve();
     jobs.forEach(function (v, k) {
       chain = chain.then(function () {
         if (P.view() !== v.id) P.setView(v.id);
-        return settle(v.id, 60000).then(function (ok) {
+        return settle(v.id, 60000).then(function (ok) { return v.pre ? v.pre().then(function () { return settle(v.id, 15000); }).then(function (ok2) { return ok && ok2; }) : ok; }).then(function (ok) {
           var title = tabTitle(v.id); if (onStep) onStep(title, k + 1, jobs.length);
           var body = harvest();
           return Promise.resolve(v.extra ? v.extra(function (i, n) { say(T('pics', { i: i, n: n })); }) : '').then(function (extra) {
@@ -71281,33 +71548,25 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
   }
 
   function slug(s) { return String(s || 'report').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'report'; }
-  function setBusy(b) { busy = b; if (btn) { btn.disabled = b; btn.setAttribute('aria-busy', b ? 'true' : 'false'); } }
+  function setBusy(b) {
+    busy = b;
+    [].forEach.call(document.querySelectorAll('#dft-body [data-a="pdf"]'), function (x) { x.disabled = b; x.setAttribute('aria-busy', b ? 'true' : 'false'); });
+  }
 
   function run() {
     if (busy) return Promise.resolve();
     if (!P.isOpen()) P.open();
     setBusy(true); say(T('building'));
-    return collect(function (title, i, n) { say(T('step', { t: title, i: i, n: n })); }).then(function (sections) {
+    var subj = subject();   // read before the tabs are walked through
+    return countBook().then(function () { return collect(function (title, i, n) { say(T('step', { t: title, i: i, n: n })); }); }).then(function (sections) {
       if (!sections.length) { say(T('nothing')); return; }
       say(T('pdfing'));
-      return LAB.makePdfHtml(html(sections), T('report') + ' · ' + subject()).then(function (bytes) {
-        LAB.download('quantum-atom-dft-report-' + slug(subject()) + '-' + new Date().toISOString().slice(0, 10) + '.pdf', bytes, 'application/pdf');
+      return LAB.makePdfHtml(html(sections), 'Quantum Atom · ' + T('report') + ' · ' + subj, { cover: cover(sections) }).then(function (bytes) {
+        LAB.download('quantum-atom-dft-report-' + slug(subj) + '-' + new Date().toISOString().slice(0, 10) + '.pdf', bytes, 'application/pdf');
         say(T('done'));
       });
     }).catch(function (e) { try { console.error('DFT report failed', e); } catch (x) {} say(T('fail')); }).then(function () { setBusy(false); });
   }
-
-  // ───────────────────────── button in the panel header (every tab) ─────────────────────────
-  (function mount() {
-    var hdr = document.querySelector('#dft-modal .cmp-header'), close = document.getElementById('dft-close');
-    if (!hdr || !close) return;
-    btn = document.createElement('button'); btn.type = 'button'; btn.id = 'dft-report-btn'; btn.className = 'dft-btn';
-    btn.style.cssText = 'margin-inline-start:auto;margin-inline-end:10px;padding:4px 12px;min-height:0';
-    btn.addEventListener('click', run);
-    hdr.insertBefore(btn, close);
-    function label() { btn.textContent = T('btn'); btn.title = T('btn_title'); btn.setAttribute('aria-label', T('btn_aria')); }
-    label(); window.addEventListener('qa:langchange', label);
-  })();
 
   window.QA_DFT_REPORT = { run: run, collect: collect, html: html, harvest: harvest };
 })();
