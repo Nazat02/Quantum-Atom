@@ -71010,5 +71010,115 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
   -webkit-tap-highlight-color:transparent}
 .qai-root .qai-box textarea{background:transparent}
 </style>
+<style id="anti-theme-fix">
+/* ═══════════════════════════════════════════════════════════════════
+   ANTIMATTER × THEME  (UI only — no JS, no markup, no 3D changes)
+   Antimatter sets <html data-matter="anti">. Glass and flat already read
+   --cyan, so they retint; luxury uses its own --lx-* tokens and never did,
+   and several flat / glass surfaces still carry hard-coded orange.
+   This block gives each theme its own antimatter look.
+═══════════════════════════════════════════════════════════════════ */
+
+/* logo badge: orange → magenta in every theme */
+html[data-matter="anti"] #topbar-logo-badge{filter:hue-rotate(-68deg) saturate(1.05);}
+
+/* ── GLASS: warm-brown frosted surfaces → plum-tinted frost ── */
+html[data-matter="anti"]:not([data-glass="off"]):not([data-lux="on"]){
+  --g-fill:rgba(255,222,246,.055);--g-fill-hi:rgba(255,222,246,.11);--g-edge:rgba(255,205,240,.16);
+  --glass-bg:rgba(16,5,13,.46);--glass-bg-hi:rgba(24,8,19,.66);--glass-border:rgba(255,205,240,.15);
+}
+html[data-matter="anti"]:not([data-glass="off"]):not([data-lux="on"]) #topbar{background:linear-gradient(180deg,rgba(255,222,246,.07),rgba(16,5,13,.46));}
+html[data-matter="anti"]:not([data-glass="off"]):not([data-lux="on"]) #botbar{background:linear-gradient(0deg,rgba(255,222,246,.06),rgba(16,5,13,.5));}
+html[data-matter="anti"]:not([data-glass="off"]):not([data-lux="on"]) :is(#left,#right){background:linear-gradient(180deg,rgba(255,222,246,.06),rgba(16,5,13,.5));}
+
+/* ── FLAT: hover / pressed no longer flash orange ── */
+html[data-matter="anti"][data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.theme-toggle-btn,.panel-close,.cmp-close,.tab):hover{
+  background:#ff5fd8 !important;border-color:#ff5fd8 !important;}
+html[data-matter="anti"][data-glass="off"] .qai-root :is(.qai-iconbtn:hover,.qai-btn:hover:not(:disabled),.qai-fab:hover){background:#ff5fd8;}
+html[data-matter="anti"][data-glass="off"] .ebtn.hy[data-blk=s]{box-shadow:inset 0 -2px 0 #c724ffaa;}
+
+/* ── LUXURY (dark): same Apple materials, accent = system magenta ── */
+html[data-lux="on"][data-matter="anti"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"]{
+  --lx-acc:#ff3fb8;--lx-acc-rgb:255,63,184;--lx-acc-hi:#ff6cc9;--lx-acc-2:#bf5af2;--lx-on-acc:#fff;
+  --lx-btn:linear-gradient(180deg,#ff5cc6 0%,#e61fa8 100%);
+  --lx-btn-hi:linear-gradient(180deg,#ff77d0 0%,#f23db7 100%);
+}
+</style>
+<style id="ann-theme-fix">
+/* ═══ ANNIHILATION PLAYER — redesigned, themed (glass / flat / luxury × dark / light, retints in antimatter). UI only. ═══ */
+html:not([data-glass="off"]):not([data-lux="on"]) #ann-panel{background:linear-gradient(180deg,var(--g-fill-hi),transparent 45%),var(--glass-bg-hi);border:1px solid var(--g-edge);box-shadow:var(--glass-shadow);}
+/* ───────── layout (all themes) ───────── */
+html #ann-panel{color:var(--hi);padding:12px 14px 12px;}
+html #ann-panel .an-head{padding-bottom:10px;border-bottom:1px solid var(--ann-sep);}
+html #ann-panel.min .an-head{padding-bottom:0;border-bottom:0;}
+html #ann-panel .an-title{font-size:17px;}
+html #ann-panel .an-title small{font-size:12px;opacity:.6;}
+html #ann-panel .an-st{display:inline-block;margin:12px 0 4px;padding:3px 10px;border-radius:999px;font-size:12px;letter-spacing:.1em;color:var(--cyan);background:rgba(var(--cyan-rgb),.1);border:1px solid rgba(var(--cyan-rgb),.28);}
+html #ann-panel .an-eq{font-size:19px;margin:2px 0 4px;}
+html #ann-panel .an-tx{opacity:.86;}
+html #ann-panel .an-ct{gap:6px;margin-top:10px;}
+html #ann-panel .an-ct>*{padding:4px 10px;border-radius:9px;background:rgba(var(--cyan-rgb),.07);border:1px solid rgba(var(--cyan-rgb),.2);}
+html #ann-panel .an-ct b{color:var(--cyan);font-weight:600;}
+html #ann-panel .an-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px;margin-top:12px;}
+html #ann-panel .an-lb{grid-column:1/-1;margin:0;opacity:.65;}
+html #ann-panel .an-chips button{width:100%;min-width:0;height:34px;padding:0 6px;border-radius:10px;font-size:13px;overflow:hidden;text-overflow:ellipsis;}
+html #ann-panel .an-ctl{margin-top:14px;padding-top:12px;border-top:1px solid var(--ann-sep);gap:10px;}
+html #ann-panel :is(.an-hide,.an-chev,.an-x,.an-redo){width:34px;height:34px;min-width:34px;padding:0;border-radius:50%;}
+html #ann-panel .an-play{width:42px;height:42px;min-width:42px;padding:0;border-radius:50%;}
+html #ann-panel .an-spd{min-width:48px;border-radius:999px;font-family:'Share Tech Mono',monospace;}
+html #ann-panel input[type=range]{accent-color:var(--cyan);}
+html #ann-pill{height:36px;border-radius:999px;}
+
+/* ───────── GLASS + FLAT: tokens ───────── */
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-panel,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-pill{--ann-on-bg:var(--bg-solid);--ann-icon-on:#fff;}
+html:not([data-lux="on"]):not([data-glass="off"]) #ann-panel{--ann-fill:var(--g-fill);--ann-fill-hi:var(--g-fill-hi);--ann-edge:var(--g-edge);--ann-sep:rgba(255,255,255,.09);}
+html[data-glass="off"]:not([data-lux="on"]) #ann-panel{--ann-fill:transparent;--ann-fill-hi:rgba(var(--cyan-rgb),.1);--ann-edge:rgba(var(--cyan-rgb),.45);--ann-sep:rgba(var(--cyan-rgb),.35);}
+
+/* surfaces */
+html[data-glass="off"]:not([data-lux="on"]) #ann-panel{background:var(--bg-solid) !important;border:1px solid var(--cyan) !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
+html[data-glass="off"]:not([data-lux="on"]) #ann-panel::before{background:var(--cyan);}
+html:not([data-lux="on"]):not([data-glass="off"]) #ann-panel::before{background:var(--brand-grad);}
+
+/* REST: tonal ghost button */
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-panel button{
+  background:var(--ann-fill);color:var(--hi);border:1px solid var(--ann-edge);box-shadow:none;text-shadow:none;filter:none;transform:none;transition:none;}
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-panel button:hover{background:var(--ann-fill-hi);border-color:var(--cyan);}
+/* PRIMARY: play button + show-pill carry the theme's filled look */
+html:not([data-lux="on"]):not([data-glass="off"]):not(#qa-p1):not(#qa-p2) :is(#ann-panel .an-play,#ann-pill){
+  background:var(--brand-grad);color:#fff;border:1px solid rgba(255,255,255,.28);box-shadow:0 4px 14px rgba(var(--cyan-rgb),.4),inset 0 1px 0 rgba(255,255,255,.25);}
+html[data-glass="off"]:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#ann-panel .an-play,#ann-pill){
+  background:var(--cyan);color:#fff;border:1px solid var(--cyan);box-shadow:none;}
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#ann-panel .an-play,#ann-pill):hover{filter:brightness(1.1);background-color:initial;}
+html:not([data-lux="on"]):not([data-glass="off"]):not(#qa-p1):not(#qa-p2) :is(#ann-panel .an-play,#ann-pill):hover{background:var(--brand-grad);border-color:rgba(255,255,255,.28);}
+html[data-glass="off"]:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#ann-panel .an-play,#ann-pill):hover{background:var(--cyan);border-color:var(--cyan);}
+/* ON  +  PRESSED — the app's own press look: solid fill, accent ring, accent label */
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-panel :is(button.on,button[aria-pressed="true"],button:active),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-pill:active{
+  background:var(--ann-on-bg);color:var(--cyan);border-color:var(--cyan);box-shadow:inset 0 0 0 1px var(--cyan);filter:none;transform:none;}
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-panel :is(button.on,button[aria-pressed="true"]):hover{background:var(--ann-on-bg);}
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ann-panel :is(.an-hide,.an-chev,.an-x,.an-redo,.an-play):is(:active) svg{color:var(--ann-icon-on);}
+
+/* ───────── LUXURY ───────── */
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel{--ann-sep:var(--lx-sep);border:.5px solid var(--lx-sep) !important;box-shadow:var(--lx-sh-3) !important;color:var(--lx-text) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel::before{display:none;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel .an-st{color:var(--lx-acc);background:rgba(var(--lx-acc-rgb),.12);border-color:transparent;letter-spacing:.04em;text-transform:none;font-weight:600;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel .an-ct>*{background:var(--lx-fill);border-color:transparent;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel .an-ct b{color:var(--lx-acc);}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel button{
+  background:var(--lx-fill) !important;color:var(--lx-text) !important;border:0 !important;box-shadow:none !important;border-radius:var(--lx-pill) !important;font-weight:500;transition:none !important;filter:none;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel :is(.an-hide,.an-chev,.an-x,.an-redo,.an-play){border-radius:50% !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel button:hover{background:var(--lx-fill-2) !important;}
+/* primary + on + pressed = the accent fill (never black), pressed also dips to .98 like every luxury button */
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel :is(.an-play,button.on,button[aria-pressed="true"],button:active),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-pill:active{
+  background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel :is(.an-play,button.on,button[aria-pressed="true"]):hover{background:var(--lx-btn-hi) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-panel button:active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-pill:active{transform:scale(.98) !important;background:var(--lx-btn-hi) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #ann-pill{
+  background:var(--lx-mat-thick) !important;color:var(--lx-text) !important;border:.5px solid var(--lx-sep) !important;
+  -webkit-backdrop-filter:var(--lx-blur);backdrop-filter:var(--lx-blur);box-shadow:var(--lx-sh-2) !important;font-weight:600;letter-spacing:-.01em;}
+</style>
 </body>
 </html>
