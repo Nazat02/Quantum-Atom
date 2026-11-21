@@ -32976,7 +32976,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .rxe-tabs butt
     <div class="hint-sep"></div>
     <div class="zbar">
       <label data-i18n="sim.zbar.zoom" for="zsl">ZOOM</label>
-      <input data-i18n-attr="aria-label:sim.zsl.zoom" type="range" id="zsl" min="1" max="600" value="80" aria-label="Zoom">
+      <input data-i18n-attr="aria-label:sim.zsl.zoom" type="range" id="zsl" min="1" max="1800" value="80" aria-label="Zoom">
       <div id="zval">1.0×</div>
     </div>
     <button data-i18n="sim.rbtn.reset" data-i18n-html="true" class="rbtn" id="rbtn">
@@ -45888,25 +45888,81 @@ const PI_SPIN_SPEED=0.45; // rad/s, slow enough to read as circulation, not a bl
 // buildInstancedNucleus below for how large molecules get full per-nucleon
 // detail without that cost.
 
-function makeNucleus(Z, N){
+// ── REAL-SCALE NUCLEUS ────────────────────────────────────────────────
+// Scene scale is fixed by the hydrogen 1s display radius (R = 3.0 units for a
+// 90 % boundary of ~2.66 a0), so 1 a0 ≈ 1.128 units and 1 fm ≈ 2.1e-5 units.
+// Nucleon radius ≈ 0.84 fm, nuclear radius R = 1.2·A^(1/3) fm — the true
+// ~1:50,000 nucleus-to-atom ratio. Zoom range goes down to MIN_ZOOM_DIST so the
+// nucleus can actually be reached. `legacy` keeps the old oversize look for the
+// Annihilation view, which sizes its own animation from those numbers.
+const NUC_UNITS_PER_FM = (3.0/2.66)/52917.7;
+function nucleonDims(total, legacy){
+  if(legacy) return { nr: Math.max(0.007, 0.011 - total*0.00004), Rnuc: 0.012*Math.pow(total, 1/3) };
+  return { nr: 0.84*NUC_UNITS_PER_FM, Rnuc: 1.2*NUC_UNITS_PER_FM*Math.pow(total, 1/3) };
+}
+// Glow sprite: small constant-screen-size dot from far away (1.4 % of distance),
+// never smaller than 4 nuclear radii, and fades out as you close in so the real
+// protons/neutrons show instead of a blob.
+function qaSunSpriteFit(sp, camZ){
+  const u = sp.userData, nucR = u.nucR || 0.01;
+  const s = Math.max(nucR*14, camZ*0.014);   // wide enough to wrap the nucleus in a soft glow when zoomed in
+  sp.scale.set(s, s, 1);
+  if(u.baseOpacity === undefined) u.baseOpacity = sp.material.opacity;
+  const t = Math.log(Math.max(camZ, 1e-12)/(nucR*30))/Math.log(200/30);
+  sp.material.opacity = u.baseOpacity*(0.7+0.3*Math.max(0, Math.min(1, t)));   // keeps a halo behind the nucleons instead of vanishing
+}
+
+// Smooth glow texture: gaussian-style falloff built from many stops (no visible rings), 256px to avoid 8-bit banding.
+function qaGlowTexture(core, mid, edge){
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d'), gr = x.createRadialGradient(128,128,0,128,128,128);
+  const lerp = (a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+  for(let i=0;i<=32;i++){
+    const t = i/32, fall = (1-t)*(1-t);
+    const a = (0.80*Math.exp(-Math.pow(t/0.16,2)) + 0.38*Math.exp(-t*5.2))*fall;
+    const col = t<0.28 ? lerp(core,mid,t/0.28) : lerp(mid,edge,Math.min(1,(t-0.28)/0.72));
+    gr.addColorStop(t, `rgba(${col[0]},${col[1]},${col[2]},${a.toFixed(4)})`);
+  }
+  x.fillStyle = gr; x.fillRect(0,0,256,256);
+  const tex = new THREE.CanvasTexture(c); return tex;
+}
+// ── NUCLEAR VIBRATION ─────────────────────────────────────────────────
+// Two physically motivated motions, slowed ~10²¹× so the eye can follow them:
+//  1. Zero-point / Fermi motion — each nucleon is quantum-localised, never at rest;
+//     it jitters ~0.4 fm about its site with its own phase and frequency.
+//  2. Collective vibration (A ≥ 4) — the 2⁺ quadrupole surface mode (volume-preserving
+//     prolate↔oblate oscillation, β₂ ≈ 0.1) plus a small monopole "breathing" mode.
+// Only animated when the camera is close enough for it to be visible.
+function qaNucleusVibrate(g, t, camZ){
+  const v = g.userData.vib; if(!v || camZ > v.R*4000) return;
+  const eps = v.eps*Math.sin(v.W*t), br = 1 + v.breath*Math.sin(v.Wb*t);
+  const sx = br*(1 - eps*0.5), sz = br*(1 + eps), A = v.A, m = v.meshes;
+  for(let i=0;i<m.length;i++){
+    const r = v.rest[i], w = v.w[i], p = v.ph[i];
+    m[i].position.set(
+      r[0]*sx + A*Math.sin(w[0]*t + p[0]),
+      r[1]*sx + A*Math.sin(w[1]*t + p[1]),
+      r[2]*sz + A*Math.sin(w[2]*t + p[2]));
+  }
+}
+function makeNucleus(Z, N, legacySize){
   const g = new THREE.Group();
   const total = Z + N;
 
-  const nr = Math.max(0.007, 0.011 - total * 0.00004);
-  const Rnuc = 0.012 * Math.pow(total, 1/3);
+  const { nr, Rnuc } = nucleonDims(total, legacySize);
 
   // Materials — antiprotons/antineutrons get the neon pink/violet pair
   // instead of the matter red/blue, keeping the same two-tone legibility
   // between the two nucleon types.
   const matP = new THREE.MeshStandardMaterial({
-    color: antimatterMode?0xff2ec4:0xff2020, emissive: antimatterMode?0xff17ad:0xcc0000, emissiveIntensity: 1.5,
+    color: antimatterMode?0xff2ec4:0xff2020, emissive: antimatterMode?0xff17ad:0xcc0000, emissiveIntensity: 0.8,
     roughness: 0.20, metalness: 0.2
   });
   const matN = new THREE.MeshStandardMaterial({
-    color: antimatterMode?0xc724ff:0x2060ff, emissive: antimatterMode?0xa20ee0:0x0033cc, emissiveIntensity: 1.5,
+    color: antimatterMode?0xc724ff:0x2060ff, emissive: antimatterMode?0xa20ee0:0x0033cc, emissiveIntensity: 0.8,
     roughness: 0.25, metalness: 0.2
   });
-  const geoN = new THREE.SphereGeometry(nr, 16, 16);
+  const geoN = new THREE.SphereGeometry(nr, 40, 40);
 
   // Shuffle protons and neutrons so they interleave
   const types = [];
@@ -45936,17 +45992,25 @@ function makeNucleus(Z, N){
     }
   }
 
+  const _vib = { meshes:[], rest:[], w:[], ph:[] };
   positions.forEach(([x,y,z], i) => {
     const mesh = new THREE.Mesh(geoN, types[i]==='p' ? matP : matN);
     mesh.position.set(x, y, z);
     mesh.userData.nucleon = types[i]; // 'p' | 'n' — used by HYPER REALISTIC's nucleus overlay
     g.add(mesh);
+    mesh.userData.rest = [x,y,z];
+    _vib.meshes.push(mesh); _vib.rest.push([x,y,z]);
+    _vib.w.push([0,0,0].map(()=>5 + Math.random()*5));
+    _vib.ph.push([0,0,0].map(()=>Math.random()*6.2832));
   });
+  Object.assign(_vib, { R: Rnuc + nr, A: legacySize ? 0.48*nr : 0.4*NUC_UNITS_PER_FM,   // 0.4 fm ÷ 0.84 fm nucleon radius = 0.48 nr
+                        eps: total>=4 ? 0.10 : 0, W: 2.2, breath: total>=4 ? 0.03 : 0, Wb: 3.4 });
+  g.userData.vib = _vib;
 
   // Glow halo — reduced so nucleus is clearly visible
   const haloR = Rnuc + nr;
   const haloColor=antimatterMode?0xd400ff:0xff3d9a;
-  [[haloR*1.2, .10],[haloR*1.8, .04]].forEach(([r,o])=>
+  (legacySize?[[haloR*1.2, .10],[haloR*1.8, .04]]:[]).forEach(([r,o])=>
     g.add(new THREE.Mesh(
       new THREE.SphereGeometry(r,16,16),
       new THREE.MeshBasicMaterial({color:haloColor,transparent:true,opacity:o,side:THREE.BackSide,depthWrite:false})
@@ -45973,8 +46037,10 @@ function makeNucleus(Z, N){
   ctx.fillRect(0,0,128,128);
   const spriteTex = new THREE.CanvasTexture(canvas);
   const spriteMat = new THREE.SpriteMaterial({map: spriteTex, transparent: true, blending: THREE.NormalBlending, depthWrite: false, opacity: 0.7});
+  if(!legacySize){ spriteMat.map = qaGlowTexture([255,255,255],antimatterMode?[255,46,196]:[255,60,160],antimatterMode?[150,0,220]:[180,0,100]); spriteMat.needsUpdate = true; }
   const sunSprite = new THREE.Sprite(spriteMat);
-  sunSprite.scale.set(3, 3, 1);
+  if(legacySize) sunSprite.scale.set(3, 3, 1);
+  else { sunSprite.userData.nucR = haloR; qaSunSpriteFit(sunSprite, 30); }
   sunSprite.userData.isSunSprite = true;
   g.add(sunSprite);
 
@@ -45995,7 +46061,7 @@ function makeNucleus(Z, N){
 // Fibonacci-sphere packing and color model as makeNucleus(), so visually
 // identical per-nucleon detail, but 2 draw calls total no matter how many
 // atoms the molecule has.
-const NUCLEON_INSTANCE_GEO = new THREE.SphereGeometry(1, 10, 10); // unit sphere; real size set per-instance via scale
+const NUCLEON_INSTANCE_GEO = new THREE.SphereGeometry(1, 16, 16); // unit sphere; real size set per-instance via scale
 function buildInstancedNucleus(atoms){
   const group = new THREE.Group();
   const perAtom = atoms.map(atom=>{
@@ -46007,11 +46073,11 @@ function buildInstancedNucleus(atoms){
   if(totalP===0 && totalN===0) return group;
 
   const matP = new THREE.MeshStandardMaterial({
-    color: antimatterMode?0xff2ec4:0xff2020, emissive: antimatterMode?0xff17ad:0xcc0000, emissiveIntensity: 1.5,
+    color: antimatterMode?0xff2ec4:0xff2020, emissive: antimatterMode?0xff17ad:0xcc0000, emissiveIntensity: 0.8,
     roughness: 0.20, metalness: 0.2
   });
   const matN = new THREE.MeshStandardMaterial({
-    color: antimatterMode?0xc724ff:0x2060ff, emissive: antimatterMode?0xa20ee0:0x0033cc, emissiveIntensity: 1.5,
+    color: antimatterMode?0xc724ff:0x2060ff, emissive: antimatterMode?0xa20ee0:0x0033cc, emissiveIntensity: 0.8,
     roughness: 0.25, metalness: 0.2
   });
   const meshP = totalP>0 ? new THREE.InstancedMesh(NUCLEON_INSTANCE_GEO, matP, totalP) : null;
@@ -46023,8 +46089,7 @@ function buildInstancedNucleus(atoms){
     const {Z,N}=perAtom[i];
     const total=Z+N;
     if(total===0) return;
-    const nr = Math.max(0.007, 0.011 - total*0.00004);
-    const Rnuc = 0.012 * Math.pow(total, 1/3);
+    const { nr, Rnuc } = nucleonDims(total);
 
     // Shuffle protons/neutrons so they interleave — identical to makeNucleus().
     const types=[];
@@ -53164,17 +53229,18 @@ MOLECULES.forEach(mol=>{
 // ══════════════════════════════════════════════
 let tZ=240,camZ=240,rotX=.28,rotY=0,drag=false,lx=0,ly=0,autoSpin=true;
 const ZOOM_EASE_RATE=4.35; // per-second decay rate — tuned so the glide feels identical to the old per-frame .07 factor at 60fps, but stays correct at any frame rate
+const MIN_ZOOM_DIST=2e-5, SL_MAX=1800; // slider 600 = old closest view (5 units); 600→1800 continues the same log curve down to the nucleus
 let maxZoomDist=4000; // dynamically resized in buildAtom() to whatever the
                        // largest orbital in the current config actually is
 
 // Zoom: slider 1-600 → camera distance 5 (close) to maxZoomDist (far enough
 // to fit the largest orbital in the current configuration without clipping)
-function slVal(v){return maxZoomDist*Math.pow(5/maxZoomDist,v/600);}
+function slVal(v){return Math.max(MIN_ZOOM_DIST, maxZoomDist*Math.pow(5/maxZoomDist,v/600));}
 
 const sl=document.getElementById('zsl');
 function applyZoom(){
   tZ=slVal(+sl.value);
-  const mxv=30/tZ;const mx=mxv>=10?mxv.toFixed(0):mxv>=1?mxv.toFixed(1):mxv.toFixed(2);
+  const mxv=30/tZ;const mx=mxv>=1e5?mxv.toExponential(1).replace('e+','e'):mxv>=10?mxv.toFixed(0):mxv>=1?mxv.toFixed(1):mxv.toFixed(2);
   document.getElementById('zval').textContent=mx+'×';
   document.getElementById('szoom').textContent=mx+'×';
 }
@@ -53182,7 +53248,7 @@ sl.addEventListener('input',applyZoom);
 
 renderer.domElement.addEventListener('wheel',e=>{
   e.preventDefault();
-  sl.value=Math.max(1,Math.min(600,+sl.value+(e.deltaY>0?-10:10)));
+  sl.value=Math.max(1,Math.min(SL_MAX,+sl.value+(e.deltaY>0?-1:1)*(+sl.value>=600?20:10)));
   applyZoom();
 },{passive:false});
 
@@ -53247,7 +53313,7 @@ renderer.domElement.addEventListener('touchmove',e=>{
   }
   if(e.touches.length===2){
     const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-    sl.value=Math.max(1,Math.min(600,+sl.value+(d-pd)*.5));pd=d;applyZoom();
+    sl.value=Math.max(1,Math.min(SL_MAX,+sl.value+(d-pd)*.5));pd=d;applyZoom();
   }
 },{passive:true});
 renderer.domElement.addEventListener('touchend',e=>{
@@ -54359,6 +54425,7 @@ function loop(){
   // feel constant no matter the current or momentary frame rate.
   camZ+=(tZ-camZ)*(1-Math.exp(-dt*ZOOM_EASE_RATE));
   camera.position.z=camZ;
+  { const nn=Math.min(0.01,camZ*0.05); if(nn!==camera.near){ camera.near=nn; camera.updateProjectionMatrix(); } }
   if(autoSpin){ if(moleculeMode&&bSwayOn){ bSwayT+=dt; rotY=B_SWAY_AMP*Math.sin(bSwayT*B_SWAY_RATE); } else rotY+=dt*.2; }
   pivot.rotation.y=rotY;pivot.rotation.x=rotX;
   // Free focus: pivot itself only ever rotates about its own local origin;
@@ -54384,10 +54451,10 @@ function loop(){
     for(let k=0;k<_fc.labels.length;k++) _fc.labels[k].scale.set(ls, ls*0.5, 1);
   } else if(atomGrp)atomGrp.traverse(o=>{
     if(o.isPointLight) o.intensity=4+Math.sin(t*3.5)*.9;
+    if(o.userData.vib) qaNucleusVibrate(o, t, camZ);
     // Sun sprite scales with distance — always a bright glowing dot from far
     if(o.isSprite && o.userData.isSunSprite){
-      const s = Math.max(8, camZ * 0.06);
-      o.scale.set(s, s, 1);
+      qaSunSpriteFit(o, camZ);
     }
     // Nucleus halo fades as you zoom out
     if(o.isMesh && o.material && o.material.side===THREE.BackSide && o.geometry && o.geometry.parameters && o.geometry.parameters.radius < 0.1){
@@ -57674,9 +57741,10 @@ const ReactionMode=(function(){
      and the close-range halo shells fade with distance. The main loop only walks the normal atom group, so the
      reaction's own nuclei need the same per-frame update. */
   function nucleusFx(tm){
-    const s=Math.max(8,camZ*0.06),li=4+Math.sin(tm*3.5)*.9,zf=Math.max(0,Math.min(1,80/camZ));
+    const li=4+Math.sin(tm*3.5)*.9,zf=Math.max(0,Math.min(1,80/camZ));
     for(let i=0;i<nuclei.length;i++)nuclei[i].traverse(o=>{
-      if(o.isSprite&&o.userData.isSunSprite)o.scale.set(s,s,1);
+      if(o.userData.vib)qaNucleusVibrate(o,tm,camZ);
+      if(o.isSprite&&o.userData.isSunSprite)qaSunSpriteFit(o,camZ);
       else if(o.isPointLight)o.intensity=li;
       else if(o.isMesh&&o.material&&o.material.side===THREE.BackSide&&o.geometry&&o.geometry.parameters&&o.geometry.parameters.radius<0.1){
         if(o.material._baseOpacity===undefined)o.material._baseOpacity=o.material.opacity;
@@ -59103,7 +59171,7 @@ void main(){
       g=new THREE.Group(); clouds=new THREE.Group(); g.add(clouds);
       const cfg=getConfig(Z);
       for(const orb of cfg) clouds.add(smoothMode?buildSmoothCloud(orb):buildCloud(orb,orb.e));
-      nuc=makeNucleus(Z,N); g.add(nuc);
+      nuc=makeNucleus(Z,N,true); g.add(nuc);
       if(dif){   // soft halo + nucleus ink in this atom's own matter/antimatter colour (glow textures are shared: never dispose them)
         dg=makeDiffuseGlow(cfg); dg.traverse(c=>{if(c.material){c.material.userData=c.material.userData||{};c.material.userData.sharedMap=true;}}); g.add(dg);
       }
@@ -59314,7 +59382,7 @@ void main(){ vec2 uv=gl_PointCoord-vec2(0.5); float r=length(uv)*2.0; if(r>1.0) 
   /* ================= nucleon annihilation ================= */
   function nucleonEvents(rnd){
     const nr=D.nr, thr=2.6*nr, ux=Math.cos(D.phi), uy=Math.sin(D.phi);
-    const aP=D.A.nucleons.map(m=>[m.position.x,m.position.y,m.position.z]),bP=D.B.nucleons.map(m=>[m.position.x,m.position.y,m.position.z]);
+    const aP=D.A.nucleons.map(m=>m.userData.rest||[m.position.x,m.position.y,m.position.z]),bP=D.B.nucleons.map(m=>m.userData.rest||[m.position.x,m.position.y,m.position.z]);
     const speciesOf=list=>{   // each species shares one material; the group of size Z is the protons. Colour is only the fallback (Z==N).
       const cnt=new Map();list.forEach(m=>cnt.set(m.material,(cnt.get(m.material)||0)+1));
       if(cnt.size===2&&D.Z!==D.N){const pm=[...cnt.keys()].find(x=>cnt.get(x)===D.Z);if(pm)return list.map(m=>m.material===pm?'p':'n');}
@@ -59431,6 +59499,7 @@ void main(){ vec2 uv=gl_PointCoord-vec2(0.5); float r=length(uv)*2.0; if(r>1.0) 
     const aliveA=new Array(D.A.nucleons.length).fill(true),aliveB=new Array(D.B.nucleons.length).fill(true);
     for(const e of D.nuc){if(e.t<=tt){aliveA[e.i]=false;aliveB[e.j]=false;nCount++;}else break;}
     D.A.nucleons.forEach((m,i)=>{m.visible=aliveA[i];});D.B.nucleons.forEach((m,i)=>{m.visible=aliveB[i];});
+    qaNucleusVibrate(D.A.nuc,performance.now()/1000,camZ);qaNucleusVibrate(D.B.nuc,performance.now()/1000,camZ);
     const cz=D.camOf(tt),nucS=Math.max(camZ*0.06,D.Rnuc*3.2);
     [D.A,D.B].forEach(X=>{
       const alive=(X===D.A?aliveA:aliveB).some(Boolean);X.nuc.visible=alive;if(X.dglow)X.dglow.nuc.visible=alive;
