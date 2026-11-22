@@ -1,10 +1,18 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script>/* pinch belongs to the 3D zoom, never to the browser page */
+(function(){var o={passive:false},d=document;
+d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
+['gesturestart','gesturechange','gestureend'].forEach(function(n){d.addEventListener(n,function(e){e.preventDefault();},o);});
+addEventListener('wheel',function(e){if(e.ctrlKey&&e.cancelable)e.preventDefault();},o);
+})();
+</script>
+<style>html,body{touch-action:pan-x pan-y;overscroll-behavior-x:none}canvas{touch-action:none}</style>
 <script>try{if(localStorage.getItem('qa-glass')==='off')document.documentElement.setAttribute('data-glass','off');}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="google" content="notranslate">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- System bars (Android status + navigation bar of the installed app) take this colour: keep it equal to the page background so the app reads edge to edge. -->
 <meta name="theme-color" content="#eef1ff">
 <title data-i18n="landing.meta.quantum_atom_simulator_see_the">Quantum Atom Simulator — See the Invisible</title>
