@@ -1,9 +1,16 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script>/* pinch belongs to the 3D zoom, never to the browser page */
+(function(){var o={passive:false},d=document;
+d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
+['gesturestart','gesturechange','gestureend'].forEach(function(n){d.addEventListener(n,function(e){e.preventDefault();},o);});
+addEventListener('wheel',function(e){if(e.ctrlKey&&e.cancelable)e.preventDefault();},o);
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="google" content="notranslate">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- System bars (Android status + navigation bar of the installed app) take this colour: keep it equal to the page background so the app reads edge to edge. -->
 <meta name="theme-color" content="#000000">
 <title data-i18n="sim.meta.quantum_atom_simulator">Quantum Atom Simulator — 3D Orbitals for All 118 Elements</title>
@@ -29594,7 +29601,8 @@ html, body {
   color:var(--hi);
 }
 
-canvas { position:fixed; inset:0; z-index:0; }
+canvas { position:fixed; inset:0; z-index:0; touch-action:none; }
+html, body { touch-action:pan-x pan-y; -webkit-text-size-adjust:100%; overscroll-behavior:none; }
 
 /* ════════════════════════════════
    SHELL GRID

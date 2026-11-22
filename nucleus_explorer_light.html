@@ -1,10 +1,17 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script>/* pinch belongs to the 3D zoom, never to the browser page */
+(function(){var o={passive:false},d=document;
+d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
+['gesturestart','gesturechange','gestureend'].forEach(function(n){d.addEventListener(n,function(e){e.preventDefault();},o);});
+addEventListener('wheel',function(e){if(e.ctrlKey&&e.cancelable)e.preventDefault();},o);
+})();
+</script>
 <script>try{if(localStorage.getItem('qa-glass')==='off')document.documentElement.setAttribute('data-glass','off');}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="google" content="notranslate">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- System bars (Android status + navigation bar of the installed app) take this colour: keep it equal to the page background so the app reads edge to edge. -->
 <meta name="theme-color" content="#ffffff">
 <title data-i18n="nucleus.meta.nucleus_explorer_quantum_atom">Nucleus Explorer — Zoom to Quarks in 3D | Quantum Atom</title>
@@ -29199,7 +29206,7 @@ QA_I18N.add("zh", {
   --glass-shadow:0 8px 32px rgba(76,60,160,.12), inset 0 1px 0 rgba(255,255,255,.6);
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--hi);
-  font-family:var(--mono);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+  font-family:var(--mono);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;}
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--cx-40);border-radius:2px;}
@@ -40087,10 +40094,30 @@ html body #excrow .exc-chip.on span{opacity:.85}
     Q.ui.open(); setTimeout(function () { prefill(T('ask', { what: what })); }, 60); buzz(15);
   }
   (function () {
-    var tm = 0, x0 = 0, y0 = 0;
-    d.addEventListener('pointerdown', function (e) { if (!/^canvas$/i.test(e.target.tagName) || e.target.closest('.qai-root')) return; x0 = e.clientX; y0 = e.clientY; tm = setTimeout(ask, 550); }, true);
-    d.addEventListener('pointermove', function (e) { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 8) { clearTimeout(tm); tm = 0; } }, true);
-    ['pointerup', 'pointercancel'].forEach(function (n) { d.addEventListener(n, function () { clearTimeout(tm); tm = 0; }, true); });
+    /* Long-press = ask the AI. Strictly a ONE-finger gesture: any second pointer (pinch-zoom, two-finger rotate) cancels it for good,
+       and the timer can never be armed twice (a leaked timer from the first finger used to fire mid-pinch and open the AI). */
+    var tm = 0, x0 = 0, y0 = 0, pid = null, down = {}, n = 0, tainted = false;
+    function cancel() { if (tm) { clearTimeout(tm); tm = 0; } pid = null; }
+    d.addEventListener('pointerdown', function (e) {
+      if (!down[e.pointerId]) { down[e.pointerId] = 1; n++; }
+      if (n > 1) { tainted = true; cancel(); return; }          // second finger: this is a pinch / multi-touch gesture
+      tainted = false;
+      if (!/^canvas$/i.test(e.target.tagName) || e.target.closest('.qai-root')) return;
+      cancel(); pid = e.pointerId; x0 = e.clientX; y0 = e.clientY;
+      tm = setTimeout(function () { tm = 0; if (!tainted && n === 1) ask(); }, 550);
+    }, true);
+    d.addEventListener('pointermove', function (e) {
+      if (!tm) return;
+      if (e.pointerId !== pid || Math.hypot(e.clientX - x0, e.clientY - y0) > 8) cancel();
+    }, true);
+    ['pointerup', 'pointercancel'].forEach(function (nm) {
+      d.addEventListener(nm, function (e) { if (down[e.pointerId]) { delete down[e.pointerId]; n = Math.max(0, n - 1); } cancel(); if (n === 0) tainted = false; }, true);
+    });
+    ['touchstart', 'gesturestart'].forEach(function (nm) {       // iOS Safari: pinch is also reported as touches / gesture events
+      d.addEventListener(nm, function (e) { if (nm === 'gesturestart' || (e.touches && e.touches.length > 1)) { tainted = true; cancel(); } }, { capture: true, passive: true });
+    });
+    w.addEventListener('blur', function () { down = {}; n = 0; cancel(); });
+    d.addEventListener('wheel', cancel, { capture: true, passive: true });
   })();
 
   /* ───────── per-message actions ───────── */

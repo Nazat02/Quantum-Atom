@@ -1,10 +1,17 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script>/* pinch belongs to the 3D zoom, never to the browser page */
+(function(){var o={passive:false},d=document;
+d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
+['gesturestart','gesturechange','gestureend'].forEach(function(n){d.addEventListener(n,function(e){e.preventDefault();},o);});
+addEventListener('wheel',function(e){if(e.ctrlKey&&e.cancelable)e.preventDefault();},o);
+})();
+</script>
 <script>try{if(localStorage.getItem('qa-glass')==='off')document.documentElement.setAttribute('data-glass','off');}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="google" content="notranslate">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- System bars (Android status + navigation bar of the installed app) take this colour: keep it equal to the page background so the app reads edge to edge. -->
 <meta name="theme-color" content="#fbfaff">
 <title data-i18n="sim.meta.quantum_atom_simulator">Quantum Atom Simulator — 3D Orbitals for All 118 Elements</title>
@@ -29626,7 +29633,8 @@ html, body {
   color: var(--hi);
 }
 
-canvas { position:fixed; inset:0; z-index:0; }
+canvas { position:fixed; inset:0; z-index:0; touch-action:none; }
+html, body { touch-action:pan-x pan-y; -webkit-text-size-adjust:100%; overscroll-behavior:none; }
 
 /* ════════════════════════════════
    SHELL GRID
@@ -54197,7 +54205,40 @@ function qaPalCoord(H){           // HSL hue (0..1) → the liquid palette's own
   '#helmetpanel .hp-auto.on{background:#4b3fb0;color:#fff}'+
   '#helmetpanel .hp-sw{display:flex;gap:7px;margin-top:11px;justify-content:space-between}'+
   '#helmetpanel .hp-sw button{width:24px;height:24px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(60,40,140,.28);cursor:pointer;padding:0}'+
-  '#helmetpanel .hp-sw button.on{box-shadow:0 0 0 2.5px #4b3fb0}';
+  '#helmetpanel .hp-sw button.on{box-shadow:0 0 0 2.5px #4b3fb0}'+
+  /* theme sync: glass / flat / luxury */
+  '#helmetpanel .hp-seg button,#helmetpanel .hp-auto{-webkit-tap-highlight-color:transparent;touch-action:manipulation;box-sizing:border-box;transition:background .15s ease,color .15s ease,transform .15s ease,filter .15s ease,box-shadow .15s ease}'+
+  '#helmetpanel .hp-seg button{border:1px solid transparent}'+
+  '#helmetpanel .hp-sw button,#helmetpanel .hp-x{-webkit-tap-highlight-color:transparent;touch-action:manipulation}'+
+  'html:not([data-lux="on"]) #helmetpanel .hp-seg{background:transparent;padding:0;gap:6px}'+
+  'html:not([data-lux="on"]) #helmetpanel .hp-seg button,html:not([data-lux="on"]) #helmetpanel .hp-auto{background:var(--brand-grad,linear-gradient(135deg,#6366f1,#3b82f6)) !important;color:#fff !important;border:1px solid rgba(255,255,255,.28) !important;text-shadow:0 1px 2px rgba(0,0,0,.32);box-shadow:0 3px 12px rgba(var(--cyan-rgb,99,102,241),.32),inset 0 1px 0 rgba(255,255,255,.22) !important}'+
+  'html:not([data-lux="on"]) #helmetpanel .hp-seg button:hover,html:not([data-lux="on"]) #helmetpanel .hp-auto:hover{filter:brightness(1.1)}'+
+  'html:not([data-lux="on"]) #helmetpanel .hp-seg button.on,html:not([data-lux="on"]) #helmetpanel .hp-auto.on,html:not([data-lux="on"]) #helmetpanel .hp-seg button:active,html:not([data-lux="on"]) #helmetpanel .hp-auto:active{background:#fff !important;background-image:none !important;color:var(--cyan,#4b3fb0) !important;border:1px solid var(--cyan,#4b3fb0) !important;box-shadow:inset 0 0 0 1px var(--cyan,#4b3fb0) !important;text-shadow:none !important;filter:none !important}'+
+  'html:not([data-lux="on"]) #helmetpanel .hp-h,html:not([data-lux="on"]) #helmetpanel .hp-x{color:var(--cyan,#4b3fb0)}'+
+  'html:not([data-lux="on"]) #helmetpanel input[type=range]::-webkit-slider-thumb{border-color:var(--cyan,#4b3fb0)}'+
+  'html:not([data-lux="on"]) #helmetpanel input[type=range]::-moz-range-thumb{border-color:var(--cyan,#4b3fb0)}'+
+  'html:not([data-lux="on"]) #helmetpanel .hp-sw button.on{box-shadow:0 0 0 2.5px var(--cyan,#4b3fb0)}'+
+  'html[data-glass="off"]:not([data-lux="on"]) #helmetpanel{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;border:2px solid var(--cyan,#4b3fb0);border-radius:12px}'+
+  'html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-seg button,html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-auto{background:var(--cyan,#4b3fb0) !important;background-image:none !important;border:2px solid var(--cyan,#4b3fb0) !important;box-shadow:none !important;text-shadow:none !important;color:#fff !important}'+
+  'html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-seg button:hover,html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-auto:hover{filter:brightness(1.12)}'+
+  'html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-seg button.on,html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-auto.on,html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-seg button:active,html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-auto:active{background:#fff !important;color:var(--cyan,#4b3fb0) !important;border:2px solid var(--cyan,#4b3fb0) !important;box-shadow:none !important;filter:none !important}'+
+  'html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-sw button{box-shadow:0 0 0 1px var(--cyan,#4b3fb0)}'+
+  'html[data-glass="off"]:not([data-lux="on"]) #helmetpanel .hp-sw button.on{box-shadow:0 0 0 3px var(--cyan,#4b3fb0)}'+
+  'html[data-glass="off"]:not([data-lux="on"]) #helmetpanel input[type=range]::-webkit-slider-thumb{box-shadow:none}'+
+  'html[data-lux="on"] #helmetpanel{background:var(--lx-mat-thick) !important;-webkit-backdrop-filter:var(--lx-blur);backdrop-filter:var(--lx-blur);border:0 !important;border-radius:var(--lx-r-lg) !important;box-shadow:var(--lx-sh-3) !important;color:var(--lx-text) !important;font-family:var(--lx-font) !important}'+
+  'html[data-lux="on"] #helmetpanel .hp-h{color:var(--lx-text-2);letter-spacing:.1em}'+
+  'html[data-lux="on"] #helmetpanel .hp-x{color:var(--lx-text-2)}'+
+  'html[data-lux="on"] #helmetpanel .hp-note{color:var(--lx-text-2)}'+
+  'html[data-lux="on"] #helmetpanel .hp-seg{background:var(--lx-surface-2);padding:3px;gap:3px;border-radius:var(--lx-r)}'+
+  'html[data-lux="on"] #helmetpanel .hp-seg button,html[data-lux="on"] #helmetpanel .hp-auto{background:transparent !important;background-image:none !important;color:var(--lx-text) !important;border:0 !important;box-shadow:none !important;text-shadow:none !important;font-family:var(--lx-font) !important;border-radius:var(--lx-r-sm)}'+
+  'html[data-lux="on"] #helmetpanel .hp-auto{background:var(--lx-surface-2) !important;border-radius:var(--lx-pill)}'+
+  'html[data-lux="on"] #helmetpanel .hp-seg button:hover,html[data-lux="on"] #helmetpanel .hp-auto:hover{background:var(--lx-surface-3) !important;filter:none}'+
+  'html[data-lux="on"] #helmetpanel .hp-seg button.on,html[data-lux="on"] #helmetpanel .hp-auto.on,html[data-lux="on"] #helmetpanel .hp-seg button:active,html[data-lux="on"] #helmetpanel .hp-auto:active{background:var(--lx-btn) !important;background-image:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;filter:none}'+
+  'html[data-lux="on"] #helmetpanel .hp-seg button:active,html[data-lux="on"] #helmetpanel .hp-auto:active{transform:scale(.97)}'+
+  'html[data-lux="on"] #helmetpanel input[type=range]::-webkit-slider-thumb{border-color:var(--lx-acc);box-shadow:var(--lx-glow)}'+
+  'html[data-lux="on"] #helmetpanel input[type=range]::-moz-range-thumb{border-color:var(--lx-acc)}'+
+  'html[data-lux="on"] #helmetpanel .hp-sw button{border-color:var(--lx-surface);box-shadow:0 0 0 1px var(--lx-sep-2)}'+
+  'html[data-lux="on"] #helmetpanel .hp-sw button.on{box-shadow:0 0 0 2.5px var(--lx-acc)}';
   document.head.appendChild(css);
   var HUES=[0,28,48,130,175,215,265,320];
   var p=document.createElement('div'); p.id='helmetpanel';
@@ -54208,6 +54249,7 @@ function qaPalCoord(H){           // HSL hue (0..1) → the liquid palette's own
    '<div class="hp-row"><input type="range" min="0" max="360" step="1" aria-label="Hue"><button class="hp-auto" type="button">Auto</button></div>'+
    '<div class="hp-sw">'+HUES.map(function(h){return '<button type="button" data-h="'+h+'" aria-label="Hue '+h+'" style="background:linear-gradient(135deg,hsl('+h+',85%,72%),hsl('+h+',85%,42%))"></button>';}).join('')+'</div>';
   document.body.appendChild(p);
+  p.addEventListener('touchstart',function(){},{passive:true});   // lets :active press states fire on iOS
   var rng=p.querySelector('input'), note=p.querySelector('.hp-note'), autoB=p.querySelector('.hp-auto'), hidden=false;
   var NOTE={liquid:'Many colours flow and mix; the hue you pick leads the blend.',gradient:'One colour only, from a deep shade to a light tint.'};
   function save(){ try{ localStorage.setItem('qa-helmet-style',helmetStyle); if(helmetHue===null) localStorage.removeItem('qa-helmet-hue'); else localStorage.setItem('qa-helmet-hue',String(helmetHue)); }catch(e){} }
@@ -54219,9 +54261,45 @@ function qaPalCoord(H){           // HSL hue (0..1) → the liquid palette's own
     var cur=helmetHue===null?-1:Math.round(helmetHue*360);
     p.querySelectorAll('.hp-sw button').forEach(function(b){ b.classList.toggle('on',+b.dataset.h===cur); });
   }
-  function place(){   // pinned top-centre of the stage (the HELMET button itself can sit in a collapsed toolbar, so it is not used as an anchor)
-    p.style.left='50%'; p.style.transform='translateX(-50%)'; p.style.top=(innerWidth<720?64:76)+'px';
+  var moved=false;   // user dragged the panel: keep their position
+  function barTop(){   // top edge of the bottom control bar (the full-width ancestor of the zoom slider)
+    var z=document.getElementById('zsl'), e=z, best=innerHeight-120;
+    while(e && e!==document.body){ var r=e.getBoundingClientRect(); if(r.width>=innerWidth*0.9 && r.top>innerHeight*0.45){ best=r.top; break; } e=e.parentElement; }
+    return best;
   }
+  function place(){
+    if(moved){   // keep a dragged position, but never let it leave the screen
+      var r=p.getBoundingClientRect(), l=Math.max(4,Math.min(innerWidth-r.width-4,r.left)), t=Math.max(4,Math.min(innerHeight-r.height-4,r.top));
+      p.style.left=l+'px'; p.style.top=t+'px'; p.style.bottom='auto'; p.style.transform='none'; return;
+    }
+    var narrow=innerWidth<720, rx=document.body.classList.contains('rx-on');
+    if(narrow){ p.style.left='12px'; p.style.transform='none'; p.style.width='min(300px,calc(100vw - 88px))'; }   // phone: leave the right-hand AI button free
+    else{ p.style.left='50%'; p.style.transform='translateX(-50%)'; p.style.width=''; }
+    if(narrow && !rx){   // phone: sit just above the zoom bar, clear of the toolbar and the molecule
+      p.style.top='auto'; p.style.bottom=Math.max(8,innerHeight-barTop()+8)+'px';
+    }else{               // desktop / reaction sheet open: under the header
+      var cv=document.getElementById('c'), ct=cv?cv.getBoundingClientRect().top:0;
+      p.style.bottom='auto'; p.style.top=(narrow?Math.max(64,ct)+8:76)+'px';
+    }
+  }
+  (function drag(){   // drag by the title bar (mouse or touch)
+    var h=p.querySelector('.hp-h'), off=null;
+    h.style.touchAction='none'; h.style.cursor='grab';
+    h.addEventListener('pointerdown',function(e){
+      if(e.target.closest('button')) return;
+      var r=p.getBoundingClientRect(); off={x:e.clientX-r.left,y:e.clientY-r.top};
+      p.style.left=r.left+'px'; p.style.top=r.top+'px'; p.style.bottom='auto'; p.style.transform='none'; moved=true;
+      try{ h.setPointerCapture(e.pointerId); }catch(_){}
+      e.preventDefault();
+    });
+    h.addEventListener('pointermove',function(e){
+      if(!off) return;
+      var w=p.offsetWidth, hh=p.offsetHeight;
+      p.style.left=Math.max(4,Math.min(innerWidth-w-4,e.clientX-off.x))+'px';
+      p.style.top=Math.max(4,Math.min(innerHeight-hh-4,e.clientY-off.y))+'px';
+    });
+    ['pointerup','pointercancel'].forEach(function(n){ h.addEventListener(n,function(){ off=null; }); });
+  })();
   function sync(){
     var on=!!(typeof helmetMode!=='undefined'&&helmetMode)&&!hidden&&helmetbtn.offsetParent!==null;
     p.style.display=on?'block':'none'; if(on){ paint(); place(); }
@@ -72548,10 +72626,30 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
     Q.ui.open(); setTimeout(function () { prefill(T('ask', { what: what })); }, 60); buzz(15);
   }
   (function () {
-    var tm = 0, x0 = 0, y0 = 0;
-    d.addEventListener('pointerdown', function (e) { if (!/^canvas$/i.test(e.target.tagName) || e.target.closest('.qai-root')) return; x0 = e.clientX; y0 = e.clientY; tm = setTimeout(ask, 550); }, true);
-    d.addEventListener('pointermove', function (e) { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 8) { clearTimeout(tm); tm = 0; } }, true);
-    ['pointerup', 'pointercancel'].forEach(function (n) { d.addEventListener(n, function () { clearTimeout(tm); tm = 0; }, true); });
+    /* Long-press = ask the AI. Strictly a ONE-finger gesture: any second pointer (pinch-zoom, two-finger rotate) cancels it for good,
+       and the timer can never be armed twice (a leaked timer from the first finger used to fire mid-pinch and open the AI). */
+    var tm = 0, x0 = 0, y0 = 0, pid = null, down = {}, n = 0, tainted = false;
+    function cancel() { if (tm) { clearTimeout(tm); tm = 0; } pid = null; }
+    d.addEventListener('pointerdown', function (e) {
+      if (!down[e.pointerId]) { down[e.pointerId] = 1; n++; }
+      if (n > 1) { tainted = true; cancel(); return; }          // second finger: this is a pinch / multi-touch gesture
+      tainted = false;
+      if (!/^canvas$/i.test(e.target.tagName) || e.target.closest('.qai-root')) return;
+      cancel(); pid = e.pointerId; x0 = e.clientX; y0 = e.clientY;
+      tm = setTimeout(function () { tm = 0; if (!tainted && n === 1) ask(); }, 550);
+    }, true);
+    d.addEventListener('pointermove', function (e) {
+      if (!tm) return;
+      if (e.pointerId !== pid || Math.hypot(e.clientX - x0, e.clientY - y0) > 8) cancel();
+    }, true);
+    ['pointerup', 'pointercancel'].forEach(function (nm) {
+      d.addEventListener(nm, function (e) { if (down[e.pointerId]) { delete down[e.pointerId]; n = Math.max(0, n - 1); } cancel(); if (n === 0) tainted = false; }, true);
+    });
+    ['touchstart', 'gesturestart'].forEach(function (nm) {       // iOS Safari: pinch is also reported as touches / gesture events
+      d.addEventListener(nm, function (e) { if (nm === 'gesturestart' || (e.touches && e.touches.length > 1)) { tainted = true; cancel(); } }, { capture: true, passive: true });
+    });
+    w.addEventListener('blur', function () { down = {}; n = 0; cancel(); });
+    d.addEventListener('wheel', cancel, { capture: true, passive: true });
   })();
 
   /* ───────── per-message actions ───────── */
