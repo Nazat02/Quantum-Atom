@@ -49679,6 +49679,43 @@ document.addEventListener('touchstart',function(){},{passive:true});   // iOS Sa
 let _rbTok=0;
 function deferRebuild(){const tok=++_rbTok;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(tok===_rbTok)rebuildScene();}));}
 
+// ── Tap-vs-scroll guard ───────────────────────────────────────────────
+// A tap only counts when the finger stayed put, the list did not scroll under it, the
+// touch did not merely stop a fling, and it was not multi-touch. Anything else (a scroll
+// that happens to end over a tile) is swallowed, so scrolling the list never selects.
+// Same logic for all three UI styles (flat / glass / luxury) and both themes.
+let _qaNoClickUntil=0, _qaLastScrollT=-1e9;
+document.addEventListener('scroll',()=>{_qaLastScrollT=performance.now();},{capture:true,passive:true});
+function qaScroller(el){
+  for(let n=el;n&&n!==document.body;n=n.parentElement){
+    const o=getComputedStyle(n).overflowY;
+    if((o==='auto'||o==='scroll')&&n.scrollHeight>n.clientHeight+1) return n;
+  }
+  return null;
+}
+function qaBindTapGuard(container, sel, onTap){
+  let g=null;
+  container.addEventListener('touchstart',e=>{
+    const btn=e.target.closest(sel), sc=qaScroller(container), now=performance.now();
+    g={btn:btn, x:e.touches[0].clientX, y:e.touches[0].clientY, t:now, sc:sc, top:sc?sc.scrollTop:0,
+       bad:e.touches.length>1 || (now-_qaLastScrollT<150)};   // 2nd finger, or a touch that stops a fling
+  },{passive:true});
+  container.addEventListener('touchmove',e=>{
+    if(!g) return; const t=e.touches[0];
+    if(!t||e.touches.length>1||Math.abs(t.clientX-g.x)>8||Math.abs(t.clientY-g.y)>8) g.bad=true;
+  },{passive:true});
+  container.addEventListener('touchcancel',()=>{ g=null; _qaNoClickUntil=performance.now()+400; },{passive:true});
+  container.addEventListener('touchend',e=>{
+    const s=g; g=null; if(!s||!s.btn) return;
+    const now=performance.now();
+    const scrolled=s.sc && Math.abs(s.sc.scrollTop-s.top)>2;
+    if(s.bad||scrolled||now-_qaLastScrollT<80||now-s.t>800){
+      _qaNoClickUntil=now+400; if(e.cancelable) e.preventDefault(); return;   // scroll / fling-stop / long press: not a tap
+    }
+    onTap(s.btn,e); if(e.cancelable) e.preventDefault();
+  },{passive:false});
+}
+
 // Element buttons
 const eg=document.getElementById('egrid');
 ELS.forEach(el=>{
@@ -49695,18 +49732,17 @@ ELS.forEach(el=>{
 // Dual handler: touchend for Android (fires before scroll cancels it),
 // click as fallback for desktop/mouse
 let lastTouchZ = 0;
-eg.addEventListener('touchend', (e) => {
-  const btn = e.target.closest('.ebtn');
-  if(!btn) return;
+qaBindTapGuard(eg, '.ebtn', (btn) => {
   const Z = parseInt(btn.dataset.z, 10);
-  if(Z){ lastTouchZ = Z; tapElement(btn); e.preventDefault(); }
-}, { passive: false });
+  if(Z){ lastTouchZ = Z; tapElement(btn); }
+});
 
 eg.addEventListener('click', (e) => {
   const btn = e.target.closest('.ebtn');
   if(!btn) return;
+  if(performance.now() < _qaNoClickUntil){ lastTouchZ = 0; return; }   // synthetic click after a scroll gesture
   const Z = parseInt(btn.dataset.z, 10);
-  // Skip if touchend already handled this (prevents double-fire)
+  // Skip if the touch handler already handled this (prevents double-fire)
   if(Z && Z !== lastTouchZ) tapElement(btn);
   lastTouchZ = 0;
 });
@@ -49740,13 +49776,13 @@ HYPO.all().forEach(el=>{
   b.setAttribute('aria-label',qaT("sim.js.name_z_z_hypothetical",{name:el.name,Z:el.Z}));
   hgrid.appendChild(b);
 });
-hgrid.addEventListener('touchend',e=>{
-  const btn=e.target.closest('.ebtn'); if(!btn) return;
+qaBindTapGuard(hgrid,'.ebtn',btn=>{
   const Z=parseInt(btn.dataset.z,10);
-  if(Z){ lastTouchZ=Z; tapElement(btn); e.preventDefault(); }
-},{passive:false});
+  if(Z){ lastTouchZ=Z; tapElement(btn); }
+});
 hgrid.addEventListener('click',e=>{
   const btn=e.target.closest('.ebtn'); if(!btn) return;
+  if(performance.now()<_qaNoClickUntil){ lastTouchZ=0; return; }
   const Z=parseInt(btn.dataset.z,10);
   if(Z&&Z!==lastTouchZ) tapElement(btn);
   lastTouchZ=0;
@@ -54155,7 +54191,7 @@ window.checkThemeParity = async function () {
   // Known, reviewed, intentional asymmetries — name the reason, don't just
   // silence the check.
   const ALLOWED = {
-    buttonIds: ['hyperbtn'], // hyperbtn: light-only (needs WebGL2 float render targets). Diffuse + Cloud Studio ship in both themes
+    buttonIds: ['hyperbtn','helmetbtn'], // hyperbtn: light-only (needs WebGL2 float render targets); helmetbtn: light-only glossy Helmet surface style. Diffuse + Cloud Studio ship in both themes
   };
   const extract = (doc) => ({
     buttonIds: [...doc.querySelectorAll('button[id]')].map((e) => e.id),
@@ -56397,7 +56433,8 @@ if(typeof module==='object'&&module.exports) module.exports=api; else root.React
    ===================================================================== */
 const ReactionMode=(function(){
   'use strict';
-  const D2R=Math.PI/180, TSC=1.9, SN=12;     // SN: path snapshots per transition (finer than the solver's collision-free steps' spacing so the Catmull-Rom spline cannot cut corners)
+  const D2R=Math.PI/180, TSC=1.9, SN=12;
+  const RX_GAP=2.6;   // starting clearance between neighbouring reactants' electron clouds (cloud-sized units): clearly apart, still in one frame     // SN: path snapshots per transition (finer than the solver's collision-free steps' spacing so the Catmull-Rom spline cannot cut corners)
                    // TSC: slow-motion factor (spec times are authored at 1×)
   const REGISTRY=new Map();
 
@@ -56621,11 +56658,11 @@ const ReactionMode=(function(){
     const X=new Array(NA),items=STAGES[0].species.map((sp,k)=>{let p=G(sp);const q=Qs&&Qs[k];if(q)p=p.map(v=>{const w=new THREE.Vector3(v[0],v[1],v[2]).applyQuaternion(q);return[w.x,w.y,w.z];});return{sp,p,r:Math.max(.1,...p.map((q,i)=>Math.hypot(q[0],q[1],q[2])+.9*RZ(sp.a[i])))};});
     const slots=ord?ord.map(i=>items[i]):items;   // placement order along the approach axis (searched: reacting partners must be neighbours)
     if(ring&&slots.length>=3){   // collision complex: three or more reactants meet in a ring, every neighbour in contact (as the benzene triangle)
-      const n=slots.length;let Rr=0;for(let k=0;k<n;k++)Rr=Math.max(Rr,(slots[k].r+slots[(k+1)%n].r+.6)/(2*Math.sin(Math.PI/n)));
+      const n=slots.length;let Rr=0;for(let k=0;k<n;k++)Rr=Math.max(Rr,(slots[k].r+slots[(k+1)%n].r+RX_GAP)/(2*Math.sin(Math.PI/n)));
       slots.forEach((o,k)=>{const th=2*Math.PI*k/n,cx=Rr*Math.cos(th),cy=Rr*Math.sin(th);o.sp.a.forEach((a,i)=>{X[a]=[cx+o.p[i][0],cy+o.p[i][1],o.p[i][2]];});});
     }else{
-    let x=-slots.reduce((s,o)=>s+2*o.r+.6,-.6)/2;
-    slots.forEach((o,k)=>{x+=o.r;o.sp.a.forEach((a,i)=>{X[a]=[x+o.p[i][0],o.p[i][1]+(k%2?.3:-.3)*o.r,o.p[i][2]];});x+=o.r+.6;});}
+    let x=-slots.reduce((s,o)=>s+2*o.r+RX_GAP,-RX_GAP)/2;
+    slots.forEach((o,k)=>{x+=o.r;o.sp.a.forEach((a,i)=>{X[a]=[x+o.p[i][0],o.p[i][1]+(k%2?.3:-.3)*o.r,o.p[i][2]];});x+=o.r+RX_GAP;});}
     if(tg&&tg[0])tg[0].forEach((p,a)=>{X[a]=p.slice();});   // refinement pass: keep the winning start arrangement
     KF[0].pos=X.map(p=>p.slice());
     const pull=(p,q,t,w)=>{const dx=q[0]-p[0],dy=q[1]-p[1],dz=q[2]-p[2],L=Math.hypot(dx,dy,dz)||1e-6,c=(L-t)/L*w;p[0]+=c*dx;p[1]+=c*dy;p[2]+=c*dz;q[0]-=c*dx;q[1]-=c*dy;q[2]-=c*dz;};
@@ -71741,10 +71778,30 @@ html:not([data-lux="on"]):not(#qa-p):not(#qa-p):not(#qa-p):not(#qa-p) .qai-root 
     Q.ui.open(); setTimeout(function () { prefill(T('ask', { what: what })); }, 60); buzz(15);
   }
   (function () {
-    var tm = 0, x0 = 0, y0 = 0;
-    d.addEventListener('pointerdown', function (e) { if (!/^canvas$/i.test(e.target.tagName) || e.target.closest('.qai-root')) return; x0 = e.clientX; y0 = e.clientY; tm = setTimeout(ask, 550); }, true);
-    d.addEventListener('pointermove', function (e) { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 8) { clearTimeout(tm); tm = 0; } }, true);
-    ['pointerup', 'pointercancel'].forEach(function (n) { d.addEventListener(n, function () { clearTimeout(tm); tm = 0; }, true); });
+    /* Long-press = ask the AI. Strictly a ONE-finger gesture: any second pointer (pinch-zoom, two-finger rotate) cancels it for good,
+       and the timer can never be armed twice (a leaked timer from the first finger used to fire mid-pinch and open the AI). */
+    var tm = 0, x0 = 0, y0 = 0, pid = null, down = {}, n = 0, tainted = false;
+    function cancel() { if (tm) { clearTimeout(tm); tm = 0; } pid = null; }
+    d.addEventListener('pointerdown', function (e) {
+      if (!down[e.pointerId]) { down[e.pointerId] = 1; n++; }
+      if (n > 1) { tainted = true; cancel(); return; }          // second finger: this is a pinch / multi-touch gesture
+      tainted = false;
+      if (!/^canvas$/i.test(e.target.tagName) || e.target.closest('.qai-root')) return;
+      cancel(); pid = e.pointerId; x0 = e.clientX; y0 = e.clientY;
+      tm = setTimeout(function () { tm = 0; if (!tainted && n === 1) ask(); }, 550);
+    }, true);
+    d.addEventListener('pointermove', function (e) {
+      if (!tm) return;
+      if (e.pointerId !== pid || Math.hypot(e.clientX - x0, e.clientY - y0) > 8) cancel();
+    }, true);
+    ['pointerup', 'pointercancel'].forEach(function (nm) {
+      d.addEventListener(nm, function (e) { if (down[e.pointerId]) { delete down[e.pointerId]; n = Math.max(0, n - 1); } cancel(); if (n === 0) tainted = false; }, true);
+    });
+    ['touchstart', 'gesturestart'].forEach(function (nm) {       // iOS Safari: pinch is also reported as touches / gesture events
+      d.addEventListener(nm, function (e) { if (nm === 'gesturestart' || (e.touches && e.touches.length > 1)) { tainted = true; cancel(); } }, { capture: true, passive: true });
+    });
+    w.addEventListener('blur', function () { down = {}; n = 0; cancel(); });
+    d.addEventListener('wheel', cancel, { capture: true, passive: true });
   })();
 
   /* ───────── per-message actions ───────── */

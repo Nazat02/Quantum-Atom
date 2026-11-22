@@ -30311,7 +30311,7 @@ body.hypo-mode a[href*="nucleus_explorer"]{display:none !important;}
   box-shadow: 0 0 16px rgba(255,46,196,.35), 0 0 32px rgba(199,36,255,.2);
 }
 
-#sphericalbtn ,#exactbtn ,#meshbtn{
+#sphericalbtn ,#exactbtn ,:is(#meshbtn,#helmetbtn){
   width: 100%;
   text-align: center;
   padding: 10px 12px;
@@ -30331,8 +30331,8 @@ body.hypo-mode a[href*="nucleus_explorer"]{display:none !important;}
   justify-content: center;
   gap: 8px;
 }
-#sphericalbtn:hover ,#exactbtn:hover ,#meshbtn:hover{ background:rgba(16,185,129,.14); color:var(--hi); border-color:rgba(16,185,129,.55); }
-#sphericalbtn.active ,#exactbtn.active ,#meshbtn.active{
+#sphericalbtn:hover ,#exactbtn:hover ,:is(#meshbtn,#helmetbtn):hover{ background:rgba(16,185,129,.14); color:var(--hi); border-color:rgba(16,185,129,.55); }
+#sphericalbtn.active ,#exactbtn.active ,:is(#meshbtn,#helmetbtn).active{
   background: rgba(16,185,129,.18);
   border-color: #10b981;
   color: #0a8f63;
@@ -30736,7 +30736,7 @@ input[type=range]::-moz-range-thumb {
 #el-search, #hy-search,
 #build-input,
 .panel-close,
-#realbtn,#diffusebtn,#gridbtn, #smoothbtn, #ultrabtn, #hyperbtn, #excitedbtn, #antibtn, #sphericalbtn,#exactbtn,#meshbtn,
+#realbtn,#diffusebtn,#gridbtn, #smoothbtn, #ultrabtn, #hyperbtn, #excitedbtn, #antibtn, #sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),
 .rbtn,
 .theme-toggle-btn {
   backdrop-filter: blur(14px) saturate(160%);
@@ -30813,7 +30813,7 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
 :root[data-matter="anti"]{--brand-b:var(--green);}
 :root{--brand-grad:linear-gradient(135deg,var(--brand-a) 0%,var(--brand-b) 100%);}
 
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn){
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn){
   background:var(--brand-grad) !important;
   color:#fff !important;
   border:1px solid rgba(255,255,255,.28) !important;
@@ -30822,15 +30822,15 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
   cursor:pointer;
   transition:filter .15s,transform .15s,box-shadow .15s;
 }
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) svg{color:#fff;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) :is(.lesson-item-title,.lesson-item-count){color:#fff !important;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):hover{filter:brightness(1.1);transform:translateY(-1px);
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) svg{color:#fff;}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn) :is(.lesson-item-title,.lesson-item-count){color:#fff !important;}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):hover{filter:brightness(1.1);transform:translateY(-1px);
   box-shadow:0 6px 18px rgba(var(--cyan-rgb),.45),inset 0 1px 0 rgba(255,255,255,.28) !important;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):active{transform:none;filter:brightness(.94);}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):active{transform:none;filter:brightness(.94);}
 /* ON / ACTIVE state: white inner ring + glow, so toggles stay readable */
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):is(.on,.active,[aria-pressed="true"]){
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):is(.on,.active,[aria-pressed="true"]){
   box-shadow:inset 0 0 0 2px #fff,0 0 16px rgba(var(--cyan-rgb),.65) !important;}
-:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):disabled{opacity:.4;filter:grayscale(.35);transform:none;cursor:default;}
+:is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-item,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):disabled{opacity:.4;filter:grayscale(.35);transform:none;cursor:default;}
 
 /* round toolbar icons sit in a clipping scroller: keep their glow tight so it isn't cut off */
 .theme-toggle-btn{box-shadow:0 2px 6px rgba(var(--cyan-rgb),.35),inset 0 1px 0 rgba(255,255,255,.22) !important;}
@@ -30851,11 +30851,11 @@ input[type=range]::-webkit-slider-thumb{margin-top:-6px;}
    rule and each toggle falls back to its own legacy colour (Real Image red, Smooth blue, Excited yellow ...). This block
    repeats the same look with plain selectors, so the clicked state is identical everywhere and can never diverge per button.
 ════════════════════════════════ */
-#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,#meshbtn,#excitedbtn{background:var(--brand-grad) !important;color:#fff !important;border:1px solid rgba(255,255,255,.28) !important;text-shadow:0 1px 2px rgba(0,0,0,.32);box-shadow:0 3px 12px rgba(var(--cyan-rgb),.32),inset 0 1px 0 rgba(255,255,255,.22) !important;}
-#antibtn:hover,#realbtn:hover,#diffusebtn:hover,#hyperbtn:hover,#gridbtn:hover,#smoothbtn:hover,#ultrabtn:hover,#sphericalbtn:hover,#exactbtn:hover,#meshbtn:hover,#excitedbtn:hover{filter:brightness(1.1);}
-#antibtn:active,#realbtn:active,#diffusebtn:active,#hyperbtn:active,#gridbtn:active,#smoothbtn:active,#ultrabtn:active,#sphericalbtn:active,#exactbtn:active,#meshbtn:active,#excitedbtn:active{filter:brightness(.94);}
-#antibtn.active,#realbtn.active,#diffusebtn.active,#hyperbtn.active,#gridbtn.active,#smoothbtn.active,#ultrabtn.active,#sphericalbtn.active,#exactbtn.active,#meshbtn.active,#excitedbtn.active{box-shadow:inset 0 0 0 2px #fff,0 0 16px rgba(var(--cyan-rgb),.65) !important;}
-#antibtn.active svg,#realbtn.active svg,#diffusebtn.active svg,#hyperbtn.active svg,#gridbtn.active svg,#smoothbtn.active svg,#ultrabtn.active svg,#sphericalbtn.active svg,#exactbtn.active svg,#meshbtn.active svg,#excitedbtn.active svg,#antibtn svg,#realbtn svg,#diffusebtn svg,#hyperbtn svg,#gridbtn svg,#smoothbtn svg,#ultrabtn svg,#sphericalbtn svg,#exactbtn svg,#meshbtn svg,#excitedbtn svg{color:#fff;}
+#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#excitedbtn{background:var(--brand-grad) !important;color:#fff !important;border:1px solid rgba(255,255,255,.28) !important;text-shadow:0 1px 2px rgba(0,0,0,.32);box-shadow:0 3px 12px rgba(var(--cyan-rgb),.32),inset 0 1px 0 rgba(255,255,255,.22) !important;}
+#antibtn:hover,#realbtn:hover,#diffusebtn:hover,#hyperbtn:hover,#gridbtn:hover,#smoothbtn:hover,#ultrabtn:hover,#sphericalbtn:hover,#exactbtn:hover,:is(#meshbtn,#helmetbtn):hover,#excitedbtn:hover{filter:brightness(1.1);}
+#antibtn:active,#realbtn:active,#diffusebtn:active,#hyperbtn:active,#gridbtn:active,#smoothbtn:active,#ultrabtn:active,#sphericalbtn:active,#exactbtn:active,:is(#meshbtn,#helmetbtn):active,#excitedbtn:active{filter:brightness(.94);}
+#antibtn.active,#realbtn.active,#diffusebtn.active,#hyperbtn.active,#gridbtn.active,#smoothbtn.active,#ultrabtn.active,#sphericalbtn.active,#exactbtn.active,:is(#meshbtn,#helmetbtn).active,#excitedbtn.active{box-shadow:inset 0 0 0 2px #fff,0 0 16px rgba(var(--cyan-rgb),.65) !important;}
+#antibtn.active svg,#realbtn.active svg,#diffusebtn.active svg,#hyperbtn.active svg,#gridbtn.active svg,#smoothbtn.active svg,#ultrabtn.active svg,#sphericalbtn.active svg,#exactbtn.active svg,:is(#meshbtn,#helmetbtn).active svg,#excitedbtn.active svg,#antibtn svg,#realbtn svg,#diffusebtn svg,#hyperbtn svg,#gridbtn svg,#smoothbtn svg,#ultrabtn svg,#sphericalbtn svg,#exactbtn svg,:is(#meshbtn,#helmetbtn) svg,#excitedbtn svg{color:#fff;}
 </style>
 
 <style id="tap-feedback">
@@ -31606,14 +31606,14 @@ html[data-glass="off"] :is(.ebtn:hover,.mcard:hover,.ex-chip:hover,.lesson-item:
 html[data-glass="off"] :is(#el-search:focus,#hy-search:focus,#build-input:focus){border-color:var(--cyan) !important;outline:2px solid var(--cyan);outline-offset:1px;}
 html[data-glass="off"] .lesson-item :is(.lesson-item-title,.lesson-item-count){color:var(--hi) !important;}
 /* buttons: solid accent, white label, no gradient / gloss / glow */
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn){
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn){
   background:var(--cyan) !important;background-image:none !important;border:1px solid var(--cyan) !important;box-shadow:none !important;color:#fff !important;}
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):hover{
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.lesson-back,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn):hover{
   filter:brightness(1.12) !important;transform:none !important;box-shadow:none !important;}
 /* "on" = inverted (white fill, accent outline) so the state is obvious without glow */
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.dl-chip,.an-unit-btn):is(.on,.active,[aria-pressed="true"]){
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.dl-chip,.an-unit-btn):is(.on,.active,[aria-pressed="true"]){
   background:#fff !important;color:var(--cyan) !important;border:2px solid var(--cyan) !important;box-shadow:none !important;}
-html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.lesson-nav-btn,.dl-chip,.an-unit-btn):is(.on,.active,[aria-pressed="true"]) svg{color:var(--cyan) !important;}
+html[data-glass="off"] :is(.mode-btn,#dtune .dt-btn,.tab,.theme-toggle-btn,.rbtn,#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.lesson-nav-btn,.dl-chip,.an-unit-btn):is(.on,.active,[aria-pressed="true"]) svg{color:var(--cyan) !important;}
 /* #qa-spec never matches: it only lifts this rule above the tile rule, whose :is() list contains IDs (#el-search…) and so out-ranked every .on state — selected tiles turned plain white */
 html[data-glass="off"] :is(.ebtn.on,.mcard.on,.bsel-opt[aria-selected="true"],#qa-spec){background:var(--cyan) !important;border-color:var(--cyan) !important;box-shadow:none !important;color:#fff !important;}
 html[data-glass="off"] :is(.ebtn.on .s,.ebtn.on .z,.mcard.on .mf,.mcard.on .mn,#qa-spec){color:#fff !important;}
@@ -31922,7 +31922,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) body::after{background:none !important
 /* ── shared label voice: no terminal caps, no letter-spacing, sentence case where the markup allows ── */
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#topbar,#botbar,#left,#right,.compare-card,.bsel-panel,.dl-sheet,#toast) *{text-shadow:none !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.panel-title,.ptitle,#topbar-logo-name,.tab,.tab-label,.mode-btn,.hint,.zbar label,.sk,.sv,#emeta,#zval,.rbtn,
-  #realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,.dt-btn,.lesson-nav-btn,.ex-chip,
+  #realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),.dt-btn,.lesson-nav-btn,.ex-chip,
   .an-section-title,.an-unit-btn,.cmp-row,.dl-chip,.lesson-item,.build-examples-note,#build-status){letter-spacing:-.01em !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #ename{text-transform:lowercase !important;display:block !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #ename::first-letter{text-transform:uppercase !important;}
@@ -32021,18 +32021,18 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.orow,.ex-chip,#build-status,.less
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .ex-chip:hover,html[data-lux="on"]:not(#lx-a):not(#lx-b) .lesson-item:hover{background:var(--lx-surface-2) !important;}
 
 /* view-mode switches (Antimatter, Real image, Diffuse, Grid …): neutral rows, accent fill when on */
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn,.lesson-nav-btn){
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn,.lesson-nav-btn){
   background:var(--lx-surface) !important;color:var(--lx-text) !important;border:0 !important;border-radius:var(--lx-r) !important;min-height:44px !important;
   box-shadow:var(--lx-sh-1) !important;background-image:none !important;font-size:15px !important;font-weight:500 !important;text-transform:none !important;
   transform:none !important;filter:none !important;justify-content:flex-start !important;padding:0 13px !important;gap:10px !important;transition:background .2s ease,transform .25s var(--lx-spring) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn,.lesson-nav-btn){box-shadow:none !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):active{transform:scale(.98) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn) svg{color:var(--lx-acc) !important;stroke:currentColor;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]){
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn,.lesson-nav-btn){box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b)[data-lux-tone="dark"] :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn):hover{background:var(--lx-surface-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn):active{transform:scale(.98) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn) svg{color:var(--lx-acc) !important;stroke:currentColor;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]){
   background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,#meshbtn,#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]) svg{color:var(--lx-on-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#realbtn,#diffusebtn,#gridbtn,#smoothbtn,#ultrabtn,#hyperbtn,#excitedbtn,#antibtn,#sphericalbtn,#exactbtn,:is(#meshbtn,#helmetbtn),#dtune .dt-btn):is(.on,.active,[aria-pressed="true"]) svg{color:var(--lx-on-acc) !important;}
 /* primary actions stay filled with the brand colour */
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.rbtn,#build-go,.lesson-nav-btn.primary){background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;border:0 !important;
   border-radius:var(--lx-pill) !important;box-shadow:var(--lx-glow) !important;background-image:var(--lx-btn) !important;font-weight:600 !important;font-size:14px !important;
@@ -32154,7 +32154,8 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.rx-lb,.rx-ct){letter-spacing:.02e
   html[data-lux="on"]:not(#lx-a):not(#lx-b) #tabs{gap:8px !important;}
 }
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #ann-panel .an-title{letter-spacing:-.02em !important;font-size:16px !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#rx-panel,#ann-panel) button:not(.rx-play):not(.an-play){border-radius:50% ;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #ann-panel button:not(.an-play){border-radius:50% ;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel :is(.rx-x,.rx-min,.rx-prev,.rx-next,.rx-zo,.rx-zi){border-radius:50% ;}
 /* laptops: the icon row (now 15 icons + 2 tabs) ran into the fade at the right edge */
 @media (min-width:641px) and (max-width:1600px){
   html[data-lux="on"]:not(#lx-a):not(#lx-b) #tabs{gap:4px !important;padding-inline-end:10px !important;}
@@ -32189,9 +32190,9 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-sel{background:var(--lx-
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-sel svg{color:var(--lx-acc) !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel :is(.rx-st,.rx-lb){letter-spacing:.01em !important;color:var(--lx-text-2) !important;font-size:12px !important;font-weight:600 !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-eq{background:none !important;-webkit-text-fill-color:currentColor !important;color:var(--lx-text) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel :is(.rx-x,.rx-min,.rx-more,.rx-prev,.rx-next,.rx-zo,.rx-zi,.rx-spd,.rx-view){background:var(--lx-fill) !important;border:0 !important;box-shadow:none !important;color:var(--lx-text) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel :is(.rx-x,.rx-min,.rx-prev,.rx-next,.rx-zo,.rx-zi,.rx-spd){background:var(--lx-fill) !important;border:0 !important;box-shadow:none !important;color:var(--lx-text) !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-play{background:var(--lx-btn) !important;border:0 !important;color:var(--lx-on-acc) !important;box-shadow:var(--lx-glow) !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-grab{background:var(--lx-fill-3) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-grab{background:transparent !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .rx-menu{--rx-bg:var(--lx-surface);--rx-line:var(--lx-sep);--rx-hover:var(--lx-fill);background:var(--lx-mat-thick) !important;-webkit-backdrop-filter:var(--lx-blur) !important;backdrop-filter:var(--lx-blur) !important;
   border:0 !important;box-shadow:var(--lx-sh-3) !important;border-radius:var(--lx-r-lg) !important;color:var(--lx-text) !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .rx-menu .rx-sh{background:transparent !important;border-bottom:.5px solid var(--lx-sep) !important;}
@@ -32203,6 +32204,87 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) .rx-menu .rx-o[aria-selected=true]{bac
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .rx-menu .rx-o[aria-selected=true]::before{display:none !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .rx-menu .rx-ok{color:var(--lx-acc) !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .rx-menu .rx-ot{letter-spacing:-.015em !important;font-weight:600 !important;}
+
+/* ── Reaction player v2 (luxury) ─────────────────────────────────────────────────────────────────
+   One calm sheet, same system as the rest of luxury: picker + icon buttons, hero (play ring, stage, equation),
+   segmented stages, transport, then the view controls. Only --lx-* tokens, so dark/light follow. ── */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel{--cyan:var(--lx-acc);--cyan-rgb:var(--lx-acc-rgb);--n1:var(--lx-fill);--n2:var(--lx-fill-2);
+  padding:10px 16px 16px !important;border-radius:28px !important;max-height:min(60vh,580px);
+  background:var(--lx-mat-thick) !important;border:0 !important;
+  box-shadow:var(--lx-sh-3),0 0 0 .5px var(--lx-sep) inset !important;color:var(--lx-text) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel::before{background:var(--lx-fill-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel::after{background:var(--lx-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min)::before,html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min)::after{display:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel.min{padding:20px 12px 12px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel.min .rx-grab{height:20px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel.min .rx-grab i{margin-top:7.5px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel.min .rx-eq{font-size:17px !important;}
+
+/* grab handle: a capsule, 44pt touch area, no fill */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-grab{top:0 !important;width:72px !important;height:26px !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-grab i{width:36px !important;height:5px !important;margin:10.5px auto 0 !important;border-radius:3px !important;background:var(--lx-fill-3) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-grab:hover i{width:36px !important;background:var(--lx-fill-3) !important;}
+
+/* top row: picker pill with a chevron, then three quiet icon buttons */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min)>.rx-top{margin:16px 0 14px !important;gap:8px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-sel{position:relative;height:44px !important;padding:0 42px 0 18px !important;font:600 17px/1 var(--lx-font) !important;letter-spacing:-.02em !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-sel::after{content:'';position:absolute;right:16px;top:50%;width:14px;height:14px;margin-top:-7px;background:var(--lx-text-3);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9.5l6 6 6-6' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9.5l6 6 6-6' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;transition:transform .2s var(--lx-spring);}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-sel[aria-expanded=true]{background:var(--lx-fill-2) !important;box-shadow:0 0 0 2px rgba(var(--lx-acc-rgb),.5) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-sel[aria-expanded=true]::after{transform:rotate(180deg);}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel :is(.rx-min,.rx-x){width:40px !important;height:40px !important;min-width:40px !important;padding:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-x{color:var(--lx-text-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-energy-btn{margin:0 !important;height:40px !important;min-width:46px !important;padding:0 13px !important;border:0 !important;border-radius:var(--lx-pill) !important;
+  background:var(--lx-fill) !important;box-shadow:none !important;color:var(--lx-acc) !important;font:700 14px/1 var(--lx-font) !important;letter-spacing:0 !important;}
+
+/* hero: slim progress ring around play, stage label, step counter, equation, description */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min){column-gap:12px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-play{width:52px !important;height:52px !important;min-width:52px !important;margin:6px 6px 6px 6px !important;
+  box-shadow:0 4px 14px rgba(var(--lx-acc-rgb),.32) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-play::before{inset:-6px !important;background:conic-gradient(var(--lx-acc) calc(var(--ppn,0)*360deg),var(--lx-fill-2) 0) !important;
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px)) !important;mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px)) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-meta{align-self:end !important;align-items:center !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-st{font:600 12px/1.2 var(--lx-font) !important;letter-spacing:.06em !important;text-transform:uppercase !important;color:var(--lx-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-ct{flex:none;padding:3px 9px !important;border-radius:var(--lx-pill) !important;background:var(--lx-fill) !important;
+  font:600 12px/1.2 var(--lx-font) !important;letter-spacing:0 !important;color:var(--lx-text-2) !important;font-variant-numeric:tabular-nums;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-eq{font:700 21px/1.2 var(--lx-font) !important;letter-spacing:-.02em !important;margin:3px 0 0 !important;color:var(--lx-text) !important;text-wrap:balance;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-tx{margin:12px 2px 0 !important;font:500 14.5px/1.5 var(--lx-font) !important;color:var(--lx-text-2) !important;letter-spacing:-.005em;}
+
+/* stages: a real segmented control. Done = accent number, current = raised thumb */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-dots{margin:16px 0 0 !important;padding:2px !important;gap:2px !important;background:var(--lx-fill) !important;border-radius:12px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-dots>[role=tab]{height:34px !important;border:0 !important;border-radius:10px !important;background:transparent !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-dots .rx-n{font:600 14px/1 var(--lx-font) !important;letter-spacing:0 !important;color:var(--lx-text-3) !important;font-variant-numeric:tabular-nums;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-dots>.done .rx-n{color:var(--lx-acc) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-dots>.on{background:var(--lx-seg-on) !important;box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-dots>.on .rx-n{color:var(--lx-text) !important;font-weight:700 !important;}
+
+/* transport: bare icon buttons, a progress slider, a speed pill */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) :is(.rx-prev,.rx-next){margin-top:12px !important;background:transparent !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) :is(.rx-prev,.rx-next):active{background:var(--lx-fill) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-ctl .rx-scrub{margin:12px 2px 0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-spd{margin-top:12px !important;height:34px !important;min-width:54px !important;padding:0 12px !important;border-radius:var(--lx-pill) !important;
+  font:600 14px/1 var(--lx-font) !important;letter-spacing:0 !important;color:var(--lx-text) !important;font-variant-numeric:tabular-nums;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--lx-acc) var(--p,0%),var(--lx-fill-3) var(--p,0%)) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel input[type=range]::-moz-range-track{background:var(--lx-fill-3) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel input[type=range]::-moz-range-progress{height:4px;border-radius:4px;background:var(--lx-acc) !important;}
+
+/* view: no grey bars. Hairline divider, plain labels, pill chips */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel:not(.min) .rx-view{margin-top:14px !important;padding:12px 0 0 !important;border:0 !important;border-top:.5px solid var(--lx-sep) !important;background:none !important;box-shadow:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-more{background:none !important;box-shadow:none !important;border:0 !important;padding-top:0;padding-bottom:0;gap:8px !important;margin-top:8px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-more:first-child{margin-top:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-lb{width:48px !important;font:600 13px/1.2 var(--lx-font) !important;letter-spacing:0 !important;text-transform:none !important;color:var(--lx-text-2) !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel :is(.rx-zo,.rx-zi){width:34px !important;height:34px !important;min-width:34px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-focus{gap:6px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-focus button{height:34px !important;padding:0 15px !important;border:0 !important;border-radius:var(--lx-pill) !important;background:var(--lx-fill) !important;
+  box-shadow:none !important;color:var(--lx-text) !important;font:600 14px/1 var(--lx-font) !important;letter-spacing:0 !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-focus button.on{background:var(--lx-btn) !important;color:var(--lx-on-acc) !important;box-shadow:0 3px 10px rgba(var(--lx-acc-rgb),.34) !important;}
+@media (pointer:coarse){
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-focus button{height:36px !important;}
+}
+@media (max-width:380px){
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-eq{font-size:19px !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #rx-panel .rx-lb{width:42px !important;}
+}
 
 /* ── Annihilation panel buttons: neutral circles, play filled ── */
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #ann-panel :is(.an-hide,.an-chev,.an-x,.an-redo,.an-spd){background:var(--lx-fill) !important;border:0 !important;box-shadow:none !important;color:var(--lx-text) !important;}
@@ -32312,9 +32394,9 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #sphericalbtn:
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn:not(#glassbtn).qa-pressed,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn:not(#glassbtn):not(:disabled):active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn:not(#glassbtn).qa-pressed,
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn:not(#glassbtn):not(:disabled):active,
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(#glassbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(#glassbtn):not(:disabled):active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn:not(#glassbtn).qa-pressed,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn:not(#glassbtn):not(:disabled):active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
@@ -32429,9 +32511,9 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #sphericalbtn:
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn:not(#glassbtn).qa-pressed svg,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn:not(#glassbtn):not(:disabled):active svg,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn:not(#glassbtn).qa-pressed svg,
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn:not(#glassbtn):not(:disabled):active svg,
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(#glassbtn).qa-pressed svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(#glassbtn):not(:disabled):active svg,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn:not(#glassbtn).qa-pressed svg,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn:not(#glassbtn):not(:disabled):active svg,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn:not(#glassbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
@@ -32523,7 +32605,7 @@ html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #smoothbtn:is(.on,.active,.is-
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ultrabtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #sphericalbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #exactbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
-html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #meshbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #excitedbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-nav-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-back:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]),
@@ -32564,7 +32646,7 @@ html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #smoothbtn:not(:disabled):acti
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ultrabtn:not(:disabled):active,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #sphericalbtn:not(:disabled):active,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #exactbtn:not(:disabled):active,
-html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #meshbtn:not(:disabled):active,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(:disabled):active,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #excitedbtn:not(:disabled):active,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-nav-btn:not(:disabled):active,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-back:not(:disabled):active,
@@ -32608,7 +32690,7 @@ html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #smoothbtn:is(.on,.active,.is-
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ultrabtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #sphericalbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #exactbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
-html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #meshbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #excitedbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-nav-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-back:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]):hover,
@@ -32649,7 +32731,7 @@ html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #smoothbtn:is(.on,.active,.is-
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ultrabtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #sphericalbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #exactbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
-html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #meshbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #excitedbtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-nav-btn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-back:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-selected="true"],[aria-expanded="true"]) svg,
@@ -32690,7 +32772,7 @@ html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #smoothbtn:not(:disabled):acti
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ultrabtn:not(:disabled):active svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #sphericalbtn:not(:disabled):active svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #exactbtn:not(:disabled):active svg,
-html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #meshbtn:not(:disabled):active svg,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):not(:disabled):active svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #excitedbtn:not(:disabled):active svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-nav-btn:not(:disabled):active svg,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-back:not(:disabled):active svg,
@@ -32734,7 +32816,7 @@ html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #smoothbtn,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #ultrabtn,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #sphericalbtn,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #exactbtn,
-html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #meshbtn,
+html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn),
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) #excitedbtn,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-nav-btn,
 html:not([data-lux="on"]):not(#qa-p1):not(#qa-p2) .lesson-back,
@@ -32790,8 +32872,8 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #sphericalbtn.
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #sphericalbtn:active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn.qa-pressed,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #exactbtn:active,
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn.qa-pressed,
-html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #meshbtn:active,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn).qa-pressed,
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) :is(#meshbtn,#helmetbtn):active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn.qa-pressed,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) #excitedbtn:active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .lesson-nav-btn.qa-pressed,
@@ -33152,6 +33234,10 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .rxe-tabs butt
       <button id="meshbtn" style="display:none" title="Mesh: orbital surfaces drawn as a clean wireframe grid (no glow overlap). Available in 99% Accurate mode.">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7.4"/><ellipse cx="9" cy="9" rx="3.1" ry="7.4"/><path d="M1.6 9h14.8M2.9 5.1c3.8 1.6 8.4 1.6 12.2 0M2.9 12.9c3.8-1.6 8.4-1.6 12.2 0"/></svg></span>
         <span>MESH</span>
+      </button>
+      <button id="helmetbtn" style="display:none" title="Helmet: orbital lobes as glossy, lit solids drawn as a flowing mixed-colour liquid — real spherical-harmonic surfaces; the + phase leans warm, the − phase leans cool. Available in 99% Accurate mode.">
+        <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 12.4C2.2 6.9 5.2 3 9.3 3c3.7 0 6.5 3.1 6.5 7.2v2.2z"/><path d="M8 12.4c.2-2.2 1.8-3.6 4-3.6"/><path d="M2.2 15h13.6"/></svg></span>
+        <span>HELMET</span>
       </button>
       <button id="excitedbtn">
         <span style="display:flex"><svg width="13" height="13" viewBox="0 0 18 18" fill="currentColor" stroke="none"><path d="M9.8 1L3.6 10.4h3.7L6.4 17l7.9-9.9H10.7L11.6 1z"/></svg></span>
@@ -44306,17 +44392,18 @@ function qwfIsoGroup(orb, sub, tint, alphaV, rimPow){
     const m4=new THREE.Matrix4().set(M[0][0],M[0][1],M[0][2],0, M[1][0],M[1][1],M[1][2],0, M[2][0],M[2][1],M[2][2],0, 0,0,0,1);
     g.quaternion.setFromRotationMatrix(m4);
   }
-  const mk=(d,col)=>{
+  const mk=(d,col,ph)=>{
     if(!d.pos.length) return;
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.BufferAttribute(d.pos,3));
     geo.setAttribute('normal',new THREE.BufferAttribute(d.nrm,3));
     const m=new THREE.Mesh(geo,bubbleMat(col,alphaV,rimPow));
+    m.userData.phase=ph;   // sign of ψ on this surface (+1 / −1) — read by HELMET mode
     m.scale.setScalar(orb.R);
     g.add(m);
   };
-  mk(s.pos,tint);
-  mk(s.neg,qwfNegTint(tint));
+  mk(s.pos,tint,1);
+  mk(s.neg,qwfNegTint(tint),-1);
   return g;
 }
 function buildUltraCloudExact(orb){
@@ -44738,12 +44825,14 @@ var QMOL = (function(){
       if(useIso){
         const s=isoMO(mo,res);
         const alpha=1.05*Math.pow(10/(mo.R+3),0.22)*0.85, rim=1.2+mo.R*0.008;
-        [[s[1],mo.rgb],[s[-1],qwfNegTint(mo.rgb)]].forEach(([d,col])=>{
+        [[s[1],mo.rgb,1],[s[-1],qwfNegTint(mo.rgb),-1]].forEach(([d,col,ph])=>{
           if(!d.pos.length) return;
           const geo=new THREE.BufferGeometry();
           geo.setAttribute('position',new THREE.BufferAttribute(d.pos,3));
           geo.setAttribute('normal',new THREE.BufferAttribute(d.nrm,3));
-          grp.add(new THREE.Mesh(geo,bubbleMat(col,alpha,rim)));
+          const mm=new THREE.Mesh(geo,bubbleMat(col,alpha,rim));
+          mm.userData.phase=ph;   // sign of ψ (read by HELMET mode)
+          grp.add(mm);
         });
         return;
       }
@@ -49566,6 +49655,43 @@ document.addEventListener('touchstart',function(){},{passive:true});   // iOS Sa
 let _rbTok=0;
 function deferRebuild(){const tok=++_rbTok;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(tok===_rbTok)rebuildScene();}));}
 
+// ── Tap-vs-scroll guard ───────────────────────────────────────────────
+// A tap only counts when the finger stayed put, the list did not scroll under it, the
+// touch did not merely stop a fling, and it was not multi-touch. Anything else (a scroll
+// that happens to end over a tile) is swallowed, so scrolling the list never selects.
+// Same logic for all three UI styles (flat / glass / luxury) and both themes.
+let _qaNoClickUntil=0, _qaLastScrollT=-1e9;
+document.addEventListener('scroll',()=>{_qaLastScrollT=performance.now();},{capture:true,passive:true});
+function qaScroller(el){
+  for(let n=el;n&&n!==document.body;n=n.parentElement){
+    const o=getComputedStyle(n).overflowY;
+    if((o==='auto'||o==='scroll')&&n.scrollHeight>n.clientHeight+1) return n;
+  }
+  return null;
+}
+function qaBindTapGuard(container, sel, onTap){
+  let g=null;
+  container.addEventListener('touchstart',e=>{
+    const btn=e.target.closest(sel), sc=qaScroller(container), now=performance.now();
+    g={btn:btn, x:e.touches[0].clientX, y:e.touches[0].clientY, t:now, sc:sc, top:sc?sc.scrollTop:0,
+       bad:e.touches.length>1 || (now-_qaLastScrollT<150)};   // 2nd finger, or a touch that stops a fling
+  },{passive:true});
+  container.addEventListener('touchmove',e=>{
+    if(!g) return; const t=e.touches[0];
+    if(!t||e.touches.length>1||Math.abs(t.clientX-g.x)>8||Math.abs(t.clientY-g.y)>8) g.bad=true;
+  },{passive:true});
+  container.addEventListener('touchcancel',()=>{ g=null; _qaNoClickUntil=performance.now()+400; },{passive:true});
+  container.addEventListener('touchend',e=>{
+    const s=g; g=null; if(!s||!s.btn) return;
+    const now=performance.now();
+    const scrolled=s.sc && Math.abs(s.sc.scrollTop-s.top)>2;
+    if(s.bad||scrolled||now-_qaLastScrollT<80||now-s.t>800){
+      _qaNoClickUntil=now+400; if(e.cancelable) e.preventDefault(); return;   // scroll / fling-stop / long press: not a tap
+    }
+    onTap(s.btn,e); if(e.cancelable) e.preventDefault();
+  },{passive:false});
+}
+
 // Element buttons
 const eg=document.getElementById('egrid');
 ELS.forEach(el=>{
@@ -49582,18 +49708,17 @@ ELS.forEach(el=>{
 // Dual handler: touchend for Android (fires before scroll cancels it),
 // click as fallback for desktop/mouse
 let lastTouchZ = 0;
-eg.addEventListener('touchend', (e) => {
-  const btn = e.target.closest('.ebtn');
-  if(!btn) return;
+qaBindTapGuard(eg, '.ebtn', (btn) => {
   const Z = parseInt(btn.dataset.z, 10);
-  if(Z){ lastTouchZ = Z; tapElement(btn); e.preventDefault(); }
-}, { passive: false });
+  if(Z){ lastTouchZ = Z; tapElement(btn); }
+});
 
 eg.addEventListener('click', (e) => {
   const btn = e.target.closest('.ebtn');
   if(!btn) return;
+  if(performance.now() < _qaNoClickUntil){ lastTouchZ = 0; return; }   // synthetic click after a scroll gesture
   const Z = parseInt(btn.dataset.z, 10);
-  // Skip if touchend already handled this (prevents double-fire)
+  // Skip if the touch handler already handled this (prevents double-fire)
   if(Z && Z !== lastTouchZ) tapElement(btn);
   lastTouchZ = 0;
 });
@@ -49627,13 +49752,13 @@ HYPO.all().forEach(el=>{
   b.setAttribute('aria-label',qaT("sim.js.name_z_z_hypothetical",{name:el.name,Z:el.Z}));
   hgrid.appendChild(b);
 });
-hgrid.addEventListener('touchend',e=>{
-  const btn=e.target.closest('.ebtn'); if(!btn) return;
+qaBindTapGuard(hgrid,'.ebtn',btn=>{
   const Z=parseInt(btn.dataset.z,10);
-  if(Z){ lastTouchZ=Z; tapElement(btn); e.preventDefault(); }
-},{passive:false});
+  if(Z){ lastTouchZ=Z; tapElement(btn); }
+});
 hgrid.addEventListener('click',e=>{
   const btn=e.target.closest('.ebtn'); if(!btn) return;
+  if(performance.now()<_qaNoClickUntil){ lastTouchZ=0; return; }
   const Z=parseInt(btn.dataset.z,10);
   if(Z&&Z!==lastTouchZ) tapElement(btn);
   lastTouchZ=0;
@@ -53688,6 +53813,8 @@ if(exactbtn) exactbtn.onclick=()=>{
 // ═══════════════════════════════════════════════════════════════════════
 var QA_MESH_LIGHT = true;
 var meshMode = false;
+var helmetMode = false;   // HELMET: glossy lit spherical-harmonic lobes (light theme only) — shares Mesh's re-skin pipeline
+const helmetbtn = document.getElementById('helmetbtn');
 const meshbtn = document.getElementById('meshbtn');
 const QA_MESH_VERT = 'varying vec3 vP;varying vec3 vN;varying vec3 vV;varying vec3 vO;varying vec2 vUv;void main(){vUv=uv;vP=position;vO=normal;vec4 mv=modelViewMatrix*vec4(position,1.0);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}';
 // Surface-following grid (not a world-axis Cartesian grid):
@@ -53720,10 +53847,12 @@ const QA_MESH_FRAG = 'precision highp float;uniform vec3 uColor;uniform vec3 uCo
  + 'float a=max(line*uLineA*face,uFill*(0.45+rim)*face+(1.0-lodm)*0.16);'
  + 'if(a<0.01)discard;gl_FragColor=vec4(col*(0.9+0.25*rim),a);}';
 
-function qaMeshActive(){ return meshMode && typeof exactMode!=='undefined' && exactMode; }
-function qaMeshQuality(){ return qaMeshActive() ? (realMode ? 2.25 : 1.75) : 1; }
+function qaMeshActive(){ return (meshMode||helmetMode) && typeof exactMode!=='undefined' && exactMode; }
+function qaGridActive(){ return meshMode && typeof exactMode!=='undefined' && exactMode; }   // wire-grid style only
+function qaMeshQuality(){ return qaMeshActive() ? (helmetMode ? 2.0 : (realMode ? 2.25 : 1.75)) : 1; }
 function qaMeshClear(){
   if(!qaMeshActive()) return null;
+  if(helmetMode) return 0xf7f5fb;   // soft white studio backdrop
   if(QA_MESH_LIGHT) return realMode ? (antimatterMode?0xeef5ff:0xfff3ef) : 0xf3f5fc;
   return realMode ? (antimatterMode?0x02060f:0x0b0203) : 0x04060c;
 }
@@ -53744,7 +53873,7 @@ function qaMeshColor(rgb){
 }
 var _qaBubbleMat = bubbleMat;
 bubbleMat = function(rgb, alpha, rimPow){
-  if(!qaMeshActive()) return _qaBubbleMat(rgb, alpha, rimPow);
+  if(!qaGridActive()) return _qaBubbleMat(rgb, alpha, rimPow);   // helmet mode keeps the stock material as a placeholder; qaHelmetPost() re-skins it per phase
   var c=qaMeshColor(rgb);
   var m=new THREE.ShaderMaterial({
     vertexShader:QA_MESH_VERT, fragmentShader:QA_MESH_FRAG, extensions:{derivatives:true},
@@ -53757,7 +53886,7 @@ bubbleMat = function(rgb, alpha, rimPow){
 };
 // Higher mesh resolution for molecules in Real Image + Mesh (atoms: see qaMeshQuality in buildAtom).
 var _qaComputeLOD = computeOrbitalMeshLOD;
-computeOrbitalMeshLOD = function(n){ var v=_qaComputeLOD(n); return qaMeshActive() ? (realMode ? Math.min(2.4,v*1.9) : Math.min(2.0,v*1.6)) : v; };
+computeOrbitalMeshLOD = function(n){ var v=_qaComputeLOD(n); return qaMeshActive() ? (helmetMode ? Math.min(2.2,v*1.8) : realMode ? Math.min(2.4,v*1.9) : Math.min(2.0,v*1.6)) : v; };
 
 // After a build: give each surface its own grid cell size (relative to the surface's
 // own extent, so a 1s shell and a 5p lobe both read as a grid) and soften nucleus glow.
@@ -53777,6 +53906,7 @@ function qaFit(c){
 }
 function qaMeshPost(){
   if(!qaMeshActive()) return;
+  if(helmetMode) return qaHelmetPost();
   var nu=realMode?56:40, nth=realMode?32:26, w=realMode?0.85:1.0;
   var surf=[];
   pivot.traverse(function(o){
@@ -53821,6 +53951,175 @@ function qaMeshPost(){
     o.material=mm; o.renderOrder=n-e.rank;              // big shells first, inner shells drawn on top: every orbital stays visible
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELMET — glossy, lit spherical-harmonic surfaces drawn as a mixed-colour liquid (light theme)
+// The geometry is the same exact 90 % boundary surface of ψ = R(r)·Y(θ,φ) that
+// Ultra/Mesh use (marching-cubes with analytic-gradient normals, + and − phase as
+// separate surfaces). Only the skin changes: a studio-lit liquid whose colour is a
+// domain-warped fractal-noise flow pushed through a rainbow palette, so many hues
+// swirl and blend across every lobe (like oil on water / marbled glass) instead of one flat colour.
+//   • every surface gets its own dominant hue (from the orbital's / element's own tint + its shell rank),
+//     so each atom and each orbital of a molecule reads as a different liquid, with neighbouring hues mixed in;
+//   • the sign of ψ stays readable: the + phase is a warm-leaning liquid with a warm reflection,
+//     the − phase is hue-shifted toward the cool side with a cool reflection (antimatter stays in the blue-violet-magenta family);
+//   • thin-film iridescence on the Fresnel rim, key + fill light, sky/ground reflection, sharp specular;
+//   • the flow is animated (uTime) and lives in the surface's own object space, so it rotates with the lobe
+//     and is cross-faded / deformed by the Reaction engine like any other shader surface.
+// Each surface is drawn in two passes (far wall, then near wall) so a translucent
+// lobe never shows its inside wall on top of its front wall.
+// ═══════════════════════════════════════════════════════════════════════
+const QA_HELMET_VERT = 'uniform float uInvR;varying vec3 vN;varying vec3 vV;varying vec3 vP;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);vN=normalize(normalMatrix*normal);vV=-mv.xyz;vP=position*uInvR;gl_Position=projectionMatrix*mv;}';
+const QA_HELMET_FRAG = [
+'precision highp float;',
+'uniform vec3 uSky;uniform vec3 uGround;',
+'uniform float uAlpha;uniform float uGloss;uniform float uPass;',
+'uniform float uTime;uniform float uHue;uniform float uSpan;uniform float uPhase;uniform float uGrad;uniform vec3 uSeed;',
+'varying vec3 vN;varying vec3 vV;varying vec3 vP;',
+'float qh(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}',
+'float qn(vec3 x){vec3 i=floor(x);vec3 f=fract(x);f=f*f*(3.0-2.0*f);',
+'  return mix(mix(mix(qh(i),qh(i+vec3(1.0,0.0,0.0)),f.x),mix(qh(i+vec3(0.0,1.0,0.0)),qh(i+vec3(1.0,1.0,0.0)),f.x),f.y),',
+'             mix(mix(qh(i+vec3(0.0,0.0,1.0)),qh(i+vec3(1.0,0.0,1.0)),f.x),mix(qh(i+vec3(0.0,1.0,1.0)),qh(i+vec3(1.0,1.0,1.0)),f.x),f.y),f.z);}',
+'float qf(vec3 p){float a=0.5;float s=0.0;for(int i=0;i<3;i++){s+=a*qn(p);p=p*2.03+vec3(1.7,9.2,3.1);a*=0.5;}return s;}',
+'vec3 qpal(float h){return vec3(0.56,0.50,0.58)+vec3(0.42,0.40,0.40)*cos(6.2831853*(h+vec3(0.0,0.22,0.58)));}',   // coral → magenta → violet → blue → teal → gold: jewel tones, no neon primaries
+'vec3 qhsl(vec3 c){vec3 k=clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0,0.0,1.0);return c.z+c.y*(k-0.5)*(1.0-abs(2.0*c.z-1.0));}',
+'void main(){',
+'  vec3 V=normalize(vV);vec3 N=normalize(vN);',
+'  float facing=dot(N,V);',
+'  float back=facing<0.0?1.0:0.0;',
+'  if(uPass<0.5){ if(back<0.5) discard; } else { if(back>0.5) discard; }',
+'  if(back>0.5) N=-N;',
+'  float nv=clamp(dot(N,V),0.0,1.0);',
+'  float fr=pow(1.0-nv,3.0);',
+// ── liquid colour field: two warp layers, then the colour coordinate
+'  float t=uTime*0.085;',
+'  vec3 p=vP*0.95+uSeed;',
+'  vec2 q=vec2(qf(p+vec3(0.0,t,0.0)),qf(p+vec3(5.2,1.3,-t)));',
+'  float f=qf(p+2.9*vec3(q,q.x-q.y)+vec3(t*0.7,0.0,-t*0.5));',
+'  float h=uHue+uSpan*((f-0.5)*1.25+(q.x-0.5)*0.85+(q.y-0.5)*0.55)+uSpan*0.16*(1.0-nv);',
+'  vec3 base=pow(qpal(h),vec3(1.08));',
+'  base=mix(vec3(dot(base,vec3(0.299,0.587,0.114))),base,1.06);',
+// ── GRADIENT style: ONE hue only; the colour runs from a deep shade to a light tint of that same hue (smooth, slowly flowing)
+'  float g=smoothstep(0.0,1.0,clamp(0.5+0.40*vP.y+0.42*(f-0.5)+0.22*(q.x-0.5),0.0,1.0));',
+'  float gl=mix(0.19,0.76,g)-0.10*step(uPhase,0.0);',
+'  float gs=mix(0.95,0.62,smoothstep(0.55,1.0,g));',
+'  vec3 baseG=qhsl(vec3(uHue+0.02*(g-0.5),gs,gl));',
+'  base=mix(base,baseG,uGrad);',
+// ── lighting
+'  vec3 L1=normalize(vec3(-0.45,0.70,0.60));',
+'  vec3 L2=normalize(vec3(0.75,-0.25,0.35));',
+'  float d1=clamp((dot(N,L1)+0.30)/1.30,0.0,1.0);',
+'  float d2=clamp(dot(N,L2),0.0,1.0);',
+'  vec3 deep=base*base*0.55;',
+'  vec3 col=mix(deep,base,smoothstep(0.0,1.0,d1));',
+'  col+=base*0.10*d2;',
+'  col+=base*pow(1.0-nv,2.0)*0.18;',                                   // soft liquid glow toward the silhouette
+'  vec3 R=reflect(-V,N);',
+'  vec3 env=mix(uGround,uSky,clamp(R.y*0.5+0.5,0.0,1.0));',
+'  env=mix(env,uPhase>0.0?vec3(1.0,0.88,0.82):vec3(0.82,0.90,1.0),0.40);',   // sign of ψ: warm vs cool reflection
+'  vec3 film=qpal(nv*1.35+f*0.9+uHue);',                               // thin-film iridescence
+'  col=mix(col,film,fr*0.45*(1.0-0.92*uGrad));',   // no rainbow rim in single-hue gradient mode
+'  col=mix(col,env,0.08+0.30*fr);',
+'  vec3 H=normalize(L1+V);float nh=max(dot(N,H),0.0);',
+'  float spec=pow(nh,uGloss)*0.55+pow(nh,uGloss*0.12)*0.07;',
+'  vec3 H2=normalize(L2+V);spec+=pow(max(dot(N,H2),0.0),uGloss*0.5)*0.08;',
+'  col+=vec3(1.0,0.97,0.98)*min(spec,0.75);',
+'  col*=mix(1.0,0.66,back);',
+'  float a=uAlpha*mix(1.0,0.58,back);',
+'  a=clamp(a+fr*0.22+spec*0.20,0.0,1.0);',
+'  gl_FragColor=vec4(clamp(col,0.0,1.0),a);',
+'}'].join('\n');
+function qaRgbHue(r,g,b){
+  var mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  if(d<1e-4) return 0.58;                         // grey tint: start in the blue-green
+  var h = mx===r ? ((g-b)/d)%6 : mx===g ? (b-r)/d+2 : (r-g)/d+4;
+  return ((h/6)%1+1)%1;
+}
+// Per-surface liquid parameters. Matter: a wide span of hues (many colours mixed) around the orbital's own hue,
+// the − phase shifted by ~0.42 of the colour wheel. Antimatter: a narrower cool span (cyan → blue → violet → magenta).
+// User controls (Helmet panel): style 'liquid' = many hues mixed; 'gradient' = one hue, deep shade → light tint.
+// helmetHue = null → automatic (each orbital / element keeps its own hue); a number 0..1 → every surface uses that hue.
+var helmetStyle='liquid', helmetHue=null;
+try{ var _hs=localStorage.getItem('qa-helmet-style'), _hh=localStorage.getItem('qa-helmet-hue');
+  if(_hs==='gradient'||_hs==='liquid') helmetStyle=_hs;
+  if(_hh!==null && _hh!=='' && isFinite(+_hh)) helmetHue=Math.min(1,Math.max(0,+_hh)); }catch(e){}
+// hue / span / gradient flag of one surface from its auto-hue (hue0), shell rank s (0..1) and phase
+function qaHelmetCalc(phase,hue0,s){
+  var anti=!!antimatterMode, set=(helmetHue!==null), grad=(helmetStyle==='gradient'), hue, span;
+  if(grad){
+    hue = set ? helmetHue : (anti ? 0.60+0.06*Math.sin(hue0*6.2832) : hue0);   // one hue per surface; the − phase is only darker
+    span = 0;
+  }else if(anti){
+    hue = set ? qaPalCoord(helmetHue) : 0.56+0.07*Math.sin(hue0*6.2832)+(phase>0?0.0:0.14)+s*0.06; span = set?0.26:0.34;
+    if(set) hue += (phase>0?0.0:0.10);
+  }else{
+    hue = (set ? qaPalCoord(helmetHue) : hue0) + s*(set?0.12:0.31) + (phase>0?0.0:(set?0.20:0.42)); span = set ? 0.46 : 0.74;   // chosen hue dominates, neighbours mixed in
+  }
+  return { hue:hue, span:span, grad:grad?1:0 };
+}
+function qaHelmetParams(phase,tint,s,rank,bs){
+  var hue0=qaRgbHue(tint[0],tint[1],tint[2]), c=qaHelmetCalc(phase,hue0,s), hue=c.hue, span=c.span;
+  var r=Math.max(bs.radius,1e-3);
+  return { hue:hue, span:span, grad:c.grad, hue0:hue0, s:s, phase:phase>0?1:-1, invR:1/r,
+           seed:[rank*7.13+(phase>0?0.0:3.7), rank*2.91+1.3, rank*5.37+bs.center.x*0.1+bs.center.y*0.07] };
+}
+function qaHelmetMat(par,alpha,pass){
+  var m=new THREE.ShaderMaterial({
+    vertexShader:QA_HELMET_VERT, fragmentShader:QA_HELMET_FRAG,
+    uniforms:{ uSky:{value:new THREE.Color(0.94,0.93,1.0)}, uGround:{value:new THREE.Color(0.86,0.76,0.82)},
+               uAlpha:{value:alpha}, uGloss:{value:170}, uPass:{value:pass},
+               uTime:{value:0}, uHue:{value:par.hue}, uSpan:{value:par.span}, uPhase:{value:par.phase}, uGrad:{value:par.grad},
+               uSeed:{value:new THREE.Vector3(par.seed[0],par.seed[1],par.seed[2])}, uInvR:{value:par.invR} },
+    transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.NormalBlending
+  });
+  m.userData.qaH={hue0:par.hue0,s:par.s,phase:par.phase};   // plain JSON: survives material.clone() in the Reaction engine
+  return m;
+}
+// Live re-colour: update the uniforms of every Helmet surface in place (no rebuild, works inside Reactions too)
+function qaHelmetApply(){
+  pivot.traverse(function(o){
+    var m=o.material; if(!m||!m.uniforms||!m.userData||!m.userData.qaH||!m.uniforms.uGrad) return;
+    var h=m.userData.qaH, c=qaHelmetCalc(h.phase,h.hue0,h.s);
+    m.uniforms.uHue.value=c.hue; m.uniforms.uSpan.value=c.span; m.uniforms.uGrad.value=c.grad;
+  });
+}
+// the liquid flows: drive uTime from whichever material instance is actually being drawn (cloned materials included)
+function qaHelmetFlow(mesh){
+  mesh.onBeforeRender=function(r,sc,cam,geo,mat){ if(mat&&mat.uniforms&&mat.uniforms.uTime) mat.uniforms.uTime.value=performance.now()/1000; };
+}
+function qaHelmetPost(){
+  var surf=[];
+  pivot.traverse(function(o){
+    var m=o.material; if(!m||(o.userData&&o.userData.isAtomLabel)) return;
+    if(o.isMesh && m.uniforms && m.uniforms.uRimPow && !m.userData.qaHelmet){
+      var geo=o.geometry; if(!geo.boundingSphere) geo.computeBoundingSphere();
+      var bs=geo.boundingSphere; if(!bs||!(bs.radius>0)) return;
+      surf.push({o:o,m:m,bs:bs,ext:(bs.center.length()+bs.radius)*(o.scale?o.scale.x:1)});
+    }else if(o.isMesh && m.isMeshBasicMaterial && m.side===THREE.BackSide && m.transparent && !m.userData.qaDim){
+      m.opacity*=0.35; m.userData.qaDim=true;           // nucleus halo shells
+    }else if(o.isSprite && m.blending===THREE.AdditiveBlending && !m.userData.qaDim){
+      var sc=m.clone(); sc.opacity=Math.min(sc.opacity,0.4); sc.userData.qaDim=true; o.material=sc;
+    }
+  });
+  var n=surf.length; if(!n) return;
+  surf.slice().sort(function(a,b){ return a.ext-b.ext; }).forEach(function(e,i){ e.rank=i; });
+  surf.forEach(function(e){
+    var o=e.o, s=n>1 ? e.rank/(n-1) : 0.35;
+    var phase=(o.userData&&o.userData.phase)||1;
+    var tc=e.m.uniforms.uColor.value, tint=[Math.min(1,tc.r),Math.min(1,tc.g),Math.min(1,tc.b)];
+    var par=qaHelmetParams(phase,tint,s,e.rank,e.bs);
+    var alpha=n>1 ? 0.62+0.34*(1-s) : 0.94;             // outer shells see-through, inner ones nearly solid
+    var back=new THREE.Mesh(o.geometry, qaHelmetMat(par,alpha,0));
+    back.position.copy(o.position); back.quaternion.copy(o.quaternion); back.scale.copy(o.scale);
+    back.renderOrder=(n-e.rank)*2; o.renderOrder=(n-e.rank)*2+1;
+    back.userData.phase=phase; back.userData.qaHelmet=true;
+    var old=e.m;
+    o.material=qaHelmetMat(par,alpha,1); o.material.userData.qaHelmet=true;
+    qaHelmetFlow(o); qaHelmetFlow(back);
+    old.dispose();
+    if(o.parent) o.parent.add(back);
+  });
+}
 function qaMeshBuild(orig){
   return function(){
     if(!qaMeshActive()) return orig.apply(this, arguments);
@@ -53836,12 +54135,14 @@ function qaMeshSync(){
   if(!meshbtn) return;
   var on = typeof exactMode!=='undefined' && exactMode;
   meshbtn.style.display = on ? '' : 'none';
-  if(!on && meshMode){ meshMode=false; meshbtn.classList.remove('active'); renderer.setClearColor(getClearColor()); }
+  if(helmetbtn) helmetbtn.style.display = on ? '' : 'none';
+  if(!on && (meshMode||helmetMode)){ meshMode=false; helmetMode=false; meshbtn.classList.remove('active'); if(helmetbtn) helmetbtn.classList.remove('active'); renderer.setClearColor(getClearColor()); }
 }
 if(meshbtn){
   meshbtn.onclick=()=>{
     if(!qaMeshActive() && !(typeof exactMode!=='undefined' && exactMode)) return;
     meshMode=!meshMode;
+    if(meshMode && helmetMode){ helmetMode=false; if(helmetbtn) helmetbtn.classList.remove('active'); }   // one surface style at a time
     meshbtn.classList.toggle('active',meshMode);
     renderer.setClearColor(getClearColor());
     showToast(meshMode?'MESH ON':'MESH OFF');
@@ -53850,6 +54151,91 @@ if(meshbtn){
   if(exactbtn) new MutationObserver(qaMeshSync).observe(exactbtn,{attributes:true,attributeFilter:['class']});
   qaMeshSync();
 }
+if(helmetbtn){
+  helmetbtn.onclick=()=>{
+    if(!(typeof exactMode!=='undefined' && exactMode)) return;
+    helmetMode=!helmetMode;
+    if(helmetMode){
+      if(meshMode){ meshMode=false; meshbtn.classList.remove('active'); }   // one surface style at a time
+      if(typeof hyperMode!=='undefined' && hyperMode) setHyperMode(false);  // Hyper needs point clouds
+    }
+    helmetbtn.classList.toggle('active',helmetMode);
+    renderer.setClearColor(getClearColor());
+    showToast(helmetMode?'HELMET ON':'HELMET OFF');
+    if(typeof ReactionMode!=='undefined'&&ReactionMode.isActive&&ReactionMode.isActive())ReactionMode.reload(); else deferRebuild();
+  };
+}
+
+// ── Helmet colour panel: style (Liquid mix / Gradient) + hue picker. Shown only while Helmet is on.
+var _qaPalTab=null;
+function qaPalCoord(H){           // HSL hue (0..1) → the liquid palette's own coordinate that produces that hue
+  if(!_qaPalTab){ _qaPalTab=[]; for(var i=0;i<720;i++){ var h=i/720;
+    _qaPalTab.push(qaRgbHue(0.56+0.42*Math.cos(6.2831853*h), 0.50+0.40*Math.cos(6.2831853*(h+0.22)), 0.58+0.40*Math.cos(6.2831853*(h+0.58)))); } }
+  var best=0, bd=9; for(var j=0;j<720;j++){ var d=Math.abs(_qaPalTab[j]-H); d=Math.min(d,1-d); if(d<bd){ bd=d; best=j; } }
+  return best/720;
+}
+(function qaHelmetPanel(){
+  if(!helmetbtn) return;
+  var css=document.createElement('style');
+  css.textContent=
+  '#helmetpanel{position:fixed;z-index:9000;display:none;width:min(272px,92vw);box-sizing:border-box;padding:12px 14px 14px;border-radius:16px;'+
+  'background:rgba(255,255,255,.94);border:1px solid rgba(99,102,241,.28);box-shadow:0 12px 36px rgba(40,30,90,.22);'+
+  '-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#211c42;font:12px/1.3 system-ui,-apple-system,Segoe UI,sans-serif}'+
+  '#helmetpanel .hp-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-weight:700;letter-spacing:.12em;font-size:10.5px;color:#4b3fb0}'+
+  '#helmetpanel .hp-x{border:0;background:transparent;color:#6b63a8;font-size:15px;line-height:1;cursor:pointer;padding:2px 4px}'+
+  '#helmetpanel .hp-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;border-radius:11px;background:rgba(99,102,241,.10)}'+
+  '#helmetpanel .hp-seg button{border:0;border-radius:8px;padding:7px 4px;font:600 11.5px system-ui,sans-serif;color:#4b3fb0;background:transparent;cursor:pointer}'+
+  '#helmetpanel .hp-seg button.on{background:#fff;box-shadow:0 1px 5px rgba(60,40,140,.25);color:#2a1f86}'+
+  '#helmetpanel .hp-note{margin:8px 1px 10px;color:#6b63a8;font-size:11px}'+
+  '#helmetpanel .hp-row{display:flex;align-items:center;gap:8px}'+
+  '#helmetpanel input[type=range]{flex:1;height:14px;margin:0;border-radius:7px;-webkit-appearance:none;appearance:none;outline:none;'+
+  'background:linear-gradient(90deg,hsl(0,85%,52%),hsl(50,90%,52%),hsl(110,70%,45%),hsl(170,75%,42%),hsl(220,85%,55%),hsl(280,75%,55%),hsl(330,85%,55%),hsl(360,85%,52%)) !important;border:0 !important;box-shadow:none !important}'+
+  '#helmetpanel input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid #4b3fb0;box-shadow:0 1px 6px rgba(0,0,0,.35);cursor:pointer}'+
+  '#helmetpanel input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #4b3fb0;cursor:pointer}'+
+  '#helmetpanel.auto input[type=range]{opacity:.45}'+
+  '#helmetpanel .hp-auto{border:1px solid rgba(99,102,241,.35);background:transparent;border-radius:9px;padding:5px 9px;font:600 11px system-ui,sans-serif;color:#4b3fb0;cursor:pointer}'+
+  '#helmetpanel .hp-auto.on{background:#4b3fb0;color:#fff}'+
+  '#helmetpanel .hp-sw{display:flex;gap:7px;margin-top:11px;justify-content:space-between}'+
+  '#helmetpanel .hp-sw button{width:24px;height:24px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(60,40,140,.28);cursor:pointer;padding:0}'+
+  '#helmetpanel .hp-sw button.on{box-shadow:0 0 0 2.5px #4b3fb0}';
+  document.head.appendChild(css);
+  var HUES=[0,28,48,130,175,215,265,320];
+  var p=document.createElement('div'); p.id='helmetpanel';
+  p.innerHTML=
+   '<div class="hp-h"><span>HELMET COLOUR</span><button class="hp-x" type="button" aria-label="Close" title="Hide">×</button></div>'+
+   '<div class="hp-seg"><button type="button" data-st="liquid">Liquid mix</button><button type="button" data-st="gradient">Gradient</button></div>'+
+   '<div class="hp-note"></div>'+
+   '<div class="hp-row"><input type="range" min="0" max="360" step="1" aria-label="Hue"><button class="hp-auto" type="button">Auto</button></div>'+
+   '<div class="hp-sw">'+HUES.map(function(h){return '<button type="button" data-h="'+h+'" aria-label="Hue '+h+'" style="background:linear-gradient(135deg,hsl('+h+',85%,72%),hsl('+h+',85%,42%))"></button>';}).join('')+'</div>';
+  document.body.appendChild(p);
+  var rng=p.querySelector('input'), note=p.querySelector('.hp-note'), autoB=p.querySelector('.hp-auto'), hidden=false;
+  var NOTE={liquid:'Many colours flow and mix; the hue you pick leads the blend.',gradient:'One colour only, from a deep shade to a light tint.'};
+  function save(){ try{ localStorage.setItem('qa-helmet-style',helmetStyle); if(helmetHue===null) localStorage.removeItem('qa-helmet-hue'); else localStorage.setItem('qa-helmet-hue',String(helmetHue)); }catch(e){} }
+  function paint(){
+    p.querySelectorAll('.hp-seg button').forEach(function(b){ b.classList.toggle('on',b.dataset.st===helmetStyle); });
+    note.textContent=NOTE[helmetStyle];
+    p.classList.toggle('auto',helmetHue===null); autoB.classList.toggle('on',helmetHue===null);
+    if(helmetHue!==null) rng.value=Math.round(helmetHue*360);
+    var cur=helmetHue===null?-1:Math.round(helmetHue*360);
+    p.querySelectorAll('.hp-sw button').forEach(function(b){ b.classList.toggle('on',+b.dataset.h===cur); });
+  }
+  function place(){   // pinned top-centre of the stage (the HELMET button itself can sit in a collapsed toolbar, so it is not used as an anchor)
+    p.style.left='50%'; p.style.transform='translateX(-50%)'; p.style.top=(innerWidth<720?64:76)+'px';
+  }
+  function sync(){
+    var on=!!(typeof helmetMode!=='undefined'&&helmetMode)&&!hidden&&helmetbtn.offsetParent!==null;
+    p.style.display=on?'block':'none'; if(on){ paint(); place(); }
+  }
+  function changed(){ save(); paint(); qaHelmetApply(); }
+  p.querySelectorAll('.hp-seg button').forEach(function(b){ b.onclick=function(){ helmetStyle=b.dataset.st; changed(); }; });
+  rng.addEventListener('input',function(){ helmetHue=(+rng.value%360)/360; changed(); });
+  autoB.onclick=function(){ helmetHue=null; changed(); };
+  p.querySelectorAll('.hp-sw button').forEach(function(b){ b.onclick=function(){ helmetHue=(+b.dataset.h)/360; changed(); }; });
+  p.querySelector('.hp-x').onclick=function(){ hidden=true; sync(); };
+  new MutationObserver(function(){ if(!helmetbtn.classList.contains('active')) hidden=false; else hidden=false; sync(); }).observe(helmetbtn,{attributes:true,attributeFilter:['class','style']});
+  addEventListener('resize',sync);
+  sync();
+})();
 
 const excitedbtn=document.getElementById('excitedbtn');
 excitedbtn.onclick=()=>{
@@ -54543,7 +54929,7 @@ window.checkThemeParity = async function () {
   // Known, reviewed, intentional asymmetries — name the reason, don't just
   // silence the check.
   const ALLOWED = {
-    buttonIds: ['hyperbtn'], // light-only: Hyper Realistic Mode needs WebGL2 float render targets (Diffuse now ships in both themes)
+    buttonIds: ['hyperbtn','helmetbtn'], // light-only: Hyper Realistic Mode needs WebGL2 float render targets (Diffuse now ships in both themes); helmetbtn = glossy Helmet surface style (light theme only)
   };
   const extract = (doc) => ({
     buttonIds: [...doc.querySelectorAll('button[id]')].map((e) => e.id),
@@ -56785,7 +57171,8 @@ if(typeof module==='object'&&module.exports) module.exports=api; else root.React
    ===================================================================== */
 const ReactionMode=(function(){
   'use strict';
-  const D2R=Math.PI/180, TSC=1.9, SN=12;     // SN: path snapshots per transition (finer than the solver's collision-free steps' spacing so the Catmull-Rom spline cannot cut corners)
+  const D2R=Math.PI/180, TSC=1.9, SN=12;
+  const RX_GAP=2.6;   // starting clearance between neighbouring reactants' electron clouds (cloud-sized units): clearly apart, still in one frame     // SN: path snapshots per transition (finer than the solver's collision-free steps' spacing so the Catmull-Rom spline cannot cut corners)
                    // TSC: slow-motion factor (spec times are authored at 1×)
   const REGISTRY=new Map();
 
@@ -57009,11 +57396,11 @@ const ReactionMode=(function(){
     const X=new Array(NA),items=STAGES[0].species.map((sp,k)=>{let p=G(sp);const q=Qs&&Qs[k];if(q)p=p.map(v=>{const w=new THREE.Vector3(v[0],v[1],v[2]).applyQuaternion(q);return[w.x,w.y,w.z];});return{sp,p,r:Math.max(.1,...p.map((q,i)=>Math.hypot(q[0],q[1],q[2])+.9*RZ(sp.a[i])))};});
     const slots=ord?ord.map(i=>items[i]):items;   // placement order along the approach axis (searched: reacting partners must be neighbours)
     if(ring&&slots.length>=3){   // collision complex: three or more reactants meet in a ring, every neighbour in contact (as the benzene triangle)
-      const n=slots.length;let Rr=0;for(let k=0;k<n;k++)Rr=Math.max(Rr,(slots[k].r+slots[(k+1)%n].r+.6)/(2*Math.sin(Math.PI/n)));
+      const n=slots.length;let Rr=0;for(let k=0;k<n;k++)Rr=Math.max(Rr,(slots[k].r+slots[(k+1)%n].r+RX_GAP)/(2*Math.sin(Math.PI/n)));
       slots.forEach((o,k)=>{const th=2*Math.PI*k/n,cx=Rr*Math.cos(th),cy=Rr*Math.sin(th);o.sp.a.forEach((a,i)=>{X[a]=[cx+o.p[i][0],cy+o.p[i][1],o.p[i][2]];});});
     }else{
-    let x=-slots.reduce((s,o)=>s+2*o.r+.6,-.6)/2;
-    slots.forEach((o,k)=>{x+=o.r;o.sp.a.forEach((a,i)=>{X[a]=[x+o.p[i][0],o.p[i][1]+(k%2?.3:-.3)*o.r,o.p[i][2]];});x+=o.r+.6;});}
+    let x=-slots.reduce((s,o)=>s+2*o.r+RX_GAP,-RX_GAP)/2;
+    slots.forEach((o,k)=>{x+=o.r;o.sp.a.forEach((a,i)=>{X[a]=[x+o.p[i][0],o.p[i][1]+(k%2?.3:-.3)*o.r,o.p[i][2]];});x+=o.r+RX_GAP;});}
     if(tg&&tg[0])tg[0].forEach((p,a)=>{X[a]=p.slice();});   // refinement pass: keep the winning start arrangement
     KF[0].pos=X.map(p=>p.slice());
     const pull=(p,q,t,w)=>{const dx=q[0]-p[0],dy=q[1]-p[1],dz=q[2]-p[2],L=Math.hypot(dx,dy,dz)||1e-6,c=(L-t)/L*w;p[0]+=c*dx;p[1]+=c*dy;p[2]+=c*dz;q[0]-=c*dx;q[1]-=c*dy;q[2]-=c*dz;};
@@ -58736,7 +59123,7 @@ function rxFollowStages(spec, st){
       const r={id:SPEC.id, typed:SPEC.id==='custom', title:String(SPEC.title||'').replace(/^⚙\s*/,''), step:ui&&ui.stage?ui.stage.textContent:'', stepEquation:ui&&ui.eq?ui.eq.textContent:'',
         stepText:ui&&ui.txt?ui.txt.textContent.slice(0,400):'', progress:ui&&ui.ct?ui.ct.textContent:'', stages:STAGES?STAGES.length:0, playing:!!playing,
         animationFollowsComputedPath:!!SPEC.followsPath, studio:Object.assign({},RX_STUDIO)};
-      r.cloudRendering=rxMesh()?'mesh: wire-grid orbital surfaces (99% Accurate + Mesh), cross-faded between steps while deforming like a fluid':(typeof ultraMode!=='undefined'&&ultraMode)?'ultra: translucent orbital surfaces, cross-faded between steps while deforming like a fluid':(typeof smoothMode!=='undefined'&&smoothMode)?'smooth: cross-faded between steps':(MORPH?'electron points that flow from one step to the next like a 3D fluid (optimal-transport pairing, bond-axis twist, divergence-free swirl, sideways bulge toward the partner)':'cross-faded between steps');
+      r.cloudRendering=rxMesh()?(helmetMode?'helmet: glossy lit spherical-harmonic lobes (99% Accurate + Helmet), cross-faded between steps while deforming like a fluid':'mesh: wire-grid orbital surfaces (99% Accurate + Mesh), cross-faded between steps while deforming like a fluid'):(typeof ultraMode!=='undefined'&&ultraMode)?'ultra: translucent orbital surfaces, cross-faded between steps while deforming like a fluid':(typeof smoothMode!=='undefined'&&smoothMode)?'smooth: cross-faded between steps':(MORPH?'electron points that flow from one step to the next like a 3D fluid (optimal-transport pairing, bond-axis twist, divergence-free swirl, sideways bulge toward the partner)':'cross-faded between steps');
       r.accurateModel=(typeof exactMode!=='undefined'&&exactMode)?'99% Accurate (true cloud sizes)':'Classic';
       if(RXE && RXE.last) r.energyPanel=Object.assign({open:!!(RXE.card&&!RXE.card.hidden)}, RXE.last);
       return r; },
@@ -72327,8 +72714,8 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
 </script>
 <script>
 (function(){
-  var BTN='.mode-btn,#dtune .dt-btn,.dt-btn,.tab,.theme-toggle-btn,.rbtn,#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,#meshbtn,#excitedbtn,.lesson-nav-btn,.lesson-back,.lesson-item,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn,.ex-chip,.dft-btn,.rx-energy-btn,.build-suggest-chip,.qai-iconbtn,.qai-btn,.qai-chip,.qai-choice,.qen-go,.qen-stay,.qen-x,.rx-custom-go,.rx-clr,.rxs-reset,.rxe-x,.rxe-tabs button';
-  var TOG='.mode-btn,.dt-btn,.tab,#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,#meshbtn,#excitedbtn,#colorblindbtn,#glassbtn,#annbtn,#reactbtn,.an-unit-btn,.dl-chip,.rxe-tabs button';
+  var BTN='.mode-btn,#dtune .dt-btn,.dt-btn,.tab,.theme-toggle-btn,.rbtn,#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,#meshbtn,#helmetbtn,#excitedbtn,.lesson-nav-btn,.lesson-back,.lesson-item,.panel-close,.cmp-close,.dl-chip,.dl-pickbtn,.an-unit-btn,.ex-chip,.dft-btn,.rx-energy-btn,.build-suggest-chip,.qai-iconbtn,.qai-btn,.qai-chip,.qai-choice,.qen-go,.qen-stay,.qen-x,.rx-custom-go,.rx-clr,.rxs-reset,.rxe-x,.rxe-tabs button';
+  var TOG='.mode-btn,.dt-btn,.tab,#antibtn,#realbtn,#diffusebtn,#hyperbtn,#gridbtn,#smoothbtn,#ultrabtn,#sphericalbtn,#exactbtn,#meshbtn,#helmetbtn,#excitedbtn,#colorblindbtn,#glassbtn,#annbtn,#reactbtn,.an-unit-btn,.dl-chip,.rxe-tabs button';
   function flash(b){b.classList.add('qa-pressed');clearTimeout(b._qaT);b._qaT=setTimeout(function(){b.classList.remove('qa-pressed');},(document.documentElement.getAttribute('data-lux')==='on'?800:450));}
   document.addEventListener('click',function(e){
     var t=e.target;if(!t||!t.closest)return;
