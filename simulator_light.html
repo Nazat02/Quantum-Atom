@@ -67686,13 +67686,19 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
  #sh-panel{left:auto;right:12px;top:calc(var(--ol-top-h) + 12px);bottom:auto;width:392px;border-radius:var(--x-r);border:1px solid var(--x-line);}
  #sh-body{height:clamp(300px,calc(100dvh - 330px),620px);}
 }
+
+/* fix: flex children must not shrink, otherwise Overview content is squashed instead of scrolling */
+#sh-body>*{flex:0 0 auto;}
+#sh-body{touch-action:pan-y;-webkit-overflow-scrolling:touch;min-height:0;}
+.sh-eqcard .eq{flex:0 0 auto;}
+.sh-eqcard .eq .tag{width:auto;min-width:66px;padding-right:10px;box-sizing:border-box;}
 </style>
 
 <div id="sh-root" role="dialog" aria-modal="true" aria-label="Spherical Harmonic Lab">
   <header id="sh-top">
     <div id="sh-logo"></div>
     <div id="sh-badge"><span class="z" id="sh-bz">ℓ3</span><span class="s" id="sh-bs">Y</span></div>
-    <div id="sh-ttl"><div id="sh-name">Spherical Harmonic Lab</div><div id="sh-meta"></div></div>
+    <div id="sh-ttl"><div id="sh-name" data-i18n="shlab.name">Spherical Harmonic Lab</div><div id="sh-meta"></div></div>
     <button type="button" class="cmp-close" id="sh-close" aria-label="Close">✕</button>
   </header>
   <div id="sh-stage">
@@ -67711,14 +67717,14 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
       </div>
     </div>
     <div id="sh-tabs" role="tablist" aria-label="Controls">
-      <button type="button" role="tab" data-t="overview" aria-selected="true">Overview</button>
-      <button type="button" role="tab" data-t="shape" aria-selected="false">Shape</button>
-      <button type="button" role="tab" data-t="mix" aria-selected="false">Mix</button>
-      <button type="button" role="tab" data-t="look" aria-selected="false">Look</button>
+      <button type="button" role="tab" data-t="overview" aria-selected="true" data-i18n="shlab.overview">Overview</button>
+      <button type="button" role="tab" data-t="shape" aria-selected="false" data-i18n="shlab.shape">Shape</button>
+      <button type="button" role="tab" data-t="mix" aria-selected="false" data-i18n="shlab.mix">Mix</button>
+      <button type="button" role="tab" data-t="look" aria-selected="false" data-i18n="shlab.look">Look</button>
     </div>
     <div id="sh-body">
       <div class="sh-sec" data-tab="overview">
-        <div class="ptitle">Equation</div>
+        <div class="ptitle" data-i18n="shlab.equation">Equation</div>
         <div class="sh-eqcard" id="sh-eqcard"></div>
       </div>
       <div id="sh-stats" data-tab="overview">
@@ -67728,25 +67734,25 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
         <div class="sh-stat"><span class="sk" id="sh-k4">Max |Ψ|</span><span class="sv" id="sh-s4"></span></div>
       </div>
       <div class="sh-sec" data-tab="shape">
-        <div class="ptitle">Quantum numbers</div>
-        <div class="sh-row"><span class="sk">ℓ  degree</span><input id="sh-l" type="range" min="0" max="20" step="1" value="3"><output id="sh-lv"></output></div>
-        <div class="sh-row"><span class="sk">m  order</span><input id="sh-m" type="range" min="-3" max="3" step="1" value="2"><output id="sh-mv"></output></div>
+        <div class="ptitle" data-i18n="shlab.qnum">Quantum numbers</div>
+        <div class="sh-row"><span class="sk">ℓ <span data-i18n="shlab.degree">degree</span></span><input id="sh-l" type="range" min="0" max="20" step="1" value="3"><output id="sh-lv"></output></div>
+        <div class="sh-row"><span class="sk">m <span data-i18n="shlab.order">order</span></span><input id="sh-m" type="range" min="-3" max="3" step="1" value="2"><output id="sh-mv"></output></div>
       </div>
       <div class="sh-sec" data-tab="shape">
-        <div class="ptitle">Presets</div>
+        <div class="ptitle" data-i18n="shlab.presets">Presets</div>
         <div class="sh-chips" id="sh-chips"></div>
       </div>
       <div class="sh-sec" id="sh-sup-wrap" data-tab="mix">
-        <div class="ptitle">Superposition</div>
+        <div class="ptitle" data-i18n="shlab.superpos">Superposition</div>
         <div class="sh-mini">Ψ = Y<sub>ℓ</sub><sup>m</sup> + c·e<sup>iδ</sup>·Y<sub>ℓ₂</sub><sup>m₂</sup></div>
-        <div class="mode-switch"><button type="button" class="mode-btn" id="sh-sup">Add second harmonic</button></div>
+        <div class="mode-switch"><button type="button" class="mode-btn" id="sh-sup" data-i18n="shlab.addsec">Add second harmonic</button></div>
         <div class="sh-row"><span class="sk">ℓ₂</span><input id="sh-l2" type="range" min="0" max="20" step="1" value="2"><output id="sh-l2v"></output></div>
         <div class="sh-row"><span class="sk">m₂</span><input id="sh-m2" type="range" min="-2" max="2" step="1" value="0"><output id="sh-m2v"></output></div>
-        <div class="sh-row"><span class="sk">weight c</span><input id="sh-c" type="range" min="0" max="150" step="5" value="80"><output id="sh-cv"></output></div>
-        <div class="sh-row"><span class="sk">phase δ</span><input id="sh-d" type="range" min="0" max="360" step="5" value="0"><output id="sh-dv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.weight">weight c</span><input id="sh-c" type="range" min="0" max="150" step="5" value="80"><output id="sh-cv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.phase">phase δ</span><input id="sh-d" type="range" min="0" max="360" step="5" value="0"><output id="sh-dv"></output></div>
       </div>
       <div class="sh-sec" data-tab="look">
-        <div class="ptitle">Component</div>
+        <div class="ptitle" data-i18n="shlab.comp">Component</div>
         <div class="mode-switch" id="sh-comp">
           <button type="button" class="mode-btn on" data-v="complex">|Ψ| · hue = arg Ψ</button>
           <button type="button" class="mode-btn" data-v="real">Re Ψ</button>
@@ -67754,46 +67760,48 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
         </div>
       </div>
       <div class="sh-sec" data-tab="look">
-        <div class="ptitle">Form</div>
+        <div class="ptitle" data-i18n="shlab.form">Form</div>
         <div class="mode-switch" id="sh-form">
-          <button type="button" class="mode-btn on" data-v="0">Liquid lobes</button>
-          <button type="button" class="mode-btn" data-v="1">Soft cloud</button>
-          <button type="button" class="mode-btn" data-v="2">Membrane</button>
-          <button type="button" class="mode-btn" data-v="3">Sphere map</button>
+          <button type="button" class="mode-btn on" data-v="0" data-i18n="shlab.liquid">Liquid lobes</button>
+          <button type="button" class="mode-btn" data-v="1" data-i18n="shlab.soft">Soft cloud</button>
+          <button type="button" class="mode-btn" data-v="2" data-i18n="shlab.membrane">Membrane</button>
+          <button type="button" class="mode-btn" data-v="3" data-i18n="shlab.sphere">Sphere map</button>
         </div>
-        <div class="sh-row"><span class="sk">Curve γ</span><input id="sh-g" type="range" min="25" max="150" step="5" value="75"><output id="sh-gv"></output></div>
-        <div class="sh-row"><span class="sk">Base size</span><input id="sh-b" type="range" min="0" max="60" step="2" value="8"><output id="sh-bv"></output></div>
-        <div class="sh-row"><span class="sk">Softness</span><input id="sh-s" type="range" min="0" max="100" step="2" value="35"><output id="sh-sv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.curve">Curve γ</span><input id="sh-g" type="range" min="25" max="150" step="5" value="75"><output id="sh-gv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.base">Base size</span><input id="sh-b" type="range" min="0" max="60" step="2" value="8"><output id="sh-bv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.softness">Softness</span><input id="sh-s" type="range" min="0" max="100" step="2" value="35"><output id="sh-sv"></output></div>
       </div>
       <div class="sh-sec" data-tab="look">
-        <div class="ptitle">Colour &amp; light</div>
+        <div class="ptitle" data-i18n="shlab.colour">Colour &amp; light</div>
         <div class="sh-chips" id="sh-pal"></div>
-        <div class="sh-row"><span class="sk">Opacity</span><input id="sh-o" type="range" min="10" max="200" step="5" value="55"><output id="sh-ov"></output></div>
-        <div class="sh-row"><span class="sk">Gloss</span><input id="sh-gl" type="range" min="0" max="100" step="5" value="70"><output id="sh-glv"></output></div>
-        <div class="sh-row"><span class="sk">Hue shift</span><input id="sh-h" type="range" min="0" max="360" step="5" value="0"><output id="sh-hv"></output></div>
-        <div class="sh-row"><span class="sk">Flow speed</span><input id="sh-f" type="range" min="0" max="200" step="5" value="35"><output id="sh-fv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.opacity">Opacity</span><input id="sh-o" type="range" min="10" max="200" step="5" value="55"><output id="sh-ov"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.gloss">Gloss</span><input id="sh-gl" type="range" min="0" max="100" step="5" value="70"><output id="sh-glv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.hue">Hue shift</span><input id="sh-h" type="range" min="0" max="360" step="5" value="0"><output id="sh-hv"></output></div>
+        <div class="sh-row"><span class="sk" data-i18n="shlab.flow">Flow speed</span><input id="sh-f" type="range" min="0" max="200" step="5" value="35"><output id="sh-fv"></output></div>
       </div>
       <div class="sh-sec" data-tab="look">
-        <div class="ptitle">Render quality</div>
+        <div class="ptitle" data-i18n="shlab.quality">Render quality</div>
         <div class="mode-switch" id="sh-q">
-          <button type="button" class="mode-btn" data-v="fast">Fast</button>
-          <button type="button" class="mode-btn on" data-v="high">High</button>
-          <button type="button" class="mode-btn" data-v="ultra">Ultra</button>
+          <button type="button" class="mode-btn" data-v="fast" data-i18n="shlab.fast">Fast</button>
+          <button type="button" class="mode-btn on" data-v="high" data-i18n="shlab.high">High</button>
+          <button type="button" class="mode-btn" data-v="ultra" data-i18n="shlab.ultra">Ultra</button>
         </div>
         <div class="mode-switch">
-          <button type="button" class="mode-btn on" id="sh-auto">Rotate</button>
-          <button type="button" class="rbtn" id="sh-rand" style="flex:1;justify-content:center">⚄ Random</button>
-          <button type="button" class="rbtn" id="sh-reset" style="flex:1;justify-content:center">↺ Reset view</button>
+          <button type="button" class="mode-btn on" id="sh-auto" data-i18n="shlab.rotate">Rotate</button>
+          <button type="button" class="rbtn" id="sh-rand" style="flex:1;justify-content:center">⚄ <span data-i18n="shlab.random">Random</span></button>
+          <button type="button" class="rbtn" id="sh-reset" style="flex:1;justify-content:center">↺ <span data-i18n="shlab.reset">Reset view</span></button>
         </div>
       </div>
     </div>
   </section>
 </div>
+<script id="sh-i18n">window.QA_I18N&&(function(d){for(var k in d)QA_I18N.add(k,d[k]);})({"en": {"shlab.name": "Spherical Harmonic Lab", "shlab.overview": "Overview", "shlab.shape": "Shape", "shlab.mix": "Mix", "shlab.look": "Look", "shlab.equation": "Equation", "shlab.qnum": "Quantum numbers", "shlab.presets": "Presets", "shlab.superpos": "Superposition", "shlab.addsec": "Add second harmonic", "shlab.secon": "Second harmonic: on", "shlab.comp": "Component", "shlab.form": "Form", "shlab.liquid": "Liquid lobes", "shlab.soft": "Soft cloud", "shlab.membrane": "Membrane", "shlab.sphere": "Sphere map", "shlab.colour": "Colour & light", "shlab.opacity": "Opacity", "shlab.gloss": "Gloss", "shlab.hue": "Hue shift", "shlab.flow": "Flow speed", "shlab.quality": "Render quality", "shlab.fast": "Fast", "shlab.high": "High", "shlab.ultra": "Ultra", "shlab.rotate": "Rotate", "shlab.random": "Random", "shlab.reset": "Reset view", "shlab.general": "General", "shlab.norm": "Norm", "shlab.now": "Now", "shlab.legendre": "Legendre", "shlab.time": "Time", "shlab.nodal": "Nodal lines", "shlab.components": "Components", "shlab.degree": "degree", "shlab.order": "order", "shlab.curve": "Curve γ", "shlab.base": "Base size", "shlab.softness": "Softness", "shlab.weight": "weight c", "shlab.phase": "phase δ", "shlab.pal_spectrum": "Spectrum", "shlab.pal_elegant": "Elegant", "shlab.pal_aurora": "Aurora", "shlab.pal_sunset": "Sunset", "shlab.pal_ocean": "Ocean"}, "de": {"shlab.name": "Kugelflächenfunktionen-Labor", "shlab.overview": "Übersicht", "shlab.shape": "Form", "shlab.mix": "Mix", "shlab.look": "Look", "shlab.equation": "Gleichung", "shlab.qnum": "Quantenzahlen", "shlab.presets": "Vorlagen", "shlab.superpos": "Überlagerung", "shlab.addsec": "Zweite Harmonische hinzufügen", "shlab.secon": "Zweite Harmonische: an", "shlab.comp": "Komponente", "shlab.form": "Gestalt", "shlab.liquid": "Flüssige Keulen", "shlab.soft": "Weiche Wolke", "shlab.membrane": "Membran", "shlab.sphere": "Kugelkarte", "shlab.colour": "Farbe & Licht", "shlab.opacity": "Deckkraft", "shlab.gloss": "Glanz", "shlab.hue": "Farbton-Verschiebung", "shlab.flow": "Fließtempo", "shlab.quality": "Renderqualität", "shlab.fast": "Schnell", "shlab.high": "Hoch", "shlab.ultra": "Ultra", "shlab.rotate": "Drehen", "shlab.random": "Zufall", "shlab.reset": "Ansicht zurücksetzen", "shlab.general": "Allgemein", "shlab.norm": "Norm", "shlab.now": "Jetzt", "shlab.legendre": "Legendre", "shlab.time": "Zeit", "shlab.nodal": "Knotenlinien", "shlab.components": "Komponenten", "shlab.degree": "Grad", "shlab.order": "Ordnung", "shlab.curve": "Kurve γ", "shlab.base": "Grundgröße", "shlab.softness": "Weichheit", "shlab.weight": "Gewicht c", "shlab.phase": "Phase δ", "shlab.pal_spectrum": "Spektrum", "shlab.pal_elegant": "Elegant", "shlab.pal_aurora": "Aurora", "shlab.pal_sunset": "Sonnenuntergang", "shlab.pal_ocean": "Ozean"}, "es": {"shlab.name": "Laboratorio de armónicos esféricos", "shlab.overview": "Resumen", "shlab.shape": "Forma", "shlab.mix": "Mezcla", "shlab.look": "Aspecto", "shlab.equation": "Ecuación", "shlab.qnum": "Números cuánticos", "shlab.presets": "Preajustes", "shlab.superpos": "Superposición", "shlab.addsec": "Añadir segundo armónico", "shlab.secon": "Segundo armónico: activo", "shlab.comp": "Componente", "shlab.form": "Forma", "shlab.liquid": "Lóbulos líquidos", "shlab.soft": "Nube suave", "shlab.membrane": "Membrana", "shlab.sphere": "Mapa esférico", "shlab.colour": "Color y luz", "shlab.opacity": "Opacidad", "shlab.gloss": "Brillo", "shlab.hue": "Cambio de tono", "shlab.flow": "Velocidad de flujo", "shlab.quality": "Calidad de render", "shlab.fast": "Rápida", "shlab.high": "Alta", "shlab.ultra": "Ultra", "shlab.rotate": "Girar", "shlab.random": "Aleatorio", "shlab.reset": "Restablecer vista", "shlab.general": "General", "shlab.norm": "Norma", "shlab.now": "Ahora", "shlab.legendre": "Legendre", "shlab.time": "Tiempo", "shlab.nodal": "Líneas nodales", "shlab.components": "Componentes", "shlab.degree": "grado", "shlab.order": "orden", "shlab.curve": "Curva γ", "shlab.base": "Tamaño base", "shlab.softness": "Suavidad", "shlab.weight": "peso c", "shlab.phase": "fase δ", "shlab.pal_spectrum": "Espectro", "shlab.pal_elegant": "Elegante", "shlab.pal_aurora": "Aurora", "shlab.pal_sunset": "Atardecer", "shlab.pal_ocean": "Océano"}, "fr": {"shlab.name": "Labo d’harmoniques sphériques", "shlab.overview": "Aperçu", "shlab.shape": "Forme", "shlab.mix": "Mélange", "shlab.look": "Style", "shlab.equation": "Équation", "shlab.qnum": "Nombres quantiques", "shlab.presets": "Préréglages", "shlab.superpos": "Superposition", "shlab.addsec": "Ajouter une 2ᵉ harmonique", "shlab.secon": "2ᵉ harmonique : activée", "shlab.comp": "Composante", "shlab.form": "Forme", "shlab.liquid": "Lobes liquides", "shlab.soft": "Nuage doux", "shlab.membrane": "Membrane", "shlab.sphere": "Carte sphérique", "shlab.colour": "Couleur et lumière", "shlab.opacity": "Opacité", "shlab.gloss": "Brillance", "shlab.hue": "Décalage de teinte", "shlab.flow": "Vitesse du flux", "shlab.quality": "Qualité de rendu", "shlab.fast": "Rapide", "shlab.high": "Haute", "shlab.ultra": "Ultra", "shlab.rotate": "Rotation", "shlab.random": "Aléatoire", "shlab.reset": "Réinitialiser la vue", "shlab.general": "Général", "shlab.norm": "Norme", "shlab.now": "Actuel", "shlab.legendre": "Legendre", "shlab.time": "Temps", "shlab.nodal": "Lignes nodales", "shlab.components": "Composantes", "shlab.degree": "degré", "shlab.order": "ordre", "shlab.curve": "Courbe γ", "shlab.base": "Taille de base", "shlab.softness": "Douceur", "shlab.weight": "poids c", "shlab.phase": "phase δ", "shlab.pal_spectrum": "Spectre", "shlab.pal_elegant": "Élégant", "shlab.pal_aurora": "Aurore", "shlab.pal_sunset": "Crépuscule", "shlab.pal_ocean": "Océan"}, "it": {"shlab.name": "Laboratorio di armoniche sferiche", "shlab.overview": "Panoramica", "shlab.shape": "Forma", "shlab.mix": "Mix", "shlab.look": "Aspetto", "shlab.equation": "Equazione", "shlab.qnum": "Numeri quantici", "shlab.presets": "Preset", "shlab.superpos": "Sovrapposizione", "shlab.addsec": "Aggiungi seconda armonica", "shlab.secon": "Seconda armonica: attiva", "shlab.comp": "Componente", "shlab.form": "Forma", "shlab.liquid": "Lobi liquidi", "shlab.soft": "Nube morbida", "shlab.membrane": "Membrana", "shlab.sphere": "Mappa sferica", "shlab.colour": "Colore e luce", "shlab.opacity": "Opacità", "shlab.gloss": "Lucentezza", "shlab.hue": "Scostamento tinta", "shlab.flow": "Velocità del flusso", "shlab.quality": "Qualità di render", "shlab.fast": "Veloce", "shlab.high": "Alta", "shlab.ultra": "Ultra", "shlab.rotate": "Ruota", "shlab.random": "Casuale", "shlab.reset": "Reimposta vista", "shlab.general": "Generale", "shlab.norm": "Norma", "shlab.now": "Ora", "shlab.legendre": "Legendre", "shlab.time": "Tempo", "shlab.nodal": "Linee nodali", "shlab.components": "Componenti", "shlab.degree": "grado", "shlab.order": "ordine", "shlab.curve": "Curva γ", "shlab.base": "Dimensione base", "shlab.softness": "Morbidezza", "shlab.weight": "peso c", "shlab.phase": "fase δ", "shlab.pal_spectrum": "Spettro", "shlab.pal_elegant": "Elegante", "shlab.pal_aurora": "Aurora", "shlab.pal_sunset": "Tramonto", "shlab.pal_ocean": "Oceano"}, "ru": {"shlab.name": "Лаборатория сферических гармоник", "shlab.overview": "Обзор", "shlab.shape": "Форма", "shlab.mix": "Смесь", "shlab.look": "Вид", "shlab.equation": "Уравнение", "shlab.qnum": "Квантовые числа", "shlab.presets": "Пресеты", "shlab.superpos": "Суперпозиция", "shlab.addsec": "Добавить вторую гармонику", "shlab.secon": "Вторая гармоника: вкл.", "shlab.comp": "Компонента", "shlab.form": "Форма", "shlab.liquid": "Жидкие доли", "shlab.soft": "Мягкое облако", "shlab.membrane": "Мембрана", "shlab.sphere": "Карта сферы", "shlab.colour": "Цвет и свет", "shlab.opacity": "Непрозрачность", "shlab.gloss": "Блеск", "shlab.hue": "Сдвиг оттенка", "shlab.flow": "Скорость потока", "shlab.quality": "Качество рендера", "shlab.fast": "Быстро", "shlab.high": "Высокое", "shlab.ultra": "Ультра", "shlab.rotate": "Вращение", "shlab.random": "Случайно", "shlab.reset": "Сбросить вид", "shlab.general": "Общий вид", "shlab.norm": "Норма", "shlab.now": "Сейчас", "shlab.legendre": "Лежандр", "shlab.time": "Время", "shlab.nodal": "Узловые линии", "shlab.components": "Компоненты", "shlab.degree": "степень", "shlab.order": "порядок", "shlab.curve": "Кривая γ", "shlab.base": "Базовый размер", "shlab.softness": "Мягкость", "shlab.weight": "вес c", "shlab.phase": "фаза δ", "shlab.pal_spectrum": "Спектр", "shlab.pal_elegant": "Элегантная", "shlab.pal_aurora": "Аврора", "shlab.pal_sunset": "Закат", "shlab.pal_ocean": "Океан"}, "zh": {"shlab.name": "球谐函数实验室", "shlab.overview": "概览", "shlab.shape": "形状", "shlab.mix": "混合", "shlab.look": "外观", "shlab.equation": "方程", "shlab.qnum": "量子数", "shlab.presets": "预设", "shlab.superpos": "叠加", "shlab.addsec": "添加第二个球谐函数", "shlab.secon": "第二个球谐函数：开", "shlab.comp": "分量", "shlab.form": "形式", "shlab.liquid": "液态瓣", "shlab.soft": "柔和云", "shlab.membrane": "薄膜", "shlab.sphere": "球面图", "shlab.colour": "颜色与光", "shlab.opacity": "不透明度", "shlab.gloss": "光泽", "shlab.hue": "色相偏移", "shlab.flow": "流动速度", "shlab.quality": "渲染质量", "shlab.fast": "快速", "shlab.high": "高", "shlab.ultra": "超高", "shlab.rotate": "旋转", "shlab.random": "随机", "shlab.reset": "重置视角", "shlab.general": "通式", "shlab.norm": "归一化", "shlab.now": "当前", "shlab.legendre": "勒让德", "shlab.time": "时间", "shlab.nodal": "节线", "shlab.components": "成分数", "shlab.degree": "阶数", "shlab.order": "序数", "shlab.curve": "曲线 γ", "shlab.base": "基础大小", "shlab.softness": "柔和度", "shlab.weight": "权重 c", "shlab.phase": "相位 δ", "shlab.pal_spectrum": "光谱", "shlab.pal_elegant": "优雅", "shlab.pal_aurora": "极光", "shlab.pal_sunset": "日落", "shlab.pal_ocean": "海洋"}, "ja": {"shlab.name": "球面調和関数ラボ", "shlab.overview": "概要", "shlab.shape": "形状", "shlab.mix": "ミックス", "shlab.look": "見た目", "shlab.equation": "方程式", "shlab.qnum": "量子数", "shlab.presets": "プリセット", "shlab.superpos": "重ね合わせ", "shlab.addsec": "第2の調和関数を追加", "shlab.secon": "第2の調和関数：オン", "shlab.comp": "成分", "shlab.form": "形式", "shlab.liquid": "液状ローブ", "shlab.soft": "ソフトクラウド", "shlab.membrane": "メンブレン", "shlab.sphere": "球面マップ", "shlab.colour": "色と光", "shlab.opacity": "不透明度", "shlab.gloss": "光沢", "shlab.hue": "色相シフト", "shlab.flow": "流れの速さ", "shlab.quality": "描画品質", "shlab.fast": "高速", "shlab.high": "高", "shlab.ultra": "ウルトラ", "shlab.rotate": "回転", "shlab.random": "ランダム", "shlab.reset": "視点をリセット", "shlab.general": "一般式", "shlab.norm": "規格化", "shlab.now": "現在", "shlab.legendre": "ルジャンドル", "shlab.time": "時間", "shlab.nodal": "節線", "shlab.components": "成分数", "shlab.degree": "次数", "shlab.order": "位数", "shlab.curve": "曲線 γ", "shlab.base": "基本サイズ", "shlab.softness": "柔らかさ", "shlab.weight": "重み c", "shlab.phase": "位相 δ", "shlab.pal_spectrum": "スペクトル", "shlab.pal_elegant": "エレガント", "shlab.pal_aurora": "オーロラ", "shlab.pal_sunset": "夕焼け", "shlab.pal_ocean": "海"}, "ko": {"shlab.name": "구면조화함수 연구실", "shlab.overview": "개요", "shlab.shape": "모양", "shlab.mix": "혼합", "shlab.look": "스타일", "shlab.equation": "방정식", "shlab.qnum": "양자수", "shlab.presets": "프리셋", "shlab.superpos": "중첩", "shlab.addsec": "두 번째 조화함수 추가", "shlab.secon": "두 번째 조화함수: 켜짐", "shlab.comp": "성분", "shlab.form": "형태", "shlab.liquid": "액체 로브", "shlab.soft": "부드러운 구름", "shlab.membrane": "막", "shlab.sphere": "구면 지도", "shlab.colour": "색상 및 빛", "shlab.opacity": "불투명도", "shlab.gloss": "광택", "shlab.hue": "색조 이동", "shlab.flow": "흐름 속도", "shlab.quality": "렌더 품질", "shlab.fast": "빠름", "shlab.high": "높음", "shlab.ultra": "울트라", "shlab.rotate": "회전", "shlab.random": "무작위", "shlab.reset": "보기 초기화", "shlab.general": "일반식", "shlab.norm": "규격화", "shlab.now": "현재", "shlab.legendre": "르장드르", "shlab.time": "시간", "shlab.nodal": "마디선", "shlab.components": "성분 수", "shlab.degree": "차수", "shlab.order": "위수", "shlab.curve": "곡선 γ", "shlab.base": "기본 크기", "shlab.softness": "부드러움", "shlab.weight": "가중치 c", "shlab.phase": "위상 δ", "shlab.pal_spectrum": "스펙트럼", "shlab.pal_elegant": "우아함", "shlab.pal_aurora": "오로라", "shlab.pal_sunset": "노을", "shlab.pal_ocean": "바다"}, "ar": {"shlab.name": "مختبر التوافقيات الكروية", "shlab.overview": "نظرة عامة", "shlab.shape": "الشكل", "shlab.mix": "المزج", "shlab.look": "المظهر", "shlab.equation": "المعادلة", "shlab.qnum": "الأعداد الكمية", "shlab.presets": "إعدادات جاهزة", "shlab.superpos": "التراكب", "shlab.addsec": "إضافة توافقية ثانية", "shlab.secon": "التوافقية الثانية: مفعّلة", "shlab.comp": "المركّبة", "shlab.form": "الهيئة", "shlab.liquid": "فصوص سائلة", "shlab.soft": "سحابة ناعمة", "shlab.membrane": "غشاء", "shlab.sphere": "خريطة كروية", "shlab.colour": "اللون والضوء", "shlab.opacity": "العتامة", "shlab.gloss": "اللمعان", "shlab.hue": "إزاحة الصبغة", "shlab.flow": "سرعة التدفق", "shlab.quality": "جودة العرض", "shlab.fast": "سريعة", "shlab.high": "عالية", "shlab.ultra": "فائقة", "shlab.rotate": "تدوير", "shlab.random": "عشوائي", "shlab.reset": "إعادة ضبط العرض", "shlab.general": "عام", "shlab.norm": "التطبيع", "shlab.now": "الآن", "shlab.legendre": "ليجاندر", "shlab.time": "الزمن", "shlab.nodal": "خطوط العقد", "shlab.components": "المكوّنات", "shlab.degree": "الدرجة", "shlab.order": "الرتبة", "shlab.curve": "المنحنى γ", "shlab.base": "الحجم الأساسي", "shlab.softness": "النعومة", "shlab.weight": "الوزن c", "shlab.phase": "الطور δ", "shlab.pal_spectrum": "الطيف", "shlab.pal_elegant": "أنيق", "shlab.pal_aurora": "الشفق القطبي", "shlab.pal_sunset": "الغروب", "shlab.pal_ocean": "المحيط"}, "hi": {"shlab.name": "गोलीय हार्मोनिक प्रयोगशाला", "shlab.overview": "अवलोकन", "shlab.shape": "आकार", "shlab.mix": "मिश्रण", "shlab.look": "रूप", "shlab.equation": "समीकरण", "shlab.qnum": "क्वांटम संख्याएँ", "shlab.presets": "प्रीसेट", "shlab.superpos": "अध्यारोपण", "shlab.addsec": "दूसरा हार्मोनिक जोड़ें", "shlab.secon": "दूसरा हार्मोनिक: चालू", "shlab.comp": "घटक", "shlab.form": "रूप-प्रकार", "shlab.liquid": "तरल पालियाँ", "shlab.soft": "मुलायम बादल", "shlab.membrane": "झिल्ली", "shlab.sphere": "गोला मानचित्र", "shlab.colour": "रंग और प्रकाश", "shlab.opacity": "अपारदर्शिता", "shlab.gloss": "चमक", "shlab.hue": "रंगत खिसकाव", "shlab.flow": "प्रवाह गति", "shlab.quality": "रेंडर गुणवत्ता", "shlab.fast": "तेज़", "shlab.high": "उच्च", "shlab.ultra": "अल्ट्रा", "shlab.rotate": "घुमाएँ", "shlab.random": "यादृच्छिक", "shlab.reset": "दृश्य रीसेट", "shlab.general": "सामान्य", "shlab.norm": "प्रसामान्यीकरण", "shlab.now": "अभी", "shlab.legendre": "लीजेंड्र", "shlab.time": "समय", "shlab.nodal": "नोडल रेखाएँ", "shlab.components": "घटकों की संख्या", "shlab.degree": "कोटि", "shlab.order": "क्रम", "shlab.curve": "वक्र γ", "shlab.base": "आधार आकार", "shlab.softness": "कोमलता", "shlab.weight": "भार c", "shlab.phase": "कला δ", "shlab.pal_spectrum": "स्पेक्ट्रम", "shlab.pal_elegant": "सुरुचिपूर्ण", "shlab.pal_aurora": "ऑरोरा", "shlab.pal_sunset": "सूर्यास्त", "shlab.pal_ocean": "महासागर"}, "bn": {"shlab.name": "গোলীয় হারমোনিক ল্যাব", "shlab.overview": "সংক্ষিপ্ত বিবরণ", "shlab.shape": "আকার", "shlab.mix": "মিশ্রণ", "shlab.look": "রূপ", "shlab.equation": "সমীকরণ", "shlab.qnum": "কোয়ান্টাম সংখ্যা", "shlab.presets": "প্রিসেট", "shlab.superpos": "উপরিপাতন", "shlab.addsec": "দ্বিতীয় হারমোনিক যোগ করুন", "shlab.secon": "দ্বিতীয় হারমোনিক: চালু", "shlab.comp": "উপাদান", "shlab.form": "ধরন", "shlab.liquid": "তরল লোব", "shlab.soft": "নরম মেঘ", "shlab.membrane": "পর্দা", "shlab.sphere": "গোলক মানচিত্র", "shlab.colour": "রং ও আলো", "shlab.opacity": "অস্বচ্ছতা", "shlab.gloss": "উজ্জ্বলতা", "shlab.hue": "বর্ণ সরানো", "shlab.flow": "প্রবাহের গতি", "shlab.quality": "রেন্ডার মান", "shlab.fast": "দ্রুত", "shlab.high": "উচ্চ", "shlab.ultra": "আল্ট্রা", "shlab.rotate": "ঘোরান", "shlab.random": "র‍্যান্ডম", "shlab.reset": "দৃশ্য রিসেট", "shlab.general": "সাধারণ", "shlab.norm": "নরমালাইজেশন", "shlab.now": "এখন", "shlab.legendre": "লেজান্ড্রে", "shlab.time": "সময়", "shlab.nodal": "নোডাল রেখা", "shlab.components": "উপাদানের সংখ্যা", "shlab.degree": "ঘাত", "shlab.order": "ক্রম", "shlab.curve": "বক্রতা γ", "shlab.base": "ভিত্তি আকার", "shlab.softness": "কোমলতা", "shlab.weight": "ওজন c", "shlab.phase": "দশা δ", "shlab.pal_spectrum": "বর্ণালি", "shlab.pal_elegant": "মার্জিত", "shlab.pal_aurora": "অরোরা", "shlab.pal_sunset": "সূর্যাস্ত", "shlab.pal_ocean": "মহাসাগর"}, "el": {"shlab.name": "Εργαστήριο σφαιρικών αρμονικών", "shlab.overview": "Επισκόπηση", "shlab.shape": "Σχήμα", "shlab.mix": "Μίγμα", "shlab.look": "Εμφάνιση", "shlab.equation": "Εξίσωση", "shlab.qnum": "Κβαντικοί αριθμοί", "shlab.presets": "Προεπιλογές", "shlab.superpos": "Υπέρθεση", "shlab.addsec": "Προσθήκη δεύτερης αρμονικής", "shlab.secon": "Δεύτερη αρμονική: ενεργή", "shlab.comp": "Συνιστώσα", "shlab.form": "Μορφή", "shlab.liquid": "Υγροί λοβοί", "shlab.soft": "Απαλό νέφος", "shlab.membrane": "Μεμβράνη", "shlab.sphere": "Χάρτης σφαίρας", "shlab.colour": "Χρώμα και φως", "shlab.opacity": "Αδιαφάνεια", "shlab.gloss": "Γυαλάδα", "shlab.hue": "Μετατόπιση απόχρωσης", "shlab.flow": "Ταχύτητα ροής", "shlab.quality": "Ποιότητα απόδοσης", "shlab.fast": "Γρήγορη", "shlab.high": "Υψηλή", "shlab.ultra": "Ultra", "shlab.rotate": "Περιστροφή", "shlab.random": "Τυχαίο", "shlab.reset": "Επαναφορά προβολής", "shlab.general": "Γενικός τύπος", "shlab.norm": "Κανονικοποίηση", "shlab.now": "Τώρα", "shlab.legendre": "Λεζάντρ", "shlab.time": "Χρόνος", "shlab.nodal": "Κομβικές γραμμές", "shlab.components": "Συνιστώσες", "shlab.degree": "βαθμός", "shlab.order": "τάξη", "shlab.curve": "Καμπύλη γ", "shlab.base": "Βασικό μέγεθος", "shlab.softness": "Απαλότητα", "shlab.weight": "βάρος c", "shlab.phase": "φάση δ", "shlab.pal_spectrum": "Φάσμα", "shlab.pal_elegant": "Κομψό", "shlab.pal_aurora": "Σέλας", "shlab.pal_sunset": "Ηλιοβασίλεμα", "shlab.pal_ocean": "Ωκεανός"}});</script>
 <script id="sh-js">
 (function(){
   if(window.SphHarmLab) return;
   var $=function(id){return document.getElementById(id);};
-  var NT=2048;
+  function L(k,fb){try{var key='shlab.'+k,v=window.qaT?qaT(key):key;return v&&v!==key?v:fb;}catch(e){return fb;}}
+  var NT=2048,NT_MIN=2048,NT_MAX=16384,TEX_W=4096,TEX_H=4,LMAX=20,LMAX_HARD=1000,TAU=Math.PI*2;
   var S={l:3,m:2,sup:false,l2:2,m2:0,c:.8,delta:0,comp:'complex',form:0,gamma:.75,base:.08,soft:.35,pal:'spectrum',dens:.55,gloss:.7,hue:0,flow:.35,quality:'high',auto:true};
   var T=null,ready=false,raf=0,panelOpen=true,wired=false,tLeg=null,tPal=null,t0=0,ampScale=1,maxPsi=1,legA=null,legB=null;
   var SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻','+':'⁺'};
@@ -67810,13 +67818,54 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     var pl=0;for(var k=m+2;k<=l;k++){pl=(x*(2*k-1)*p1-(k+m-1)*pmm)/(k-m);pmm=p1;p1=pl;}
     return pl;
   }
-  function Nlm(l,m){var am=Math.abs(m),r=1;for(var k=l-am+1;k<=l+am;k++)r/=k;return Math.sqrt((2*l+1)/(4*Math.PI)*r);}
-  // table of  N·P(cosθ)·(−1)^m  for m<0   over θ∈[0,π]
-  function legTable(l,m,out,off){
-    var am=Math.abs(m),n=Nlm(l,am),sg=(m<0&&(am&1))?-1:1,mx=0;
-    for(var i=0;i<NT;i++){var th=Math.PI*i/(NT-1),v=sg*n*Plm(l,am,Math.cos(th));out[i*4+off]=v;if(Math.abs(v)>mx)mx=Math.abs(v);}
+  function Nlm(l,m){ // log-space: stays finite for ℓ up to 1000 and beyond
+    var am=Math.abs(m),lg=0;for(var k=l-am+1;k<=l+am;k++)lg-=Math.log(k);
+    return Math.exp(0.5*(Math.log((2*l+1)/(4*Math.PI))+lg));
+  }
+  /* Fully normalised  Ȳ = N·P_ℓ^|m|(cosθ)  (Condon–Shortley phase included) on θ∈[0,π], nt samples.
+     Uses the stable orthonormal three-term recurrence (no factorials, no overflow), precomputed
+     coefficients, and the parity P(π−θ)=(−1)^(ℓ+m)·P(θ) so only half the table is evaluated.
+     Table value for m<0 carries (−1)^m, as before. Returns max|value|. */
+  function legTable(l,m,out,off,nt){
+    nt=nt||NT;
+    var am=Math.abs(m),sg=(m<0&&(am&1))?-1:1,mx=0,k;
+    var cm=Math.sqrt(1/(4*Math.PI));for(k=1;k<=am;k++)cm*=Math.sqrt((2*k+1)/(2*k));   // √[(2m+1)/4π ·(2m−1)!!/(2m)!!]
+    if(am&1)cm=-cm;                                                                      // Condon–Shortley (−1)^m
+    var q=l-am,A=null,B=null;
+    if(q>=2){A=new Float64Array(q+1);B=new Float64Array(q+1);
+      for(k=2;k<=q;k++){var L=am+k;A[k]=Math.sqrt((4*L*L-1)/(L*L-am*am));B[k]=Math.sqrt(((L-1)*(L-1)-am*am)/(4*(L-1)*(L-1)-1));}}
+    var c1=Math.sqrt(2*am+3),par=((l+am)&1)?-1:1,half=(nt-1)/2;
+    for(var i=0;i<=half;i++){
+      var th=Math.PI*i/(nt-1),x=Math.cos(th),sn=Math.sin(th),p0=cm*(am?Math.pow(sn,am):1),v;
+      if(q===0)v=p0;
+      else{var p1=c1*x*p0;
+        if(q===1)v=p1;
+        else{for(k=2;k<=q;k++){var p2=A[k]*(x*p1-B[k]*p0);p0=p1;p1=p2;}v=p1;}}
+      v*=sg;var j=nt-1-i;
+      out[i*4+off]=v;out[j*4+off]=par*v;
+      var a=v<0?-v:v;if(a>mx)mx=a;
+    }
     return mx;
   }
+  /* Largest ℓ this device can drive interactively: CPU table build is ≈ 8·ℓ² inner steps (measured),
+     memory/core/touch hints bound it further. Result is a multiple of 10 in [20, 1000]. */
+  function deviceLmax(){
+    var lim=LMAX_HARD;
+    try{
+      var tmp=new Float32Array(4*4096),n=0,best=1e9;
+      legTable(60,0,tmp,0,2048);                                   // JIT warm-up
+      for(var r=0;r<3;r++){var a=performance.now();legTable(200,0,tmp,0,3200);var d=performance.now()-a;if(d<best)best=d;}
+      var rate=(200*3200/2)/Math.max(best,0.05);                   // inner steps per ms
+      var lcpu=Math.sqrt(180*rate/8);                              // aim ≤ ~180 ms per table rebuild
+      lim=Math.min(lim,lcpu);
+    }catch(e){lim=Math.min(lim,200);}
+    var mem=navigator.deviceMemory,cores=navigator.hardwareConcurrency||4;
+    var coarse=false;try{coarse=!!(window.matchMedia&&matchMedia('(pointer:coarse)').matches);}catch(e){}
+    if(mem&&mem<=1)lim=Math.min(lim,150);else if(mem&&mem<=2)lim=Math.min(lim,350);else if(mem&&mem<=4&&coarse)lim=Math.min(lim,700);
+    if(cores<=2)lim=Math.min(lim,350);else if(cores<=4&&coarse)lim=Math.min(lim,700);
+    return Math.max(20,Math.min(LMAX_HARD,Math.floor(lim/10)*10));
+  }
+  function ntFor(l){return Math.max(NT_MIN,Math.min(NT_MAX,Math.ceil(16*l)));}   // ≥ 32 samples per oscillation
   var PF={'0_0':'1','1_0':'x','1_1':'−√(1−x²)','2_0':'(3x²−1)/2','2_1':'−3x√(1−x²)','2_2':'3(1−x²)','3_0':'(5x³−3x)/2','3_1':'−(3/2)(5x²−1)√(1−x²)','3_2':'15x(1−x²)','3_3':'−15(1−x²)<sup>3/2</sup>','4_0':'(35x⁴−30x²+3)/8','4_1':'−(5/2)(7x³−3x)√(1−x²)','4_2':'(15/2)(7x²−1)(1−x²)','4_3':'−105x(1−x²)<sup>3/2</sup>','4_4':'105(1−x²)²'};
 
   /* ---------- palettes ---------- */
@@ -67846,15 +67895,16 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
   var VS='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}';
   var FS=[
   'precision highp float;varying vec2 vUv;',
-  'uniform sampler2D uLeg;uniform sampler2D uPal;',
+  'uniform sampler2D uLeg;uniform sampler2D uPal;uniform float uNT,uTW,uTH,uEps;',
   'uniform float uM1,uM2,uC,uPh2,uPh,uAmp,uGamma,uBase,uSoft,uDens,uGloss,uHue,uDist,uAspect,uTime;',
   'uniform int uMode,uForm,uSteps;uniform vec3 uPos,uNeg;uniform mat3 uRot;uniform vec2 uCenter;',
-  'const float PI=3.14159265359;const float NT=2048.0;',
-  'vec2 cexp(float a){return vec2(cos(a),sin(a));}',
+  'const float PI=3.14159265359;',
+  'vec2 cexp(float a){a-=6.28318530718*floor(a*0.15915494309+0.5);return vec2(cos(a),sin(a));}',
+  'vec2 leg(float i){float row=floor((i+0.5)/uTW);float col=i-row*uTW;return texture2D(uLeg,vec2((col+0.5)/uTW,(row+0.5)/uTH)).xy;}',
   'vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}',
   'vec2 psi(vec3 d){',
-  ' float th=acos(clamp(d.y,-1.0,1.0));float f=th/PI*(NT-1.0);float i0=floor(f);float t=f-i0;',
-  ' vec2 a=texture2D(uLeg,vec2((i0+0.5)/NT,0.5)).xy;vec2 b=texture2D(uLeg,vec2(min(i0+1.5,NT-0.5)/NT,0.5)).xy;',
+  ' float th=acos(clamp(d.y,-1.0,1.0));float f=th/PI*(uNT-1.0);float i0=floor(f);float t=f-i0;',
+  ' vec2 a=leg(i0);vec2 b=leg(min(i0+1.0,uNT-1.0));',
   ' vec2 P=mix(a,b,t);float ph=atan(d.z,d.x+1e-7);',
   ' vec2 y=P.x*cexp(uM1*ph)+uC*P.y*cexp(uM2*ph+uPh2);',
   ' return cmul(y,cexp(-uPh));}',
@@ -67891,7 +67941,7 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
   '  t+=dt;}',
   ' float al=1.0-T;',
   ' if(got&&uGloss>0.001){',
-  '  vec2 dm;float e=0.02;',
+  '  vec2 dm;float e=uEps;',
   '  vec3 g=vec3(rho(hit+vec3(e,0.,0.),dm)-rho(hit-vec3(e,0.,0.),dm),rho(hit+vec3(0.,e,0.),dm)-rho(hit-vec3(0.,e,0.),dm),rho(hit+vec3(0.,0.,e),dm)-rho(hit-vec3(0.,0.,e),dm));',
   '  vec3 n=-g/max(length(g),1e-5);vec3 nv=n*uRot;',
   '  vec3 L=normalize(vec3(-0.45,0.75,0.65));vec3 V=-rdv;',
@@ -67914,11 +67964,12 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     if(!ok)return false;
     r.setClearColor(0x000000,0);
     var scene=new THREE.Scene(),cam=new THREE.Camera();
-    tLeg=new THREE.DataTexture(new Float32Array(NT*4),NT,1,THREE.RGBAFormat,THREE.FloatType);
+    var mt=r.capabilities.maxTextureSize||4096;TEX_W=Math.min(4096,mt);TEX_H=Math.ceil(NT_MAX/TEX_W);
+    tLeg=new THREE.DataTexture(new Float32Array(TEX_W*TEX_H*4),TEX_W,TEX_H,THREE.RGBAFormat,THREE.FloatType);
     tLeg.minFilter=tLeg.magFilter=THREE.NearestFilter;tLeg.generateMipmaps=false;tLeg.wrapS=tLeg.wrapT=THREE.ClampToEdgeWrapping;
     tPal=new THREE.DataTexture(new Uint8Array(256*4),256,1,THREE.RGBAFormat,THREE.UnsignedByteType);
     tPal.minFilter=tPal.magFilter=THREE.LinearFilter;tPal.generateMipmaps=false;tPal.wrapS=THREE.RepeatWrapping;tPal.wrapT=THREE.ClampToEdgeWrapping;
-    var U={uLeg:{value:tLeg},uPal:{value:tPal},uM1:{value:2},uM2:{value:0},uC:{value:0},uPh2:{value:0},uPh:{value:0},uAmp:{value:1},uGamma:{value:.75},uBase:{value:.08},uSoft:{value:.35},uDens:{value:.55},uGloss:{value:.7},uHue:{value:0},uDist:{value:5},uAspect:{value:1},uTime:{value:0},uMode:{value:0},uForm:{value:0},uSteps:{value:80},uPos:{value:new THREE.Vector3(.2,.5,.9)},uNeg:{value:new THREE.Vector3(.9,.3,.6)},uRot:{value:new THREE.Matrix3()},uCenter:{value:new THREE.Vector2(0,0)}};
+    var U={uLeg:{value:tLeg},uPal:{value:tPal},uNT:{value:NT},uTW:{value:TEX_W},uTH:{value:TEX_H},uEps:{value:.02},uM1:{value:2},uM2:{value:0},uC:{value:0},uPh2:{value:0},uPh:{value:0},uAmp:{value:1},uGamma:{value:.75},uBase:{value:.08},uSoft:{value:.35},uDens:{value:.55},uGloss:{value:.7},uHue:{value:0},uDist:{value:5},uAspect:{value:1},uTime:{value:0},uMode:{value:0},uForm:{value:0},uSteps:{value:80},uPos:{value:new THREE.Vector3(.2,.5,.9)},uNeg:{value:new THREE.Vector3(.9,.3,.6)},uRot:{value:new THREE.Matrix3()},uCenter:{value:new THREE.Vector2(0,0)}};
     var mat=new THREE.ShaderMaterial({vertexShader:VS,fragmentShader:FS,uniforms:U,transparent:true,depthTest:false,depthWrite:false,
       blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneMinusSrcAlphaFactor,blendEquationAlpha:THREE.AddEquation,blendSrcAlpha:THREE.OneFactor,blendDstAlpha:THREE.OneMinusSrcAlphaFactor});
     var quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2),mat);quad.frustumCulled=false;scene.add(quad);
@@ -67961,8 +68012,8 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     var U=T.U;
     T.eu.set(T.pitch,T.yaw,0,'XYZ');T.m4.makeRotationFromEuler(T.eu);T.m4.transpose();U.uRot.value.setFromMatrix4(T.m4);
     var dE=S.sup?(S.l2*(S.l2+1)-S.l*(S.l+1)):0;if(!dE)dE=S.sup?.0:0;
-    U.uPh.value=S.flow*t*1.3;
-    U.uPh2.value=S.delta*Math.PI/180+(S.sup?S.flow*t*(dE?dE*.12:.7):0);
+    U.uPh.value=(S.flow*t*1.3)%TAU;
+    U.uPh2.value=(S.delta*Math.PI/180+(S.sup?S.flow*t*(dE?Math.max(-420,Math.min(420,dE))*.12:.7):0))%TAU;
     U.uTime.value=(t*7.13)%100;
     T.r.render(T.scene,T.cam);
   }
@@ -67970,17 +68021,22 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
   /* ---------- model → GPU ---------- */
   function rebuild(){
     var d=tLeg.image.data;
-    legA=new Float32Array(NT);var mx1=legTable(S.l,S.m,d,0),mx2=0;
-    if(S.sup)mx2=legTable(S.l2,S.m2,d,1);else for(var i=0;i<NT;i++)d[i*4+1]=0;
+    NT=ntFor(S.sup?Math.max(S.l,S.l2):S.l);
+    legA=null;var mx1=legTable(S.l,S.m,d,0,NT),mx2=0;
+    if(S.sup)mx2=legTable(S.l2,S.m2,d,1,NT);else for(var i=0;i<NT;i++)d[i*4+1]=0;
     tLeg.needsUpdate=true;
-    // numeric max of |Ψ| on a (θ,φ) grid for stable scaling
-    var c=S.sup?S.c:0,dl=S.delta*Math.PI/180,mx=0,i2,j;
-    for(i2=0;i2<NT;i2+=17){var a=d[i2*4],b=d[i2*4+1];
-      for(j=0;j<180;j++){var ph=j/180*2*Math.PI;
-        var re=a*Math.cos(S.m*ph)+c*b*Math.cos(S.m2*ph+dl),im=a*Math.sin(S.m*ph)+c*b*Math.sin(S.m2*ph+dl);
-        var v=Math.sqrt(re*re+im*im);if(v>mx)mx=v;}}
+    var c=S.sup?S.c:0,mx=mx1;
+    if(S.sup){ // |Ψ| depends on φ only through the interference term: scan a bounded (θ,φ) grid
+      var dl=S.delta*Math.PI/180,dm=Math.abs(S.m-S.m2),np=Math.max(180,Math.min(1024,8*dm)),
+          st=Math.max(1,Math.ceil(NT*np/2.5e6)),cp1=new Float64Array(np),sp1=new Float64Array(np),cp2=new Float64Array(np),sp2=new Float64Array(np),j;
+      for(j=0;j<np;j++){var ph=j/np*TAU;cp1[j]=Math.cos(S.m*ph);sp1[j]=Math.sin(S.m*ph);cp2[j]=Math.cos(S.m2*ph+dl);sp2[j]=Math.sin(S.m2*ph+dl);}
+      mx=0;for(var i2=0;i2<NT;i2+=st){var a=d[i2*4],b=d[i2*4+1];
+        for(j=0;j<np;j++){var re=a*cp1[j]+c*b*cp2[j],im=a*sp1[j]+c*b*sp2[j],v=re*re+im*im;if(v>mx)mx=v;}}
+      mx=Math.sqrt(mx);
+    }
     maxPsi=mx||1;ampScale=1/maxPsi;
-    var U=T.U;U.uM1.value=S.m;U.uM2.value=S.m2;U.uC.value=c;U.uAmp.value=ampScale;
+    var U=T.U;U.uM1.value=S.m;U.uM2.value=S.m2;U.uC.value=c;U.uAmp.value=ampScale;U.uNT.value=NT;
+    var L=Math.max(S.l,S.sup?S.l2:0);U.uEps.value=Math.max(.004,.02/(1+Math.max(0,L-20)/40)); // finer normals for finer structure
   }
   function applyLook(){
     var U=T.U;
@@ -67990,17 +68046,20 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
 
   /* ---------- UI ---------- */
   function setPanel(open){if(panelOpen===open)return;panelOpen=open;$('sh-panel').classList.toggle('collapsed',!open);$('sh-handle').setAttribute('aria-expanded',open);}
-  function f4(x){return (Math.round(x*10000)/10000).toString();}
+  function Nstr(l,am,N){ // N_ℓm as a number, or 10^e when it falls below double range
+    if(N>1e-300)return f4(N);var lg=0.5*Math.log((2*l+1)/(4*Math.PI));for(var k=l-am+1;k<=l+am;k++)lg-=0.5*Math.log(k);
+    var e=lg/Math.LN10,fl=Math.floor(e);return (Math.pow(10,e-fl)).toFixed(3)+'×10<sup>'+fl+'</sup>';}
+  function f4(x){return (x!==0&&Math.abs(x)<1e-3)?x.toExponential(3):(Math.round(x*10000)/10000).toString();}
   function eqCard(){
     var l=S.l,m=S.m,am=Math.abs(m),N=Nlm(l,am),h=[];
     var phase=m===0?'1':'e<sup>'+(m<0?'−':'')+(am===1?'':am)+'iφ</sup>';
-    h.push('<div class="eq"><span class="tag">General</span>Y<sub>ℓ</sub><sup>m</sup>(θ,φ) = N<sub>ℓm</sub> · P<sub>ℓ</sub><sup>m</sup>(cos θ) · e<sup>imφ</sup></div>');
-    h.push('<div class="eq dim"><span class="tag">Norm</span>N<sub>ℓm</sub> = √[ (2ℓ+1)/4π · (ℓ−m)! / (ℓ+m)! ]</div>');
-    h.push('<div class="eq live"><span class="tag">Now</span>Y<sub>'+l+'</sub><sup>'+m+'</sup> = '+(m<0&&(am&1)?'−':'')+f4(N)+' · P<sub>'+l+'</sub><sup>'+am+'</sup>(cos θ) · '+phase+'</div>');
+    h.push('<div class="eq"><span class="tag">'+L('general','General')+'</span>Y<sub>ℓ</sub><sup>m</sup>(θ,φ) = N<sub>ℓm</sub> · P<sub>ℓ</sub><sup>m</sup>(cos θ) · e<sup>imφ</sup></div>');
+    h.push('<div class="eq dim"><span class="tag">'+L('norm','Norm')+'</span>N<sub>ℓm</sub> = √[ (2ℓ+1)/4π · (ℓ−m)! / (ℓ+m)! ]</div>');
+    h.push('<div class="eq live"><span class="tag">'+L('now','Now')+'</span>Y<sub>'+l+'</sub><sup>'+m+'</sup> = '+(m<0&&(am&1)?'−':'')+Nstr(l,am,N)+' · P<sub>'+l+'</sub><sup>'+am+'</sup>(cos θ) · '+phase+'</div>');
     var k=l+'_'+am;
-    h.push('<div class="eq dim"><span class="tag">Legendre</span>'+(PF[k]!==undefined?'P<sub>'+l+'</sub><sup>'+am+'</sup>(x) = '+PF[k]+',  x = cos θ':'P<sub>ℓ</sub><sup>m</sup>(x) = (−1)<sup>m</sup>(1−x²)<sup>m/2</sup> dᵐP<sub>ℓ</sub>/dxᵐ ,  P<sub>ℓ</sub>(x) = (1/2<sup>ℓ</sup>ℓ!) d<sup>ℓ</sup>/dx<sup>ℓ</sup> (x²−1)<sup>ℓ</sup>')+'</div>');
-    if(S.sup){h.push('<div class="eq live"><span class="tag">Mix</span>Ψ = '+Y(S.l,S.m)+' + '+f4(S.c)+'·e<sup>i'+S.delta+'°</sup>·'+Y(S.l2,S.m2)+'</div>');
-      h.push('<div class="eq dim"><span class="tag">Time</span>Ψ(t) = Σ c<sub>k</sub> e<sup>−iE<sub>k</sub>t</sup> Y<sub>ℓk</sub><sup>mk</sup>,  E<sub>k</sub> ∝ ℓ<sub>k</sub>(ℓ<sub>k</sub>+1)</div>');}
+    h.push('<div class="eq dim"><span class="tag">'+L('legendre','Legendre')+'</span>'+(PF[k]!==undefined?'P<sub>'+l+'</sub><sup>'+am+'</sup>(x) = '+PF[k]+',  x = cos θ':'P<sub>ℓ</sub><sup>m</sup>(x) = (−1)<sup>m</sup>(1−x²)<sup>m/2</sup> dᵐP<sub>ℓ</sub>/dxᵐ ,  P<sub>ℓ</sub>(x) = (1/2<sup>ℓ</sup>ℓ!) d<sup>ℓ</sup>/dx<sup>ℓ</sup> (x²−1)<sup>ℓ</sup>')+'</div>');
+    if(S.sup){h.push('<div class="eq live"><span class="tag">'+L('mix','Mix')+'</span>Ψ = '+Y(S.l,S.m)+' + '+f4(S.c)+'·e<sup>i'+S.delta+'°</sup>·'+Y(S.l2,S.m2)+'</div>');
+      h.push('<div class="eq dim"><span class="tag">'+L('time','Time')+'</span>Ψ(t) = Σ c<sub>k</sub> e<sup>−iE<sub>k</sub>t</sup> Y<sub>ℓk</sub><sup>mk</sup>,  E<sub>k</sub> ∝ ℓ<sub>k</sub>(ℓ<sub>k</sub>+1)</div>');}
     $('sh-eqcard').innerHTML=h.join('');
     $('sh-eq').innerHTML=S.sup?'Ψ(θ,φ) = Y<sub>ℓ</sub><sup>m</sup> + c·e<sup>iδ</sup>·Y<sub>ℓ₂</sub><sup>m₂</sup>':'Y<sub>ℓ</sub><sup>m</sup>(θ,φ) = N<sub>ℓm</sub> P<sub>ℓ</sub><sup>m</sup>(cos θ) e<sup>imφ</sup>';
   }
@@ -68011,6 +68070,8 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
       var w=S.comp==='real'?'Re Ψ':'Im Ψ';$('sh-legend').innerHTML=w+' &gt; 0 <i style="background:'+cs(a)+'"></i> '+w+' &lt; 0 <i style="background:'+cs(b)+'"></i>';}
   }
   function refresh(re){
+    if(S.l>LMAX)S.l=LMAX;if(S.l2>LMAX)S.l2=LMAX;
+    $('sh-l').max=LMAX;$('sh-l2').max=LMAX;
     var l=S.l,m=S.m;
     $('sh-m').min=-l;$('sh-m').max=l;if(Math.abs(m)>l)m=S.m=Math.max(-l,Math.min(l,m));
     $('sh-m2').min=-S.l2;$('sh-m2').max=S.l2;if(Math.abs(S.m2)>S.l2)S.m2=Math.max(-S.l2,Math.min(S.l2,S.m2));
@@ -68019,7 +68080,7 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     $('sh-pl').textContent=l;$('sh-pm').textContent=(m>0?'+':'')+m;
     $('sh-gv').textContent=S.gamma.toFixed(2);$('sh-bv').textContent=Math.round(S.base*100)+'%';$('sh-sv').textContent=Math.round(S.soft*100)+'%';
     $('sh-ov').textContent=Math.round(S.dens*100)+'%';$('sh-glv').textContent=Math.round(S.gloss*100)+'%';$('sh-hv').textContent=S.hue+'°';$('sh-fv').textContent=S.flow.toFixed(2)+'×';
-    $('sh-sup').classList.toggle('on',S.sup);$('sh-sup').textContent=S.sup?'Second harmonic: on':'Add second harmonic';$('sh-sup-wrap').classList.toggle('off',!S.sup);
+    $('sh-sup').classList.toggle('on',S.sup);$('sh-sup').textContent=S.sup?L('secon','Second harmonic: on'):L('addsec','Add second harmonic');$('sh-sup-wrap').classList.toggle('off',!S.sup);
     $('sh-bz').textContent='ℓ'+l;$('sh-bs').textContent='Y';
     $('sh-meta').textContent=(S.sup?'Ψ = Yₗᵐ + c·Yₗ₂ᵐ²':Y(l,m)+'(θ,φ)')+' · ℓ='+l+' · m='+m+' · '+(S.comp==='complex'?'|Ψ|, hue = arg Ψ':S.comp==='real'?'Re Ψ':'Im Ψ');
     if(re!==false)rebuild();
@@ -68027,8 +68088,8 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     applyLook();
     // stats
     var w2=S.sup?S.c*S.c:0,den=1+w2;
-    if(S.sup){$('sh-k1').textContent='⟨L²⟩';$('sh-s1').textContent=((l*(l+1)+w2*S.l2*(S.l2+1))/den).toFixed(2)+' ħ²';$('sh-k2').innerHTML='⟨L<sub>z</sub>⟩';$('sh-s2').textContent=((m+w2*S.m2)/den).toFixed(2)+' ħ';$('sh-k3').textContent='Components';$('sh-s3').textContent='2';}
-    else{$('sh-k1').textContent='L²';$('sh-s1').textContent=(l*(l+1))+' ħ²';$('sh-k2').innerHTML='L<sub>z</sub>';$('sh-s2').textContent=m+' ħ';$('sh-k3').textContent='Nodal lines';$('sh-s3').textContent=(l-Math.abs(m))+' lat + '+Math.abs(m)+' mer';}
+    if(S.sup){$('sh-k1').textContent='⟨L²⟩';$('sh-s1').textContent=((l*(l+1)+w2*S.l2*(S.l2+1))/den).toFixed(2)+' ħ²';$('sh-k2').innerHTML='⟨L<sub>z</sub>⟩';$('sh-s2').textContent=((m+w2*S.m2)/den).toFixed(2)+' ħ';$('sh-k3').textContent=L('components','Components');$('sh-s3').textContent='2';}
+    else{$('sh-k1').textContent='L²';$('sh-s1').textContent=(l*(l+1))+' ħ²';$('sh-k2').innerHTML='L<sub>z</sub>';$('sh-s2').textContent=m+' ħ';$('sh-k3').textContent=L('nodal','Nodal lines');$('sh-s3').textContent=(l-Math.abs(m))+' lat + '+Math.abs(m)+' mer';}
     $('sh-s4').textContent=maxPsi.toFixed(3);
     eqCard();legend();
     var ch=$('sh-chips').children;for(var i=0;i<ch.length;i++){var d=ch[i].dataset;ch[i].classList.toggle('on',!S.sup&&d.k==='h'&&+d.l===S.l&&+d.m===S.m);}
@@ -68039,6 +68100,7 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     $('sh-auto').classList.toggle('on',S.auto);
   }
   var timer=0;function later(re){clearTimeout(timer);timer=setTimeout(function(){refresh(re);},60);}
+  function buildPalChips(){$('sh-pal').innerHTML=Object.keys(PALS).map(function(k){return '<button type="button" class="ex-chip" data-p="'+k+'"><i style="background:'+palCSS(PALS[k])+'"></i>'+L('pal_'+k,PALS[k].n)+'</button>';}).join('');}
   function wire(){
     var pre=[[0,0],[1,0],[1,1],[2,0],[2,1],[2,2],[3,0],[3,2],[3,3],[4,0],[4,3],[5,2],[6,6],[8,4],[10,5],[14,7]];
     var mix=[{l:1,m:0,l2:2,m2:0,c:.9,d:0,t:'Y₁⁰ + Y₂⁰'},{l:2,m:2,l2:3,m2:-1,c:.8,d:90,t:'Y₂² + Y₃⁻¹'},{l:3,m:3,l2:3,m2:-3,c:1,d:0,t:'Y₃³ + Y₃⁻³'},{l:4,m:2,l2:6,m2:0,c:.7,d:45,t:'Y₄² + Y₆⁰'}];
@@ -68048,7 +68110,7 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
       if(b.dataset.k==='h'){S.l=+b.dataset.l;S.m=+b.dataset.m;S.sup=false;}
       else{var x=mix[+b.dataset.i];S.l=x.l;S.m=x.m;S.l2=x.l2;S.m2=x.m2;S.c=x.c;S.delta=x.d;S.sup=true;}
       refresh();});
-    $('sh-pal').innerHTML=Object.keys(PALS).map(function(k){return '<button type="button" class="ex-chip" data-p="'+k+'"><i style="background:'+palCSS(PALS[k])+'"></i>'+PALS[k].n+'</button>';}).join('');
+    buildPalChips();
     $('sh-pal').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;S.pal=b.dataset.p;buildPal();refresh(false);});
     $('sh-l').oninput=function(){S.l=+this.value;later();};
     $('sh-m').oninput=function(){S.m=+this.value;later();};
@@ -68068,13 +68130,26 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     $('sh-h').oninput=function(){S.hue=+this.value;refresh(false);};
     $('sh-f').oninput=function(){S.flow=this.value/100;refresh(false);};
     $('sh-auto').onclick=function(){S.auto=!S.auto;refresh(false);};
-    $('sh-rand').onclick=function(){S.l=Math.random()*13|0;S.m=(Math.random()*(2*S.l+1)|0)-S.l;S.sup=Math.random()<.4;if(S.sup){S.l2=Math.random()*10|0;S.m2=(Math.random()*(2*S.l2+1)|0)-S.l2;S.c=.5+Math.random()*.7;S.delta=(Math.random()*72|0)*5;}S.pal=Object.keys(PALS)[Math.random()*5|0];buildPal();refresh();};
+    $('sh-rand').onclick=function(){S.l=Math.random()*13|0;S.m=(Math.random()*(2*S.l+1)|0)-S.l;S.sup=Math.random()<.4;if(S.sup){S.l2=Math.random()*10|0;S.m2=(Math.random()*(2*S.l2+1)|0)-S.l2;S.c=.5+Math.random()*.7;S.delta=(Math.random()*72|0)*5;}S.pal=Object.keys(PALS)[Math.random()*Object.keys(PALS).length|0];buildPal();refresh();};
     $('sh-reset').onclick=function(){T.yaw=.6;T.pitch=.35;T.zoom=1;};
     $('sh-close').onclick=close;
-    $('sh-peek').addEventListener('click',function(e){var b=e.target.closest('button[data-k]');if(!b)return;e.stopPropagation();var k=b.dataset.k,d=+b.dataset.d;
-      if(k==='l')S.l=Math.max(0,Math.min(20,S.l+d));else S.m=Math.max(-S.l,Math.min(S.l,S.m+d));refresh();});
+    (function(){ // ± steppers: tap, or hold to repeat with acceleration (ℓ reaches 1000 quickly)
+      var hold=0,n=0;
+      function bump(k,d){if(k==='l')S.l=Math.max(0,Math.min(LMAX,S.l+d));else S.m=Math.max(-S.l,Math.min(S.l,S.m+d));refresh();}
+      function mult(){return n<8?1:n<20?5:n<40?25:100;}
+      function stop(){clearTimeout(hold);hold=0;}
+      var pk=$('sh-peek');
+      pk.addEventListener('pointerdown',function(e){var b=e.target.closest('button[data-k]');if(!b||e.button>0)return;e.stopPropagation();
+        var k=b.dataset.k,d=+b.dataset.d;n=0;bump(k,d);
+        (function tick(){hold=setTimeout(function(){n++;bump(k,d*mult());tick();},n===0?380:Math.max(45,140-n*5));})();});
+      ['pointerup','pointercancel','pointerleave','lostpointercapture'].forEach(function(ev){pk.addEventListener(ev,stop,true);});
+      pk.addEventListener('contextmenu',function(e){if(e.target.closest('button[data-k]'))e.preventDefault();});
+      pk.addEventListener('click',function(e){var b=e.target.closest('button[data-k]');if(!b)return;e.stopPropagation();
+        if(e.detail===0)bump(b.dataset.k,+b.dataset.d);});   // keyboard activation only; pointer input handled above
+    })();
     var hd=$('sh-handle'),y0=null;
     hd.addEventListener('pointerdown',function(e){if(e.target.closest('button'))return;y0=e.clientY;});
+    window.addEventListener('pointercancel',function(){y0=null;});
     window.addEventListener('pointerup',function(e){if(y0===null)return;var dy=e.clientY-y0;y0=null;if(!$('sh-root').classList.contains('open'))return;if(Math.abs(dy)<8)setPanel(!panelOpen);else setPanel(dy<0);});
     hd.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();setPanel(!panelOpen);}});hd.tabIndex=0;tabs();
   }
@@ -68092,7 +68167,7 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     show('overview');
   }
   function open(){
-    var root=$('sh-root');if(!wired){wire();wired=true;}
+    var root=$('sh-root');if(!wired){LMAX=deviceLmax();wire();wired=true;}
     var lg=document.getElementById('topbar-logo-badge');if(lg&&!$('sh-logo').firstChild)$('sh-logo').innerHTML=lg.innerHTML.replace(/id="/g,'id="sh-');
     root.classList.add('open');
     if(!initThree()){$('sh-busy').classList.add('on');$('sh-busy').textContent='WEBGL2 / FLOAT TEXTURES NOT AVAILABLE';return;}
@@ -68101,7 +68176,8 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
   }
   function close(){$('sh-root').classList.remove('open');cancelAnimationFrame(raf);raf=0;document.removeEventListener('keydown',esc);}
   function esc(e){if(e.key==='Escape')close();}
-  window.SphHarmLab={open:open,close:close,state:S,setPanel:setPanel,refresh:refresh};
+  window.addEventListener('qa:langchange',function(){if(!wired)return;try{buildPalChips();refresh(false);var r=$('sh-root');window.QA_I18N&&QA_I18N.applyDom&&QA_I18N.applyDom(r,true);}catch(e){}});
+  window.SphHarmLab={open:open,close:close,state:S,setPanel:setPanel,refresh:refresh,get lmax(){return LMAX;}};
 })();
 </script>
 
