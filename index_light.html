@@ -30208,6 +30208,61 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.bohr-eqn,.qn-range,.ub-attr,.ub-a
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#quantum,#comparison,footer) div:not(:has(*)){letter-spacing:normal !important;}
 </style>
 <!-- /qa-lux:head -->
+<script id="qa-elegant-boot">
+/* ELEGANT LOOK — white with soft pink & blue, in this same file. Toggled by #elegantbtn; stored in localStorage 'qa-elegant'. */
+(function(){var d=document.documentElement,on=false,q=(location.search.match(/[?&]elegant=(on|off)/)||[])[1];
+try{on=localStorage.getItem('qa-elegant')==='on';}catch(e){}
+if(!q){try{if(sessionStorage.getItem('qa-elegant'))on=sessionStorage.getItem('qa-elegant')==='on';}catch(e){}}
+if(q)on=q==='on';
+window.__ELEG=on;if(!on)return;
+window.__qaElegApply=function(){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone','light');d.setAttribute('data-theme-elegant','on');};
+window.__qaElegApply();
+document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute('content','#ffffff');});
+var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap';document.head.appendChild(l);
+})();
+</script>
+<style id="elegant-theme">
+#elegant-waves,#elegant-veil{display:none}
+html[data-theme-elegant="on"] #elegant-waves,html[data-theme-elegant="on"] #elegant-veil{display:block}
+html[data-theme-elegant="on"]{  color-scheme:light;  --pink:#ec5f9e;--pink-hi:#f7a8cb;--pink-lo:#c93d7e;  --blue:#4f8df5;--blue-hi:#9cc0ff;--blue-lo:#2f64c9;  --v1:#e2579a;--v2:#f59cc5;--c1:#4f8df5;--c2:#8db8ff;--p1:#ec5f9e;--p2:#f7a8cb;  --v-40:rgba(236,95,158,.40);--v-22:rgba(236,95,158,.22);--v-12:rgba(236,95,158,.12);--v-06:rgba(236,95,158,.07);  --c-30:rgba(79,141,245,.30);--c-14:rgba(79,141,245,.14);--p-30:rgba(236,95,158,.30);  --bg-a:#ffffff;--bg-b:#f4f8ff;--bg-c:#fff3f9;  --ink:#232a4a;--hi:#161c3a;  --mid:rgba(35,42,74,.72);--lo:rgba(35,42,74,.70);--vlo:rgba(35,42,74,.60);  --glass:rgba(255,255,255,.72);--glass-hi:rgba(255,255,255,.92);--glass-lo:rgba(255,255,255,.5);  --border:rgba(236,95,158,.20);--border-v:rgba(79,141,245,.34);  --shadow:0 8px 32px rgba(79,100,190,.12);--shadow-lg:0 20px 60px rgba(79,100,190,.18);  --display:'Playfair Display','Cormorant Garamond',Georgia,serif;  --body:'Inter',system-ui,sans-serif; }
+html[data-theme-elegant="on"]{background:#fff}
+html[data-theme-elegant="on"] body{  background:   radial-gradient(900px 650px at 6% -6%,rgba(236,95,158,.20),transparent 60%),   radial-gradient(800px 700px at 100% 8%,rgba(79,141,245,.20),transparent 55%),   radial-gradient(900px 800px at 28% 100%,rgba(247,168,203,.22),transparent 55%),   radial-gradient(700px 700px at 92% 88%,rgba(156,192,255,.26),transparent 55%),   linear-gradient(165deg,#fff 0%,var(--bg-b) 55%,var(--bg-c) 100%) !important;  background-attachment:fixed;color:var(--ink)}
+html[data-theme-elegant="on"] ::selection{background:rgba(236,95,158,.25)}
+html[data-theme-elegant="on"] ::-webkit-scrollbar-thumb{background:rgba(236,95,158,.4)}
+html[data-theme-elegant="on"] #bg-canvas{display:none !important}
+html[data-theme-elegant="on"] #elegant-waves{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.42}
+html[data-theme-elegant="on"] #elegant-veil{position:fixed;inset:0;z-index:0;pointer-events:none;  background:radial-gradient(ellipse at 50% 40%,rgba(255,255,255,0) 0%,rgba(255,255,255,.35) 70%,rgba(255,255,255,.65) 100%)}
+html[data-theme-elegant="on"] section{position:relative;z-index:1}
+html[data-theme-elegant="on"] h1,html[data-theme-elegant="on"] h2,html[data-theme-elegant="on"] h3,html[data-theme-elegant="on"] .section-title,html[data-theme-elegant="on"] .hero-title,html[data-theme-elegant="on"] .nav-name,html[data-theme-elegant="on"] .feat-title,html[data-theme-elegant="on"] .why-title,html[data-theme-elegant="on"] .prob-title,html[data-theme-elegant="on"] .bc-title,html[data-theme-elegant="on"] .tl-title-t,html[data-theme-elegant="on"] .step-title,html[data-theme-elegant="on"] .orb-name,html[data-theme-elegant="on"] .ct-b-title{  font-family:var(--display) !important;letter-spacing:-.005em}
+html[data-theme-elegant="on"] .hero-title,html[data-theme-elegant="on"] h1{background:linear-gradient(120deg,#ec5f9e 0%,#8f6fe8 50%,#4f8df5 100%);  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+html[data-theme-elegant="on"] .hero-title *,html[data-theme-elegant="on"] h1 *{-webkit-text-fill-color:inherit}
+html[data-theme-elegant="on"] .section-title,html[data-theme-elegant="on"] h2{color:var(--hi)}
+html[data-theme-elegant="on"] .section-title em,html[data-theme-elegant="on"] h2 em,html[data-theme-elegant="on"] .grad,html[data-theme-elegant="on"] .gradient-text,html[data-theme-elegant="on"] .accent{background:linear-gradient(120deg,#ec5f9e,#4f8df5);  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+html[data-theme-elegant="on"] .section-eyebrow,html[data-theme-elegant="on"] .hero-eyebrow{color:var(--pink-lo) !important;letter-spacing:.14em}
+html[data-theme-elegant="on"] .eyebrow-dot{background:var(--pink) !important;box-shadow:0 0 12px var(--pink) !important}
+html[data-theme-elegant="on"] a{color:var(--blue-lo)}
+html[data-theme-elegant="on"] nav{border-color:rgba(255,255,255,.9);box-shadow:0 8px 32px rgba(79,100,190,.14),inset 0 1px 0 #fff}
+html[data-theme-elegant="on"] .nav-name{color:var(--hi)}
+html[data-theme-elegant="on"] .nav-link:hover{color:var(--pink-lo);background:var(--v-06)}
+html[data-theme-elegant="on"] .nav-cta,html[data-theme-elegant="on"] .btn-primary,html[data-theme-elegant="on"] .hero-cta,html[data-theme-elegant="on"] .cta-btn{background:linear-gradient(120deg,#ec5f9e,#4f8df5) !important;color:#fff !important;  box-shadow:0 8px 24px rgba(120,100,220,.35) !important}
+html[data-theme-elegant="on"] .theme-toggle-btn{background:linear-gradient(135deg,#ec5f9e,#4f8df5) !important;color:#fff !important;border:0 !important}
+html[data-theme-elegant="on"] nav .theme-toggle-btn{width:34px;height:34px;flex-shrink:0}
+html[data-theme-elegant="on"] nav>div:last-child{gap:8px !important}
+html[data-theme-elegant="on"] nav{padding:0 12px 0 16px}
+html[data-theme-elegant="on"] .nav-link{padding:8px 10px}
+@media (max-width:1180px){html[data-theme-elegant="on"] .nav-links{display:none}
+html[data-theme-elegant="on"] .nav-hamburger{display:flex}}
+html[data-theme-elegant="on"] #luxbtn,html[data-theme-elegant="on"] #glassbtn{display:none !important}
+html[data-theme-elegant="on"] .btn-secondary,html[data-theme-elegant="on"] .btn-v2{background:rgba(255,255,255,.85) !important;color:var(--blue-lo) !important;  border:1px solid rgba(79,141,245,.35) !important;box-shadow:0 8px 24px rgba(79,100,190,.12) !important}
+html[data-theme-elegant="on"] .v2-new{background:linear-gradient(120deg,#ec5f9e,#f59cc5) !important;color:#fff !important}
+html[data-theme-elegant="on"] .feat-card,html[data-theme-elegant="on"] .why-card,html[data-theme-elegant="on"] .prob-card,html[data-theme-elegant="on"] .quote-card,html[data-theme-elegant="on"] .step,html[data-theme-elegant="on"] .fact-cell,html[data-theme-elegant="on"] .bohr-card,html[data-theme-elegant="on"] .tl-content,html[data-theme-elegant="on"] .ct-b-item,html[data-theme-elegant="on"] .orb-deep-card,html[data-theme-elegant="on"] .compare-col,html[data-theme-elegant="on"] .hero-stage,html[data-theme-elegant="on"] .orb-prop{  background:linear-gradient(160deg,rgba(255,255,255,.92),rgba(255,247,252,.8)) !important;  border:1px solid rgba(236,95,158,.18) !important;  box-shadow:0 14px 40px rgba(79,100,190,.10),inset 0 1px 0 #fff !important}
+html[data-theme-elegant="on"] .feat-card:hover,html[data-theme-elegant="on"] .why-card:hover,html[data-theme-elegant="on"] .prob-card:hover,html[data-theme-elegant="on"] .quote-card:hover,html[data-theme-elegant="on"] .bohr-card:hover{  border-color:rgba(79,141,245,.45) !important;box-shadow:0 18px 50px rgba(79,100,190,.18) !important}
+html[data-theme-elegant="on"] .feat-icon,html[data-theme-elegant="on"] .why-icon,html[data-theme-elegant="on"] .bc-icon{background:linear-gradient(135deg,#ec5f9e,#4f8df5) !important;color:#fff;border:0 !important}
+html[data-theme-elegant="on"] .feat-tag,html[data-theme-elegant="on"] .tl-tag,html[data-theme-elegant="on"] .prob-solved{background:rgba(79,141,245,.10) !important;color:var(--blue-lo) !important;  border:1px solid rgba(79,141,245,.30) !important}
+html[data-theme-elegant="on"] .bohr-label{background:rgba(236,95,158,.10) !important;color:var(--pink-lo) !important;border:1px solid rgba(236,95,158,.3) !important}
+html[data-theme-elegant="on"] .v2-new{box-shadow:none}
+html[data-theme-elegant="on"] .qa-c[data-theme="light"],html[data-theme-elegant="on"] .qa-c-overlay[data-theme="light"]{  --c-accent:#ec5f9e;--c-accent2:#4f8df5;--c-ink:#232a4a;--c-dim:rgba(35,42,74,.72);  --c-line:rgba(236,95,158,.30);--c-card:rgba(255,255,255,.8);  --c-btn-bg:linear-gradient(120deg,#ec5f9e,#4f8df5)}
+</style>
 <style id="press-lux">
 /* LUXURY: tapped / pressed / on stays orange (accent), never white. Segmented controls keep their own on look when switched on. */
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .nav-cta:not(#glassbtn).qa-pressed,
@@ -30590,6 +30645,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .footer-link:a
 <body>
 <div id="scanlines"></div>
 <canvas id="bg-canvas"></canvas>
+<canvas id="elegant-waves" aria-hidden="true"></canvas><div id="elegant-veil" aria-hidden="true"></div>
 
 <!-- NAV -->
 <nav>
@@ -30631,6 +30687,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .footer-link:a
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
   <span data-qa-lang-picker="icon"></span>
+  <button type="button" id="elegantbtn" class="theme-toggle-btn" aria-pressed="false" title="Elegant look: white with soft pink &amp; blue" aria-label="Toggle elegant look"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5c.5 3.4 1.6 4.5 5 5-3.4.5-4.5 1.6-5 5-.5-3.4-1.6-4.5-5-5 3.4-.5 4.5-1.6 5-5z" stroke="#fff" stroke-width="1.3" stroke-linejoin="round"/><path d="M12.6 11.2v3M11.1 12.7h3" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/></svg></button>
   <a data-i18n-attr="title:landing.theme_toggle_btn.switch_to_dark_mode;aria-label:landing.theme_toggle_btn.switch_to_dark_mode" href="index_dark.html" onclick="goDark();return false;" class="theme-toggle-btn" title="Switch to dark mode" aria-label="Switch to dark mode"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" fill="white"/>
 </svg></a>
@@ -32839,6 +32896,131 @@ html .feat-tag,html .tl-tag,html .prob-solved,html .feat-icon,html .why-icon{ali
 })();
 </script>
 <!-- /qa-lux:body -->
+<script id="elegant-waves-js">
+/* ELEGANT THEME · hydrogen wave-field backdrop
+ * Idea borrowed from λWAVES: exact hydrogen eigenstates, played as an
+ * evolving wave field. Here: a coherent superposition of the m=0 states
+ * 1s, 2s, 2p_z, 3d_z2 (atomic units), each carrying its own phase
+ * exp(-i E_n t), E_n = -1/(2 n^2). Drawn as a slice through the x-z plane.
+ *
+ *   brightness = |psi|^(0.6)      (so the faint outer lobes stay visible)
+ *   hue        = sign of Re(psi)  (pink = +, blue = -)
+ *
+ * The real wave functions are exact; time is sped up (beating between
+ * levels is otherwise far too slow to see), which is stated here, not hidden.
+ */
+window.__qaStartWaves = function () {
+  'use strict';
+  if (window.__qaWavesOn) return; window.__qaWavesOn = 1;
+  var cv = document.getElementById('elegant-waves');
+  if (!cv) return;
+  var ctx = cv.getContext('2d', { alpha: true });
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Low-res render target, upscaled "cover" style so the field is never stretched.
+  var GW = 224, GH = 126, SCALE = 17;          // world half-width in Bohr radii
+  var off = document.createElement('canvas');
+  off.width = GW; off.height = GH;
+  var octx = off.getContext('2d');
+  var img = octx.createImageData(GW, GH);
+  var px = img.data;
+
+  // Exact real m = 0 hydrogen states, atomic units: psi = R_nl(r) * Y_l0(cos theta).
+  // 2p, 3s and 3d_z2 are mixed: the 2p<->3 energy gaps make the nodal rings breathe.
+  var states = [
+    { n: 2, f: function (r, c) {                                   // 2p_0
+        return (1 / (2 * Math.sqrt(6))) * r * Math.exp(-r / 2) * 0.4886 * c; } },
+    { n: 3, f: function (r, c) {                                   // 3s
+        return (2 / (81 * Math.sqrt(3))) * (27 - 18 * r + 2 * r * r) * Math.exp(-r / 3) * 0.2821; } },
+    { n: 3, f: function (r, c) {                                   // 3d_z2
+        return (4 / (81 * Math.sqrt(30))) * r * r * Math.exp(-r / 3) * 0.3154 * (3 * c * c - 1); } },
+    { n: 2, f: function (r, c) {                                   // 2s
+        return (1 / (2 * Math.sqrt(2))) * (2 - r) * Math.exp(-r / 2) * 0.2821; } }
+  ];
+  var WEIGHT = [1.0, 0.8, 1.0, 0.7];
+  var OMEGA = 2 * Math.PI / 9;                 // visual: one 2<->3 beat every 9 s (real value is ~attoseconds)
+  var E_REF = -1 / 8, DE = 1 / 8 - 1 / 18;     // E_2, E_2 - E_3 gap (a.u.)
+
+  var W = 0, H = 0, dpr = 1;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    W = cv.width = Math.max(2, Math.round(innerWidth * dpr * 0.6));
+    H = cv.height = Math.max(2, Math.round(innerHeight * dpr * 0.6));
+  }
+  resize();
+  var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(resize, 120); });
+
+  // Per-pixel geometry once, and per-state normalisation so every state has unit peak.
+  var R = new Float32Array(GW * GH), C = new Float32Array(GW * GH);
+  var aspect = GW / GH;
+  for (var j = 0; j < GH; j++) {
+    for (var i = 0; i < GW; i++) {
+      var x = ((i + 0.5) / GW - 0.5) * 2 * SCALE;
+      var z = (0.5 - (j + 0.5) / GH) * 2 * SCALE / aspect;
+      var r0 = Math.sqrt(x * x + z * z) + 1e-6;
+      R[j * GW + i] = r0; C[j * GW + i] = z / r0;
+    }
+  }
+  var NORM = states.map(function (s) {
+    var m = 1e-9;
+    for (var p = 0; p < GW * GH; p += 7) m = Math.max(m, Math.abs(s.f(R[p], C[p])));
+    return 1 / m;
+  });
+
+  var hidden = false;
+  document.addEventListener('visibilitychange', function () { hidden = document.hidden; });
+
+  function frame(tms) {
+    if (hidden || !document.documentElement.hasAttribute('data-theme-elegant')) { requestAnimationFrame(frame); return; }
+    var t = reduce ? 2.5 : tms / 1000;
+    var co = [], k;
+    for (k = 0; k < states.length; k++) {
+      var E = -1 / (2 * states[k].n * states[k].n);
+      // relative phase exp(-i (E-E_ref) t), real part, time rescaled so one gap = OMEGA
+      co[k] = Math.cos(-(E - E_REF) / DE * OMEGA * t + k * 0.9) * WEIGHT[k] * NORM[k];
+    }
+    for (var p = 0, q = 0; p < GW * GH; p++, q += 4) {
+      var r = R[p], c = C[p], re = 0;
+      for (var s = 0; s < states.length; s++) re += co[s] * states[s].f(r, c);
+      var a = Math.abs(re) * 0.62;
+      var v = Math.min(1, Math.pow(a, 0.75));
+      // contour-like banding makes the nodal rings read as waves, not blur
+      v *= 0.82 + 0.18 * Math.cos(a * 34);
+      if (re >= 0) { px[q] = 255; px[q+1] = 255 - 160 * v; px[q+2] = 255 - 95 * v; }   // pink (+)
+      else         { px[q] = 255 - 170 * v; px[q+1] = 255 - 100 * v; px[q+2] = 255; }  // blue (-)
+      px[q + 3] = 255 * Math.min(1, v * 1.1);
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    var sc = Math.max(W / GW, H / GH), dw = GW * sc, dh = GH * sc;
+    ctx.drawImage(off, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+};
+if (window.__ELEG) window.__qaStartWaves();
+</script>
+<script id="qa-elegant-js">
+(function(){var d=document.documentElement,b=document.getElementById('elegantbtn');if(!b)return;
+var on=!!window.__ELEG;
+function paint(){b.setAttribute('aria-pressed',on?'true':'false');b.classList.toggle('active',on);
+b.title=on?'Elegant look: on (click to return to the standard light look)':'Elegant look: white with soft pink & blue';}
+paint();
+if(on&&window.__qaElegApply)window.__qaElegApply();
+/* the Launch links carry the choice to the simulator, even across sites */
+document.querySelectorAll('a[href*="simulator_light.html"]').forEach(function(a){var h=a.getAttribute('href').replace(/[?&]elegant=(on|off)/,'');a.setAttribute('href',h+(h.indexOf('?')<0?'?':'&')+'elegant='+(on?'on':'off'));});
+b.addEventListener('click',function(){
+var nxt=on?'off':'on';
+try{localStorage.setItem('qa-elegant',nxt);if(nxt==='on')localStorage.setItem('qa-lux','off');}catch(e){}
+try{sessionStorage.setItem('qa-elegant',nxt);}catch(e){}
+if(nxt==='on'){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-theme-elegant','on');}else{d.removeAttribute('data-theme-elegant');}
+on=nxt==='on';paint();if(on&&window.__qaStartWaves)window.__qaStartWaves();
+/* live switch, no navigation (a reload to a new address can fail in file viewers) */window.__ELEG=on;document.querySelectorAll('a[href*="simulator_light.html"]').forEach(function(a){var h=a.getAttribute('href').replace(/[?&]elegant=(on|off)/,'');a.setAttribute('href',h+(h.indexOf('?')<0?'?':'&')+'elegant='+(on?'on':'off'));});try{window.dispatchEvent(new Event('resize'));}catch(e){}
+});
+})();
+</script>
+
 <script>
 (function(){
   var BTN='.nav-cta,.btn-primary,.btn-secondary,.btn-v2,.theme-toggle-btn,.nav-hamburger,.nav-link,.nav-contribute,.footer-link';

@@ -30450,6 +30450,34 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-ub-row button{border-ra
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .qai-root .qai-ub-row .qai-ub-go{background:var(--lx-btn);color:var(--lx-on-acc);box-shadow:var(--lx-glow)}
 </style>
 <!-- /qa-lux:head -->
+<script id="qa-elegant-boot">
+/* ELEGANT LOOK — white with soft pink & blue, in this same file. Toggled by #elegantbtn; shared key localStorage 'qa-elegant'. */
+(function(){var d=document.documentElement,on=false,q=(location.search.match(/[?&]elegant=(on|off)/)||[])[1];
+try{on=localStorage.getItem('qa-elegant')==='on';}catch(e){}
+if(!q){try{if(sessionStorage.getItem('qa-elegant'))on=sessionStorage.getItem('qa-elegant')==='on';}catch(e){}}
+if(q)on=q==='on';
+window.__ELEG=on;if(!on)return;
+window.__qaElegApply=function(){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone','light');d.setAttribute('data-theme-elegant','on');};
+window.__qaElegApply();
+var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap';document.head.appendChild(l);
+})();
+</script>
+<style id="elegant-theme">
+html[data-theme-elegant="on"]{color-scheme:light;
+ --cx:#ec5f9e;--cx2:#c93d7e;--cx3:#f7a8cb;
+ --cx-40:rgba(236,95,158,.40);--cx-20:rgba(236,95,158,.20);--cx-10:rgba(236,95,158,.10);--cx-06:rgba(236,95,158,.07);
+ --bg:#ffffff;--hi:#161c3a;--mid:rgba(35,42,74,.72);--lo:rgba(35,42,74,.70);--vlo:rgba(35,42,74,.62);
+ --border:rgba(236,95,158,.22);--border-hi:rgba(79,141,245,.50);
+ --display:'Playfair Display','Cormorant Garamond',Georgia,serif;
+ --glass-bg:rgba(255,255,255,.72);--glass-bg-hi:rgba(255,255,255,.92);--glass-border:rgba(255,255,255,.85);
+ --glass-shadow:0 8px 32px rgba(79,100,190,.12),inset 0 1px 0 #fff;
+ --nb-grad:linear-gradient(135deg,#ec5f9e 0%,#4f8df5 100%);--nb-shadow:0 3px 12px rgba(120,100,220,.30);}
+html[data-theme-elegant="on"] #tb-title,html[data-theme-elegant="on"] .panel-title,html[data-theme-elegant="on"] h1,html[data-theme-elegant="on"] h2,html[data-theme-elegant="on"] h3{font-family:var(--display) !important}
+html[data-theme-elegant="on"] #luxbtn,html[data-theme-elegant="on"] #glassbtn{display:none !important}
+html[data-theme-elegant="on"] #elegantbtn{background:linear-gradient(135deg,#ec5f9e,#4f8df5) !important;color:#fff !important;border-color:transparent !important}
+html[data-theme-elegant="on"] .qai-root[data-theme="light"]{--qai-accent:#ec5f9e}
+#elegantbtn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;flex-shrink:0;border-radius:8px;border:1px solid var(--border);background:var(--cx-06);color:var(--cx2)}
+</style>
 <style id="press-lux">
 /* LUXURY: tapped / pressed / on stays orange (accent), never white. Segmented controls keep their own on look when switched on. */
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .tgbtn:not(#glassbtn).qa-pressed,
@@ -30784,6 +30812,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:active{
       </svg>
     </a>
 <button data-i18n-attr="title:nucleus.glassbtn.glass_effect_on_click_for;aria-label:nucleus.glassbtn.toggle_glass_effect" type="button" id="glassbtn" class="glass-toggle" aria-pressed="true" title="Glass effect: on (click for flat white &amp; violet)" aria-label="Toggle glass effect"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M8 1.6 13.6 8 8 14.4 2.4 8 8 1.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5.2 6.2h5.6M8 1.6v12.8" stroke="currentColor" stroke-width="1" stroke-opacity=".55"/></svg></button>
+<button type="button" id="elegantbtn" class="glass-toggle" aria-pressed="false" title="Elegant look: white with soft pink &amp; blue" aria-label="Toggle elegant look"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5c.5 3.4 1.6 4.5 5 5-3.4.5-4.5 1.6-5 5-.5-3.4-1.6-4.5-5-5 3.4-.5 4.5-1.6 5-5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M12.6 11.2v3M11.1 12.7h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
     <button data-i18n-attr="title:nucleus.contribute_link.contribute_help_keep_quantum_atom;aria-label:nucleus.contribute_link.contribute" type="button" id="contribute-link" data-contribute-open title="Contribute: help keep Quantum Atom free" aria-label="Contribute"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M8 13.6S2 10.1 2 6c0-1.9 1.4-3.2 3-3.2 1.2 0 2.3.7 3 1.8.7-1.1 1.8-1.8 3-1.8 1.6 0 3 1.3 3 3.2 0 4.1-6 7.6-6 7.6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     <button id="elbtn">☰ <span data-i18n="nucleus.full.elements" class="full">ELEMENTS</span></button>
   </div>
@@ -35107,7 +35136,8 @@ html body #excrow .exc-chip.on span{opacity:.85}
     'ABOUT THE APP',
     "- Simulator (simulator_dark / simulator_light): all 118 elements as electron-probability clouds (|ψ|² point clouds, not orbits): s = spheres, p = dumbbells, d = cloverleaves and rings. Panels: Explore (Atoms, Molecules, Build, Hypothetical elements) and Data (atomic data, configuration, periodic table). Toolbar tools: matter–antimatter annihilation, the Reactions screen (flask), compare two elements, guided lessons, recently viewed, surprise me, excited electrons, molecule analysis; a zoom slider and Reset at the bottom. Library molecules use VSEPR geometry; built molecules use real or computed 3D (see BUILD MODE).",
     '- Nucleus Explorer (nucleus_explorer / nucleus_explorer_light): a physics-based nucleus. Nucleons are sampled from a Woods–Saxon density (R ≈ 1.12A^(1/3) − 0.86A^(−1/3) fm, surface thickness 0.54 fm) with a 1.35 fm repulsive core, a neutron skin and an estimated quadrupole deformation. Zoom continuously through three stages: the whole nucleus (MACRO), a nucleon pair exchanging pions (residual strong force), and the quarks inside one nucleon with gluon flux tubes. Toggles: pions, gluons, legend, reset view. A Nuclear state row shows the ground state and collective excitations with estimated energies: the 2⁺ vibration (spherical nuclei) or the 2⁺/4⁺/6⁺ rotational band (deformed nuclei), the 3⁻ octupole, the giant dipole resonance, and the breathing mode (A ≥ 90). Light nuclei (A < 12) show only the ground state. Motion in excited states is slowed and exaggerated. The bottom panel can be collapsed to give the nucleus more room.',
-    '- Display modes that cannot be combined, because one would silently override the other: Smooth with Ultra; Diffuse with Smooth, Ultra or Real Image; Hyper Realistic (light theme only) with Smooth, Ultra, Diffuse or Real Image; 99% Accurate with Diffuse. While one is on, the buttons it conflicts with are dimmed, and tapping one says which mode to switch off first. Cartesian grid, Spherical, Antimatter and excited electrons work with everything. If someone asks why a button is dimmed or does nothing, explain this and offer the switch.',
+    '- Display modes that cannot be combined, because one would silently override the other: Smooth with Ultra; Diffuse with Smooth, Ultra or Real Image; Hyper Realistic (light theme only) with Smooth, Ultra, Diffuse or Real Image; 99% Accurate with Diffuse. De Broglie waves (Elegant look only) replace Smooth, Ultra, Diffuse, Real Image, Hyper Realistic, Mesh and Helmet: switching the waves on turns those off, and pressing any of them turns the waves off (those buttons are not dimmed). While one is on, the buttons it conflicts with are dimmed, and tapping one says which mode to switch off first. Cartesian grid, Spherical, Antimatter and excited electrons work with everything. If someone asks why a button is dimmed or does nothing, explain this and offer the switch.',
+    '- DE BROGLIE WAVES mode (Elegant look only; the button sits right under ULTRA MODE in the Data panel and is hidden while the Elegant look is off; the choice is remembered between visits; the APP STATE fields cloudRenderer ("de-broglie") and deBroglieWaves say whether it is on): every atom, ion, excited state and molecule cloud becomes ONE smooth, solid, softly lit lobe coloured by the PHASE of its wave, arg ψ, in a rainbow or a rose-and-blue palette, with a caption "de Broglie · arg ψ · λ = h / p". The colours slowly circulate because the phase advances as ψ·e^(−iEt). The idea behind the name: de Broglie (1924, Nobel Prize 1929) proposed that every moving particle has a wavelength λ = h/p, so an electron bound in an atom is a standing matter wave, and the colour shows the phase of that wave (lobes of opposite sign sit half a turn apart on the colour wheel). Be honest about what it is: a display layer built from the same |ψ|² sample (soft edge, phase-averaged colour, gentle lighting); the hue is a stylised rendering of the phase (it winds round the axis and flips between lobes), not a computed phase map of a many-electron wavefunction; and a stationary state\'s density never changes, so the circulating colours are only its global phase e^(−iEt) turning. A WAVE PARAMETERS panel appears under the button: palette Rainbow or Rose · Blue; sliders Edge softness, Solidity, Blob size, Smoothness fill, Phase speed, Phase winding (how many times the colour wraps round the axis), Polar twist, Hue shift, Saturation, Lighting and Wave ripple; RESET restores them; settings are saved in this browser. Offer [[toggle:wave]] when someone asks about waves, phase or de Broglie; if the Elegant look is off, tell them to switch the Elegant look on first.',
     '- Diffuse mode (button in the Data panel, both themes): the whole atom drawn as one soft probability cloud, + and − wavefunction signs in two colours, a soft halo and a glowing nucleus; it carries through molecules, the H₂ + O₂ reaction and annihilation. While it is on, a CLOUD STUDIO panel appears right under its button: presets Default, Dense, Nebula, Crisp; dot type Square, Round, Soft; sliders Density and Spread (the cloud is resampled when the slider is released), Dot size, Brightness, Depth (how much the near side stands out), Jitter Amount and Jitter Speed (how far and how fast every point wobbles; 0 makes it stand still), Halo, Halo size and Nucleus. Every slider at 1.00 is the original look on every device; settings are saved in this browser and RESET restores them. It is a display layer only: it never changes the physics, and Spread deliberately blurs points off the true |ψ|² sample, so say so if someone reads physics into it.',
     '- 99% ACCURATE mode (button in the Data panel, both themes; always OFF when the app opens and never remembered between visits; the first time it is switched on, a notice sheet explains it, with a \"don\'t show this again\" option): switches the orbital model from Classic to the real wavefunction ψ = R(r)·Y(θ,φ). Classic (the default) is a teaching model: correct lobe counts and orientations, nodal planes, sign colours and Aufbau/Hund filling, but hand-shaped lobes, no radial nodes, thin s shells and p lobes that start away from the nucleus. In 99% Accurate the radial part is the exact analytic hydrogenic solution for one-electron atoms and ions, and for every other atom a self-consistent numerical solution of the radial Schrödinger equation for that atom\'s own configuration (local spin-density exchange–correlation, Perdew–Zunger 1981 self-interaction correction, Numerov integration on a log grid; computed in the browser once per element, about 0.2–2 s, then cached; also for excited states and hypothetical elements). The angular part is exact real spherical harmonics. Points are drawn exactly from |ψ|² (point density = probability density) and coloured by the sign of ψ; in Ultra mode it shows the true 90 % boundary surface of every orbital with the + and − phases as separate surfaces. Each orbital\'s 90 % radius is placed at the app\'s display radius, so the spacing between shells follows the zoom layout, while every shape, node and inner lobe inside an orbital is physical.',
     '- 99% ACCURATE for molecules: valence electrons become real molecular orbitals built from the atoms\' own exact orbitals: σ bond orbitals from sp/sp²/sp³… hybrids aimed along the real bonds and polarized by Pauling electronegativity, VSEPR lone pairs, Hückel π molecular orbitals delocalized over every conjugated system (benzene, fused aromatics, heteroaromatics), exact core shells; ions and d/f-block atoms keep exact atomic orbitals. Bonds take physical lengths (Cordero covalent radii, real PubChem coordinates kept) and every orbital has its true size on that one scale, so hydrogen clouds look large: that is real. Be honest about accuracy when asked: exact for hydrogen-like systems; about 1 % for other atoms (non-relativistic, so heavy-element relativistic contraction is not included); molecules are a valence-bond/Hückel-level model with real shapes, nodes and phases, not an ab-initio calculation. \"99%\" is a rounded claim, never call it exact for many-electron atoms.',
@@ -35225,7 +35255,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
   var HEAD_RE = /^[A-Z][A-Z :,()'\-]{3,}/;
   var ALWAYS_RE = /^(SECURITY AND CONFIDENTIALITY|THINKING LIKE A PHYSICIST|SCOPE|PERSONALITY|DATA AND THE WEB|HOW TO ANSWER|ACTIONS)/;
   var GROUPS = { app: /^(ABOUT THE APP|YOUR ABILITIES|GUIDE)/, build: /^BUILD MODE/, rx: /^REACTIONS SCREEN/, viz: /^(GRAPHS AND VISUALS|PLOTS)/ };
-  var APP_RE = /\b(app|simulator|application|buttons?|panels?|menus?|toggles?|turn (?:it )?(?:on|off)|enable|disable|settings?|99 ?%|accurate|diffuse|ultra|mesh|smooth orbitals?|real image|antimatter|spherical|cartesian|grid|cloud studio|language|theme|click|tap|where (?:is|do|can|are)|how (?:do|can|would|should|to) (?:i|you|we)|how to|navigate|explore panel|data panel|legend|features?|can you (?:see|change|open|control|do|show|click)|are you able|what can you|api keys?|providers?|hypothetical)\b/i;
+  var APP_RE = /\b(app|simulator|application|buttons?|panels?|menus?|toggles?|turn (?:it )?(?:on|off)|enable|disable|settings?|99 ?%|accurate|diffuse|ultra|mesh|de ?broglie (?:waves? )?(?:mode|button|look|view)|wave (?:mode|parameters|look)|elegant (?:look|mode|theme)|smooth orbitals?|real image|antimatter|spherical|cartesian|grid|cloud studio|language|theme|click|tap|where (?:is|do|can|are)|how (?:do|can|would|should|to) (?:i|you|we)|how to|navigate|explore panel|data panel|legend|features?|can you (?:see|change|open|control|do|show|click)|are you able|what can you|api keys?|providers?|hypothetical)\b/i;
   var BUILD_RE = /\b(build|builder|smiles|pubchem|wikidata|force field|conformer|type (?:a|the|any) (?:name|formula)|add a molecule)\b/i;
   var RX_RE = /(\breactions?\b|\breact(?:s|ing|ed)?\b|\bmechanisms?\b|transition state|activation (?:energy|barrier)|Δ ?[GHS]|\bdelta ?[ghs]\b|gibbs|catalys|combustion|reactants?|flask|haber|zeldovich|benzene|bond (?:breaking|forming|formation))/i;
   var VIZ_RE = /\b(plots?|plotted|plotting|graphs?|charts?|draw|sketch|diagrams?|visuali[sz](?:e|ation)s?|curves?|surfaces?|contours?|streamlines?|vector field|sliders?|animate|animation|parametric|illustrate|heat ?maps?|isosurfaces?)\b/i;
@@ -40003,6 +40033,22 @@ html body #excrow .exc-chip.on span{opacity:.85}
 })();
 </script>
 <!-- /qa-lux:body -->
+<script id="qa-elegant-js">
+(function(){var d=document.documentElement,b=document.getElementById('elegantbtn');if(!b)return;
+var on=!!window.__ELEG;
+function paint(){b.setAttribute('aria-pressed',on?'true':'false');b.classList.toggle('active',on);b.title=on?'Elegant look: on (click to return to the standard light look)':'Elegant look: white with soft pink & blue';}
+paint();if(on&&window.__qaElegApply)window.__qaElegApply();
+b.addEventListener('click',function(){
+var nxt=on?'off':'on';
+try{localStorage.setItem('qa-elegant',nxt);if(nxt==='on')localStorage.setItem('qa-lux','off');}catch(e){}
+try{sessionStorage.setItem('qa-elegant',nxt);}catch(e){}
+if(nxt==='on'){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-theme-elegant','on');}else{d.removeAttribute('data-theme-elegant');}
+on=nxt==='on';paint();
+/* live switch, no navigation (a reload to a new address can fail in file viewers) */window.__ELEG=on;try{window.dispatchEvent(new Event('resize'));}catch(e){}
+});
+})();
+</script>
+
 <script id="qai-plus">
 /* Physicist AI — "Plus" module. Additive: touches the chat only through its public API (QuantumAI.ui / .prefs / .page / .knowledge)
    and the existing --q-* design tokens, so it follows dark/light and flat/glass/luxury automatically. */
