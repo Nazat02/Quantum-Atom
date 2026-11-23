@@ -30103,7 +30103,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) .v2-new{background:var(--lx-btn) !impo
 
 /* ── Stats ── */
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #stats{background:transparent !important;border:0 !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
-html[data-lux="on"]:not(#lx-a):not(#lx-b) .stats-inner{max-width:1200px !important;margin:0 auto !important;padding:0 22px !important;gap:13px !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .stats-inner{max-width:1200px !important;margin:0 auto !important;padding:0 22px !important;gap:13px !important;background:transparent !important;border:0 !important;box-shadow:none !important;overflow:visible !important;border-radius:0 !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .stat-item{background:var(--lx-surface) !important;border:0 !important;border-radius:var(--lx-r-lg) !important;margin:0 !important;
   padding:21px 21px 18px !important;box-shadow:var(--lx-sh-2) !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) .stat-num{font-size:34px !important;font-weight:700 !important;letter-spacing:-.04em !important;color:var(--lx-text) !important;
@@ -30183,9 +30183,11 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) footer :is(h3,h4,.foot-title,.footer-t
 @media (max-width:760px){
   html[data-lux="on"]:not(#lx-a):not(#lx-b) nav{height:52px !important;padding:0 16px !important;}
   html[data-lux="on"]:not(#lx-a):not(#lx-b) #mobile-menu{top:52px !important;}
-  html[data-lux="on"]:not(#lx-a):not(#lx-b) #hero{padding-top:104px !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #hero{padding:104px 16px 48px !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) .hero-scroll{position:relative !important;bottom:auto !important;left:auto !important;transform:none !important;margin:36px auto 0 !important;align-self:center !important;display:flex !important;flex-direction:column !important;align-items:center !important;gap:8px !important;}
   html[data-lux="on"]:not(#lx-a):not(#lx-b) .hero-title{font-size:clamp(56px,17vw,96px) !important;}
-  html[data-lux="on"]:not(#lx-a):not(#lx-b) .stats-inner{display:grid !important;grid-template-columns:repeat(2,1fr) !important;padding:0 16px !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) #stats{padding:0 16px !important;}
+  html[data-lux="on"]:not(#lx-a):not(#lx-b) .stats-inner{display:grid !important;grid-template-columns:repeat(2,1fr) !important;padding:0 !important;gap:12px !important;}
   html[data-lux="on"]:not(#lx-a):not(#lx-b) .stat-item{padding:16px !important;}
   html[data-lux="on"]:not(#lx-a):not(#lx-b) .stat-num{font-size:28px !important;}
   html[data-lux="on"]:not(#lx-a):not(#lx-b) .section-inner{padding:72px 16px !important;}
@@ -30252,7 +30254,7 @@ html[data-theme-elegant="on"] nav{padding:0 12px 0 16px}
 html[data-theme-elegant="on"] .nav-link{padding:8px 10px}
 @media (max-width:1180px){html[data-theme-elegant="on"] .nav-links{display:none}
 html[data-theme-elegant="on"] .nav-hamburger{display:flex}}
-html[data-theme-elegant="on"] #luxbtn,html[data-theme-elegant="on"] #glassbtn{display:none !important}
+html[data-theme-elegant="on"] #glassbtn{display:none !important}
 html[data-theme-elegant="on"] .btn-secondary,html[data-theme-elegant="on"] .btn-v2{background:rgba(255,255,255,.85) !important;color:var(--blue-lo) !important;  border:1px solid rgba(79,141,245,.35) !important;box-shadow:0 8px 24px rgba(79,100,190,.12) !important}
 html[data-theme-elegant="on"] .v2-new{background:linear-gradient(120deg,#ec5f9e,#f59cc5) !important;color:#fff !important}
 html[data-theme-elegant="on"] .feat-card,html[data-theme-elegant="on"] .why-card,html[data-theme-elegant="on"] .prob-card,html[data-theme-elegant="on"] .quote-card,html[data-theme-elegant="on"] .step,html[data-theme-elegant="on"] .fact-cell,html[data-theme-elegant="on"] .bohr-card,html[data-theme-elegant="on"] .tl-content,html[data-theme-elegant="on"] .ct-b-item,html[data-theme-elegant="on"] .orb-deep-card,html[data-theme-elegant="on"] .compare-col,html[data-theme-elegant="on"] .hero-stage,html[data-theme-elegant="on"] .orb-prop{  background:linear-gradient(160deg,rgba(255,255,255,.92),rgba(255,247,252,.8)) !important;  border:1px solid rgba(236,95,158,.18) !important;  box-shadow:0 14px 40px rgba(79,100,190,.10),inset 0 1px 0 #fff !important}
@@ -30640,6 +30642,10 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .nav-contribut
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .nav-contribute:active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .footer-link.qa-pressed,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .footer-link:active{transition:none !important;}
+</style>
+<style id="rose-lux-fix">/* the rose icon is a white mask: on the grey luxury button it vanished — tint it pink while luxury is on */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg rect[fill]{fill:#1d1d1f !important}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg mask g[fill]{fill:#fff !important}
 </style>
 </head>
 <body>
@@ -32906,6 +32912,7 @@ html .feat-tag,html .tl-tag,html .prob-solved,html .feat-icon,html .why-icon{ali
 
   if(isOn()){caps(true);gallery(true);scene();}
   sync();
+  try{new MutationObserver(sync).observe(root,{attributes:true,attributeFilter:['data-lux']});}catch(e){}
   requestAnimationFrame(function(){root.classList.remove('lx-boot');});
   /* the 3D scene may be created after this script: catch it once it exists */
   if(PAGE==='sim'&&TONE==='light'&&isOn()){var n=0,iv=setInterval(function(){scene();if(++n>20)clearInterval(iv);},250);}
@@ -33049,6 +33056,14 @@ on=nxt==='on';paint();if(on&&window.__qaStartWaves)window.__qaStartWaves();
     flash(b);
   },true);
 })();
+</script>
+<script id="elegant-lux-link">
+/* Luxury (apple) button stays visible in Elegant mode; tapping it leaves Elegant first, then Luxury turns on */
+document.addEventListener('click',function(e){
+  var t=e.target&&e.target.closest&&e.target.closest('#luxbtn');if(!t)return;
+  var d=document.documentElement;
+  if(d.getAttribute('data-theme-elegant')==='on'){var eb=document.getElementById('elegantbtn');if(eb)eb.click();}
+},true);
 </script>
 </body>
 </html>

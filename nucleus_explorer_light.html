@@ -30473,7 +30473,7 @@ html[data-theme-elegant="on"]{color-scheme:light;
  --glass-shadow:0 8px 32px rgba(79,100,190,.12),inset 0 1px 0 #fff;
  --nb-grad:linear-gradient(135deg,#ec5f9e 0%,#4f8df5 100%);--nb-shadow:0 3px 12px rgba(120,100,220,.30);}
 html[data-theme-elegant="on"] #tb-title,html[data-theme-elegant="on"] .panel-title,html[data-theme-elegant="on"] h1,html[data-theme-elegant="on"] h2,html[data-theme-elegant="on"] h3{font-family:var(--display) !important}
-html[data-theme-elegant="on"] #luxbtn,html[data-theme-elegant="on"] #glassbtn{display:none !important}
+html[data-theme-elegant="on"] #glassbtn{display:none !important}
 html[data-theme-elegant="on"] #elegantbtn{background:linear-gradient(135deg,#ec5f9e,#4f8df5) !important;color:#fff !important;border-color:transparent !important}
 html[data-theme-elegant="on"] .qai-root[data-theme="light"]{--qai-accent:#ec5f9e}
 #elegantbtn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;flex-shrink:0;border-radius:8px;border:1px solid var(--border);background:var(--cx-06);color:var(--cx2)}
@@ -30770,6 +30770,10 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay.qa-p
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-stay:active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x.qa-pressed,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:active{transition:none !important;}
+</style>
+<style id="rose-lux-fix">/* the rose icon is a white mask: on the grey luxury button it vanished — tint it pink while luxury is on */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg rect[fill]{fill:#1d1d1f !important}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg mask g[fill]{fill:#fff !important}
 </style>
 </head>
 <body>
@@ -40027,6 +40031,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
 
   if(isOn()){caps(true);gallery(true);scene();}
   sync();
+  try{new MutationObserver(sync).observe(root,{attributes:true,attributeFilter:['data-lux']});}catch(e){}
   requestAnimationFrame(function(){root.classList.remove('lx-boot');});
   /* the 3D scene may be created after this script: catch it once it exists */
   if(PAGE==='sim'&&TONE==='light'&&isOn()){var n=0,iv=setInterval(function(){scene();if(++n>20)clearInterval(iv);},250);}
@@ -40346,5 +40351,13 @@ on=nxt==='on';paint();
   -webkit-tap-highlight-color:transparent}
 .qai-root .qai-box textarea{background:transparent}
 </style>
+<script id="elegant-lux-link">
+/* Luxury (apple) button stays visible in Elegant mode; tapping it leaves Elegant first, then Luxury turns on */
+document.addEventListener('click',function(e){
+  var t=e.target&&e.target.closest&&e.target.closest('#luxbtn');if(!t)return;
+  var d=document.documentElement;
+  if(d.getAttribute('data-theme-elegant')==='on'){var eb=document.getElementById('elegantbtn');if(eb)eb.click();}
+},true);
+</script>
 </body>
 </html>

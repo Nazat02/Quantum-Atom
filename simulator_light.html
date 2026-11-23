@@ -32640,7 +32640,7 @@ html[data-theme-elegant="on"] #backdrop{background:
   radial-gradient(800px 700px at 100% 8%,rgba(79,141,245,.16),transparent 55%),
   radial-gradient(900px 800px at 28% 100%,rgba(247,168,203,.18),transparent 55%) !important}
 html[data-theme-elegant="on"] #ename,html[data-theme-elegant="on"] #topbar h1,html[data-theme-elegant="on"] .panel-title,html[data-theme-elegant="on"] .sec-title{font-family:var(--display) !important}
-html[data-theme-elegant="on"] #luxbtn,html[data-theme-elegant="on"] #glassbtn{display:none !important}
+html[data-theme-elegant="on"] #glassbtn{display:none !important}
 html[data-theme-elegant="on"] .theme-toggle-btn{background:linear-gradient(135deg,#ec5f9e,#4f8df5) !important;color:#fff !important}
 html[data-theme-elegant="on"] .qai-root[data-theme="light"]{--qai-accent:#ec5f9e}
 </style>
@@ -33218,6 +33218,10 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .rxe-x.qa-pres
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .rxe-x:active,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .rxe-tabs button.qa-pressed,
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .rxe-tabs button:active{transition:none !important;}
+</style>
+<style id="rose-lux-fix">/* the rose icon is a white mask: on the grey luxury button it vanished — tint it pink while luxury is on */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg rect[fill]{fill:#1d1d1f !important}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg mask g[fill]{fill:#fff !important}
 </style>
 </head>
 <body>
@@ -68662,6 +68666,7 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
 
   if(isOn()){caps(true);gallery(true);scene();}
   sync();
+  try{new MutationObserver(sync).observe(root,{attributes:true,attributeFilter:['data-lux']});}catch(e){}
   requestAnimationFrame(function(){root.classList.remove('lx-boot');});
   /* the 3D scene may be created after this script: catch it once it exists */
   if(PAGE==='sim'&&TONE==='light'&&isOn()){var n=0,iv=setInterval(function(){scene();if(++n>20)clearInterval(iv);},250);}
@@ -74267,5 +74272,13 @@ html #wavebtn:is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"]) svg,html 
 })();
 </script>
 
+<script id="elegant-lux-link">
+/* Luxury (apple) button stays visible in Elegant mode; tapping it leaves Elegant first, then Luxury turns on */
+document.addEventListener('click',function(e){
+  var t=e.target&&e.target.closest&&e.target.closest('#luxbtn');if(!t)return;
+  var d=document.documentElement;
+  if(d.getAttribute('data-theme-elegant')==='on'){var eb=document.getElementById('elegantbtn');if(eb)eb.click();}
+},true);
+</script>
 </body>
 </html>
