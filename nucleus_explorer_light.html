@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script id="qa-boot-early">
+/* Runs first, before any style or large script is parsed: puts the saved look on <html> so the very first paint
+   is already correct (no flash of the default look before flat / elegant is applied). Idempotent: the later
+   per-page scripts set the same attributes. */
+(function(){var d=document.documentElement,T='light',on=false,q=(location.search.match(/[?&]elegant=(on|off)/)||[])[1];
+try{if(localStorage.getItem('qa-glass')==='off')d.setAttribute('data-glass','off');}catch(e){}
+try{on=localStorage.getItem('qa-elegant')==='on';}catch(e){}
+if(!q){try{if(sessionStorage.getItem('qa-elegant'))on=sessionStorage.getItem('qa-elegant')==='on';}catch(e){}}
+if(q)on=q==='on';
+if(on){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone',T);d.setAttribute('data-theme-elegant','on');}
+})();
+</script>
 <script>/* pinch belongs to the 3D zoom, never to the browser page */
 (function(){var o={passive:false},d=document;
 d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
@@ -723,7 +735,7 @@ addEventListener('wheel',function(e){if(e.ctrlKey&&e.cancelable)e.preventDefault
     if (like) {
       // same look as the neighbouring theme button, so the toolbar stays on-brand in every theme
       host.style.display = 'contents';
-      b = doc.createElement('button'); b.className = 'qa-langbtn ' + (sib0.id === 'theme-link' ? 'qa-langbtn-nuc' : sib0.className);
+      b = doc.createElement('button'); b.className = 'qa-langbtn ' + (sib0.id === 'theme-link' ? 'qa-langbtn-nuc' : String(sib0.className).replace(/(^|\s)(active|on|is-on|qa-pressed|open)(?=\s|$)/g, ' '));
       b.innerHTML = GLOBE.replace('width="14" height="14"', 'width="16" height="16"');
       host.appendChild(b);
       picker = { btn: b, code: { textContent: '' } };
@@ -30775,6 +30787,64 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .qen-x:active{
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg rect[fill]{fill:#1d1d1f !important}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg mask g[fill]{fill:#fff !important}
 </style>
+<script id="qa-nav-sync">
+/* Quantum Atom - unified cross-page navigation (single source of truth).
+   1. Every internal link is relative, so the site works on any host and from file://.
+   2. Dark/light variants stay paired: index_*, simulator_*, nucleus_explorer[_light].
+   3. The shared Elegant look rides on every internal link as ?elegant=on|off and is persisted,
+      so the look survives navigation even where localStorage is not shared between files. */
+(function(){
+  var TONE='light';
+  var RE=/^(.*?)(index|simulator|nucleus_explorer)(_dark|_light)?\.html$/;
+  var LOCAL=/^https?:\/\/nazat02\.github\.io\/Quantum-Atom\//i;
+  function eleg(){return document.documentElement.getAttribute('data-theme-elegant')==='on';}
+  function file(base,tone){return base==='nucleus_explorer'?(tone==='light'?'nucleus_explorer_light.html':'nucleus_explorer.html'):base+'_'+tone+'.html';}
+  function url(href){
+    if(!href||/^(mailto:|tel:|javascript:|data:)/i.test(href))return href;
+    var hash='',q='',p=href,i=p.indexOf('#');
+    if(i>=0){hash=p.slice(i);p=p.slice(0,i);}
+    i=p.indexOf('?');if(i>=0){q=p.slice(i+1);p=p.slice(0,i);}
+    var abs=/^https?:\/\//i.test(p);
+    if(abs&&!LOCAL.test(p))return href;
+    var m=p.replace(LOCAL,'').match(RE);if(!m)return href;
+    var tone=m[3]?m[3].slice(1):(m[2]==='nucleus_explorer'?'dark':TONE);
+    var prefix=abs?'':m[1];
+    var parts=q?q.split('&').filter(function(s){return s&&!/^elegant=/.test(s);}):[];
+    parts.push('elegant='+(eleg()?'on':'off'));
+    return prefix+file(m[2],tone)+'?'+parts.join('&')+hash;
+  }
+  function one(a){if(a.hasAttribute('data-qa-nosync'))return;var h=a.getAttribute('href'),n=url(h);if(n!==h)a.setAttribute('href',n);}
+  function sync(){var l=document.querySelectorAll('a[href]');for(var i=0;i<l.length;i++)one(l[i]);}
+  function fonts(){
+    if(!eleg()||document.getElementById('qa-eleg-fonts'))return;
+    var l=document.createElement('link');l.id='qa-eleg-fonts';l.rel='stylesheet';
+    l.href='https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
+  function persist(v){
+    try{localStorage.setItem('qa-elegant',v);if(v==='on')localStorage.setItem('qa-lux','off');}catch(e){}
+    try{sessionStorage.setItem('qa-elegant',v);}catch(e){}
+  }
+  window.qaNavUrl=url;
+  window.qaGo=function(f){window.location.href=url(f);};
+  var qm=location.search.match(/[?&]elegant=(on|off)/);if(qm)persist(qm[1]);
+  function ready(){
+    sync();fonts();
+    var logo=document.getElementById('topbar-logo');
+    if(logo&&!logo.getAttribute('role')){
+      logo.setAttribute('role','link');logo.setAttribute('tabindex','0');
+      logo.setAttribute('aria-label','Quantum Atom home');logo.title='Quantum Atom home';logo.style.cursor='pointer';
+      var go=function(){window.qaGo('index_'+TONE+'.html');};
+      logo.addEventListener('click',go);
+      logo.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+    }
+    try{new MutationObserver(function(){sync();fonts();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme-elegant']});}catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();
+  window.addEventListener('load',sync);
+  document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(a)one(a);},true);
+})();
+</script>
 </head>
 <body>
 <!-- qa-seo:sr:start -->
@@ -34920,7 +34990,7 @@ html body #excrow .exc-chip.on span{opacity:.85}
   var byId = function (id) { return document.getElementById(id); };
   var labelOf = function (el, fb) { if (!el) return fb; var l = el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || ''; l = String(l).replace(/\s+/g, ' ').trim(); return l ? (l.length > 48 ? l.slice(0, 46) + '…' : l) : fb; };
   var clickAct = function (id, fb) { var el = byId(id); return el ? { label: labelOf(el, fb), run: function () { el.click(); } } : null; };
-  var goAct = function (file, label) { return { label: label, run: function () { location.href = file; } }; };
+  var goAct = function (file, label) { return { label: label, run: function () { location.href = window.qaNavUrl ? window.qaNavUrl(file) : file; } }; };
 
   /* Grammar for names inserted into translated questions: Arabic element names take the article (الهيدروجين),
      Bengali needs the possessive form (হাইড্রোজেনের, লোহার). Other languages use the name as it is. */
@@ -39321,8 +39391,21 @@ html body #excrow .exc-chip.on span{opacity:.85}
     requestAnimationFrame(function () { bar.classList.add('on'); });
   }
 
+  // Cover the outdated page with its own background colour while the swap happens, so the old UI is never on show.
+  function veil() {
+    try {
+      if (document.getElementById('qa-upd-veil')) return;
+      var m = document.querySelector('meta[name="theme-color"]:not([media])') || document.querySelector('meta[name="theme-color"]');
+      var v = document.createElement('div'); v.id = 'qa-upd-veil';
+      v.style.cssText = 'position:fixed;inset:0;z-index:2147482999;opacity:0;transition:opacity .18s;background:' + ((m && m.content) || (themeDark() ? '#000' : '#fff'));
+      document.body.appendChild(v);
+      requestAnimationFrame(function () { v.style.opacity = '1'; });
+      setTimeout(function () { try { v.remove(); } catch (e) {} busyApply = false; }, 6000);   // safety net: never leave the page covered
+    } catch (e) {}
+  }
   function apply(byUser) {
     if (busyApply) return; busyApply = true;
+    veil();
     show(t('app.update.updating', 'Updating to the new version…'), false);
     keepState();
     // refill the browser cache with the new file first, so the reload can't land on the old copy
@@ -40359,5 +40442,273 @@ document.addEventListener('click',function(e){
   if(d.getAttribute('data-theme-elegant')==='on'){var eb=document.getElementById('elegantbtn');if(eb)eb.click();}
 },true);
 </script>
+<style id="elegant-lang-tapped">
+/* Elegant ON (light): closed = normal gradient button like its neighbours; open/pressed = white "tapped" state with pink ring */
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"],:active),
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"],:active){
+  background:#fff !important;background-image:none !important;color:#ec5f9e !important;border:1px solid transparent !important;
+  box-shadow:inset 0 0 0 2px #ec5f9e,0 0 14px rgba(236,95,158,.45) !important;outline:none !important;}
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"],:active) svg,
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"],:active) svg{color:#ec5f9e !important;stroke:#ec5f9e !important}
+</style>
+<style id="light-rails-consistency">
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   LIGHT THEME — RAILS + ONE BUTTON-STATE LANGUAGE   (additive patch: loaded last, no existing rule edited)
+   1. Top bar and the action row of the bottom sheet become swipeable left→right rails with even spacing.
+   2. Every control follows ONE state language per look (glass · flat · elegant). Luxury keeps its own palette.
+        IDLE                  → filled (look's gradient / solid) + white icon
+        ON / OPEN / PRESSED   → white fill + accent ring + accent icon
+      "Open" is real state: Elements, Help, Contribute and Language hold their button pressed while their panel is open.
+   Specificity: the 4 × :not(#lrN) lift every rule above the older ID-based light rules (same trick the page already uses).
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+:root{--ctl:40px;--rail-gap:10px;--rail-pad:16px;
+  --st-rest:linear-gradient(135deg,#6952e0 0%,#0a7ea4 100%);--st-ring:#6952e0;
+  --st-sh:0 2px 8px rgba(105,82,224,.28);--st-glow:0 4px 14px rgba(105,82,224,.22)}
+html[data-glass="off"]{--st-rest:#6952e0;--st-sh:0 0 0 0 transparent;--st-glow:0 0 0 0 transparent}
+html[data-theme-elegant="on"]{--st-rest:linear-gradient(135deg,#ec5f9e 0%,#4f8df5 100%);--st-ring:#ec5f9e;
+  --st-sh:0 2px 8px rgba(120,100,220,.28);--st-glow:0 4px 14px rgba(236,95,158,.25)}
+
+/* ── 1 · STATE LANGUAGE (glass · flat · elegant) ─────────────────────────────────────────── */
+/* IDLE: filled. Replaces the outlined/pale idle looks that read as "already tapped" (flat Hyper/Reset/Apple, pale rose square, off Pions/Gluons). */
+html:not(#lr1):not(#lr2):not(#lr3):not(#lr4):not([data-lux="on"]) :is(#back-link,#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,#elbtn,.qa-langbtn,#legend-btn,#help-btn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle,#prevbtn,#nextbtn):not(.on):not(.active):not(.is-on):not(.qa-pressed):not([aria-pressed="true"]):not([aria-expanded="true"]):not(:active):not(:disabled){
+  background:var(--st-rest) !important;color:#fff !important;
+  border:1px solid rgba(255,255,255,.32) !important;box-shadow:var(--st-sh) !important;opacity:1 !important;filter:none}
+/* ON / OPEN / PRESSED: one identical look for all of them */
+html:not(#lr1):not(#lr2):not(#lr3):not(#lr4):not([data-lux="on"]) :is(#back-link,#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,#elbtn,.qa-langbtn,#legend-btn,#help-btn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle,#prevbtn,#nextbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-expanded="true"]),
+html:not(#lr1):not(#lr2):not(#lr3):not(#lr4):not([data-lux="on"]) :is(#back-link,#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,#elbtn,.qa-langbtn,#legend-btn,#help-btn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle,#prevbtn,#nextbtn):not(:disabled):active{
+  background:#fff !important;background-image:none !important;color:var(--st-ring) !important;
+  border:1px solid transparent !important;box-shadow:inset 0 0 0 2px var(--st-ring),var(--st-glow) !important;
+  filter:none !important;transform:none !important;outline:none !important}
+html:not(#lr1):not(#lr2):not(#lr3):not(#lr4):not([data-lux="on"]) :is(#back-link,#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,#elbtn,.qa-langbtn,#legend-btn,#help-btn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle,#prevbtn,#nextbtn):is(.on,.active,.is-on,.qa-pressed,[aria-pressed="true"],[aria-expanded="true"]) :is(svg,span,path,i,b){color:var(--st-ring) !important}
+/* keep the rose mask and the Apple glyph following the button colour in both states */
+html:not(#lr1):not(#lr2):not(#lr3):not(#lr4):not([data-lux="on"]) #elegantbtn svg rect[fill]{fill:currentColor !important}
+html:not(#lr1):not(#lr2):not(#lr3):not(#lr4):not([data-lux="on"]) #luxbtn svg{fill:currentColor !important;color:inherit !important}
+/* touch screens keep :hover after a tap — that made a released button look half-pressed */
+@media (hover:none){
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) :is(#back-link,#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,#elbtn,.qa-langbtn,#legend-btn,#help-btn,.tgbtn,#prevbtn,#nextbtn):hover{filter:none !important}}
+/* while the Elements list is open, the top bar rises above its scrim so the held-down ☰ button stays visible */
+body:has(#elpanel.open) #shell{z-index:21}
+
+/* ── LUXURY: only make the rose button match its siblings (grey circle, dark glyph); its press colours stay luxury's own ── */
+html[data-lux="on"]:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #elegantbtn:not([aria-expanded="true"]):not(.on):not(:active){
+  background:var(--lx-fill,rgba(120,120,128,.12)) !important;background-image:none !important;border:0 !important;box-shadow:none !important;color:#1d1d1f !important}
+html[data-lux="on"][data-lux-tone="dark"]:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #elegantbtn svg rect[fill]{fill:#f5f5f7 !important}
+
+/* luxury: the glass toggle has no function there and stays hidden (the circle sizing below must not resurrect it) */
+html[data-lux="on"]:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar #glassbtn{display:none !important}
+
+/* ── 2 · RAILS ───────────────────────────────────────────────────────────────────────────── */
+.rail{overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scroll-padding-inline:var(--rail-pad);
+  -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x pan-y;cursor:grab}
+.rail::-webkit-scrollbar{display:none}
+.rail.dragging{cursor:grabbing;scroll-snap-type:none}
+.rail>*{scroll-snap-align:start}
+/* thin position thumb: shows there is more to swipe */
+.rail-ind{pointer-events:none;width:44px;height:3px;border-radius:3px;background:rgba(105,82,224,.16);opacity:0;transition:opacity .25s}
+.rail-ind.on{opacity:1}
+.rail-ind i{display:block;height:100%;width:42%;border-radius:3px;background:var(--st-ring);transition:transform .08s linear}
+#rail-ind-top{position:fixed;left:50%;top:calc(var(--topbar-h) - 5px);margin-left:-22px;z-index:11}
+#rail-ind-bot{display:none;margin:0 auto}
+html[data-lux="on"] .rail-ind{background:rgba(60,60,67,.16)}
+html[data-lux="on"] .rail-ind i{background:var(--lx-acc,#5e5ce6)}
+
+@media (max-width:640px){
+  :root{--topbar-h:64px}
+  /* top bar */
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar{display:flex !important;flex-wrap:nowrap !important;align-items:center !important;justify-content:flex-start !important;
+    gap:var(--rail-gap) !important;padding:0 var(--rail-pad) !important;height:var(--topbar-h) !important;min-height:var(--topbar-h);
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%)}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar>*{flex:0 0 auto !important;min-width:0}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar>#tb-title{flex:0 0 auto !important;min-width:max-content !important;overflow:visible !important;text-overflow:clip !important;
+    margin-inline-end:auto;padding-inline:2px 6px}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar>[data-qa-lang-picker]{display:flex !important;align-items:center;margin-inline-start:0 !important}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar>#back-link{margin-right:0 !important}
+  /* every round control in the top bar is exactly --ctl × --ctl */
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar :is(#back-link,#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,#elbtn,.qa-langbtn){
+    width:var(--ctl) !important;height:var(--ctl) !important;min-width:var(--ctl) !important;min-height:var(--ctl) !important;max-width:var(--ctl) !important;max-height:var(--ctl) !important;
+    padding:0 !important;border-radius:999px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;
+    flex:0 0 var(--ctl) !important;box-sizing:border-box;font-size:16px !important;line-height:1}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar :is(#back-link,#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,#elbtn,.qa-langbtn) svg{width:18px !important;height:18px !important}
+
+  /* bottom sheet: action row */
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #statusrow{margin-inline:calc(var(--rail-pad) * -1) !important;width:calc(100% + var(--rail-pad) * 2) !important;max-width:none !important}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #actions{display:flex !important;flex-wrap:nowrap !important;align-items:center !important;justify-content:flex-start !important;
+    gap:var(--rail-gap) !important;padding:10px var(--rail-pad) 18px !important;margin:-6px 0 -10px !important;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%)}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #actions>*{flex:0 0 auto !important;height:var(--ctl) !important;min-height:var(--ctl) !important;min-width:var(--ctl) !important;
+    padding:0 16px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:6px !important;
+    box-sizing:border-box;font-size:.72rem !important;letter-spacing:.06em !important;white-space:nowrap;border-radius:999px !important}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #actions :is(#legend-btn,#help-btn){width:var(--ctl) !important;max-width:var(--ctl) !important;padding:0 !important;font-size:16px !important}
+  #rail-ind-bot{display:block}
+}
+
+/* desktop / tablet: same layout as before, but the small icon buttons share one size and shape (the rose button was a 28px square) */
+@media (min-width:641px){
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar :is(#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,.qa-langbtn){
+    width:36px !important;height:36px !important;min-width:36px !important;min-height:36px !important;max-width:36px !important;max-height:36px !important;
+    padding:0 !important;border-radius:999px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;flex:0 0 36px !important;box-sizing:border-box}
+  html:not(#lr1):not(#lr2):not(#lr3):not(#lr4) #topbar :is(#theme-link,#glassbtn,#luxbtn,#elegantbtn,#contribute-link,.qa-langbtn) svg{width:16px !important;height:16px !important}
+}
+</style>
+<script id="light-rails-js">
+(function(){
+  'use strict';
+  /* ── rails: drag with a mouse, wheel → horizontal, thumb indicator, one-time peek ── */
+  function makeRail(r){
+    if(!r||r.classList.contains('rail'))return;
+    r.classList.add('rail');
+    var down=false,sx=0,sl=0,moved=false;
+    r.addEventListener('pointerdown',function(e){if(e.pointerType!=='mouse')return;down=true;moved=false;sx=e.clientX;sl=r.scrollLeft;});
+    window.addEventListener('pointermove',function(e){if(!down)return;var dx=e.clientX-sx;if(Math.abs(dx)>4){moved=true;r.classList.add('dragging');}if(moved)r.scrollLeft=sl-dx;});
+    window.addEventListener('pointerup',function(){down=false;setTimeout(function(){r.classList.remove('dragging');},0);});
+    r.addEventListener('click',function(e){if(moved){e.stopPropagation();e.preventDefault();moved=false;}},true);
+    r.addEventListener('wheel',function(e){if(Math.abs(e.deltaY)>Math.abs(e.deltaX)&&r.scrollWidth>r.clientWidth+2){r.scrollLeft+=e.deltaY;e.preventDefault();}},{passive:false});
+  }
+  function makeInd(r,ind){
+    ind.innerHTML='<i></i>';var th=ind.firstChild;
+    function upd(){
+      var max=r.scrollWidth-r.clientWidth;
+      if(max<=2){ind.classList.remove('on');return;}
+      ind.classList.add('on');
+      var p=Math.min(1,Math.abs(r.scrollLeft)/max),dir=getComputedStyle(r).direction==='rtl'?-1:1;
+      th.style.transform='translateX('+dir*Math.round(p*(ind.clientWidth-th.clientWidth))+'px)';
+    }
+    r.addEventListener('scroll',upd,{passive:true});
+    window.addEventListener('resize',upd);window.addEventListener('qa:langchange',function(){setTimeout(upd,80);});
+    if('ResizeObserver' in window)new ResizeObserver(upd).observe(r);
+    setTimeout(upd,300);setTimeout(upd,1500);
+    return upd;
+  }
+  function initRails(){
+    var top=document.getElementById('topbar'),act=document.getElementById('actions'),shell=document.getElementById('shell');
+    if(!top||!act||!shell)return;
+    makeRail(top);makeRail(act);
+    var it=document.createElement('div');it.id='rail-ind-top';it.className='rail-ind';shell.appendChild(it);
+    var ib=document.createElement('div');ib.id='rail-ind-bot';ib.className='rail-ind';act.parentNode.insertBefore(ib,act.nextSibling);
+    makeInd(top,it);makeInd(act,ib);
+    try{
+      if(!sessionStorage.getItem('rail-peek')&&matchMedia('(max-width:640px)').matches&&top.scrollWidth>top.clientWidth+8){
+        sessionStorage.setItem('rail-peek','1');
+        setTimeout(function(){top.scrollTo({left:56,behavior:'smooth'});setTimeout(function(){top.scrollTo({left:0,behavior:'smooth'});},650);},900);
+      }
+    }catch(e){}
+  }
+
+  /* ── open panel ⇒ its button stays pressed (aria-expanded drives the shared pressed look in every theme) ── */
+  function setOpen(btn,open){if(btn&&btn.getAttribute('aria-expanded')!==String(open))btn.setAttribute('aria-expanded',String(open));}
+  function syncOpen(){
+    var elp=document.getElementById('elpanel'),onb=document.getElementById('onboard'),ov=document.querySelector('.qa-c-overlay');
+    setOpen(document.getElementById('elbtn'),!!(elp&&elp.classList.contains('open')));
+    setOpen(document.getElementById('help-btn'),!!(onb&&!onb.classList.contains('hide')&&getComputedStyle(onb).display!=='none'));
+    setOpen(document.getElementById('contribute-link'),!!(ov&&!ov.hidden));
+  }
+  function initSync(){
+    var mo=new MutationObserver(syncOpen);
+    ['elpanel','onboard'].forEach(function(id){var n=document.getElementById(id);if(n)mo.observe(n,{attributes:true,attributeFilter:['class','style']});});
+    /* the Contribute dialog is built on demand: watch for it and for its hidden attribute */
+    new MutationObserver(syncOpen).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
+    syncOpen();
+  }
+  function start(){initRails();initSync();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+</script>
+<style id="qa-c-themes-light">
+/* CONTRIBUTE card + dialog — one skin per light look, same token approach as the dark page.
+   The component ships violet tokens on .qa-c / .qa-c-overlay, so each look overrides them here (higher specificity, loaded last).
+   Looks: glass (default) · flat (data-glass=off) · luxury (data-lux=on) · elegant (data-theme-elegant=on).
+   The close ✕ follows the page's button-state language: idle filled, pressed white + accent ring. */
+
+/* ── GLASS: frosted white panel, hairline violet border, violet→teal accent fills ── */
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) :is(.qa-c,.qa-c-overlay){
+  --c-accent:#6952e0;--c-accent2:#0a7ea4;--c-ink:#1c1740;--c-dim:rgba(33,28,66,.78);
+  --c-surface:rgba(255,255,255,.70);--c-card:rgba(105,82,224,.07);--c-line:rgba(105,82,224,.28);
+  --c-btn-ink:#fff;--c-btn-bg:linear-gradient(135deg,#6952e0 0%,#0a7ea4 100%);
+  --c-shadow:0 24px 70px rgba(76,60,160,.28),inset 0 1px 0 rgba(255,255,255,.75)}
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) .qa-c-overlay{
+  background:rgba(40,30,90,.30);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) .qa-c-dialog{
+  -webkit-backdrop-filter:blur(26px) saturate(160%);backdrop-filter:blur(26px) saturate(160%)}
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) .qa-c{
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) .qa-c-chip.solid{
+  background:var(--c-btn-bg);border-color:transparent}
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) .qa-c-btn.primary{
+  box-shadow:0 6px 20px rgba(105,82,224,.30);border:1px solid rgba(255,255,255,.32)}
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) .qa-c-btn.primary:hover{
+  box-shadow:0 10px 26px rgba(105,82,224,.38)}
+html:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]):not([data-glass="off"]) .qa-c-qr{
+  box-shadow:0 6px 24px rgba(76,60,160,.18)}
+
+/* ── FLAT (glass off): pure white, 1px solid violet outline, flat violet fills, no blur / shadow / gradient ── */
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) :is(.qa-c,.qa-c-overlay){
+  --c-accent:#6952e0;--c-accent2:#6952e0;--c-ink:#1c1740;--c-dim:rgba(33,28,66,.80);
+  --c-surface:#fff;--c-card:#fff;--c-line:#6952e0;--c-btn-ink:#fff;--c-btn-bg:#6952e0;--c-shadow:none}
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) .qa-c-overlay{
+  background:rgba(255,255,255,.88);-webkit-backdrop-filter:none;backdrop-filter:none}
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) :is(.qa-c-dialog,.qa-c){
+  -webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) .qa-c-qr{box-shadow:none;border:1px solid rgba(105,82,224,.45)}
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) .qa-c-btn.primary{
+  background:#6952e0;border:1px solid #6952e0;box-shadow:none;transform:none}
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) .qa-c-btn.primary:hover{
+  background:#5a43d0;border-color:#5a43d0;box-shadow:none;transform:none}
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) :is(.qa-c-btn:not(.primary):hover){background:#f4f1ff}
+
+/* ── ELEGANT: soft white, pink & blue, serif title, brand-gradient fills ── */
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) :is(.qa-c,.qa-c-overlay){
+  --c-accent:#ec5f9e;--c-accent2:#4f8df5;--c-ink:#161c3a;--c-dim:rgba(35,42,74,.78);
+  --c-surface:rgba(255,255,255,.80);--c-card:rgba(236,95,158,.06);--c-line:rgba(236,95,158,.30);
+  --c-btn-ink:#fff;--c-btn-bg:linear-gradient(135deg,#ec5f9e 0%,#4f8df5 100%);
+  --c-display:var(--display,'Playfair Display',Georgia,serif);--c-radius:14px;
+  --c-shadow:0 24px 70px rgba(79,100,190,.22),0 0 40px rgba(236,95,158,.10),inset 0 1px 0 #fff}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-overlay{background:rgba(60,40,90,.30);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-dialog{border-color:rgba(236,95,158,.34);-webkit-backdrop-filter:blur(24px) saturate(150%);backdrop-filter:blur(24px) saturate(150%)}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-title{font-weight:600;letter-spacing:0}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-chip.solid{background:var(--c-btn-bg);border-color:transparent;color:#fff}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-btn.primary{border:1px solid rgba(255,255,255,.32);box-shadow:0 6px 20px rgba(120,100,220,.30)}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-btn.primary:hover{box-shadow:0 10px 26px rgba(120,100,220,.38)}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-addr b{background:var(--c-btn-bg);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2) .qa-c-qr{box-shadow:0 6px 24px rgba(120,100,220,.20)}
+
+/* ── CLOSE ✕ in glass · flat · elegant: idle filled, pressed = white + accent ring (same language as the toolbar) ── */
+html:not(#qc1):not(#qc2):not([data-lux="on"]) .qa-c-x{
+  background:var(--c-btn-bg);color:#fff;border:1px solid rgba(255,255,255,.32);box-shadow:0 2px 8px rgba(105,82,224,.28)}
+html[data-theme-elegant="on"]:not(#qc1):not(#qc2):not([data-lux="on"]) .qa-c-x{box-shadow:0 2px 8px rgba(120,100,220,.28)}
+html[data-glass="off"]:not(#qc1):not(#qc2):not([data-lux="on"]):not([data-theme-elegant="on"]) .qa-c-x{box-shadow:none;border-color:#6952e0}
+html:not(#qc1):not(#qc2):not([data-lux="on"]) .qa-c-x:hover{background:var(--c-btn-bg);border-color:rgba(255,255,255,.32);filter:brightness(1.08)}
+html:not(#qc1):not(#qc2):not([data-lux="on"]) .qa-c-x:active{
+  background:#fff;color:var(--c-accent);border-color:transparent;box-shadow:inset 0 0 0 2px var(--c-accent);filter:none}
+@media (hover:none){html:not(#qc1):not(#qc2):not([data-lux="on"]) .qa-c-x:hover{filter:none}}
+
+/* ── LUXURY (Apple-style, light tone): system font, iOS greys, pill controls, the look's own accent ── */
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.qa-c,.qa-c-overlay){
+  --c-accent:var(--lx-acc);--c-accent2:var(--lx-acc-2);--c-ink:var(--lx-text);--c-dim:var(--lx-text-2);
+  --c-surface:var(--lx-surface);--c-card:var(--lx-fill);--c-line:var(--lx-fill-2);
+  --c-btn-ink:var(--lx-on-acc);--c-btn-bg:var(--lx-btn);
+  --c-body:var(--lx-font);--c-display:var(--lx-font);--c-radius:var(--lx-r);
+  --c-shadow:0 30px 80px rgba(0,0,0,.5)}
+html[data-lux="on"][data-lux-tone="light"]:not(#lx-a):not(#lx-b) :is(.qa-c,.qa-c-overlay){--c-shadow:0 30px 80px rgba(0,0,0,.18)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-overlay{background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%)}
+html[data-lux="on"][data-lux-tone="light"]:not(#lx-a):not(#lx-b) .qa-c-overlay{background:rgba(0,0,0,.24)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-dialog{border-color:transparent;border-radius:var(--lx-r-xl)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c{border-color:transparent;border-radius:var(--lx-r-lg)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.qa-c-chip,.qa-c-label,.qa-c-eyebrow,.qa-c-btn,.qa-c-story){text-transform:none;letter-spacing:0}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-eyebrow{font-weight:600}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-title{letter-spacing:-.02em;font-weight:700}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.qa-c-text,.qa-c-note){letter-spacing:0}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-chip{border-radius:var(--lx-pill);border-color:transparent;background:var(--lx-fill)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-chip.solid{background:var(--lx-btn);color:var(--lx-on-acc)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-btn{border-radius:var(--lx-pill);border-color:transparent;background:var(--lx-fill);font-size:.85rem;font-weight:600}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-btn:hover{background:var(--lx-fill-2)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-btn.primary{background:var(--lx-btn);color:var(--lx-on-acc);box-shadow:var(--lx-glow)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-btn.primary:hover{background:var(--lx-btn);filter:brightness(1.06)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-x{border-color:transparent;background:var(--lx-fill);color:var(--lx-text)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-x:hover{background:var(--lx-fill-2)}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-addr{border:0;background:var(--lx-fill);border-radius:var(--lx-r)}
+
+/* the dialog container is focused by script on open (for screen readers); it is not a control, so no focus ring around it — its buttons keep theirs */
+html:not(#qc1):not(#qc2) .qa-c-dialog:is(:focus,:focus-visible){outline:none !important}
+</style>
 </body>
 </html>

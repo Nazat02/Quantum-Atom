@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script id="qa-boot-early">
+/* Runs first, before any style or large script is parsed: puts the saved look on <html> so the very first paint
+   is already correct (no flash of the default look before flat / elegant is applied). Idempotent: the later
+   per-page scripts set the same attributes. */
+(function(){var d=document.documentElement,T='light',on=false,q=(location.search.match(/[?&]elegant=(on|off)/)||[])[1];
+try{if(localStorage.getItem('qa-glass')==='off')d.setAttribute('data-glass','off');}catch(e){}
+try{on=localStorage.getItem('qa-elegant')==='on';}catch(e){}
+if(!q){try{if(sessionStorage.getItem('qa-elegant'))on=sessionStorage.getItem('qa-elegant')==='on';}catch(e){}}
+if(q)on=q==='on';
+if(on){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone',T);d.setAttribute('data-theme-elegant','on');}
+})();
+</script>
 <script>/* pinch belongs to the 3D zoom, never to the browser page */
 (function(){var o={passive:false},d=document;
 d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
@@ -723,7 +735,7 @@ addEventListener('wheel',function(e){if(e.ctrlKey&&e.cancelable)e.preventDefault
     if (like) {
       // same look as the neighbouring theme button, so the toolbar stays on-brand in every theme
       host.style.display = 'contents';
-      b = doc.createElement('button'); b.className = 'qa-langbtn ' + (sib0.id === 'theme-link' ? 'qa-langbtn-nuc' : sib0.className);
+      b = doc.createElement('button'); b.className = 'qa-langbtn ' + (sib0.id === 'theme-link' ? 'qa-langbtn-nuc' : String(sib0.className).replace(/(^|\s)(active|on|is-on|qa-pressed|open)(?=\s|$)/g, ' '));
       b.innerHTML = GLOBE.replace('width="14" height="14"', 'width="16" height="16"');
       host.appendChild(b);
       picker = { btn: b, code: { textContent: '' } };
@@ -33223,6 +33235,64 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .rxe-tabs butt
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg rect[fill]{fill:#1d1d1f !important}
 html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg mask g[fill]{fill:#fff !important}
 </style>
+<script id="qa-nav-sync">
+/* Quantum Atom - unified cross-page navigation (single source of truth).
+   1. Every internal link is relative, so the site works on any host and from file://.
+   2. Dark/light variants stay paired: index_*, simulator_*, nucleus_explorer[_light].
+   3. The shared Elegant look rides on every internal link as ?elegant=on|off and is persisted,
+      so the look survives navigation even where localStorage is not shared between files. */
+(function(){
+  var TONE='light';
+  var RE=/^(.*?)(index|simulator|nucleus_explorer)(_dark|_light)?\.html$/;
+  var LOCAL=/^https?:\/\/nazat02\.github\.io\/Quantum-Atom\//i;
+  function eleg(){return document.documentElement.getAttribute('data-theme-elegant')==='on';}
+  function file(base,tone){return base==='nucleus_explorer'?(tone==='light'?'nucleus_explorer_light.html':'nucleus_explorer.html'):base+'_'+tone+'.html';}
+  function url(href){
+    if(!href||/^(mailto:|tel:|javascript:|data:)/i.test(href))return href;
+    var hash='',q='',p=href,i=p.indexOf('#');
+    if(i>=0){hash=p.slice(i);p=p.slice(0,i);}
+    i=p.indexOf('?');if(i>=0){q=p.slice(i+1);p=p.slice(0,i);}
+    var abs=/^https?:\/\//i.test(p);
+    if(abs&&!LOCAL.test(p))return href;
+    var m=p.replace(LOCAL,'').match(RE);if(!m)return href;
+    var tone=m[3]?m[3].slice(1):(m[2]==='nucleus_explorer'?'dark':TONE);
+    var prefix=abs?'':m[1];
+    var parts=q?q.split('&').filter(function(s){return s&&!/^elegant=/.test(s);}):[];
+    parts.push('elegant='+(eleg()?'on':'off'));
+    return prefix+file(m[2],tone)+'?'+parts.join('&')+hash;
+  }
+  function one(a){if(a.hasAttribute('data-qa-nosync'))return;var h=a.getAttribute('href'),n=url(h);if(n!==h)a.setAttribute('href',n);}
+  function sync(){var l=document.querySelectorAll('a[href]');for(var i=0;i<l.length;i++)one(l[i]);}
+  function fonts(){
+    if(!eleg()||document.getElementById('qa-eleg-fonts'))return;
+    var l=document.createElement('link');l.id='qa-eleg-fonts';l.rel='stylesheet';
+    l.href='https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
+  function persist(v){
+    try{localStorage.setItem('qa-elegant',v);if(v==='on')localStorage.setItem('qa-lux','off');}catch(e){}
+    try{sessionStorage.setItem('qa-elegant',v);}catch(e){}
+  }
+  window.qaNavUrl=url;
+  window.qaGo=function(f){window.location.href=url(f);};
+  var qm=location.search.match(/[?&]elegant=(on|off)/);if(qm)persist(qm[1]);
+  function ready(){
+    sync();fonts();
+    var logo=document.getElementById('topbar-logo');
+    if(logo&&!logo.getAttribute('role')){
+      logo.setAttribute('role','link');logo.setAttribute('tabindex','0');
+      logo.setAttribute('aria-label','Quantum Atom home');logo.title='Quantum Atom home';logo.style.cursor='pointer';
+      var go=function(){window.qaGo('index_'+TONE+'.html');};
+      logo.addEventListener('click',go);
+      logo.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+    }
+    try{new MutationObserver(function(){sync();fonts();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme-elegant']});}catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();
+  window.addEventListener('load',sync);
+  document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(a)one(a);},true);
+})();
+</script>
 </head>
 <body>
 <!-- qa-seo:sr:start -->
@@ -55361,7 +55431,7 @@ window.checkThemeParity = async function () {
 </script>
 
 <script>
-function goDarkSim(){localStorage.setItem('qas-theme','dark');window.location.href='https://nazat02.github.io/Quantum-Atom/simulator_dark.html';}
+function goDarkSim(){localStorage.setItem('qas-theme','dark');window.location.href=window.qaNavUrl('simulator_dark.html');}
 </script>
 
 <!-- ELEMENT COMPARISON TOOL (Blueprint Tier 1, #20) -->
@@ -62852,7 +62922,7 @@ html:is([data-qa-lang="ja"],[data-qa-lang="ko"],[data-qa-lang="zh"]) .topbar-tex
   var byId = function (id) { return document.getElementById(id); };
   var labelOf = function (el, fb) { if (!el) return fb; var l = el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || ''; l = String(l).replace(/\s+/g, ' ').trim(); return l ? (l.length > 48 ? l.slice(0, 46) + '…' : l) : fb; };
   var clickAct = function (id, fb) { var el = byId(id); return el ? { label: labelOf(el, fb), run: function () { el.click(); } } : null; };
-  var goAct = function (file, label) { return { label: label, run: function () { location.href = file; } }; };
+  var goAct = function (file, label) { return { label: label, run: function () { location.href = window.qaNavUrl ? window.qaNavUrl(file) : file; } }; };
 
   /* Grammar for names inserted into translated questions: Arabic element names take the article (الهيدروجين),
      Bengali needs the possessive form (হাইড্রোজেনের, লোহার). Other languages use the name as it is. */
@@ -68433,8 +68503,21 @@ html:not(#lx-a):not(#lx-b) #sh-root .sh-chips .ex-chip.on{background:rgba(var(--
     requestAnimationFrame(function () { bar.classList.add('on'); });
   }
 
+  // Cover the outdated page with its own background colour while the swap happens, so the old UI is never on show.
+  function veil() {
+    try {
+      if (document.getElementById('qa-upd-veil')) return;
+      var m = document.querySelector('meta[name="theme-color"]:not([media])') || document.querySelector('meta[name="theme-color"]');
+      var v = document.createElement('div'); v.id = 'qa-upd-veil';
+      v.style.cssText = 'position:fixed;inset:0;z-index:2147482999;opacity:0;transition:opacity .18s;background:' + ((m && m.content) || (themeDark() ? '#000' : '#fff'));
+      document.body.appendChild(v);
+      requestAnimationFrame(function () { v.style.opacity = '1'; });
+      setTimeout(function () { try { v.remove(); } catch (e) {} busyApply = false; }, 6000);   // safety net: never leave the page covered
+    } catch (e) {}
+  }
   function apply(byUser) {
     if (busyApply) return; busyApply = true;
+    veil();
     show(t('app.update.updating', 'Updating to the new version…'), false);
     keepState();
     // refill the browser cache with the new file first, so the reload can't land on the old copy
@@ -69688,7 +69771,7 @@ on=nxt==='on';b.setAttribute('aria-pressed',on?'true':'false');b.classList.toggl
   function methodName(m) { return (P.METHODS[m] || P.METHODS.lsd).name; }
   function mopts(m) { var o = P.METHODS[m] || P.METHODS.lsd; return { spin: o.spin, xc: o.xc, sic: o.sic }; }
   var GRID = 0.016;   // ΔSCF energy differences agree with the 0.008 benchmark grid to 10 µeV, 4× faster
-  var PAGE = (location.pathname.split('/').pop() || 'simulator.html');
+  var PAGE = (location.pathname.split('/').pop() || 'simulator_light.html');
 
   // ───────────────────────── ΔSCF ─────────────────────────
   var runner = QA_DFT.createRunner();
@@ -74279,6 +74362,60 @@ document.addEventListener('click',function(e){
   var d=document.documentElement;
   if(d.getAttribute('data-theme-elegant')==='on'){var eb=document.getElementById('elegantbtn');if(eb)eb.click();}
 },true);
+</script>
+<style id="elegant-lang-tapped">
+/* Elegant ON (light): closed = normal gradient button like its neighbours; open/pressed = white "tapped" state with pink ring */
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"],:active),
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"],:active){
+  background:#fff !important;background-image:none !important;color:#ec5f9e !important;border:1px solid transparent !important;
+  box-shadow:inset 0 0 0 2px #ec5f9e,0 0 14px rgba(236,95,158,.45) !important;outline:none !important;}
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"],:active) svg,
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"],:active) svg{color:#ec5f9e !important;stroke:#ec5f9e !important}
+</style>
+<script id="panel-open-sync">
+/* OPEN PANEL ⇒ ITS BUTTON STAYS PRESSED.
+   Every toolbar button that opens a modal / lab mirrors that panel's open state onto aria-expanded. The page's shared press rules
+   (press-consistency for glass · flat · elegant, press-lux for luxury) already paint [aria-expanded="true"] as the pressed look,
+   so the button keeps the correct per-theme look for as long as its panel is open and returns to idle the moment it closes
+   (✕, Esc, backdrop tap, or any other way). Side panels (.tab.on), mode toggles (.active), AI and Language already did this. */
+(function(){
+  'use strict';
+  var MAP={comparebtn:'compare-modal',lessonbtn:'lesson-modal',recentsbtn:'recents-modal',analysisbtn:'analysis-modal',
+           dftbtn:'dft-modal',databtn:'datalab-modal',orbitlabbtn:'ol-root',shlabbtn:'sh-root'};
+  var watched={},ticking=false,mo=null;
+  function isOpen(p){
+    if(!p||p.hidden)return false;
+    if(p.classList.contains('open')||p.classList.contains('on')||p.classList.contains('show'))return true;
+    return false;
+  }
+  function sync(){
+    ticking=false;
+    for(var b in MAP){
+      var btn=document.getElementById(b),p=document.getElementById(MAP[b]);
+      if(!btn)continue;
+      var v=String(isOpen(p));
+      if(btn.getAttribute('aria-expanded')!==v)btn.setAttribute('aria-expanded',v);
+      if(!btn.hasAttribute('aria-controls')&&p)btn.setAttribute('aria-controls',MAP[b]);
+    }
+  }
+  function queue(){if(!ticking){ticking=true;requestAnimationFrame(sync);}}
+  function attach(){
+    mo=mo||new MutationObserver(queue);
+    for(var b in MAP){
+      var p=document.getElementById(MAP[b]);
+      if(p&&!watched[MAP[b]]){watched[MAP[b]]=1;mo.observe(p,{attributes:true,attributeFilter:['class','hidden']});}
+    }
+    queue();
+  }
+  function start(){
+    attach();
+    /* panels built on demand (DFT, Data lab …) are appended to <body>: pick them up when they appear */
+    new MutationObserver(attach).observe(document.body,{childList:true});
+    [400,1500,4000].forEach(function(t){setTimeout(attach,t);});
+    window.addEventListener('pageshow',queue);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
 </script>
 </body>
 </html>

@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script id="qa-boot-early">
+/* Runs first, before any style or large script is parsed: puts the saved look on <html> so the very first paint
+   is already correct (no flash of the default look before flat / elegant is applied). Idempotent: the later
+   per-page scripts set the same attributes. */
+(function(){var d=document.documentElement,T='dark',on=false,q=(location.search.match(/[?&]elegant=(on|off)/)||[])[1];
+try{if(localStorage.getItem('qa-glass')==='off')d.setAttribute('data-glass','off');}catch(e){}
+try{on=localStorage.getItem('qa-elegant')==='on';}catch(e){}
+if(!q){try{if(sessionStorage.getItem('qa-elegant'))on=sessionStorage.getItem('qa-elegant')==='on';}catch(e){}}
+if(q)on=q==='on';
+if(on){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone',T);d.setAttribute('data-theme-elegant','on');}
+})();
+</script>
 <script>/* pinch belongs to the 3D zoom, never to the browser page */
 (function(){var o={passive:false},d=document;
 d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
@@ -723,7 +735,7 @@ addEventListener('wheel',function(e){if(e.ctrlKey&&e.cancelable)e.preventDefault
     if (like) {
       // same look as the neighbouring theme button, so the toolbar stays on-brand in every theme
       host.style.display = 'contents';
-      b = doc.createElement('button'); b.className = 'qa-langbtn ' + (sib0.id === 'theme-link' ? 'qa-langbtn-nuc' : sib0.className);
+      b = doc.createElement('button'); b.className = 'qa-langbtn ' + (sib0.id === 'theme-link' ? 'qa-langbtn-nuc' : String(sib0.className).replace(/(^|\s)(active|on|is-on|qa-pressed|open)(?=\s|$)/g, ' '));
       b.innerHTML = GLOBE.replace('width="14" height="14"', 'width="16" height="16"');
       host.appendChild(b);
       picker = { btn: b, code: { textContent: '' } };
@@ -29925,10 +29937,33 @@ html[data-glass="off"] section[id]:not(#hero){border-top-color:var(--line);}
 html[data-glass="off"] #scroll-progress{background:var(--ember);box-shadow:none;}
 html[data-glass="off"] .hero-stage,html[data-glass="off"] .hero-visual{box-shadow:none !important;filter:none !important;}
 html[data-glass="off"] :is(.nav-badge,.nav-badge svg,nav svg){filter:none !important;animation:none !important;box-shadow:none !important;}
-/* glass toggle button */
-.glass-toggle[aria-pressed="true"]{color:var(--ember-hi);border-color:var(--ember);}
-html[data-glass="off"] .glass-toggle{color:var(--muted);}
-html[data-glass="off"] .glass-toggle[aria-pressed="false"]{color:#000 !important;background:var(--ember) !important;border-color:var(--ember) !important;}
+/* icon buttons in flat mode: black fill, orange ring, white icon (the glass button included, so none looks pre-tapped) */
+html[data-glass="off"] :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn){color:#fff !important;}
+html[data-glass="off"] :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn) svg{color:#fff !important;stroke:currentColor;}
+html[data-glass="off"] :is(.theme-toggle-btn,.qa-lang,.qa-langbtn) svg [fill="currentColor"]{fill:#fff !important;}
+html[data-glass="off"] .nav-hamburger .bar{color:#fff !important;}
+/* flat mode: every icon button (language, theme, glass, Apple, flower, menu) is filled orange with a white icon, and stays orange on hover/tap */
+html[data-glass="off"][data-glass="off"][data-glass="off"] :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn),
+html[data-glass="off"][data-glass="off"][data-glass="off"] :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn):hover,
+html[data-glass="off"][data-glass="off"][data-glass="off"] :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn):active{background:var(--ember) !important;border:1px solid var(--ember) !important;color:#fff !important;}
+/* flat mode, tapped / open: the button turns black inside with an orange ring and keeps its white icon */
+html[data-glass="off"][data-glass="off"][data-glass="off"][data-glass="off"][data-glass="off"] :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn):is([aria-expanded="true"],[aria-pressed="true"],.active,:active){background:#000 !important;border:1px solid var(--ember) !important;box-shadow:inset 0 0 0 1px var(--ember) !important;outline:none !important;color:#fff !important;transform:none !important;}
+/* glass mode: same as flat (orange fill, white icon); only while pressed/open does a button turn black inside with an orange ring.
+   Luxury and the elegant theme keep their own looks (excluded below). */
+html:not([data-glass="off"]):not([data-lux="on"]):not([data-theme-elegant="on"]):not(#qa-g1):not(#qa-g2) :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn){background:var(--ember) !important;border:1px solid var(--ember) !important;box-shadow:none !important;color:#fff !important;}
+html:not([data-glass="off"]):not([data-lux="on"]):not([data-theme-elegant="on"]):not(#qa-g1):not(#qa-g2) :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn) svg{color:#fff !important;stroke:currentColor;}
+html:not([data-glass="off"]):not([data-lux="on"]):not([data-theme-elegant="on"]):not(#qa-g1):not(#qa-g2) :is(.theme-toggle-btn,.qa-lang,.qa-langbtn) svg [fill="currentColor"]{fill:#fff !important;}
+html:not([data-glass="off"]):not([data-lux="on"]):not([data-theme-elegant="on"]):not(#qa-g1):not(#qa-g2) .nav-hamburger .bar{color:#fff !important;}
+html:not([data-glass="off"]):not([data-lux="on"]):not([data-theme-elegant="on"]):not(#qa-g1):not(#qa-g2) :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn):is([aria-expanded="true"],:active,.glass-toggle[aria-pressed="true"]){background:#000 !important;border:1px solid var(--ember) !important;box-shadow:inset 0 0 0 1px var(--ember) !important;outline:none !important;transform:none !important;}
+/* luxury mode: a pressed / open / switched-on icon button is simply filled orange with a white icon (no ring, no glow) */
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#lx-c):not(#lx-d) nav :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn,#luxbtn):is(:active,[aria-expanded="true"],[aria-pressed="true"],.active){background:var(--lx-btn,#ff5b14) !important;color:#fff !important;border-color:transparent !important;box-shadow:none !important;outline:none !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#lx-c):not(#lx-d) nav :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn,#luxbtn):is(:active,[aria-expanded="true"],[aria-pressed="true"],.active) svg{color:#fff !important;}
+html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#lx-c):not(#lx-d) nav .nav-hamburger:is(:active,[aria-expanded="true"],[aria-pressed="true"],.active) .bar{color:#fff !important;}
+/* elegant mode: tapped / open / switched-on = black inside, one pink ring, white icon (same rounded-square shape as the idle buttons) */
+html[data-theme-elegant="on"]:not(#qa-e1):not(#qa-e2):not(#qa-e3):not(#qa-e4):not(#qa-e5):not(#qa-e6) nav :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn,#elegantbtn):is(:active,[aria-expanded="true"],[aria-pressed="true"]){background:#000 !important;background-image:none !important;border:0 !important;box-shadow:inset 0 0 0 2px var(--ember) !important;outline:none !important;color:#fff !important;transform:none !important;}
+html[data-theme-elegant="on"]:not(#qa-e1):not(#qa-e2):not(#qa-e3):not(#qa-e4):not(#qa-e5):not(#qa-e6) nav :is(.theme-toggle-btn,.nav-hamburger,.qa-lang,.qa-langbtn,#elegantbtn):is(:active,[aria-expanded="true"],[aria-pressed="true"]) svg{color:#fff !important;}
+html[data-theme-elegant="on"]:not(#qa-e1):not(#qa-e2):not(#qa-e3):not(#qa-e4):not(#qa-e5):not(#qa-e6) nav .nav-hamburger:is(:active,[aria-expanded="true"],[aria-pressed="true"]) .bar{color:#fff !important;}
+html[data-theme-elegant="on"]:not(#qa-e1):not(#qa-e2):not(#qa-e3):not(#qa-e4):not(#qa-e5):not(#qa-e6):not(#qa-e7):not(#qa-e8):not(#qa-e9):not(#qa-e10):not(#qa-e11):not(#qa-e12) #elegantbtn,html[data-theme-elegant="on"]:not(#qa-e1):not(#qa-e2):not(#qa-e3):not(#qa-e4):not(#qa-e5):not(#qa-e6):not(#qa-e7):not(#qa-e8):not(#qa-e9):not(#qa-e10):not(#qa-e11):not(#qa-e12) #elegantbtn:hover,html[data-theme-elegant="on"]:not(#qa-e1):not(#qa-e2):not(#qa-e3):not(#qa-e4):not(#qa-e5):not(#qa-e6):not(#qa-e7):not(#qa-e8):not(#qa-e9):not(#qa-e10):not(#qa-e11):not(#qa-e12) #elegantbtn[aria-pressed="true"]{background:#000 !important;background-image:none !important;border:0 !important;box-shadow:inset 0 0 0 2px var(--ember) !important;filter:none !important;color:#fff !important;}
 </style>
 <style id="qa-i18n-landing">/*qa:land-lang*/
 .nav-logo{min-width:0}.nav-actions{flex-shrink:0}
@@ -30310,9 +30345,82 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(.bohr-eqn,.qn-range,.ub-attr,.ub-a
 html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#quantum,#comparison,footer) div:not(:has(*)){letter-spacing:normal !important;}
 </style>
 <!-- /qa-lux:head -->
+<script id="qa-elegant-boot">
+/* ELEGANT LOOK (dark) — midnight with soft pink & blue, in this same file. Toggled by #elegantbtn; stored in localStorage 'qa-elegant'
+   (the same key the light pages and the simulators use, so the choice follows you everywhere). */
+(function(){var d=document.documentElement,on=false,q=(location.search.match(/[?&]elegant=(on|off)/)||[])[1];
+try{on=localStorage.getItem('qa-elegant')==='on';}catch(e){}
+if(!q){try{if(sessionStorage.getItem('qa-elegant'))on=sessionStorage.getItem('qa-elegant')==='on';}catch(e){}}
+if(q)on=q==='on';
+window.__ELEG=on;if(!on)return;
+window.__qaElegApply=function(){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone','dark');d.setAttribute('data-theme-elegant','on');};
+window.__qaElegApply();
+document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute('content','#000000');});
+var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap';document.head.appendChild(l);
+})();
+</script>
+<script id="qa-nav-sync">
+/* Quantum Atom - unified cross-page navigation (single source of truth).
+   1. Every internal link is relative, so the site works on any host and from file://.
+   2. Dark/light variants stay paired: index_*, simulator_*, nucleus_explorer[_light].
+   3. The shared Elegant look rides on every internal link as ?elegant=on|off and is persisted,
+      so the look survives navigation even where localStorage is not shared between files. */
+(function(){
+  var TONE='dark';
+  var RE=/^(.*?)(index|simulator|nucleus_explorer)(_dark|_light)?\.html$/;
+  var LOCAL=/^https?:\/\/nazat02\.github\.io\/Quantum-Atom\//i;
+  function eleg(){return document.documentElement.getAttribute('data-theme-elegant')==='on';}
+  function file(base,tone){return base==='nucleus_explorer'?(tone==='light'?'nucleus_explorer_light.html':'nucleus_explorer.html'):base+'_'+tone+'.html';}
+  function url(href){
+    if(!href||/^(mailto:|tel:|javascript:|data:)/i.test(href))return href;
+    var hash='',q='',p=href,i=p.indexOf('#');
+    if(i>=0){hash=p.slice(i);p=p.slice(0,i);}
+    i=p.indexOf('?');if(i>=0){q=p.slice(i+1);p=p.slice(0,i);}
+    var abs=/^https?:\/\//i.test(p);
+    if(abs&&!LOCAL.test(p))return href;
+    var m=p.replace(LOCAL,'').match(RE);if(!m)return href;
+    var tone=m[3]?m[3].slice(1):(m[2]==='nucleus_explorer'?'dark':TONE);
+    var prefix=abs?'':m[1];
+    var parts=q?q.split('&').filter(function(s){return s&&!/^elegant=/.test(s);}):[];
+    parts.push('elegant='+(eleg()?'on':'off'));
+    return prefix+file(m[2],tone)+'?'+parts.join('&')+hash;
+  }
+  function one(a){if(a.hasAttribute('data-qa-nosync'))return;var h=a.getAttribute('href'),n=url(h);if(n!==h)a.setAttribute('href',n);}
+  function sync(){var l=document.querySelectorAll('a[href]');for(var i=0;i<l.length;i++)one(l[i]);}
+  function fonts(){
+    if(!eleg()||document.getElementById('qa-eleg-fonts'))return;
+    var l=document.createElement('link');l.id='qa-eleg-fonts';l.rel='stylesheet';
+    l.href='https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
+  function persist(v){
+    try{localStorage.setItem('qa-elegant',v);if(v==='on')localStorage.setItem('qa-lux','off');}catch(e){}
+    try{sessionStorage.setItem('qa-elegant',v);}catch(e){}
+  }
+  window.qaNavUrl=url;
+  window.qaGo=function(f){window.location.href=url(f);};
+  var qm=location.search.match(/[?&]elegant=(on|off)/);if(qm)persist(qm[1]);
+  function ready(){
+    sync();fonts();
+    var logo=document.getElementById('topbar-logo');
+    if(logo&&!logo.getAttribute('role')){
+      logo.setAttribute('role','link');logo.setAttribute('tabindex','0');
+      logo.setAttribute('aria-label','Quantum Atom home');logo.title='Quantum Atom home';logo.style.cursor='pointer';
+      var go=function(){window.qaGo('index_'+TONE+'.html');};
+      logo.addEventListener('click',go);
+      logo.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+    }
+    try{new MutationObserver(function(){sync();fonts();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme-elegant']});}catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();
+  window.addEventListener('load',sync);
+  document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(a)one(a);},true);
+})();
+</script>
 </head>
 <body>
 <a data-i18n="landing.skip_link.skip_to_content" href="#main" class="skip-link">Skip to content</a>
+<canvas id="elegant-waves" aria-hidden="true"></canvas><svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="eleg-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f080b8"/><stop offset="1" stop-color="#6f9cff"/></linearGradient></defs></svg>
 <div id="scroll-progress" aria-hidden="true"></div>
 <div id="menu-scrim" aria-hidden="true"></div>
 
@@ -30368,7 +30476,8 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#quantum,#comparison,footer) div:n
     <line x1="4.34" y1="11.66" x2="2.93" y2="13.07" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
   </svg></a>
     <button data-i18n-attr="title:landing.glassbtn.glass_effect_on_click_for;aria-label:landing.glassbtn.toggle_glass_effect" type="button" id="glassbtn" class="theme-toggle-btn glass-toggle" aria-pressed="true" title="Glass effect: on (click for flat black &amp; orange)" aria-label="Toggle glass effect"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.6 13.6 8 8 14.4 2.4 8 8 1.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5.2 6.2h5.6M8 1.6v12.8" stroke="currentColor" stroke-width="1" stroke-opacity=".55"/></svg></button>
-    <a data-i18n="landing.nav_cta.launch_simulator" href="https://nazat02.github.io/Quantum-Atom/simulator_dark.html" class="nav-cta">Launch simulator</a>
+    <button type="button" id="elegantbtn" class="theme-toggle-btn" aria-pressed="false" title="Elegant look: midnight with soft pink &amp; blue" aria-label="Toggle elegant look"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><defs><mask id="rze" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g transform="translate(12 12.4) scale(.98)" fill="#fff" stroke="#000" stroke-linejoin="round"><path transform="rotate(0.0) scale(1)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.3"/><path transform="rotate(72.0) scale(1)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.3"/><path transform="rotate(144.0) scale(1)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.3"/><path transform="rotate(216.0) scale(1)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.3"/><path transform="rotate(288.0) scale(1)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.3"/><path transform="rotate(36.0) scale(0.72)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.5"/><path transform="rotate(108.0) scale(0.72)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.5"/><path transform="rotate(180.0) scale(0.72)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.5"/><path transform="rotate(252.0) scale(0.72)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.5"/><path transform="rotate(324.0) scale(0.72)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.5"/><path transform="rotate(0.0) scale(0.46)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.8"/><path transform="rotate(72.0) scale(0.46)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.8"/><path transform="rotate(144.0) scale(0.46)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.8"/><path transform="rotate(216.0) scale(0.46)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.8"/><path transform="rotate(288.0) scale(0.46)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="1.8"/><path transform="rotate(36.0) scale(0.22)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="2.5"/><path transform="rotate(156.0) scale(0.22)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="2.5"/><path transform="rotate(276.0) scale(0.22)" d="M0 0C-6 -1 -9 -6 -6.5 -10.2C-3.5 -12.4 2.5 -11.6 5.2 -7.2C6.5 -4.5 4.5 -1 0 0Z" stroke-width="2.5"/></g></mask></defs><rect width="24" height="24" fill="#fff" mask="url(#rze)"/></svg></button>
+    <a data-i18n="landing.nav_cta.launch_simulator" href="simulator_dark.html" class="nav-cta">Launch simulator</a>
     <button data-i18n-attr="aria-label:landing.nav_hamburger.toggle_navigation_menu" type="button" class="nav-hamburger" id="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-menu">
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <line class="bar bar-top" x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--cx)"/>
@@ -30388,7 +30497,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#quantum,#comparison,footer) div:n
   <a data-i18n="landing.nav_link.build" href="#build">Build</a>
   <a data-i18n="landing.nav_link.nucleus" href="#nucleus-explorer">Nucleus</a>
   <a data-i18n="landing.nav_link.contribute" href="#contribute">Contribute</a>
-  <a data-i18n="landing.nav_cta.launch_simulator" href="https://nazat02.github.io/Quantum-Atom/simulator_dark.html" class="menu-cta">Launch simulator</a>
+  <a data-i18n="landing.nav_cta.launch_simulator" href="simulator_dark.html" class="menu-cta">Launch simulator</a>
 </div>
 
 <!-- HERO -->
@@ -30406,7 +30515,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#quantum,#comparison,footer) div:n
     This simulator changes that — rendering electron orbitals, molecular bonds, and the nucleus itself in real-time 3D.
   </p>
   <div class="hero-actions">
-    <a href="https://nazat02.github.io/Quantum-Atom/simulator_dark.html" class="btn-primary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".9"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".78" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".7" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="2.5" fill="white"/><g transform="rotate(0 12 12)"><circle cx="21.5" cy="12" r="1.6" fill="white"><animateMotion dur="2s" repeatCount="indefinite" path="M0,0 A9.5,3.5 0 1,1 -19,0 A9.5,3.5 0 1,1 0,0"/></circle></g></svg><span data-i18n="landing.nav_cta.launch_simulator">Launch simulator</span></a>
+    <a href="simulator_dark.html" class="btn-primary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".9"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".78" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".7" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="2.5" fill="white"/><g transform="rotate(0 12 12)"><circle cx="21.5" cy="12" r="1.6" fill="white"><animateMotion dur="2s" repeatCount="indefinite" path="M0,0 A9.5,3.5 0 1,1 -19,0 A9.5,3.5 0 1,1 0,0"/></circle></g></svg><span data-i18n="landing.nav_cta.launch_simulator">Launch simulator</span></a>
     <a data-i18n="landing.btn_secondary.learn_more" href="#what-atom" class="btn-secondary">Learn more</a>
     <a data-i18n="landing.btn_secondary.new_try_quantum_atom_2" data-i18n-html="true" href="https://nazat02.github.io/Quantum-Atom-2.0/" target="_blank" rel="noopener" class="btn-secondary btn-v2"><span class="v2-new">NEW</span>Try Quantum Atom 2.0</a>
   </div>
@@ -31314,7 +31423,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#quantum,#comparison,footer) div:n
     <h2 data-i18n="landing.cta_title.ready_to_see_the_quantum" data-i18n-html="true" class="cta-title">Ready to see<br><span>the quantum world?</span></h2>
     <p data-i18n="landing.cta_sub.118_elements_10_orbital_types" data-i18n-html="true" class="cta-sub">118 elements. 10 orbital types. Real-time 3D.<br>No installation. No account. Just open it and explore.</p>
     <div class="cta-actions">
-      <a href="https://nazat02.github.io/Quantum-Atom/simulator_dark.html" class="btn-primary" style="font-size:.78rem;padding:16px 40px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".9"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".78" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".7" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="2.5" fill="white"/><g transform="rotate(0 12 12)"><circle cx="21.5" cy="12" r="1.6" fill="white"><animateMotion dur="2s" repeatCount="indefinite" path="M0,0 A9.5,3.5 0 1,1 -19,0 A9.5,3.5 0 1,1 0,0"/></circle></g></svg><span data-i18n="landing.btn_primary.open_simulator">Open simulator</span></a>
+      <a href="simulator_dark.html" class="btn-primary" style="font-size:.78rem;padding:16px 40px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".9"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".78" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.5" stroke="white" stroke-width="1.6" stroke-opacity=".7" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="2.5" fill="white"/><g transform="rotate(0 12 12)"><circle cx="21.5" cy="12" r="1.6" fill="white"><animateMotion dur="2s" repeatCount="indefinite" path="M0,0 A9.5,3.5 0 1,1 -19,0 A9.5,3.5 0 1,1 0,0"/></circle></g></svg><span data-i18n="landing.btn_primary.open_simulator">Open simulator</span></a>
       <a data-i18n="landing.btn_secondary.view_on_github" href="https://github.com/nazat02/Quantum-Atom" target="_blank" class="btn-secondary" style="font-size:.72rem;">View on GitHub</a>
       <a data-i18n="landing.nav_link.contribute" href="#contribute" class="btn-secondary" style="font-size:.72rem;">Contribute</a>
     </div>
@@ -31353,7 +31462,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) :is(#quantum,#comparison,footer) div:n
       </div>
     </div>
     <div class="footer-right">
-      <a data-i18n="landing.nav_link.simulator" href="https://nazat02.github.io/Quantum-Atom/simulator_dark.html" class="footer-link">Simulator</a><!-- qa-seo:ins:footer --><a href="nucleus_explorer.html" class="footer-link">Nucleus Explorer</a><!-- /qa-seo:ins -->
+      <a data-i18n="landing.nav_link.simulator" href="simulator_dark.html" class="footer-link">Simulator</a><!-- qa-seo:ins:footer --><a href="nucleus_explorer.html" class="footer-link">Nucleus Explorer</a><!-- /qa-seo:ins -->
       <a data-i18n="landing.nav_link.contribute" href="#contribute" class="footer-link">Contribute</a>
       <a data-i18n="landing.footer_link.github" href="https://github.com/nazat02/Quantum-Atom" target="_blank" class="footer-link">GitHub</a>
       <a data-i18n="landing.footer_link.docs" href="https://github.com/nazat02/Quantum-Atom#readme" target="_blank" class="footer-link">Docs</a>
@@ -31407,7 +31516,7 @@ window.addEventListener('error',function(e){
     ctx.globalCompositeOperation='lighter';
     var px=Math.max(1.4,1.25*dpr);
     for(var pass=0;pass<2;pass++){
-      ctx.fillStyle=pass===0?'#ff5b14':'#e2271a';
+      ctx.fillStyle=window.__ELEG?(pass===0?'#f080b8':'#6f9cff'):(pass===0?'#ff5b14':'#e2271a');
       var want=pass===0?1:-1;
       for(var j=0;j<N;j++){
         if(P[j*4+3]!==want)continue;
@@ -31417,7 +31526,7 @@ window.addEventListener('error',function(e){
     }
     ctx.globalAlpha=1;
     var g=ctx.createRadialGradient(cx,cyy,0,cx,cyy,9*dpr);
-    g.addColorStop(0,'rgba(255,240,225,.95)');g.addColorStop(.4,'rgba(255,140,60,.6)');g.addColorStop(1,'rgba(255,91,20,0)');
+    if(window.__ELEG){g.addColorStop(0,'rgba(255,240,248,.95)');g.addColorStop(.4,'rgba(240,128,184,.6)');g.addColorStop(1,'rgba(111,156,255,0)');}else{g.addColorStop(0,'rgba(255,240,225,.95)');g.addColorStop(.4,'rgba(255,140,60,.6)');g.addColorStop(1,'rgba(255,91,20,0)');}
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cyy,9*dpr,0,6.2832);ctx.fill();
     ctx.globalCompositeOperation='source-over';
   }
@@ -31478,10 +31587,10 @@ window.addEventListener('error',function(e){
     }).sort((a,b)=>a.z-b.z);
     proj.forEach(p=>{
       ctx.beginPath();ctx.arc(p.sx,p.sy,1.4,0,Math.PI*2);
-      ctx.fillStyle=`rgba(255,${70+Math.floor(p.a*80)},0,${p.a.toFixed(2)})`;ctx.fill();
+      ctx.fillStyle=window.__ELEG?`rgba(${130+Math.floor(p.a*110)},${140+Math.floor(p.a*40)},255,${p.a.toFixed(2)})`:`rgba(255,${70+Math.floor(p.a*80)},0,${p.a.toFixed(2)})`;ctx.fill();
     });
     const ng=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,10);
-    ng.addColorStop(0,'rgba(255,80,50,.95)');ng.addColorStop(1,'transparent');
+    ng.addColorStop(0,window.__ELEG?'rgba(240,128,184,.95)':'rgba(255,80,50,.95)');ng.addColorStop(1,'transparent');
     ctx.beginPath();ctx.arc(W/2,H/2,10,0,Math.PI*2);ctx.fillStyle=ng;ctx.fill();
     if(vis&&!document.hidden)requestAnimationFrame(draw);else running=false;
   }
@@ -31509,9 +31618,9 @@ window.addEventListener('error',function(e){
   window.addEventListener('resize',resize);
   // Hydrogen: 1 electron, 1 orbit
   const shells=[
-    {n:1,r:.18,electrons:1,color:'#ff5b14',speed:1.8},
-    {n:2,r:.32,electrons:0,color:'#ff7a3a',speed:1.0},
-    {n:3,r:.44,electrons:0,color:'#ffb21f',speed:.65},
+    {n:1,r:.18,electrons:1,color:window.__ELEG?'#f080b8':'#ff5b14',speed:1.8},
+    {n:2,r:.32,electrons:0,color:window.__ELEG?'#7fa8ff':'#ff7a3a',speed:1.0},
+    {n:3,r:.44,electrons:0,color:window.__ELEG?'#b9a3ff':'#ffb21f',speed:.65},
   ];
   const electronAngle=[0,0,0];
   let t=0;
@@ -31779,11 +31888,9 @@ window.checkThemeParity = async function () {
 <script>
 // Save preference so simulator picks it up
 document.addEventListener('DOMContentLoaded',function(){
-  document.querySelectorAll('a[href="https://nazat02.github.io/Quantum-Atom/simulator_dark.html"]').forEach(function(a){
-    a.href='https://nazat02.github.io/Quantum-Atom/simulator_dark.html';
-  });
+  /* links are normalised by qa-nav-sync */
 });
-function goLight(){localStorage.setItem('qas-theme','light');window.location.href='https://nazat02.github.io/Quantum-Atom/index_light.html';}
+function goLight(){localStorage.setItem('qas-theme','light');window.location.href=window.qaNavUrl('index_light.html');}
 </script>
 <!-- CONTRIBUTE:BEGIN -->
 <script data-theme="dark">
@@ -32488,8 +32595,21 @@ html .feat-tag,html .tl-tag,html .prob-solved,html .feat-icon,html .why-icon{ali
     requestAnimationFrame(function () { bar.classList.add('on'); });
   }
 
+  // Cover the outdated page with its own background colour while the swap happens, so the old UI is never on show.
+  function veil() {
+    try {
+      if (document.getElementById('qa-upd-veil')) return;
+      var m = document.querySelector('meta[name="theme-color"]:not([media])') || document.querySelector('meta[name="theme-color"]');
+      var v = document.createElement('div'); v.id = 'qa-upd-veil';
+      v.style.cssText = 'position:fixed;inset:0;z-index:2147482999;opacity:0;transition:opacity .18s;background:' + ((m && m.content) || (themeDark() ? '#000' : '#fff'));
+      document.body.appendChild(v);
+      requestAnimationFrame(function () { v.style.opacity = '1'; });
+      setTimeout(function () { try { v.remove(); } catch (e) {} busyApply = false; }, 6000);   // safety net: never leave the page covered
+    } catch (e) {}
+  }
   function apply(byUser) {
     if (busyApply) return; busyApply = true;
+    veil();
     show(t('app.update.updating', 'Updating to the new version…'), false);
     keepState();
     // refill the browser cache with the new file first, so the reload can't land on the old copy
@@ -32727,5 +32847,259 @@ html .feat-tag,html .tl-tag,html .prob-solved,html .feat-icon,html .why-icon{ali
 })();
 </script>
 <!-- /qa-lux:body -->
+<script id="elegant-waves-js">
+/* ELEGANT THEME (dark) · hydrogen wave-field backdrop
+ * Idea borrowed from λWAVES: exact hydrogen eigenstates, played as an
+ * evolving wave field. Here: a coherent superposition of the m=0 states
+ * 1s, 2s, 2p_z, 3d_z2 (atomic units), each carrying its own phase
+ * exp(-i E_n t), E_n = -1/(2 n^2). Drawn as a slice through the x-z plane.
+ *
+ *   brightness = |psi|^(0.6)      (so the faint outer lobes stay visible)
+ *   hue        = sign of Re(psi)  (pink = +, blue = -)
+ *
+ * The real wave functions are exact; time is sped up (beating between
+ * levels is otherwise far too slow to see), which is stated here, not hidden.
+ */
+window.__qaStartWaves = function () {
+  'use strict';
+  if (window.__qaWavesOn) return; window.__qaWavesOn = 1;
+  var cv = document.getElementById('elegant-waves');
+  if (!cv) return;
+  var ctx = cv.getContext('2d', { alpha: true });
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Low-res render target, upscaled "cover" style so the field is never stretched.
+  var GW = 224, GH = 126, SCALE = 17;          // world half-width in Bohr radii
+  var off = document.createElement('canvas');
+  off.width = GW; off.height = GH;
+  var octx = off.getContext('2d');
+  var img = octx.createImageData(GW, GH);
+  var px = img.data;
+
+  // Exact real m = 0 hydrogen states, atomic units: psi = R_nl(r) * Y_l0(cos theta).
+  // 2p, 3s and 3d_z2 are mixed: the 2p<->3 energy gaps make the nodal rings breathe.
+  var states = [
+    { n: 2, f: function (r, c) {                                   // 2p_0
+        return (1 / (2 * Math.sqrt(6))) * r * Math.exp(-r / 2) * 0.4886 * c; } },
+    { n: 3, f: function (r, c) {                                   // 3s
+        return (2 / (81 * Math.sqrt(3))) * (27 - 18 * r + 2 * r * r) * Math.exp(-r / 3) * 0.2821; } },
+    { n: 3, f: function (r, c) {                                   // 3d_z2
+        return (4 / (81 * Math.sqrt(30))) * r * r * Math.exp(-r / 3) * 0.3154 * (3 * c * c - 1); } },
+    { n: 2, f: function (r, c) {                                   // 2s
+        return (1 / (2 * Math.sqrt(2))) * (2 - r) * Math.exp(-r / 2) * 0.2821; } }
+  ];
+  var WEIGHT = [1.0, 0.8, 1.0, 0.7];
+  var OMEGA = 2 * Math.PI / 9;                 // visual: one 2<->3 beat every 9 s (real value is ~attoseconds)
+  var E_REF = -1 / 8, DE = 1 / 8 - 1 / 18;     // E_2, E_2 - E_3 gap (a.u.)
+
+  var W = 0, H = 0, dpr = 1;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    W = cv.width = Math.max(2, Math.round(innerWidth * dpr * 0.6));
+    H = cv.height = Math.max(2, Math.round(innerHeight * dpr * 0.6));
+  }
+  resize();
+  var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(resize, 120); });
+
+  // Per-pixel geometry once, and per-state normalisation so every state has unit peak.
+  var R = new Float32Array(GW * GH), C = new Float32Array(GW * GH);
+  var aspect = GW / GH;
+  for (var j = 0; j < GH; j++) {
+    for (var i = 0; i < GW; i++) {
+      var x = ((i + 0.5) / GW - 0.5) * 2 * SCALE;
+      var z = (0.5 - (j + 0.5) / GH) * 2 * SCALE / aspect;
+      var r0 = Math.sqrt(x * x + z * z) + 1e-6;
+      R[j * GW + i] = r0; C[j * GW + i] = z / r0;
+    }
+  }
+  var NORM = states.map(function (s) {
+    var m = 1e-9;
+    for (var p = 0; p < GW * GH; p += 7) m = Math.max(m, Math.abs(s.f(R[p], C[p])));
+    return 1 / m;
+  });
+
+  var hidden = false;
+  document.addEventListener('visibilitychange', function () { hidden = document.hidden; });
+
+  function frame(tms) {
+    if (hidden || !document.documentElement.hasAttribute('data-theme-elegant')) { requestAnimationFrame(frame); return; }
+    var t = reduce ? 2.5 : tms / 1000;
+    var co = [], k;
+    for (k = 0; k < states.length; k++) {
+      var E = -1 / (2 * states[k].n * states[k].n);
+      // relative phase exp(-i (E-E_ref) t), real part, time rescaled so one gap = OMEGA
+      co[k] = Math.cos(-(E - E_REF) / DE * OMEGA * t + k * 0.9) * WEIGHT[k] * NORM[k];
+    }
+    for (var p = 0, q = 0; p < GW * GH; p++, q += 4) {
+      var r = R[p], c = C[p], re = 0;
+      for (var s = 0; s < states.length; s++) re += co[s] * states[s].f(r, c);
+      var a = Math.abs(re) * 0.62;
+      var v = Math.min(1, Math.pow(a, 0.75));
+      // contour-like banding makes the nodal rings read as waves, not blur
+      v *= 0.82 + 0.18 * Math.cos(a * 34);
+      if (re >= 0) { px[q] = 244; px[q+1] = 128; px[q+2] = 190; }   // rose (+)
+      else         { px[q] = 111; px[q+1] = 156; px[q+2] = 255; }  // periwinkle (-)
+      px[q + 3] = 255 * Math.min(1, v * 0.95);
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    var sc = Math.max(W / GW, H / GH), dw = GW * sc, dh = GH * sc;
+    ctx.drawImage(off, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+};
+if (window.__ELEG) window.__qaStartWaves();
+</script>
+<script id="qa-elegant-js">
+(function(){var d=document.documentElement,b=document.getElementById('elegantbtn');if(!b)return;
+var on=!!window.__ELEG;
+function paint(){b.setAttribute('aria-pressed',on?'true':'false');b.classList.toggle('active',on);
+b.title=on?'Elegant look: on (click to return to the standard dark look)':'Elegant look: midnight with soft pink & blue';}
+function links(){document.querySelectorAll('a[href*="simulator_dark.html"]').forEach(function(a){var h=a.getAttribute('href').replace(/[?&]elegant=(on|off)/,'');a.setAttribute('href',h+(h.indexOf('?')<0?'?':'&')+'elegant='+(on?'on':'off'));});}
+paint();links();
+if(on&&window.__qaElegApply)window.__qaElegApply(); /* re-assert after the luxury/glass scripts have run */
+b.addEventListener('click',function(){
+var nxt=on?'off':'on';
+try{localStorage.setItem('qa-elegant',nxt);if(nxt==='on')localStorage.setItem('qa-lux','off');}catch(e){}
+try{sessionStorage.setItem('qa-elegant',nxt);}catch(e){}
+if(nxt==='on'){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone','dark');d.setAttribute('data-theme-elegant','on');}else{d.removeAttribute('data-theme-elegant');}
+on=nxt==='on';paint();links();
+/* reload once: the hero orbital and the atom diagrams pick their colours at start-up */
+setTimeout(function(){try{location.reload();}catch(e){}},140);
+});
+})();
+</script>
+<script id="elegant-lux-link">
+/* The luxury button stays visible in Elegant mode; tapping it leaves Elegant first, then Luxury turns on */
+document.addEventListener('click',function(e){
+  var t=e.target&&e.target.closest&&e.target.closest('#luxbtn');if(!t)return;
+  var d=document.documentElement;
+  if(d.getAttribute('data-theme-elegant')==='on'){var eb=document.getElementById('elegantbtn');if(eb)eb.click();}
+},true);
+</script>
+<style id="elegant-theme-dark">
+/* ELEGANT THEME · landing (dark). Midnight navy with soft rose and periwinkle; loaded last. */
+#elegant-waves{display:none}
+html[data-theme-elegant="on"] #elegant-waves{display:block;position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.5}
+html[data-theme-elegant="on"]{
+  color-scheme:dark;
+  --ink:#000;--surface:#070708;--surface-2:#0e0e10;--oxblood:#0a0a0c;
+  --text:#f3f5ff;--muted:#b6bfdc;--faint:#8791b8;
+  --line:rgba(255,255,255,.13);--line-strong:rgba(255,255,255,.28);
+  --ember:#f080b8;--ember-hi:#f7a8cb;--flame:#8f6fe8;--amber:#7fa8ff;
+  --cx-40:rgba(240,128,184,.45);--cx-20:rgba(240,128,184,.25);--cx-10:rgba(240,128,184,.14);--cx-06:rgba(240,128,184,.08);
+  --glass:rgba(255,255,255,.04);--glass-hi:rgba(255,255,255,.08);--glass-border:rgba(255,255,255,.14);--glass-border-hi:rgba(240,128,184,.45);
+  --eink:#0a0e26;--egrad:linear-gradient(135deg,#f080b8 0%,#6f9cff 100%);
+  --edisplay:'Playfair Display','Cormorant Garamond',Georgia,serif;
+}
+html[data-theme-elegant="on"],html[data-theme-elegant="on"] body{background:#000}
+html[data-theme-elegant="on"] body::before{background:#000}
+html[data-theme-elegant="on"] ::selection{background:#f080b8;color:#0a0e26}
+html[data-theme-elegant="on"] ::-webkit-scrollbar-thumb{background:rgba(240,128,184,.4)}
+html[data-theme-elegant="on"] section{position:relative;z-index:1}
+html[data-theme-elegant="on"] #glassbtn{display:none !important}
+/* titles in Playfair Display */
+html[data-theme-elegant="on"] :is(.section-title,.hero-title,.cta-title,.nav-name,.tl-title-t,.bc-title,.qn-title,.prob-title,.why-title,.feat-title,.step-title,.orb-name-full,.ct-b-title,.bq-text,.ub-quote,.ct-pull,.big-q,.stat-num,.tl-year){font-family:var(--edisplay) !important;letter-spacing:-.01em}
+html[data-theme-elegant="on"] .hero-title{background:linear-gradient(120deg,#f080b8 0%,#a58cf5 50%,#6f9cff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+html[data-theme-elegant="on"] .hero-title *{-webkit-text-fill-color:inherit}
+/* chrome */
+html[data-theme-elegant="on"] nav{background:rgba(0,0,0,.55);box-shadow:0 8px 30px rgba(0,0,0,.5),inset 0 -1px 0 rgba(255,255,255,.05)}
+html[data-theme-elegant="on"] :is(#mobile-menu,footer){background:rgba(0,0,0,.62)}
+html[data-theme-elegant="on"] .nav-link:hover{color:var(--text);background:rgba(240,128,184,.10)}
+html[data-theme-elegant="on"] #scroll-progress{background:linear-gradient(90deg,#8f6fe8,#f080b8,#6f9cff)}
+html[data-theme-elegant="on"] .theme-toggle-btn{background:var(--egrad) !important;color:#fff !important;border:0 !important}
+html[data-theme-elegant="on"] nav .theme-toggle-btn{width:34px;height:34px}
+html[data-theme-elegant="on"] :is(.nav-cta,.btn-primary){background:var(--egrad) !important;color:#fff !important;border-color:transparent !important;text-shadow:0 1px 2px rgba(10,14,38,.35);box-shadow:0 8px 28px rgba(150,120,240,.38),inset 0 1px 0 rgba(255,255,255,.3) !important}
+html[data-theme-elegant="on"] :is(.nav-cta,.btn-primary):hover{filter:brightness(1.08)}
+html[data-theme-elegant="on"] :is(#mobile-menu a.menu-cta,.skip-link){background:var(--egrad);color:#fff}
+html[data-theme-elegant="on"] .btn-v2{background:linear-gradient(#0a0e26,#0a0e26) padding-box,var(--egrad) border-box !important;border:1px solid rgba(240,128,184,.55) !important;box-shadow:0 6px 18px rgba(240,128,184,.25) !important}
+html[data-theme-elegant="on"] .btn-v2:hover{background:var(--egrad) border-box !important;color:var(--eink) !important;box-shadow:0 10px 28px rgba(240,128,184,.45) !important}
+html[data-theme-elegant="on"] .v2-new{background:var(--egrad) !important;color:#fff !important}
+html[data-theme-elegant="on"] .btn-v2:hover .v2-new{background:var(--eink) !important}
+/* cards and small parts: rose instead of ember */
+html[data-theme-elegant="on"] :is(.tl-tag,.feat-tag){border:1px solid rgba(240,128,184,.4)}
+html[data-theme-elegant="on"] :is(.why-icon,.feat-icon){background:rgba(240,128,184,.14);border:1px solid rgba(240,128,184,.35)}
+html[data-theme-elegant="on"] .bc-icon{background:rgba(240,128,184,.14)}
+html[data-theme-elegant="on"] .bohr-label{background:rgba(0,0,0,.6)}
+html[data-theme-elegant="on"] :is(.why-card,.feat-card,.prob-card,.quote-card,.bohr-card):hover{box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 1px rgba(240,128,184,.18),inset 0 1px 0 rgba(255,255,255,.14)}
+html[data-theme-elegant="on"] .tl-line{background:linear-gradient(to bottom,var(--flame),var(--ember) 60%,rgba(240,128,184,.1))}
+html[data-theme-elegant="on"] .tl-dot{box-shadow:0 0 0 5px rgba(0,0,0,.95),0 0 14px rgba(240,128,184,.55)}
+html[data-theme-elegant="on"] #stats .stat-item::before{background:#f080b8}
+html[data-theme-elegant="on"] #stats .stat-item:hover{background:rgba(240,128,184,.06)}
+html[data-theme-elegant="on"] .hero-stage::before{background:radial-gradient(circle,rgba(111,156,255,.26),rgba(240,128,184,.08) 55%,transparent 72%)}
+html[data-theme-elegant="on"] .atom-diagram{background:radial-gradient(circle,rgba(111,156,255,.14),rgba(0,0,0,.6) 72%),#000}
+html[data-theme-elegant="on"] .eyebrow-dot{animation-name:ping-e;box-shadow:0 0 0 4px rgba(240,128,184,.2)}
+html[data-theme-elegant="on"] .nav-badge svg{animation-name:plasma-e !important}
+@keyframes ping-e{0%,100%{box-shadow:0 0 0 4px rgba(240,128,184,.2)}50%{box-shadow:0 0 0 9px rgba(240,128,184,0)}}
+@keyframes plasma-e{0%,100%{filter:drop-shadow(0 0 5px rgba(240,128,184,.7))}50%{filter:drop-shadow(0 0 12px rgba(111,156,255,.95))}}
+/* logo tile: every orange logo follows the theme (was only nav + footer, so the CTA logo stayed orange) */
+html[data-theme-elegant="on"] svg rect[fill="#ff5b14"]{fill:url(#eleg-grad)}
+/* the CTA block is already filled with the rose-blue gradient, so its logo tile takes the midnight ink to stay visible */
+html[data-theme-elegant="on"] #cta svg rect[fill="#ff5b14"]{fill:var(--eink)}
+html[data-theme-elegant="on"] svg stop[stop-color="#ffcc88"]{stop-color:#ffe3f1}
+html[data-theme-elegant="on"] svg stop[stop-color="#ff8833"]{stop-color:#f080b8}
+html[data-theme-elegant="on"] svg [fill="rgba(255,220,180,.95)"],html[data-theme-elegant="on"] svg [fill="rgba(255,210,160,.9)"]{fill:rgba(214,226,255,.95)}
+/* period tiles + legend: pink-to-blue ramp */
+html[data-theme-elegant="on"] .el-mini[data-p="1"]{border-top-color:#cfe0ff}
+html[data-theme-elegant="on"] .el-mini[data-p="5"]{border-top-color:#c46fe0}
+html[data-theme-elegant="on"] .el-mini[data-p="7"]{border-top-color:#5f7fe0}
+html[data-theme-elegant="on"] .period-legend .pl-item:nth-child(1) .pl-dot{background:#cfe0ff !important}
+html[data-theme-elegant="on"] .period-legend .pl-item:nth-child(5) .pl-dot{background:#c46fe0 !important}
+html[data-theme-elegant="on"] .period-legend .pl-item:nth-child(7) .pl-dot{background:#5f7fe0 !important}
+html[data-theme-elegant="on"] .orb-sym-big[style*="180,140,255"]{color:#7fa8ff !important}
+/* accent blocks: rose-to-blue fill with midnight ink (was ember with near-black ink) */
+html[data-theme-elegant="on"] :is(#cta,.uncertainty-box){background:var(--egrad);color:var(--eink)}
+html[data-theme-elegant="on"] .uncertainty-box{box-shadow:0 20px 60px rgba(111,156,255,.3),inset 0 1px 0 rgba(255,255,255,.4)}
+html[data-theme-elegant="on"] :is(.cta-title,.cta-sub,.ub-quote,.ub-quote em,.ub-formula){color:var(--eink)}
+html[data-theme-elegant="on"] .cta-title span{-webkit-text-fill-color:var(--eink);color:var(--eink)}
+html[data-theme-elegant="on"] :is(.ub-attr,.ub-attr span,.ub-formula-label){color:rgba(10,14,38,.78)}
+html[data-theme-elegant="on"] #cta .btn-primary{background:var(--eink) !important;color:#f7a8cb !important;border-color:var(--eink) !important;text-shadow:none;box-shadow:none !important}
+html[data-theme-elegant="on"] #cta .btn-primary:hover{background:#141a40 !important}
+html[data-theme-elegant="on"] #cta .btn-secondary{color:var(--eink);border:1px solid rgba(10,14,38,.55)}
+html[data-theme-elegant="on"] #cta .btn-secondary:hover{background:var(--eink);color:#f7a8cb}
+html[data-theme-elegant="on"] .qa-c-overlay .qa-c-dialog{background:rgba(0,0,0,.82)}
+/* contribution / wallet card + update toast: rose-blue instead of ember orange */
+html[data-theme-elegant="on"] .qa-c,html[data-theme-elegant="on"] .qa-c-overlay{
+  --c-accent:#f080b8;--c-accent2:#6f9cff;--c-card:rgba(240,128,184,.07);--c-line:rgba(240,128,184,.32);
+  --c-surface:rgba(0,0,0,.92);--c-btn-ink:#fff;--c-btn-bg:linear-gradient(135deg,#f080b8 0%,#6f9cff 100%);
+  --c-body:var(--e-body,var(--ebody,"Inter",system-ui,sans-serif));--c-display:var(--edisplay,var(--display,"Playfair Display",Georgia,serif))}
+html[data-theme-elegant="on"] .qa-c-chip.solid{background:var(--egrad,linear-gradient(135deg,#f080b8,#6f9cff));border-color:transparent;color:#fff}
+html[data-theme-elegant="on"] .qa-c-btn.primary{text-shadow:0 1px 2px rgba(10,14,38,.35)}
+html[data-theme-elegant="on"] #qa-upd.d button{background:linear-gradient(135deg,#f080b8,#6f9cff)}
+html[data-theme-elegant="on"] #qa-upd.d .t::before{background:#f080b8}
+html[data-theme-elegant="on"] .big-quote-section.is-red .bq-text em{color:var(--eink)}
+@media (prefers-reduced-motion:reduce){html[data-theme-elegant="on"] .eyebrow-dot,html[data-theme-elegant="on"] .nav-badge svg{animation:none !important}}
+</style>
+<style id="elegant-rose-fix">
+/* Elegant ON (dark): the rose is the "tapped" button. Beats the generic pressed-state rules that painted it
+   black with a white fill, which erased the petal outlines and left a blob. */
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn,
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn:hover,
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn[aria-pressed="true"]{
+  background:linear-gradient(135deg,#f080b8 0%,#6f9cff 100%) !important;
+  color:#fff !important;
+  border:1px solid transparent !important;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.92),0 0 14px rgba(240,128,184,.7),0 0 4px rgba(111,156,255,.6) !important;
+  filter:none !important;
+}
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn:hover{filter:brightness(1.08) !important}
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn svg{opacity:1 !important;filter:drop-shadow(0 0 1px rgba(80,20,70,.55)) !important}
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn svg rect{fill:#fff !important}
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn svg mask g{fill:#fff !important;stroke:#000 !important}
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn svg mask :is(g,path){fill:#fff !important;stroke:#000 !important;stroke-opacity:1 !important;fill-opacity:1 !important}
+html[data-theme-elegant="on"]:not(#qa-r1):not(#qa-r2):not(#qa-r3):not(#qa-r4):not(#qa-r5):not(#qa-r6):not(#qa-r7):not(#qa-r8):not(#qa-r9):not(#qa-r10) #elegantbtn svg rect{fill:#fff !important;stroke:none !important}
+</style>
+<style id="elegant-lang-tapped">
+/* Elegant ON: language button looks tapped (gradient + white ring + glow) while its menu is open or pressed */
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"],:active),
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"],:active){
+  background:linear-gradient(135deg,#f080b8 0%,#6f9cff 100%) !important;color:#fff !important;border-color:transparent !important;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.92),0 0 14px rgba(240,128,184,.7),0 0 4px rgba(111,156,255,.55) !important;
+  outline:none !important;background-image:linear-gradient(135deg,#f080b8 0%,#6f9cff 100%) !important;}
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"]) svg,
+html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"]) svg{color:#fff !important;stroke:#fff !important}
+</style>
 </body>
 </html>
