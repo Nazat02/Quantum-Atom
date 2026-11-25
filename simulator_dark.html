@@ -4,7 +4,7 @@
 <script id="qa-compat">
 /*!
  * Quantum Atom — qa-compat.js  (universal browser-compatibility layer, v1)
- * Embedded first in <head> of every page
+ * Load FIRST in <head>:  <script src="qa-compat.js"><\/script>
  *
  * Purpose: make every page behave the same in Chrome, Edge, Brave, Firefox, Safari and the
  * WebKit-based iOS browsers, so one engine's quirk can never break the site again.
@@ -101,6 +101,21 @@
   if (!F.webgl) cls.push('qa-no-webgl');
   if (F.touch) cls.push('qa-touch');
   try { for (var i = 0; i < cls.length; i++) de.classList.add(cls[i]); } catch (e) {}
+
+  /* ---------- 5. Elegant <-> Luxury switch ----------
+     Elegant reloads the page after a click, but the address bar still carries the OLD ?elegant=on|off
+     (added by the navigation sync). On reload that stale value beats the saved choice, so tapping Luxury
+     from Elegant "flashes" and lands back in Elegant. Fix: write the NEW value into the URL before the
+     page's own handler runs, so the reload (and any blocked-storage case) agrees with what was chosen. */
+  function setElegantParam(v) {
+    try { var u = new URL(w.location.href); u.searchParams.set('elegant', v); w.history.replaceState(w.history.state, '', u.pathname + u.search + u.hash); } catch (e) {}
+  }
+  d.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest && e.target.closest('#elegantbtn,#luxbtn'); if (!t) return;
+    var on = de.getAttribute('data-theme-elegant') === 'on';
+    if (t.id === 'elegantbtn') setElegantParam(on ? 'off' : 'on');
+    else if (on) setElegantParam('off');        /* Luxury pressed while Elegant is on: Elegant leaves first */
+  }, true);
 
   /* ---------- 4. small cross-engine CSS ---------- */
   try {
