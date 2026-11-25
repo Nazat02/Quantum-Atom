@@ -40710,5 +40710,11 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-c-addr{border:0;background:var(--l
 /* the dialog container is focused by script on open (for screen readers); it is not a control, so no focus ring around it — its buttons keep theirs */
 html:not(#qc1):not(#qc2) .qa-c-dialog:is(:focus,:focus-visible){outline:none !important}
 </style>
+<style id="glass-hide-lux-eleg">
+/* Glass effect has no function in Luxury or Elegant: the toggle must not be shown there.
+   The uniform-controls rule forces every top-bar button to display, so this hides it with higher specificity. */
+html[data-theme-elegant="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #topbar #glassbtn,
+html[data-lux="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #topbar #glassbtn{display:none !important}
+</style>
 </body>
 </html>
