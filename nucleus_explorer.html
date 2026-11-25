@@ -30308,7 +30308,8 @@ html:not([data-glass="off"]) :is(#back-link,#prevbtn,#nextbtn,#glassbtn,#theme-l
 #modelabel{height:var(--ctl) !important;padding:0 var(--sp-3) !important;border-radius:999px;font-size:.74rem}
 #elstat{display:flex;align-items:center;min-height:var(--ctl)}
 #actions{gap:var(--sp-2) !important}
-:is(#legend-btn,#tg-pion,#tg-gluon,#tg-jiggle,#help-btn){font-size:1.1rem}
+:is(#legend-btn,#help-btn){font-size:1.1rem}
+@media (max-width:640px){:is(#tg-pion,#tg-gluon,#tg-jiggle){font-size:1.1rem}}
 
 /* composition card + chips + text: one rhythm, no leftover min-heights */
 #stattoggle{padding:0 var(--sp-3) !important;min-height:var(--ctl)}
@@ -40766,9 +40767,14 @@ html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):no
 html[data-glass="off"] #rail-ind i{background:#ff5500;box-shadow:none}
 
 /* ═══ UNIFORM CONTROLS — every round button in both rails is exactly --ctl × --ctl ═══ */
-html:not(#a):not(#b):not(#c):not(#d) :is(#topbar,#statusrow) :is(#back-link,#prevbtn,#nextbtn,#tb-badge,#glassbtn,#luxbtn,#elegantbtn,#theme-link,#contribute-link,#elbtn,.qa-langbtn,#legend-btn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle,#help-btn){
+html:not(#a):not(#b):not(#c):not(#d) :is(#topbar,#statusrow) :is(#prevbtn,#nextbtn,#tb-badge,#glassbtn,#luxbtn,#elegantbtn,#theme-link,#contribute-link,.qa-langbtn,#legend-btn,#help-btn){
   width:var(--ctl) !important;height:var(--ctl) !important;min-width:var(--ctl) !important;min-height:var(--ctl) !important;max-width:var(--ctl) !important;max-height:var(--ctl) !important;
   padding:0 !important;border-radius:999px !important;display:inline-flex !important;align-items:center;justify-content:center;flex:0 0 var(--ctl) !important;box-sizing:border-box}
+@media (max-width:640px){html:not(#a):not(#b):not(#c):not(#d) :is(#topbar,#statusrow) :is(#back-link,#elbtn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle){
+  width:var(--ctl) !important;height:var(--ctl) !important;min-width:var(--ctl) !important;min-height:var(--ctl) !important;max-width:var(--ctl) !important;max-height:var(--ctl) !important;
+  padding:0 !important;border-radius:999px !important;display:inline-flex !important;align-items:center;justify-content:center;flex:0 0 var(--ctl) !important;box-sizing:border-box}}
+/* desktop / tablet: labelled buttons keep their text — same height as the round ones, pill-shaped, width follows the label */
+@media (min-width:641px){html:not(#a):not(#b):not(#c):not(#d) :is(#topbar,#statusrow) :is(#back-link,#elbtn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle){height:var(--ctl) !important;min-height:var(--ctl) !important;min-width:var(--ctl) !important;width:auto !important;max-width:none !important;padding:0 16px !important;border-radius:999px !important;display:inline-flex !important;align-items:center;justify-content:center;gap:6px;flex:0 0 auto !important;box-sizing:border-box;font-size:.78rem;letter-spacing:.06em;white-space:nowrap}}
 html:not(#a):not(#b):not(#c):not(#d) :is(#luxbtn,#elegantbtn) svg{width:18px !important;height:18px !important}
 @media (max-width:420px){html:not(#a):not(#b):not(#c):not(#d) :is(#luxbtn,#elegantbtn) svg{width:16px !important;height:16px !important}}
 html:not(#a):not(#b):not(#c):not(#d) #topbar [data-qa-lang-picker]{display:flex !important;align-items:center;flex:0 0 auto}
@@ -40785,6 +40791,18 @@ html[data-theme-elegant="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #l
   border:1px solid rgba(255,255,255,.28) !important;box-shadow:0 2px 6px rgba(240,128,184,.35),inset 0 1px 0 rgba(255,255,255,.25) !important}
 html[data-theme-elegant="on"]:not(#a):not(#b):not(#c):not(#d):not(#e):not(#f) #luxbtn svg{color:#fff !important;fill:#fff !important}
 </style>
+<style id="desktop-breathing">
+/* desktop / tablet: give the bars room to breathe — wider gaps, side padding, and space around the title */
+@media (min-width:641px){
+  html:not(#a):not(#b):not(#c):not(#d){--ctl-gap:10px}
+  html:not(#a):not(#b):not(#c):not(#d) #topbar{gap:12px !important;padding-left:max(18px,env(safe-area-inset-left)) !important;padding-right:max(18px,env(safe-area-inset-right)) !important}
+  html:not(#a):not(#b):not(#c):not(#d) #tb-title{margin-inline:12px 18px;padding:0 2px}
+  html:not(#a):not(#b):not(#c):not(#d) #statusrow{gap:14px !important}
+  html:not(#a):not(#b):not(#c):not(#d) #actions{gap:10px !important}
+  html:not(#a):not(#b):not(#c):not(#d) :is(#topbar,#statusrow) :is(#back-link,#elbtn,#tg-pion,#tg-gluon,#tg-hyper,#tg-jiggle){padding:0 20px !important}
+}
+</style>
+
 <script id="slide-rails-js">
 (function(){
   function init(){
