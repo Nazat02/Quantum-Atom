@@ -33101,5 +33101,57 @@ html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):no
 html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"]) svg,
 html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"]) svg{color:#fff !important;stroke:#fff !important}
 </style>
+<script id="elegant-gallery-dark">
+/* ELEGANT GALLERY (dark): while the Elegant look is on, the gallery shows the dark-Elegant mockups (images/quantum-atom-simulator-*-elegant-dark.jpg)
+   plus two extra laptop+phone slots; switching it off restores the standard images. Mirrors the light page's Elegant gallery. Luxury keeps its own swap. */
+(function(){
+  var d=document.documentElement, P='quantum-atom-simulator-';
+  var SL=['3d-electron-cloud','carbon-atom-diffuse-mode','neon-atom-electron-orbitals','water-molecule-h2o','methane-molecule-ch4','iron-atom-d-orbitals','cloud-studio-controls','mobile-app-screens','dark-and-light-themes'];
+  var RE=new RegExp(P+'('+SL.join('|')+')(-1200)?\\.jpg','g');
+  var ALT={'3d-electron-cloud':'Quantum Atom Simulator in the Elegant look on a laptop and a phone: carbon and neon as soft pink, mint and blue lobes on midnight black',
+    'carbon-atom-diffuse-mode':'Carbon atom in the Elegant look on a laptop: its 2p lobes in two phase colours',
+    'neon-atom-electron-orbitals':'Neon atom orbitals in the Elegant look on a laptop',
+    'water-molecule-h2o':'Water molecule H2O in the Elegant look on a laptop and a phone',
+    'methane-molecule-ch4':'Methane molecule CH4 in the Elegant look on a laptop',
+    'iron-atom-d-orbitals':'Iron atom with its d orbitals in the Elegant look on a laptop, with the element list and data panel open',
+    'cloud-studio-controls':'Cloud Studio controls in the Elegant look on a laptop and a phone',
+    'mobile-app-screens':'Quantum Atom Simulator in the Elegant look on three phone screens: carbon, Cloud Studio and water',
+    'dark-and-light-themes':'The Elegant look in its dark and light versions, showing the same neon atom'};
+  var CAP2={o:'Carbon (Z = 6) in Diffuse mode. The two colours are the + and − signs of the wavefunction.',e:'Carbon (Z = 6) in the Elegant look: the 2p lobes in two phase colours.'};
+  function on(){return d.getAttribute('data-theme-elegant')==='on';}
+  function gal(){return document.querySelector('#gallery .qa-gal');}
+  function extras(){
+    var g=gal();if(!g||g.querySelector('.qa-gal-eleg'))return;
+    var first=g.querySelector('figure');if(!first)return;
+    [['elegant-dark-landing-hero-laptop-phone','The landing page in the Elegant look, on laptop and phone.','Quantum Atom landing page in the Elegant look on a laptop and a phone'],
+     ['elegant-dark-landing-features-laptop-phone','Elegant look, feature by feature: the same page on laptop and phone.','Quantum Atom landing page features section in the Elegant look on a laptop and a phone']].forEach(function(x,i){
+      var f=document.createElement('figure');f.className='qa-gal-eleg';
+      var u='images/'+P+x[0];
+      f.innerHTML='<a href="'+u+'.jpg" title="'+x[1]+'"><img src="'+u+'.jpg" srcset="'+u+'-1200.jpg 1200w, '+u+'.jpg 2400w" sizes="(max-width:820px) 100vw, 600px" width="2400" height="1350" alt="'+x[2]+'" loading="lazy" decoding="async"></a><figcaption>'+x[1]+'</figcaption>';
+      first.parentNode.insertBefore(f,first.nextSibling&&i?first.nextSibling.nextSibling:first.nextSibling);
+    });
+  }
+  function apply(){
+    var e=on();extras();
+    document.querySelectorAll('#gallery figure:not(.qa-gal-eleg) img').forEach(function(img){
+      var a=img.closest('a'),m=(img.getAttribute('data-eg-src')||img.getAttribute('src')||'').match(new RegExp(P+'('+SL.join('|')+')'));
+      if(!m)return;var slug=m[1];
+      if(!img.hasAttribute('data-eg-src')){
+        if(/-lux-(dark|light)/.test(img.getAttribute('src')||''))return;      /* luxury owns this slot right now */
+        img.setAttribute('data-eg-src',img.getAttribute('src'));img.setAttribute('data-eg-srcset',img.getAttribute('srcset')||'');img.setAttribute('data-eg-alt',img.getAttribute('alt')||'');
+        if(a)a.setAttribute('data-eg-href',a.getAttribute('href')||'');
+      }
+      var sw=function(v){return v.replace(RE,function(x,n,s){return P+n+'-elegant-dark'+(s||'')+'.jpg';});};
+      if(e){img.src=sw(img.getAttribute('data-eg-src'));img.setAttribute('srcset',sw(img.getAttribute('data-eg-srcset')));img.alt=ALT[slug];if(a)a.href=sw(a.getAttribute('data-eg-href'));}
+      else{img.setAttribute('src',img.getAttribute('data-eg-src'));img.setAttribute('srcset',img.getAttribute('data-eg-srcset'));img.alt=img.getAttribute('data-eg-alt');if(a)a.href=a.getAttribute('data-eg-href');}
+    });
+    var c2=document.querySelector('#gallery [data-i18n="landing.gallery.c2"]'),t=document.querySelector('#gallery a[data-i18n-attr="title:landing.gallery.c2"]');
+    if(c2){if(e&&c2.textContent===CAP2.o){c2.textContent=CAP2.e;c2.setAttribute('data-eg-on','1');}else if(!e&&c2.getAttribute('data-eg-on')==='1'){c2.textContent=CAP2.o;c2.removeAttribute('data-eg-on');}}
+  }
+  function init(){apply();try{new MutationObserver(apply).observe(d,{attributes:true,attributeFilter:['data-theme-elegant','data-lux']});}catch(x){}}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+<style id="elegant-gallery-dark-css">.qa-gal figure.qa-gal-eleg{display:none}html[data-theme-elegant="on"] .qa-gal figure.qa-gal-eleg{display:flex}</style>
 </body>
 </html>

@@ -66316,8 +66316,17 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
   }
 
   /* ---------- colour ramp ---------- */
-  var hueLUT=null,RAMP=LIGHT?[[.41,.32,.88],[.12,.60,.92],[.88,.26,.60],[.60,.35,.95],[.41,.32,.88]]:[[1,.33,0],[1,.70,.28],[1,.92,.80],[1,.36,.62],[.62,.30,1],[1,.33,0]];
-  var NEG=LIGHT?[.88,.26,.60]:[1,.9,.76],NEGHEX=LIGHT?'#e0429a':'#ffe6c2',PHASEGRAD=LIGHT?'linear-gradient(90deg,#6952e0,#1f99eb,#e0429a,#9a59f2,#6952e0)':'linear-gradient(90deg,#ff5500,#ffb347,#ffebcc,#ff5c9e,#9e4dff,#ff5500)';
+  var hueLUT=null,RAMP,NEG,NEGHEX,PHASEGRAD,themeKey=null;
+  function isEleg(){return document.documentElement.getAttribute('data-theme-elegant')==='on';}
+  /* palette follows the active look: light / Elegant (rose → periwinkle → blue) / classic dark (ember) */
+  function applyTheme(){
+    var k=LIGHT?'l':(isEleg()?'e':'d');if(k===themeKey)return false;themeKey=k;
+    if(k==='l'){RAMP=[[.41,.32,.88],[.12,.60,.92],[.88,.26,.60],[.60,.35,.95],[.41,.32,.88]];NEG=[.88,.26,.60];NEGHEX='#e0429a';PHASEGRAD='linear-gradient(90deg,#6952e0,#1f99eb,#e0429a,#9a59f2,#6952e0)';}
+    else if(k==='e'){RAMP=[[.94,.50,.72],[.64,.56,.98],[.42,.66,1],[.84,.46,.94],[.94,.50,.72]];NEG=[.42,.66,1];NEGHEX='#6aa8ff';PHASEGRAD='linear-gradient(90deg,#f080b8,#a38efa,#6aa8ff,#d675f0,#f080b8)';}
+    else{RAMP=[[1,.33,0],[1,.70,.28],[1,.92,.80],[1,.36,.62],[.62,.30,1],[1,.33,0]];NEG=[1,.9,.76];NEGHEX='#ffe6c2';PHASEGRAD='linear-gradient(90deg,#ff5500,#ffb347,#ffebcc,#ff5c9e,#9e4dff,#ff5500)';}
+    if(hueLUT)buildLUT();return true;
+  }
+  applyTheme();
   function buildLUT(){
     hueLUT=new Float32Array(256*3);
     for(var i=0;i<256;i++){
@@ -66550,7 +66559,8 @@ html[data-glass="off"] #ol-name{text-shadow:none;}
   var wired=false;
   function open(){
     var root=$('ol-root');
-    if(!wired){wire();wired=true;}
+    if(!wired){wire();wired=true;try{new MutationObserver(function(){if(applyTheme()&&$('ol-root').classList.contains('open'))refresh();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme-elegant']});}catch(e){}}
+    applyTheme();
     var lg=document.getElementById('topbar-logo-badge');
     if(lg&&!$('ol-logo').firstChild)$('ol-logo').innerHTML=lg.innerHTML.replace(/id="/g,'id="ol-');
     root.classList.add('open');
@@ -73041,6 +73051,13 @@ html[data-theme-elegant="on"] #topbar-logo-badge svg [fill="rgba(255,220,180,.95
 html[data-theme-elegant="on"] #topbar-logo-badge svg [fill="rgba(255,210,160,.9)"]{fill:rgba(214,226,255,.95)}
 /* antimatter hue-rotates the logo for the orange look; in Elegant the logo is already rose/blue, so keep it as designed */
 html[data-theme-elegant="on"][data-matter="anti"] #topbar-logo-badge{filter:none}
+/* ORBITAL LAB: the logo is a clone of the top-bar one, so it needs the same Elegant recolour; ambient glow rose + blue instead of orange */
+html[data-theme-elegant="on"] #ol-logo svg rect[fill="#ff5500"]{fill:url(#eleg-grad)}
+html[data-theme-elegant="on"] #ol-logo svg stop[stop-color="#ffcc88"]{stop-color:#ffe3f1}
+html[data-theme-elegant="on"] #ol-logo svg stop[stop-color="#ff8833"]{stop-color:#f080b8}
+html[data-theme-elegant="on"] #ol-logo svg [fill="rgba(255,220,180,.95)"],
+html[data-theme-elegant="on"] #ol-logo svg [fill="rgba(255,210,160,.9)"]{fill:rgba(214,226,255,.95)}
+html[data-theme-elegant="on"] #ol-root::before{background:radial-gradient(46vmax 46vmax at 0% 0%,rgba(240,128,184,.20),transparent 70%),radial-gradient(40vmax 40vmax at 100% 18%,rgba(111,156,255,.14),transparent 72%),radial-gradient(50vmax 50vmax at 70% 100%,rgba(111,156,255,.10),transparent 72%);}
 /* update toast: rose-blue instead of orange */
 html[data-theme-elegant="on"] #qa-upd.d{background:rgba(0,0,0,.92);border-color:rgba(240,128,184,.45)}
 html[data-theme-elegant="on"] #qa-upd.d .t::before{background:#f080b8}
