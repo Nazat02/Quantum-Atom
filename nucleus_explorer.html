@@ -13,6 +13,9 @@ if(q)on=q==='on';
 if(on){d.removeAttribute('data-glass');d.removeAttribute('data-lux');d.setAttribute('data-lux-tone',T);d.setAttribute('data-theme-elegant','on');}
 })();
 </script>
+<style id="qa-eg-hold">/* Elegant first-paint hold: the Elegant CSS of this page is parsed late, so without this the default look paints first. */html.eg-boot{background:#000}html.eg-boot body{opacity:0 !important}</style>
+<script id="qa-eg-hold-js">(function(){var d=document.documentElement;if(d.getAttribute('data-theme-elegant')!=='on')return;d.classList.add('eg-boot');window.__qaEgRelease=function(){d.classList.remove('eg-boot');};setTimeout(window.__qaEgRelease,2500);})();</script>
+
 <script>/* pinch belongs to the 3D zoom, never to the browser page */
 (function(){var o={passive:false},d=document;
 d.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.cancelable)e.preventDefault();},o);
@@ -40921,5 +40924,6 @@ html[data-theme-elegant="on"] .qa-c-title{font-weight:600;letter-spacing:0}
 html[data-theme-elegant="on"] .qa-c-btn.primary{border-color:rgba(255,255,255,.28);box-shadow:none}
 html[data-theme-elegant="on"] .qa-c-addr b{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 </style>
+<script id="qa-eg-release">window.__qaEgRelease&&window.__qaEgRelease();</script>
 </body>
 </html>

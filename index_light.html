@@ -30277,6 +30277,17 @@ html[data-theme-elegant="on"] .bohr-label{background:rgba(236,95,158,.10) !impor
 html[data-theme-elegant="on"] .v2-new{box-shadow:none}
 html[data-theme-elegant="on"] .qa-c[data-theme="light"],html[data-theme-elegant="on"] .qa-c-overlay[data-theme="light"]{  --c-accent:#ec5f9e;--c-accent2:#4f8df5;--c-ink:#232a4a;--c-dim:rgba(35,42,74,.72);  --c-line:rgba(236,95,158,.30);--c-card:rgba(255,255,255,.8);  --c-btn-bg:linear-gradient(120deg,#ec5f9e,#4f8df5)}
 </style>
+<style id="elegant-logo">
+/* Elegant (light): the app icon follows the pink-to-blue Elegant palette instead of the standard indigo tile */
+html[data-theme-elegant="on"] svg rect[width="90"][height="90"][fill="#6952e0"]{fill:url(#eleg-grad)}
+html[data-theme-elegant="on"] svg stop[stop-color="#6952e0"],html[data-theme-elegant="on"] svg stop[stop-color="#9b8afb"]{stop-color:#ec5f9e}
+html[data-theme-elegant="on"] svg stop[stop-color="#c4b5fd"],html[data-theme-elegant="on"] svg stop[stop-color="#c4b8ff"]{stop-color:#ffd0e6}
+html[data-theme-elegant="on"] svg circle[fill="rgba(196,181,253,.95)"],html[data-theme-elegant="on"] svg circle[fill="rgba(196,181,253,.98)"]{fill:rgba(247,168,203,.98)}
+html[data-theme-elegant="on"] svg circle[fill="rgba(186,230,253,.9)"],html[data-theme-elegant="on"] svg circle[fill="rgba(167,139,250,.98)"]{fill:rgba(156,192,255,.98)}
+@keyframes qa-eg-glow{0%,100%{filter:drop-shadow(0 0 6px rgba(236,95,158,.5)) drop-shadow(0 0 16px rgba(79,141,245,.35))}50%{filter:drop-shadow(0 0 10px rgba(236,95,158,.62)) drop-shadow(0 0 26px rgba(79,141,245,.42))}}
+html[data-theme-elegant="on"] svg[style*="plasma-outer-glow"]{animation-name:qa-eg-glow !important}
+</style>
+
 <style id="press-lux">
 /* LUXURY: tapped / pressed / on stays orange (accent), never white. Segmented controls keep their own on look when switched on. */
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .nav-cta:not(#glassbtn).qa-pressed,
@@ -30727,6 +30738,8 @@ html[data-glass="off"]:not([data-lux="on"]):not(#qa-p1):not(#qa-p2):not(#qa-gb) 
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="eleg-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ec5f9e"/><stop offset="1" stop-color="#4f8df5"/></linearGradient></defs></svg>
+
 <div id="scanlines"></div>
 <canvas id="bg-canvas"></canvas>
 <canvas id="elegant-waves" aria-hidden="true"></canvas><div id="elegant-veil" aria-hidden="true"></div>

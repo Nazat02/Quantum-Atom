@@ -32656,6 +32656,17 @@ html[data-theme-elegant="on"] #glassbtn{display:none !important}
 html[data-theme-elegant="on"] .theme-toggle-btn{background:linear-gradient(135deg,#ec5f9e,#4f8df5) !important;color:#fff !important}
 html[data-theme-elegant="on"] .qai-root[data-theme="light"]{--qai-accent:#ec5f9e}
 </style>
+<style id="elegant-logo">
+/* Elegant (light): the app icon follows the pink-to-blue Elegant palette instead of the standard indigo tile */
+html[data-theme-elegant="on"] svg rect[width="90"][height="90"][fill="#6952e0"]{fill:url(#eleg-grad)}
+html[data-theme-elegant="on"] svg stop[stop-color="#6952e0"],html[data-theme-elegant="on"] svg stop[stop-color="#9b8afb"]{stop-color:#ec5f9e}
+html[data-theme-elegant="on"] svg stop[stop-color="#c4b5fd"],html[data-theme-elegant="on"] svg stop[stop-color="#c4b8ff"]{stop-color:#ffd0e6}
+html[data-theme-elegant="on"] svg circle[fill="rgba(196,181,253,.95)"],html[data-theme-elegant="on"] svg circle[fill="rgba(196,181,253,.98)"]{fill:rgba(247,168,203,.98)}
+html[data-theme-elegant="on"] svg circle[fill="rgba(186,230,253,.9)"],html[data-theme-elegant="on"] svg circle[fill="rgba(167,139,250,.98)"]{fill:rgba(156,192,255,.98)}
+@keyframes qa-eg-glow{0%,100%{filter:drop-shadow(0 0 6px rgba(236,95,158,.5)) drop-shadow(0 0 16px rgba(79,141,245,.35))}50%{filter:drop-shadow(0 0 10px rgba(236,95,158,.62)) drop-shadow(0 0 26px rgba(79,141,245,.42))}}
+html[data-theme-elegant="on"] svg[style*="plasma-outer-glow"]{animation-name:qa-eg-glow !important}
+</style>
+
 <style id="press-lux">
 /* LUXURY: tapped / pressed / on stays orange (accent), never white. Segmented controls keep their own on look when switched on. */
 html[data-lux="on"]:not(#lx-a):not(#lx-b):not(#qa-p1):not(#qa-p2) .mode-btn:not(#glassbtn).qa-pressed,
@@ -33295,6 +33306,8 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg mask g[fill]{fill:#fff
 </script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="eleg-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ec5f9e"/><stop offset="1" stop-color="#4f8df5"/></linearGradient></defs></svg>
+
 <!-- qa-seo:sr:start -->
 <div class="qa-seo-sr" id="qa-seo-about" lang="en"><h1>Quantum Atom Simulator: 3D Atoms, Molecules and Nuclei</h1><p>Quantum Atom is a free, browser-based 3D simulator that draws electron orbitals as real probability clouds instead of dots on rails. Pick any of the 118 elements, explore molecules, promote electrons to excited states, switch to antimatter, or dive into the nucleus. No install and no account.</p><h2>What you can explore</h2><ul><li>All 118 elements from hydrogen to oganesson, with their s, p and d orbitals in 3D.</li><li>Molecules such as water, ammonia and benzene with VSEPR geometry, plus a build mode for other compounds.</li><li>Guided lessons on covalent bonds, VSEPR shapes and how the periodic table fills up.</li><li>Side-by-side element comparison and a Bohr model versus quantum model view.</li><li>Excited states, antimatter mode, light and dark themes and a colorblind-safe palette.</li></ul><nav aria-label="Quantum Atom pages"><a href="index_light.html" tabindex="-1">Quantum Atom home</a> · <a href="simulator_light.html" tabindex="-1">Simulator</a> · <a href="nucleus_explorer_light.html" tabindex="-1">Nucleus Explorer</a> · <a href="https://github.com/nazat02/Quantum-Atom" tabindex="-1" rel="noopener">GitHub</a></nav></div>
 <!-- qa-seo:sr:end -->
