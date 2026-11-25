@@ -1,6 +1,116 @@
 <!DOCTYPE html>
 <html translate="no" lang="en">
 <head>
+<script id="qa-compat">
+/*!
+ * Quantum Atom — qa-compat.js  (universal browser-compatibility layer, v1)
+ * Embedded first in <head> of every page
+ *
+ * Purpose: make every page behave the same in Chrome, Edge, Brave, Firefox, Safari and the
+ * WebKit-based iOS browsers, so one engine's quirk can never break the site again.
+ * It only ADDS safety: when a browser already behaves correctly nothing changes.
+ * ES5, no dependencies, works from file://. Safe to load twice.
+ *
+ *  1. Storage      localStorage / sessionStorage that throw (private mode, blocked cookies,
+ *                  Edge tracking prevention, sandboxed frames) are replaced by an in-memory
+ *                  store, so unguarded code can no longer stop a click or a navigation.
+ *  2. Canvas       addColorStop('transparent' | rgba(0,0,0,0)) is rewritten to "previous colour
+ *                  at alpha 0". Browsers that blend in non-premultiplied space otherwise draw a
+ *                  dark/black halo (the black ball around nuclei).
+ *  3. Features     <html> gets qa-no-* classes + window.QA_FEATURES for backdrop-filter, color-mix,
+ *                  :has(), WebGL, so CSS/JS can offer a plain fallback.
+ *  4. Text size    stops iOS / Android auto-inflating text after rotation.
+ */
+(function (w, d) {
+  'use strict';
+  if (w.__QA_COMPAT__) return;
+  var QA = w.__QA_COMPAT__ = { version: 1, notes: [] };
+
+  /* ---------- 1. storage that can never throw ---------- */
+  function makeMemory() {
+    var m = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
+      setItem: function (k, v) { m[k] = String(v); },
+      removeItem: function (k) { delete m[k]; },
+      clear: function () { m = {}; },
+      key: function (i) { return Object.keys(m)[i] || null; },
+      get length() { return Object.keys(m).length; }
+    };
+  }
+  function ensureStorage(name) {
+    var ok = false;
+    try { var s = w[name]; s.setItem('__qa', '1'); s.removeItem('__qa'); ok = true; } catch (e) {}
+    if (ok) return;
+    var mem = makeMemory();
+    try { Object.defineProperty(w, name, { configurable: true, enumerable: true, get: function () { return mem; } }); QA.notes.push(name + ':memory'); }
+    catch (e) { try { w[name] = mem; QA.notes.push(name + ':memory'); } catch (e2) {} }
+  }
+  ensureStorage('localStorage');
+  ensureStorage('sessionStorage');
+
+  /* ---------- 2. canvas gradients that fade to "transparent" ---------- */
+  try {
+    var GP = w.CanvasGradient && w.CanvasGradient.prototype;
+    if (GP && !GP.__qaPatched) {
+      var probe = d.createElement('canvas').getContext('2d');
+      var cache = {};
+      var parse = function (c) {
+        if (typeof c !== 'string') return null;
+        if (cache.hasOwnProperty(c)) return cache[c];
+        var r = null;
+        try {
+          probe.fillStyle = '#010203'; probe.fillStyle = c;
+          var v = probe.fillStyle, m;
+          if (v === '#010203' && !/^\s*#010203\s*$/i.test(c)) r = null;                 // not a valid colour
+          else if ((m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(v))) r = { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16), a: 1 };
+          else if ((m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(v))) r = { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] };
+        } catch (e) { r = null; }
+        if (Object.keys(cache).length > 500) cache = {};
+        cache[c] = r; return r;
+      };
+      var orig = GP.addColorStop;
+      GP.addColorStop = function (offset, color) {
+        try {
+          var p = parse(color);
+          if (p) {
+            var L = this.__qaLast;
+            if (p.a === 0 && p.r === 0 && p.g === 0 && p.b === 0 && L) color = 'rgba(' + L.r + ',' + L.g + ',' + L.b + ',0)';
+            else if (p.a > 0) this.__qaLast = p;
+          }
+        } catch (e) {}
+        return orig.call(this, offset, color);
+      };
+      Object.defineProperty(GP, '__qaPatched', { value: true });
+    }
+  } catch (e) { QA.notes.push('gradient-patch-failed'); }
+
+  /* ---------- 3. feature flags ---------- */
+  var de = d.documentElement, F = w.QA_FEATURES = {};
+  function sup(a, b) { try { return !!(w.CSS && CSS.supports && (b === undefined ? CSS.supports(a) : CSS.supports(a, b))); } catch (e) { return false; } }
+  F.backdrop = sup('backdrop-filter', 'blur(1px)') || sup('-webkit-backdrop-filter', 'blur(1px)');
+  F.colorMix = sup('color', 'color-mix(in srgb, red 50%, blue)');
+  F.has = sup('selector(:has(*))');
+  F.dvh = sup('height', '100dvh');
+  try { var cv = d.createElement('canvas'); F.webgl = !!(w.WebGLRenderingContext && (cv.getContext('webgl') || cv.getContext('experimental-webgl'))); } catch (e) { F.webgl = false; }
+  F.touch = ('ontouchstart' in w) || (navigator.maxTouchPoints > 0);
+  var cls = [];
+  if (!F.backdrop) cls.push('qa-no-backdrop');
+  if (!F.colorMix) cls.push('qa-no-colormix');
+  if (!F.has) cls.push('qa-no-has');
+  if (!F.webgl) cls.push('qa-no-webgl');
+  if (F.touch) cls.push('qa-touch');
+  try { for (var i = 0; i < cls.length; i++) de.classList.add(cls[i]); } catch (e) {}
+
+  /* ---------- 4. small cross-engine CSS ---------- */
+  try {
+    var st = d.createElement('style'); st.id = 'qa-compat-css';
+    st.textContent = 'html{-webkit-text-size-adjust:100%;text-size-adjust:100%}';
+    (d.head || de).appendChild(st);
+  } catch (e) {}
+})(window, document);
+
+</script>
 <script id="qa-boot-early">
 /* Runs first, before any style or large script is parsed: puts the saved look on <html> so the very first paint
    is already correct (no flash of the default look before flat / elegant is applied). Idempotent: the later
@@ -29201,7 +29311,7 @@ QA_I18N.add("zh", {
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://nazat02.github.io/Quantum-Atom/#website","url":"https://nazat02.github.io/Quantum-Atom/index_dark.html","name":"Quantum Atom","description":"Free 3D atom simulator: see real electron orbitals for all 118 elements, molecule geometry and a nucleus zoom down to quarks. No install, in your browser.","inLanguage":"en","publisher":{"@id":"https://nazat02.github.io/Quantum-Atom/#author"}},{"@type":"Person","@id":"https://nazat02.github.io/Quantum-Atom/#author","name":"Md. Shaikhul Hadis Nazat","url":"https://github.com/nazat02","sameAs":["https://github.com/nazat02"]},{"@type":"ImageObject","@id":"https://nazat02.github.io/Quantum-Atom/#og-image","url":"https://nazat02.github.io/Quantum-Atom/images/og-image.jpg","contentUrl":"https://nazat02.github.io/Quantum-Atom/images/og-image.jpg","width":1200,"height":630,"caption":"Quantum Atom: 3D electron orbitals, molecules and nuclei running in the browser"},{"@type":"WebApplication","@id":"https://nazat02.github.io/Quantum-Atom/#simulator","name":"Quantum Atom Simulator","url":"https://nazat02.github.io/Quantum-Atom/simulator_dark.html","description":"Explore real electron orbitals for all 118 elements, VSEPR molecule shapes, excited states and antimatter in a free interactive 3D simulator. No install.","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","browserRequirements":"Requires a modern browser with JavaScript and WebGL","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"image":["https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-3d-electron-cloud.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-mobile-app-screens.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-app-square.jpg"],"screenshot":["https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-3d-electron-cloud.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-carbon-atom-diffuse-mode.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-neon-atom-electron-orbitals.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-water-molecule-h2o.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-methane-molecule-ch4.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-iron-atom-d-orbitals.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-cloud-studio-controls.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-mobile-app-screens.jpg","https://nazat02.github.io/Quantum-Atom/images/quantum-atom-simulator-dark-and-light-themes.jpg"],"inLanguage":["en","ar","bn","zh-Hans","ko","ja","it","fr","el"],"author":{"@id":"https://nazat02.github.io/Quantum-Atom/#author"},"sameAs":["https://github.com/nazat02/Quantum-Atom"],"audience":{"@type":"EducationalAudience","educationalRole":["student","teacher"]},"featureList":["3D electron orbitals for all 118 elements","Molecule geometry from VSEPR theory, plus a build mode for other compounds","Guided lessons on covalent bonds, VSEPR and the periodic table","Excited states and antimatter mode","Nucleus Explorer: zoom from nucleus to quarks","Light and dark themes, colorblind-safe palette, 9 languages"]},{"@type":"WebApplication","@id":"https://nazat02.github.io/Quantum-Atom/#nucleus-explorer","name":"Nucleus Explorer","url":"https://nazat02.github.io/Quantum-Atom/nucleus_explorer.html","description":"Zoom from a nucleus to its protons, neutrons, quarks and gluons in 3D. Toggle pion exchange and gluon fields for any element. Free in your browser.","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","browserRequirements":"Requires a modern browser with JavaScript and WebGL","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"image":"https://nazat02.github.io/Quantum-Atom/images/og-image.jpg","inLanguage":["en","ar","bn","zh-Hans","ko","ja","it","fr","el"],"author":{"@id":"https://nazat02.github.io/Quantum-Atom/#author"},"isPartOf":{"@id":"https://nazat02.github.io/Quantum-Atom/#simulator"},"featureList":["Continuous zoom from nucleus to quarks","Pion exchange overlay","Gluon field overlay","All 118 elements"]},{"@type":"WebPage","@id":"https://nazat02.github.io/Quantum-Atom/nucleus_explorer.html#webpage","url":"https://nazat02.github.io/Quantum-Atom/nucleus_explorer.html","name":"Nucleus Explorer — Zoom to Quarks in 3D | Quantum Atom","description":"Zoom from a nucleus to its protons, neutrons, quarks and gluons in 3D. Toggle pion exchange and gluon fields for any element. Free in your browser.","inLanguage":"en","isPartOf":{"@id":"https://nazat02.github.io/Quantum-Atom/#website"},"primaryImageOfPage":{"@id":"https://nazat02.github.io/Quantum-Atom/#og-image"},"about":{"@id":"https://nazat02.github.io/Quantum-Atom/#nucleus-explorer"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Quantum Atom","item":"https://nazat02.github.io/Quantum-Atom/index_dark.html"},{"@type":"ListItem","position":2,"name":"Nucleus Explorer","item":"https://nazat02.github.io/Quantum-Atom/nucleus_explorer.html"}]}}]}</script>
 <style>.qa-seo-sr{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}</style>
 <!-- qa-seo:end -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='%23ff5500'/><circle cx='45' cy='45' r='14' fill='white'/><circle cx='25' cy='25' r='7' fill='%232255ff'/><circle cx='65' cy='30' r='7' fill='%23ff2200'/></svg>">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'%3E%3Crect width='90' height='90' rx='18' fill='%23ff5500'/%3E%3Ccircle cx='45' cy='45' r='14' fill='white'/%3E%3Ccircle cx='25' cy='25' r='7' fill='%232255ff'/%3E%3Ccircle cx='65' cy='30' r='7' fill='%23ff2200'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&display=swap" rel="stylesheet">
@@ -31074,7 +31184,7 @@ function qaIconSvg(v, o){
   var nuc="<circle cx='45' cy='45' r='10.5' fill='url(#"+id+"n)'"+(g?" filter='url(#"+id+"g)'":"")+"/><circle cx='41.5' cy='41.5' r='3' fill='#fff' opacity='.75'/>";
   var rim=g?"<rect x='.8' y='.8' width='88.4' height='88.4' rx='"+Math.max(rx-.8,0)+"' fill='none' stroke='#6f9cff' stroke-opacity='.45' stroke-width='1.6'/>":"";
   var sheen="<rect width='90' height='45' rx='"+rx+"' fill='#fff' opacity='"+(g?.04:.08)+"'/>";
-  return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'>"+defs+"<rect width='90' height='90' rx='"+rx+"' fill='url(#"+id+"b)'/>"+sheen+rim+halo+orbits+els+nuc+"</svg>";
+  return "<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'>"+defs+"<rect width='90' height='90' rx='"+rx+"' fill='url(#"+id+"b)'/>"+sheen+rim+halo+orbits+els+nuc+"</svg>";
 }
 
 var d=document.documentElement,cur='';
