@@ -29198,14 +29198,25 @@ QA_I18N.add("zh", {
   root.setAttribute('data-theme', t);
   root.style.colorScheme = t;
 
+  /* Variant = Glass (default) | Luxury | Elegant. Same keys/priority as index_dark/light:
+     Elegant (qa-elegant, ?elegant=, sessionStorage) beats Luxury (qa-lux) beats Glass. */
+  var q = (location.search.match(/[?&]elegant=(on|off)/) || [])[1], el = false, lx = false;
+  try { el = localStorage.getItem('qa-elegant') === 'on'; } catch (e) {}
+  if (!q) { try { if (sessionStorage.getItem('qa-elegant')) el = sessionStorage.getItem('qa-elegant') === 'on'; } catch (e) {} }
+  if (q) el = q === 'on';
+  try { lx = localStorage.getItem('qa-lux') === 'on'; } catch (e) {}
+  var v = el ? 'elegant' : lx ? 'lux' : 'glass', vi = light ? 1 : 0;
+  root.setAttribute('data-variant', v);
+  if (v === 'lux') root.setAttribute('data-lux', 'on'); else root.removeAttribute('data-lux');
+
   function add(tag, attrs) {
     var el = d.createElement(tag);
     for (var k in attrs) el.setAttribute(k, attrs[k]);
     d.head.appendChild(el); return el;
   }
-  add('meta', { name: 'theme-color', content: light ? '#eef1ff' : '#090605' });
+  add('meta', { name: 'theme-color', content: ({ glass: ['#090605', '#eef1ff'], lux: ['#000000', '#f5f5f7'], elegant: ['#000000', '#ffffff'] })[v][vi] });
 
-  var c = light ? '%236952e0' : '%23ff5b14';
+  var c = ({ glass: ['%23ff5b14', '%236952e0'], lux: ['%23ff6a1a', '%235e5ce6'], elegant: ['%23f080b8', '%23ec5f9e'] })[v][vi];
   add('link', { rel: 'icon', type: 'image/svg+xml', href:
     "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'><rect width='90' height='90' rx='18' fill='" + c + "'/>" +
     "<g fill='none' stroke='white' stroke-width='2.4' stroke-opacity='.85'><ellipse cx='45' cy='45' rx='34' ry='12'/>" +
@@ -29299,9 +29310,56 @@ body.leaving{opacity:0}
   .orbits svg{animation:none}
   .badge,.by,.tag,.orbits{transition-duration:.01s}
 }
+
+/* ───────── Splash variants: Glass / Luxury / Elegant × Dark / Light ───────── */
+:root{--accent-3:var(--accent-2)}
+.pane{position:fixed;left:0;right:0;margin-inline:auto;display:none;pointer-events:none;opacity:0;transition:opacity 1.1s ease .2s}
+.pane.on{opacity:1}
+
+/* Glass: frosted pane behind the stack, rounded glowing progress, frosted skip */
+html[data-variant="glass"] .pane{display:block;border-radius:30px;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--text) 9%,transparent),color-mix(in srgb,var(--text) 2%,transparent));
+  border:1px solid color-mix(in srgb,var(--text) 16%,transparent);
+  -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 24px 70px rgba(0,0,0,.38)}
+html[data-variant="glass"][data-theme=light] .pane{background:linear-gradient(145deg,rgba(255,255,255,.7),rgba(255,255,255,.28));
+  border-color:rgba(255,255,255,.85);box-shadow:inset 0 1px 0 #fff,0 24px 70px rgba(105,82,224,.18)}
+html[data-variant="glass"] .bar{left:16px;right:16px;bottom:calc(6px + var(--safe-b));height:4px;border-radius:4px;
+  box-shadow:0 0 14px color-mix(in srgb,var(--accent) 65%,transparent)}
+html[data-variant="glass"] .skip{border-radius:999px;border-color:color-mix(in srgb,var(--text) 16%,transparent);
+  background:color-mix(in srgb,var(--text) 6%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4)}
+
+/* Luxury: black/silver, hairline progress, tracked uppercase credit */
+html[data-variant="lux"] .by{text-transform:uppercase;letter-spacing:.3em;text-indent:.3em;font-weight:500}
+html[data-variant="lux"] .tag b{letter-spacing:.02em}
+html[data-variant="lux"] .badge{--glow:rgba(255,106,26,.26)}
+html[data-variant="lux"][data-theme=light] .badge{--glow:rgba(94,92,230,.2)}
+html[data-variant="lux"] .bar{height:calc(2px + var(--safe-b));opacity:1}
+html[data-variant="lux"] .skip{border-color:color-mix(in srgb,var(--text) 22%,transparent)}
+
+/* Elegant: pink / violet / blue (matches the site's Elegant mode) */
+html[data-variant="elegant"]{--bg:radial-gradient(900px 560px at 50% 40%,rgba(143,111,232,.22),transparent 62%),radial-gradient(700px 500px at 88% 92%,rgba(240,128,184,.15),transparent 60%),#000;
+  --bg-solid:#000;--text:#f3f5ff;--muted:#b6bfdc;--faint:#8791b8;--accent:#f080b8;--accent-2:#7fa8ff;--accent-3:#8f6fe8;--ring:rgba(247,168,203,.9);--ring-op:.09}
+html[data-variant="elegant"][data-theme=light]{--bg:radial-gradient(900px 650px at 6% -6%,rgba(236,95,158,.20),transparent 60%),radial-gradient(800px 700px at 100% 8%,rgba(79,141,245,.20),transparent 55%),radial-gradient(900px 800px at 28% 100%,rgba(247,168,203,.22),transparent 55%),linear-gradient(165deg,#fff 0%,#f4f8ff 55%,#fff3f9 100%);
+  --bg-solid:#fff;--text:#232a4a;--muted:rgba(35,42,74,.72);--faint:rgba(35,42,74,.6);--accent:#ec5f9e;--accent-2:#4f8df5;--accent-3:#9cc0ff;--ring:rgba(236,95,158,.9);--ring-op:.12}
+html[data-variant="elegant"] .badge{--glow:rgba(240,128,184,.42)}
+html[data-variant="elegant"][data-theme=light] .badge{--glow:rgba(236,95,158,.32)}
+html[data-variant="elegant"] .bar{background:linear-gradient(90deg,var(--accent),var(--accent-3),var(--accent-2));border-radius:0 3px 3px 0}
+html[data-variant="elegant"] .tag b{background:linear-gradient(90deg,var(--accent),var(--accent-3),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-variant="elegant"] .tag i{color:var(--accent-3)}
+html[data-variant="elegant"] .skip{border-radius:999px}
+/* Elegant: the landing page's hydrogen wave-field backdrop (dark rose/periwinkle, light pink/blue) */
+#elegant-waves,#elegant-veil{display:none}
+html[data-variant="elegant"] #elegant-waves{display:block;position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 1.6s ease}
+html[data-variant="elegant"] #elegant-waves.on{opacity:.5}
+html[data-variant="elegant"][data-theme=light] #elegant-waves.on{opacity:.42}
+html[data-variant="elegant"][data-theme=light] #elegant-veil{display:block;position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 40%,rgba(255,255,255,0) 0%,rgba(255,255,255,.35) 70%,rgba(255,255,255,.65) 100%)}
+html[data-variant="elegant"] .orbits{display:none}
+@media (prefers-reduced-motion:reduce){.pane,#elegant-waves{transition-duration:.01s}}
 </style>
 <!-- qa-lux:splash -->
-<script id="qa-lux-splash">try{if(localStorage.getItem('qa-lux')==='on')document.documentElement.setAttribute('data-lux','on');}catch(e){}</script>
+<script id="qa-lux-splash">try{if(document.documentElement.getAttribute('data-variant')==='lux')document.documentElement.setAttribute('data-lux','on');}catch(e){}</script>
 <style id="qa-lux-splash-css">
 html[data-lux="on"]{--bg:radial-gradient(900px 560px at 50% 42%,rgba(255,106,26,.12),transparent 64%),#000;--bg-solid:#000;--text:#f5f5f7;--muted:rgba(235,235,245,.62);--faint:rgba(235,235,245,.36);--accent:#ff6a1a;--accent-2:#ffb340;--ring-op:.07}
 html[data-lux="on"][data-theme=light]{--bg:radial-gradient(900px 560px at 50% 42%,rgba(94,92,230,.10),transparent 64%),#f5f5f7;--bg-solid:#f5f5f7;--text:#1d1d1f;--muted:rgba(60,60,67,.66);--faint:rgba(60,60,67,.4);--accent:#5e5ce6;--accent-2:#0a84ff;--ring-op:.08}
@@ -29314,11 +29372,13 @@ html[data-lux="on"] .skip{border-radius:980px}
 <h1 data-i18n="landing.sr.quantum_atom_built_by_md" class="sr">Quantum Atom, built by Md. Shaikhul Hadis Nazat</h1>
 <div data-i18n="landing.sr.loading_quantum_atom" class="sr" role="status" aria-live="polite">Loading Quantum Atom</div>
 
+<canvas id="elegant-waves" aria-hidden="true"></canvas><div id="elegant-veil" aria-hidden="true"></div>
 <div class="orbits" id="orbits" aria-hidden="true">
   <svg viewBox="-100 -100 200 200" fill="none" stroke="currentColor" stroke-width=".7">
     <ellipse rx="92" ry="32"/><ellipse rx="92" ry="32" transform="rotate(60)"/><ellipse rx="92" ry="32" transform="rotate(-60)"/>
   </svg>
 </div>
+<div class="pane" id="pane" aria-hidden="true"></div>
 <canvas id="stage" aria-hidden="true"></canvas>
 
 <!-- Brand mark: same atom as the site's nav badge, themed per mode -->
@@ -29333,6 +29393,7 @@ html[data-lux="on"] .skip{border-radius:980px}
       <filter id="sp-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <filter id="sp-soft"><feGaussianBlur stdDeviation="1"/></filter>
     </defs>
+    <linearGradient id="sp-tg" x1="0" y1="0" x2="1" y2="1"><stop id="sp-t1" offset="0" stop-color="#ff5b14"/><stop id="sp-t2" offset="1" stop-color="#ff5b14"/></linearGradient>
     <rect id="sp-tile" width="90" height="90" rx="18" fill="#ff5b14"/>
     <rect width="90" height="45" rx="18" fill="rgba(255,255,255,.06)"/>
     <ellipse cx="45" cy="45" rx="34" ry="12" stroke="#fff" stroke-width="2.2" stroke-opacity=".85"/>
@@ -29354,6 +29415,70 @@ html[data-lux="on"] .skip{border-radius:980px}
 <button data-i18n="landing.skip.skip" data-i18n-attr="aria-label:landing.skip.skip_intro" class="skip" id="skip" type="button" aria-label="Skip intro">Skip</button>
 <noscript><p class="nojs"><a href="index_dark.html">Continue to Quantum Atom</a></p></noscript>
 
+<script id="qa-splash-waves">
+/* Elegant splash backdrop: same exact hydrogen m=0 superposition (2p, 3s, 3d_z2, 2s) as the landing page,
+   with its dark (rose/periwinkle) and light (pink/blue) colouring. Drawn at ~30 fps to stay light on phones. */
+(function () {
+  'use strict';
+  var root = document.documentElement, cv = document.getElementById('elegant-waves');
+  if (!cv || root.getAttribute('data-variant') !== 'elegant') return;
+  var light = root.getAttribute('data-theme') === 'light', ctx = cv.getContext('2d');
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var GW = 224, GH = 126, SCALE = 17, off = document.createElement('canvas');
+  off.width = GW; off.height = GH;
+  var octx = off.getContext('2d'), img = octx.createImageData(GW, GH), px = img.data;
+  var states = [
+    { n: 2, f: function (r, c) { return (1 / (2 * Math.sqrt(6))) * r * Math.exp(-r / 2) * 0.4886 * c; } },
+    { n: 3, f: function (r, c) { return (2 / (81 * Math.sqrt(3))) * (27 - 18 * r + 2 * r * r) * Math.exp(-r / 3) * 0.2821; } },
+    { n: 3, f: function (r, c) { return (4 / (81 * Math.sqrt(30))) * r * r * Math.exp(-r / 3) * 0.3154 * (3 * c * c - 1); } },
+    { n: 2, f: function (r, c) { return (1 / (2 * Math.sqrt(2))) * (2 - r) * Math.exp(-r / 2) * 0.2821; } }
+  ];
+  var WEIGHT = [1.0, 0.8, 1.0, 0.7], OMEGA = 2 * Math.PI / 9, E_REF = -1 / 8, DE = 1 / 8 - 1 / 18;
+  function resize() {
+    var d = Math.min(window.devicePixelRatio || 1, 1.5);
+    cv.width = Math.max(2, Math.round(innerWidth * d * 0.6)); cv.height = Math.max(2, Math.round(innerHeight * d * 0.6));
+  }
+  resize();
+  var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { resize(); draw(last); }, 120); });
+  var R = new Float32Array(GW * GH), C = new Float32Array(GW * GH), aspect = GW / GH;
+  for (var j = 0; j < GH; j++) for (var i = 0; i < GW; i++) {
+    var x = ((i + 0.5) / GW - 0.5) * 2 * SCALE, z = (0.5 - (j + 0.5) / GH) * 2 * SCALE / aspect;
+    var r0 = Math.sqrt(x * x + z * z) + 1e-6; R[j * GW + i] = r0; C[j * GW + i] = z / r0;
+  }
+  var NORM = states.map(function (s) {
+    var m = 1e-9; for (var p = 0; p < GW * GH; p += 7) m = Math.max(m, Math.abs(s.f(R[p], C[p]))); return 1 / m;
+  });
+  var last = 0, n = 0, shown = false;
+  function draw(tms) {
+    var t = reduce ? 2.5 : tms / 1000 + 1.2, co = [], k;
+    for (k = 0; k < states.length; k++) {
+      var E = -1 / (2 * states[k].n * states[k].n);
+      co[k] = Math.cos(-(E - E_REF) / DE * OMEGA * t + k * 0.9) * WEIGHT[k] * NORM[k];
+    }
+    for (var p = 0, q = 0; p < GW * GH; p++, q += 4) {
+      var r = R[p], c = C[p], re = 0;
+      for (var s = 0; s < states.length; s++) re += co[s] * states[s].f(r, c);
+      var a = Math.abs(re) * 0.62, v = Math.min(1, Math.pow(a, 0.75));
+      v *= 0.82 + 0.18 * Math.cos(a * 34);
+      if (light) {
+        if (re >= 0) { px[q] = 255; px[q + 1] = 255 - 160 * v; px[q + 2] = 255 - 95 * v; }
+        else { px[q] = 255 - 170 * v; px[q + 1] = 255 - 100 * v; px[q + 2] = 255; }
+        px[q + 3] = 255 * Math.min(1, v * 1.1);
+      } else {
+        if (re >= 0) { px[q] = 244; px[q + 1] = 128; px[q + 2] = 190; } else { px[q] = 111; px[q + 1] = 156; px[q + 2] = 255; }
+        px[q + 3] = 255 * Math.min(1, v * 0.95);
+      }
+    }
+    octx.putImageData(img, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    var sc = Math.max(cv.width / GW, cv.height / GH), dw = GW * sc, dh = GH * sc;
+    ctx.drawImage(off, (cv.width - dw) / 2, (cv.height - dh) / 2, dw, dh);
+    if (!shown) { shown = true; cv.classList.add('on'); }
+  }
+  function loop(tms) { last = tms; if ((n++ & 1) === 0 && !document.hidden) draw(tms); if (!reduce) requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
 <script>/* qa-i18n:early */QA_I18N.applyDom(document);</script>
 <script>
 (function () {
@@ -29377,19 +29502,43 @@ html[data-lux="on"] .skip{border-radius:980px}
 
   /* ───────── Setup ───────── */
   var theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-  var P = THEMES[theme];
+  var variant = document.documentElement.getAttribute('data-variant') || 'glass';
+  /* Per-variant overrides on top of the base brand palette (glass = base). `tile` = badge gradient, n/e = nucleus/electrons. */
+  var VARIANTS = {
+    lux: {
+      dark:  { rgb: ['255,106,26', '255,179,64', '245,245,247', '255,140,60'], alpha: .42, text: '#f5f5f7', glow: 'rgba(255,106,26,.35)',
+               tile: ['#ff6a1a', '#ff6a1a'], n: ['#ffe2c2', '#ff9a4d'], e: ['rgba(255,226,190,.95)', 'rgba(245,245,247,.9)'] },
+      light: { rgb: ['94,92,230', '10,132,255', '120,120,140', '160,160,240'], alpha: .3, text: '#1d1d1f', glow: 'rgba(94,92,230,.2)',
+               tile: ['#5e5ce6', '#5e5ce6'], n: ['#d6d5ff', '#8f8dff'], e: ['rgba(214,213,255,.95)', 'rgba(190,225,255,.9)'] }
+    },
+    elegant: {
+      dark:  { rgb: ['240,128,184', '143,111,232', '127,168,255', '247,168,203'], alpha: .5, text: '#f3f5ff', glow: 'rgba(240,128,184,.45)',
+               tile: ['#f080b8', '#8f6fe8'], n: ['#ffd3e8', '#f080b8'], e: ['rgba(255,214,232,.95)', 'rgba(190,210,255,.92)'] },
+      light: { rgb: ['236,95,158', '79,141,245', '247,168,203', '156,192,255'], alpha: .34, text: '#232a4a', glow: 'rgba(236,95,158,.26)',
+               tile: ['#ec5f9e', '#4f8df5'], n: ['#ffd9ea', '#f08fbd'], e: ['rgba(255,217,234,.95)', 'rgba(204,224,255,.95)'] }
+    }
+  };
+  var P = {}, base = THEMES[theme], over = (VARIANTS[variant] || {})[theme] || {};
+  for (var key in base) P[key] = base[key];
+  for (var key2 in over) P[key2] = over[key2];
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce) T = { start: 0, formEnd: 1, crisp0: 0, crisp1: 500, leave: 1500 };
 
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $('stage'), ctx = canvas.getContext('2d');
-  var badgeEl = $('badge'), byEl = $('by'), tagEl = $('tag'), barEl = $('bar'), orbitsEl = $('orbits');
+  var paneEl = $('pane'), badgeEl = $('badge'), byEl = $('by'), tagEl = $('tag'), barEl = $('bar'), orbitsEl = $('orbits');
 
   // Theme the logo mark exactly like the site's nav badge in each mode.
   if (theme === 'light') {
     $('sp-tile').setAttribute('fill', '#6952e0');
     $('sp-n1').setAttribute('stop-color', '#c4b5fd'); $('sp-n2').setAttribute('stop-color', '#9b8afb');
     $('sp-e2').setAttribute('fill', 'rgba(196,181,253,.95)'); $('sp-e3').setAttribute('fill', 'rgba(186,230,253,.9)');
+  }
+  if (P.tile) { // Luxury / Elegant badge palette
+    $('sp-t1').setAttribute('stop-color', P.tile[0]); $('sp-t2').setAttribute('stop-color', P.tile[1]);
+    $('sp-tile').setAttribute('fill', 'url(#sp-tg)');
+    $('sp-n1').setAttribute('stop-color', P.n[0]); $('sp-n2').setAttribute('stop-color', P.n[1]);
+    $('sp-e2').setAttribute('fill', P.e[0]); $('sp-e3').setAttribute('fill', P.e[1]);
   }
   if (reduce) { // freeze the logo too
     Array.prototype.slice.call(badgeEl.querySelectorAll('animate,animateTransform')).forEach(function (n) { n.parentNode.removeChild(n); });
@@ -29510,6 +29659,8 @@ html[data-lux="on"] .skip{border-radius:980px}
     byEl.style.cssText = 'top:' + byTop + 'px;font-size:' + m.byFs + 'px';
     tagEl.style.cssText = 'top:' + tagTop + 'px;font-size:' + m.tagFs + 'px';
     orbitsEl.style.top = (nameCy / H * 100) + '%';
+    var pw = Math.min(W - 24, Math.max.apply(null, lines.map(textWidth)) * fontPx / 100 + fontPx * 1.6, 920);
+    paneEl.style.cssText = 'top:' + (top - 28) + 'px;height:' + (total + 56) + 'px;width:' + Math.max(pw, 260) + 'px';
 
     var r = step * 1.55;
     parts = s.pts.map(function (p) {
@@ -29584,7 +29735,7 @@ html[data-lux="on"] .skip{border-radius:980px}
     }
 
     drawText(smooth((t - T.crisp0) / (T.crisp1 - T.crisp0)));
-    if (t > 100) { badgeEl.classList.add('on'); orbitsEl.classList.add('on'); }
+    if (t > 100) { paneEl.classList.add('on'); badgeEl.classList.add('on'); orbitsEl.classList.add('on'); }
     if (t > 450) byEl.classList.add('on');
     if (t > T.crisp1 - 200) tagEl.classList.add('on');
     barEl.style.transform = qaT("landing.frame.scalex_p1",{p1:clamp01(t / T.leave)});
