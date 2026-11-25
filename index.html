@@ -29367,6 +29367,68 @@ html[data-lux="on"] :is(.by,.tag,.skip){font-family:-apple-system,BlinkMacSystem
 html[data-lux="on"] .skip{border-radius:980px}
 </style>
 <!-- /qa-lux:splash -->
+<script id="qa-theme-icons">
+/* Theme-aware app icon: browser-tab icon (SVG + PNG fallback) and the iOS home-screen icon follow the active look.
+   dark = orange · light = violet · light Elegant = pink gradient · dark Elegant = blue glow.
+   The installed Android/PWA icon comes from the manifest and is fixed at install time (see images/ icon set). */
+(function(){
+/* Quantum Atom — theme-aware app icon art. One function builds the SVG for every look. */
+function qaIconSvg(v, o){
+  o=o||{}; var full=!!o.full, id='qi'+v.replace(/[^a-z]/g,'');
+  var P={
+    'dark':{bg:['#ff8a3a','#ff4d00'],nuc:['#ffffff','#ffd0a6'],orb:'#ffffff',orbA:.9,e:['#ffffff','#ffe3cc','#ffffff'],glow:0},
+    'light':{bg:['#9484fa','#5a44d8'],nuc:['#ffffff','#cdc4ff'],orb:'#ffffff',orbA:.9,e:['#ffffff','#e4defe','#ffffff'],glow:0},
+    'light-elegant':{bg:['#fcc0dc','#ec5f9e','#d8408c'],nuc:['#ffffff','#ffe1ef'],orb:'#ffffff',orbA:.92,e:['#ffffff','#fff0f7','#ffffff'],glow:0},
+    'dark-elegant':{bg:['#0e1647','#152468','#0a1038'],nuc:['#ffffff','#7fa8ff'],orb:'#8fb6ff',orbA:.95,e:['#e4eeff','#9ec0ff','#ffffff'],glow:1}
+  }[v]||null; if(!P) return qaIconSvg('dark',o);
+  var stops=P.bg.map(function(c,i){return "<stop offset='"+(P.bg.length===2?i:i/2)+"' stop-color='"+c+"'/>";}).join('');
+  var rx=full?0:20, g=P.glow;
+  var defs="<defs><linearGradient id='"+id+"b' x1='0' y1='0' x2='1' y2='1'>"+stops+"</linearGradient>"+
+    "<radialGradient id='"+id+"n' cx='38%' cy='34%' r='70%'><stop offset='0' stop-color='"+P.nuc[0]+"'/><stop offset='1' stop-color='"+P.nuc[1]+"'/></radialGradient>"+
+    (g?"<radialGradient id='"+id+"h' cx='50%' cy='50%' r='55%'><stop offset='0' stop-color='#6f9cff' stop-opacity='.55'/><stop offset='1' stop-color='#6f9cff' stop-opacity='0'/></radialGradient>"+
+       "<filter id='"+id+"g' x='-40%' y='-40%' width='180%' height='180%'><feGaussianBlur stdDeviation='1.6' result='b'/><feMerge><feMergeNode in='b'/><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge></filter>":"")+
+    "</defs>";
+  var f=g?" filter='url(#"+id+"g)'":"";
+  var orbits="<g fill='none' stroke='"+P.orb+"' stroke-width='"+(g?2.2:2.6)+"' stroke-opacity='"+P.orbA+"'"+f+">"+
+    "<ellipse cx='45' cy='45' rx='34' ry='12'/><ellipse cx='45' cy='45' rx='34' ry='12' transform='rotate(60 45 45)'/><ellipse cx='45' cy='45' rx='34' ry='12' transform='rotate(-60 45 45)'/></g>";
+  var els="<g"+f+"><circle cx='79' cy='45' r='4.6' fill='"+P.e[0]+"'/>"+
+    "<circle cx='28' cy='25.4' r='3.9' fill='"+P.e[1]+"' transform='rotate(0)'/>"+
+    "<circle cx='28' cy='64.6' r='3.9' fill='"+P.e[2]+"'/></g>";
+  var halo=g?"<circle cx='45' cy='45' r='26' fill='url(#"+id+"h)'/>":"<circle cx='45' cy='45' r='15' fill='#fff' opacity='.22'/>";
+  var nuc="<circle cx='45' cy='45' r='10.5' fill='url(#"+id+"n)'"+(g?" filter='url(#"+id+"g)'":"")+"/><circle cx='41.5' cy='41.5' r='3' fill='#fff' opacity='.75'/>";
+  var rim=g?"<rect x='.8' y='.8' width='88.4' height='88.4' rx='"+Math.max(rx-.8,0)+"' fill='none' stroke='#6f9cff' stroke-opacity='.45' stroke-width='1.6'/>":"";
+  var sheen="<rect width='90' height='45' rx='"+rx+"' fill='#fff' opacity='"+(g?.04:.08)+"'/>";
+  return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'>"+defs+"<rect width='90' height='90' rx='"+rx+"' fill='url(#"+id+"b)'/>"+sheen+rim+halo+orbits+els+nuc+"</svg>";
+}
+
+var d=document.documentElement,cur='';
+function variant(){
+  var th=d.getAttribute('data-theme');
+  var light=th?th==='light':/_light/.test(location.pathname);
+  var eleg=d.getAttribute('data-theme-elegant')==='on'||d.getAttribute('data-variant')==='elegant';
+  return (light?'light':'dark')+(eleg?'-elegant':'');
+}
+function png(svg,size,cb){
+  var im=new Image();
+  im.onload=function(){try{var c=document.createElement('canvas');c.width=c.height=size;c.getContext('2d').drawImage(im,0,0,size,size);cb(c.toDataURL('image/png'));}catch(e){}};
+  im.src='data:image/svg+xml,'+encodeURIComponent(svg);
+}
+function link(rel,attrs){var l=document.createElement('link');l.setAttribute('rel',rel);for(var k in attrs)l.setAttribute(k,attrs[k]);document.head.appendChild(l);return l;}
+function apply(){
+  var v=variant(); if(v===cur)return; cur=v;
+  Array.prototype.forEach.call(document.querySelectorAll('link[rel="icon"],link[rel="shortcut icon"]'),function(n){n.parentNode.removeChild(n);});
+  link('icon',{id:'qa-ico',type:'image/svg+xml',sizes:'any',href:'data:image/svg+xml,'+encodeURIComponent(qaIconSvg(v))});
+  /* installed-app manifest follows the look too: same app id, different icon set (Android re-reads it when online) */
+  var mf=document.querySelector('link[rel="manifest"]');
+  if(mf){var mh=v==='dark'?'site.webmanifest':'site-'+v+'.webmanifest';if(mf.getAttribute('href')!==mh)mf.setAttribute('href',mh);}
+  var a=document.querySelector('link[rel="apple-touch-icon"]')||link('apple-touch-icon',{});
+  png(qaIconSvg(v,{full:true}),180,function(u){if(cur===v)a.setAttribute('href',u);});
+  png(qaIconSvg(v),64,function(u){if(cur!==v)return;var p=document.getElementById('qa-ico-png');if(!p)p=link('icon',{id:'qa-ico-png',type:'image/png',sizes:'64x64'});p.setAttribute('href',u);});
+}
+apply();
+try{new MutationObserver(apply).observe(d,{attributes:true,attributeFilter:['data-theme','data-theme-elegant','data-variant']});}catch(e){}
+})();
+</script>
 </head>
 <body>
 <h1 data-i18n="landing.sr.quantum_atom_built_by_md" class="sr">Quantum Atom, built by Md. Shaikhul Hadis Nazat</h1>
