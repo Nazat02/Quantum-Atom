@@ -33476,5 +33476,20 @@ html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):no
 html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-langbtn:is([aria-expanded="true"],:active) svg,
 html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):not(#qa-l5) .qa-lang:is([aria-expanded="true"],:active) svg{color:#ec5f9e !important;stroke:#ec5f9e !important}
 </style>
+<style id="qa-logo-theme">
+/* Physicist AI badge: same per-theme look as the simulator's Physicist AI orb (light mode)
+   Glass = glowing blue gradient + halo | Flat = solid violet-blue, no glow | Luxury = luxury button gradient | Elegant = pink-to-blue */
+.qa-ai-badge{background:linear-gradient(135deg,#6952e0 0%,#5892ee 100%);box-shadow:0 0 0 7px rgba(105,82,224,.10),0 10px 30px rgba(105,82,224,.40)}
+html[data-glass="off"] .qa-ai-badge{background:#6952e0;box-shadow:none}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-ai-badge{background:var(--lx-btn,linear-gradient(135deg,#6e5cf0 0%,#3d7bff 100%));box-shadow:var(--lx-glow,0 6px 20px rgba(94,92,230,.3))}
+html[data-theme-elegant="on"] .qa-ai-badge{background:linear-gradient(135deg,#ec5f9e 0%,#4f8df5 100%);box-shadow:0 0 0 7px rgba(236,95,158,.10),0 10px 30px rgba(236,95,158,.40)}
+html[data-theme-elegant="on"][data-glass="off"] .qa-ai-badge{background:#ec5f9e;box-shadow:none}
+/* Every Physicist AI logo (nav, call-to-action, footer) follows the active theme, like the simulator's top-bar logo.
+   Flat and Luxury: no glow, no animation. */
+html[data-glass="off"] svg[viewBox="0 0 90 90"],
+html[data-lux="on"]:not(#lx-a):not(#lx-b) svg[viewBox="0 0 90 90"]{animation:none !important;filter:none !important}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .nav-badge,
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .nav-badge svg{width:30px !important;height:30px !important}
+</style>
 </body>
 </html>

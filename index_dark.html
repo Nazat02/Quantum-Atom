@@ -33461,5 +33461,23 @@ html[data-theme-elegant="on"]:not(#qa-l1):not(#qa-l2):not(#qa-l3):not(#qa-l4):no
 </script>
 <style id="elegant-gallery-dark-css">.qa-gal figure.qa-gal-eleg{display:none}html[data-theme-elegant="on"] .qa-gal figure.qa-gal-eleg{display:flex}</style>
 <script id="qa-eg-release">window.__qaEgRelease&&window.__qaEgRelease();</script>
+<style id="qa-logo-theme">
+/* Physicist AI badge: same per-theme look as the simulator's Physicist AI orb
+   Glass = glowing gradient + halo | Flat = solid colour, no glow | Luxury = luxury button gradient | Elegant = pink-to-blue */
+.qa-ai-badge{background:linear-gradient(135deg,var(--ember,#ff5b14) 0%,#ff7a1a 100%);box-shadow:0 0 0 7px rgba(255,91,20,.10),0 10px 30px rgba(255,91,20,.40)}
+html[data-glass="off"] .qa-ai-badge{background:var(--ember,#ff5b14);box-shadow:none}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .qa-ai-badge{background:var(--lx-btn,linear-gradient(180deg,#ff7d33 0%,#ff5e14 100%));box-shadow:var(--lx-glow,0 0 0 1px rgba(255,106,26,.35),0 6px 22px rgba(255,106,26,.32))}
+html[data-theme-elegant="on"] .qa-ai-badge{background:linear-gradient(135deg,#f080b8 0%,#6f9cff 100%);box-shadow:0 0 0 7px rgba(240,128,184,.10),0 10px 30px rgba(240,128,184,.40)}
+html[data-theme-elegant="on"][data-glass="off"] .qa-ai-badge{background:#f080b8;box-shadow:none}
+/* Every Physicist AI logo (nav, call-to-action, footer) follows the active theme, like the simulator's top-bar logo.
+   Flat and Luxury: no glow, no animation. */
+html[data-glass="off"] svg[viewBox="0 0 90 90"],
+html[data-lux="on"]:not(#lx-a):not(#lx-b) svg[viewBox="0 0 90 90"]{animation:none !important;filter:none !important}
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .nav-badge,
+html[data-lux="on"]:not(#lx-a):not(#lx-b) .nav-badge svg{width:30px !important;height:30px !important}
+/* Elegant: footer and CTA logos use the pink-to-blue glow instead of the orange one */
+html[data-theme-elegant="on"] svg[viewBox="0 0 90 90"][style*="plasma-outer-glow"]{animation-name:plasma-e !important}
+@media (prefers-reduced-motion:reduce){html[data-theme-elegant="on"] svg[viewBox="0 0 90 90"]{animation:none !important}}
+</style>
 </body>
 </html>
