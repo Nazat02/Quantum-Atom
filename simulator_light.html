@@ -33465,7 +33465,7 @@ html[data-lux="on"]:not(#lx-a):not(#lx-b) #elegantbtn svg mask g[fill]{fill:#fff
 </script>
 <script id="qa-theme-icons">
 /* Theme-aware app icon: browser-tab icon (SVG + PNG fallback) and the iOS home-screen icon follow the active look.
-   dark = orange · light = violet · light Elegant = pink gradient · dark Elegant = blue glow.
+   dark = orange · light = violet · light Elegant = pink gradient · dark Elegant = pink-to-blue.
    The installed Android/PWA icon comes from the manifest and is fixed at install time (see images/ icon set). */
 (function(){
 /* Quantum Atom — theme-aware app icon art. One function builds the SVG for every look. */
@@ -33475,7 +33475,7 @@ function qaIconSvg(v, o){
     'dark':{bg:['#ff8a3a','#ff4d00'],nuc:['#ffffff','#ffd0a6'],orb:'#ffffff',orbA:.9,e:['#ffffff','#ffe3cc','#ffffff'],glow:0},
     'light':{bg:['#9484fa','#5a44d8'],nuc:['#ffffff','#cdc4ff'],orb:'#ffffff',orbA:.9,e:['#ffffff','#e4defe','#ffffff'],glow:0},
     'light-elegant':{bg:['#fcc0dc','#ec5f9e','#d8408c'],nuc:['#ffffff','#ffe1ef'],orb:'#ffffff',orbA:.92,e:['#ffffff','#fff0f7','#ffffff'],glow:0},
-    'dark-elegant':{bg:['#0e1647','#152468','#0a1038'],nuc:['#ffffff','#7fa8ff'],orb:'#8fb6ff',orbA:.95,e:['#e4eeff','#9ec0ff','#ffffff'],glow:1}
+    'dark-elegant':{bg:['#f080b8','#b38ae6','#6f9cff'],nuc:['#ffffff','#ffe1ef'],orb:'#ffffff',orbA:.95,e:['#ffffff','#fff0f7','#ffffff'],glow:0}
   }[v]||null; if(!P) return qaIconSvg('dark',o);
   var stops=P.bg.map(function(c,i){return "<stop offset='"+(P.bg.length===2?i:i/2)+"' stop-color='"+c+"'/>";}).join('');
   var rx=full?0:20, g=P.glow;
@@ -33493,7 +33493,7 @@ function qaIconSvg(v, o){
   var halo=g?"<circle cx='45' cy='45' r='26' fill='url(#"+id+"h)'/>":"<circle cx='45' cy='45' r='15' fill='#fff' opacity='.22'/>";
   var nuc="<circle cx='45' cy='45' r='10.5' fill='url(#"+id+"n)'"+(g?" filter='url(#"+id+"g)'":"")+"/><circle cx='41.5' cy='41.5' r='3' fill='#fff' opacity='.75'/>";
   var rim=g?"<rect x='.8' y='.8' width='88.4' height='88.4' rx='"+Math.max(rx-.8,0)+"' fill='none' stroke='#6f9cff' stroke-opacity='.45' stroke-width='1.6'/>":"";
-  var sheen="<rect width='90' height='45' rx='"+rx+"' fill='#fff' opacity='"+(g?.04:.08)+"'/>";
+  var sheen="<rect width='90' height='45' rx='"+rx+"' fill='#fff' opacity='"+(v==='dark-elegant'?0:(g?.04:.08))+"'/>";
   return "<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'>"+defs+"<rect width='90' height='90' rx='"+rx+"' fill='url(#"+id+"b)'/>"+sheen+rim+halo+orbits+els+nuc+"</svg>";
 }
 
